@@ -94,19 +94,20 @@ func testBearingPackages(root string) ([]string, error) {
 	return pkgs, err
 }
 
-var (
-	// pull_request as a trigger key: `pull_request:` or in an `on: [...]` list.
-	workflowTriggerRe = regexp.MustCompile(`(?m)^\s*(on:.*\bpull_request\b|pull_request:)`)
-	workflowRunRe     = regexp.MustCompile(`(?m)^\s*(-\s*)?run:.*scripts/verify\.sh`)
-)
+// pull_request as a trigger key: `pull_request:` or in an `on: [...]` list.
+var workflowTriggerRe = regexp.MustCompile(`(?m)^\s*(on:.*\bpull_request\b|pull_request:)`)
 
-// workflowRunsVerify reports whether some workflow under .github/workflows
-// has a pull_request trigger and a run step invoking scripts/verify.sh,
-// comments stripped.
+// workflowRunsScript reports whether some workflow under .github/workflows
+// has a pull_request trigger and a run step invoking the given
+// slash-relative script, comments stripped.
 // ponytail: line-level match, not a YAML parse — it cannot prove the run
 // step's JOB is reachable on PR events (an event-name `if:` guard, or the
 // script inside a block scalar, would mislead it); parse YAML if that bites.
-func workflowRunsVerify(root string) (bool, error) {
+func workflowRunsScript(root, script string) (bool, error) {
+	runRe, err := regexp.Compile(`(?m)^\s*(-\s*)?run:.*` + regexp.QuoteMeta(script))
+	if err != nil {
+		return false, fmt.Errorf("compiling the run pattern for %s: %w", script, err)
+	}
 	files, err := filepath.Glob(filepath.Join(root, ".github", "workflows", "*.y*ml"))
 	if err != nil {
 		return false, fmt.Errorf("listing workflows: %w", err)
@@ -127,11 +128,16 @@ func workflowRunsVerify(root string) (bool, error) {
 			kept = append(kept, line)
 		}
 		text := strings.Join(kept, "\n")
-		if workflowTriggerRe.MatchString(text) && workflowRunRe.MatchString(text) {
+		if workflowTriggerRe.MatchString(text) && runRe.MatchString(text) {
 			return true, nil
 		}
 	}
 	return false, nil
+}
+
+// workflowRunsVerify is workflowRunsScript for the verify gate (G-000-2).
+func workflowRunsVerify(root string) (bool, error) {
+	return workflowRunsScript(root, "scripts/verify.sh")
 }
 
 // TestGuard_CILaneCompleteness is G-000-2 (SPEC-000 [TEST-3]): every
@@ -173,6 +179,45 @@ func TestWorkflowRunsVerify_CommentOnlyMentionsRejected(t *testing.T) {
 		t.Fatal("comment-only mentions satisfied the CI-lane workflow check — the gate can pass with no PR job running verify.sh")
 	}
 	ok, err = workflowRunsVerify("testdata/workflows/wired")
+	if err != nil {
+		t.Fatalf("reading the wired fixture: %v", err)
+	}
+	if !ok {
+		t.Fatal("the wired fixture workflow was not recognized — the check went always-false")
+	}
+}
+
+// TestGuard_ConventionsLane is G-002-8 (SPEC-002 AC-8): a PR-triggered
+// workflow must run scripts/check-conventions.sh — conventional commits
+// [VER-2], vYYYY.MM.PP tags [VER-1], no attribution [META-4]. The
+// "≥1 commit examined" floor lives in the script itself (a zero-commit
+// range fails); its red proofs are check-conventions_test.sh's rows.
+func TestGuard_ConventionsLane(t *testing.T) {
+	root := RepoRoot(t)
+	Discover(t, "workflow files", 1, func() ([]string, error) {
+		return filepath.Glob(filepath.Join(root, ".github", "workflows", "*.y*ml"))
+	})
+	ok, err := workflowRunsScript(root, "scripts/check-conventions.sh")
+	if err != nil {
+		t.Fatalf("reading workflows: %v", err)
+	}
+	if !ok {
+		t.Error("no workflow under .github/workflows runs scripts/check-conventions.sh on pull_request — commit, tag, and attribution conventions are not enforced (AC-8)")
+	}
+}
+
+// TestWorkflowRunsScript_ConventionsFixtures: comment-only mentions of the
+// conventions script must not satisfy the lane check; the wired fixture
+// must (always-false sanity) — same families as the verify.sh probe.
+func TestWorkflowRunsScript_ConventionsFixtures(t *testing.T) {
+	ok, err := workflowRunsScript("testdata/workflows/commented", "scripts/check-conventions.sh")
+	if err != nil {
+		t.Fatalf("reading the commented fixture: %v", err)
+	}
+	if ok {
+		t.Fatal("comment-only mentions satisfied the conventions-lane check — the gate can pass with no PR job running it")
+	}
+	ok, err = workflowRunsScript("testdata/workflows/wired", "scripts/check-conventions.sh")
 	if err != nil {
 		t.Fatalf("reading the wired fixture: %v", err)
 	}

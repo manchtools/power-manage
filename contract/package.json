@@ -1,0 +1,7 @@
+{
+  "name": "@power-manage/contract",
+  "version": "0.0.0",
+  "description": "Generated TypeScript contract for Power Manage. Versioned with the release train (vYYYY.MM.PP); publication mechanics land with SPEC-017.",
+  "license": "MIT",
+  "private": true
+}

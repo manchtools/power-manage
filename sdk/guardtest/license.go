@@ -5,12 +5,30 @@ package guardtest
 // set of module directories.
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 )
+
+// contractManifestLicense returns the license field of the contract
+// module's TS package manifest (AC-9, [LIC-4]); a missing or unparsable
+// manifest is an error, never an empty pass.
+func contractManifestLicense(root string) (string, error) {
+	b, err := os.ReadFile(filepath.Join(root, "contract", "package.json"))
+	if err != nil {
+		return "", fmt.Errorf("reading the contract TS manifest: %w", err)
+	}
+	var m struct {
+		License string `json:"license"`
+	}
+	if err := json.Unmarshal(b, &m); err != nil {
+		return "", fmt.Errorf("parsing contract/package.json: %w", err)
+	}
+	return m.License, nil
+}
 
 // moduleLicenses is the normative [LIC-1] module→license mapping. A go.work
 // module with no entry here is a violation (fail closed): a fifth module

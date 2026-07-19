@@ -6,3 +6,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: ./scripts/verify.sh
+  conventions:
+    runs-on: ubuntu-latest
+    steps:
+      - run: ./scripts/check-conventions.sh commits a..b
