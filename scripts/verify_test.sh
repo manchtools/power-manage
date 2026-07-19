@@ -88,10 +88,10 @@ FIX2="$WORK/fix2"
 for m in m1 m2 m4; do write_module "$FIX2" "$m" ok; done
 write_module "$FIX2" m3 failing
 run_verify "$FIX2" "$WORK/s2.out"
-if [ "$RC" -ne 0 ] && grep -q 'FAIL' "$WORK/s2.out"; then
+if [ "$RC" -ne 0 ] && grep -q 'FAIL: m3: go test' "$WORK/s2.out"; then
   pass "failing check propagates to a nonzero exit"
 else
-  flunk "failing check: want nonzero exit + FAIL in output, got exit $RC"
+  flunk "failing check: want nonzero exit + 'FAIL: m3: go test' in output, got exit $RC"
   dump_on_flunk "$WORK/s2.out"
 fi
 
