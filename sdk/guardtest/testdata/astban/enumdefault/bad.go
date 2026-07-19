@@ -29,3 +29,16 @@ func describe(s pb.State) string {
 	}
 	return out
 }
+
+// Planted violation: the default's "return" sits inside a nested closure —
+// the enclosing clause itself never errors.
+func silent(s pb.State) string {
+	switch s {
+	case pb.State_ACTIVE:
+		return "active"
+	default:
+		emit := func() string { return "swallowed" }
+		_ = emit
+	}
+	return ""
+}
