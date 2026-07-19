@@ -45,7 +45,7 @@ Append one line per completed milestone:
 SPEC-NNN M<k> — <one-line summary> — <commit/PR>
 ```
 
-SPEC-000 M1 — self-discovering verify gate (module walk + floor, -race, self-test) — PR #TBD
+SPEC-000 M1 — self-discovering verify gate (module walk + floor, -race, self-test) — PR #1
 
 ## Rules
 
