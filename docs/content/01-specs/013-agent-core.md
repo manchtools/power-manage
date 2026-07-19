@@ -118,7 +118,16 @@ A fresh implementer needs exactly this from prior specs:
   independently of sync state — hard age ceiling + row cap so a partitioned
   agent cannot exhaust disk — and sized generously: this buffer is the
   fleet's result durability during a control outage. Proto rows are stored
-  via protojson only.
+  via protojson only — recorded rationale: (a) buffered rows can straddle an
+  agent self-update, and this contract re-tags proto fields in place, so
+  field NAMES are the stable identity — name-keyed protojson survives a
+  re-tag where tag-keyed binary bytes would silently misdecode; (b) the
+  agent has the worst debug access in the fleet, and a self-describing row
+  is readable with bare `sqlite3` on a wedged device, no matching
+  descriptor set needed; (c) crypto is untouched — result signatures cover
+  deterministic payload bytes inside the signed envelope (SPEC-003), and
+  protojson `bytes` fields round-trip base64-lossless, so the row encoding
+  never feeds a signature.
 - **[AG-11]** Stream handling: `recover()` around every dispatch (one handler
   panic must not crash-loop the fleet), inbound frame size caps, bounded
   goroutine fan-out, sends honor ctx and never hold a mutex across a blocking
