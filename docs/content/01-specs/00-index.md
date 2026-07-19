@@ -17,8 +17,8 @@ spec's own header, which is authoritative.
 | # | Spec | Builds on | Module(s) | Status |
 |---|------|-----------|-----------|--------|
 | 000 | [development-process](000-development-process.md) | — | all | Spec ready |
-| 001 | [architecture-and-trust-model](001-architecture-and-trust-model.md) | — | all | Spec ready |
-| 002 | [repo-module-and-config-contract](002-repo-module-and-config-contract.md) | — | all | Spec ready |
+| 001 | [architecture-and-trust-model](001-architecture-and-trust-model.md) | 000 (M2–M3) | all | Spec ready |
+| 002 | [repo-module-and-config-contract](002-repo-module-and-config-contract.md) | 000 (M2) | all | Spec ready |
 | 003 | [wire-contract](003-wire-contract.md) | 000–002 | contract | Spec ready |
 | 004 | [sdk-core](004-sdk-core.md) | 000–002 | sdk | Spec ready |
 | 005 | [event-store](005-event-store.md) | 000–003 | server | Spec ready |
@@ -31,7 +31,7 @@ spec's own header, which is authoritative.
 | 012 | [gateway](012-gateway.md) | 003, 006 | server | Spec ready |
 | 013 | [agent-core](013-agent-core.md) | 003, 004, 006, 010 | agent | Spec ready |
 | 014 | [action-catalog](014-action-catalog.md) | 003, 004, 009, 010, 013 | contract, sdk, server, agent | Spec ready |
-| 015 | [secret-surfaces](015-secret-surfaces.md) | 006, 009, 013 | server, agent | Spec ready |
+| 015 | [secret-surfaces](015-secret-surfaces.md) | 006, 009, 011, 013 | server, agent | Spec ready |
 | 016 | [operations-and-ha](016-operations-and-ha.md) | 005, 012 | server | Spec ready |
 | 017 | [testing-and-release](017-testing-and-release.md) | 000–016 | all | Spec ready |
 

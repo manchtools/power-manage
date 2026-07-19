@@ -101,9 +101,9 @@ Minimum prior knowledge, restated:
   leaves the device. The enrollment request also carries the device's X25519
   sealing public key (generated beside the mTLS key, re-submitted at every
   renewal); the server binds it to the issued identity for device-directed
-  sealing of inline action-field secrets (SEC-11, SPEC-015) — rotation is
-  atomic on the device record at renewal. The registration token is the SOLE
-  authorization:
+  sealing of inline action-field secrets (SEC-11, SPEC-015; recorded operator
+  decision 2026-07-19 — decisions doc) — rotation is atomic on the device
+  record at renewal. The registration token is the SOLE authorization:
   - 256-bit random, SHA-256-hash-stored, constant-time compare;
   - one-time or `max_uses`/`expires_at`, optional owner, disable = kill switch;
   - consume is version-pinned via `AppendEventWithVersion` (ES-4, SPEC-005) —

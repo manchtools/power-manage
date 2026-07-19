@@ -176,7 +176,8 @@ sets.
   it discovers zero fields for any registered domain.
 - **AC-4** Scoped-grant behavior, per domain, against real Postgres: list, search,
   and get return only in-scope rows; an out-of-scope get returns NotFound; an
-  out-of-scope write is denied; an empty scope set matches nothing.
+  out-of-scope write is denied with NotFound (uniform per AUTHZ-5, SPEC-008);
+  an empty scope set matches nothing.
 - **AC-5** Writing a set that references itself, or that closes a cycle through
   N≥2 intermediate sets, is rejected at write time with a validation error and
   persists nothing.
@@ -210,7 +211,7 @@ sets.
 | Field violating its validate tag (any kernel domain) | Invalid-argument status, static message; no DB observation, no append |
 | Update with stale expected version (WIRE-9 OCC) | Conflict error; no partial merge, no append |
 | Out-of-scope object read (get/list/search) | Row absent from results; direct get returns NotFound (AUTHZ-5) |
-| Out-of-scope write | Denied; NotFound where the object's existence would otherwise leak |
+| Out-of-scope write | Denied with uniform NotFound (AUTHZ-5, SPEC-008) |
 | System-managed object via get/list/search/add-to-set/dispatch | Invisible/refused uniformly at any nesting depth (AUTHZ-6) |
 | Set write introducing a cycle (any depth, incl. self-reference) | Validation error at write time; nothing persisted |
 | Request body over `ReadMaxBytes` | Refused at the transport before handler code runs |

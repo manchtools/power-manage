@@ -126,6 +126,7 @@ The gateway↔control seam is small and enumerable. Complete frame set:
 | control → gateway | `PushCommand` | A `SignedCommand` for a named connected device |
 | control → gateway | `CrlUpdate` | Signed CRL (GW-1.1) |
 | control → gateway | `ArtifactChunk` | Artifact bytes for a named connected device; chunk size within GW-8 frame caps |
+| control → gateway | `ArtifactFetchError` | Structured error for an unservable fetch (unknown or garbage-collected digest), relayed to the named connected device (WIRE-28, SPEC-003; ART-3, SPEC-010) |
 
 - **GW-3.1** Stream presence IS registration; disconnect IS deregistration.
   There is no registration RPC, no TTL refresh loop, and no one-shot publish
@@ -244,7 +245,10 @@ The gateway↔control seam is small and enumerable. Complete frame set:
   TTL has lapsed.
 - **AC-13** An artifact fetch relays end-to-end (request up, chunks down)
   with zero artifact bytes retained by the gateway after completion, and an
-  interrupted fetch resumes from the requested offset.
+  interrupted fetch resumes from the requested offset. A fetch control cannot
+  serve (unknown or garbage-collected digest) relays the structured
+  `ArtifactFetchError` frame to the requesting device — never silence, never
+  a dropped-as-unknown frame.
 - **AC-14** A WS attach with the token in a query parameter is rejected; a
   token that fails control validation opens no bridge; a valid token with a
   missing/invalid CA-signed grant results in the agent refusing the session.
@@ -308,7 +312,8 @@ verification — never a revert), then implement.
    Postgres; re-push on connect; expiry non-delivery.
 6. **Artifact relay** (AC-13): end-to-end request/chunk flow; assert the
    gateway process retains no artifact bytes (memory/disk inspection);
-   offset resume.
+   offset resume; unknown/GC'd-digest fetch relays `ArtifactFetchError` to
+   the device.
 7. **Terminal path** (AC-14, AC-15): header-only token transport, unary
    validation, control-kill mid-session with gap-marker assertion.
 8. **Resource discipline** (AC-16, AC-17): over-cap frames, injected handler
@@ -405,8 +410,8 @@ green (including all previously landed guards).
    relay, pending-command work table with TTL, push + re-push semantics,
    frame-exhaustiveness and size-cap guards, panic recovery, reconnect
    transport hygiene. (AC-12, AC-16, AC-17)
-5. **Artifact relay.** Fetch-request/chunk relay, zero-retention assertion,
-   offset resume. (AC-13)
+5. **Artifact relay.** Fetch-request/chunk/fetch-error relay, zero-retention
+   assertion, offset resume. (AC-13)
 6. **Terminal bridge.** Header-only token transport, unary validation,
    recording-chunk relay, AUDIT-GAP survival. (AC-14, AC-15)
 7. **Edge routing.** Routable-address reporting, control-served HTTP-provider

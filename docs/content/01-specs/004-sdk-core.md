@@ -225,8 +225,12 @@ A fresh implementer needs exactly this from prior specs:
 - **AC-15** Shell values outside `/etc/shells`, LUKS paths without `/dev/`
   prefix or with flag shapes, and malformed flatpak app IDs are rejected
   before any argv or path join.
-- **AC-16** Seal and open reject empty AAD, empty key, and empty plaintext
-  symmetrically; an AAD mismatch fails open with an error.
+- **AC-16** Seal/open round-trips under X25519+HKDF-SHA256+AES-256-GCM with
+  the contract's mandated info strings and context binding (WIRE-23,
+  SPEC-003 — this module owns the sole seal/open implementation); seal and
+  open reject empty AAD, empty key, and empty plaintext symmetrically; an AAD
+  mismatch, wrong info string, or wrong context makes `Open` return an error
+  and no plaintext (fail closed).
 - **AC-17** All secret/MAC compares are constant-time; the `math/rand` scan
   finds zero uses outside the jitter allowlist; `crypto/rand` read errors
   propagate.
@@ -312,7 +316,7 @@ if its discovery step finds nothing to check.
 | G-6 | No nil-AAD API ([SDK-13]) | Reflection walk over exported seal/open functions; every one requires an AAD parameter |
 | G-7 | Mutation chokepoint ([SDK-7]) | AST scan: `os.Chmod`/`os.Chown`/`os.Rename`/path-based mutation calls banned outside the fd-anchored helpers package |
 | G-8 | Directional imports ([SDK-0], SPEC-002) | Module-discovering archtest: `sdk` and `contract` import no in-repo module |
-| G-9 | Clock seam (SPEC-000 cross-cutting) | No unabstracted `time.Now()` in sdk; injected clock only |
+| G-9 | Clock seam (SPEC-000 cross-cutting) | No unabstracted `time.Now()` in sdk, including `SetDeadline` call sites; injected clock only |
 
 ## 8. Historical lessons
 

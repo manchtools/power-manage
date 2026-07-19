@@ -43,10 +43,15 @@ Minimum prior knowledge, restated:
   verifier not wired → refuse to boot.
 - **Module rules** (SPEC-002): `contract` imports no in-repo module; `sdk` has
   zero proto/connect/protobuf imports; server, agent, and web consume `contract`.
-  Envelope framing and verification helpers ship inside `contract` (stdlib crypto
-  only) so signer and verifier share one implementation. Operator-string intent
-  grammars live in `sdk` (SDK-10, SPEC-004); validate tags bind to the same
-  grammars so server and agent run identical validation.
+- **Crypto allocation** (decided HERE, jointly with SDK-13, SPEC-004):
+  signature-envelope framing and verification helpers (SignedCommand,
+  DeviceSigned — hash/ECDSA over deterministic bytes) ship inside `contract`
+  (stdlib crypto only) so signer and verifier share one implementation. The
+  sealed-transport AEAD primitives (X25519 + HKDF-SHA256 + AES-256-GCM
+  seal/open) live EXCLUSIVELY in `sdk` (SDK-13, SPEC-004) — `contract` defines
+  only the sealed-blob message shapes, never a second seal/open implementation.
+  Operator-string intent grammars live in `sdk` (SDK-10, SPEC-004); validate
+  tags bind to the same grammars so server and agent run identical validation.
 - **Guard doctrine** (SPEC-000): every invariant ships a self-discovering fitness
   test (descriptor walk, AST scan, registry walk) with matches-zero protection.
   Hand-maintained lists of files/handlers/fields are forbidden.
@@ -228,7 +233,9 @@ crypto gap in the old system.
   material) travel the same envelope in the opposite direction: sealed at
   dispatch-mint time to the device's enrollment-registered X25519 public key,
   under a dedicated domain with device | action | field context binding.
-  Surface registry and device key lifecycle: (SEC-11, SPEC-015).
+  Surface registry and device key lifecycle: (SEC-11, SPEC-015). The
+  device-directed sealing key is a recorded operator decision (decisions doc,
+  2026-07-19).
 - **[WIRE-24]** **No plaintext secret ever transits the gateway in either
   direction.** Every gateway-proxied secret RPC carries sealed blobs; control
   unseals only at its own edge (admin retrieval over B1 TLS+JWT, which never
@@ -330,10 +337,12 @@ SPEC-010), the relay in (GW-3, SPEC-012), and the verification chokepoint in
   certificate; a forged signature, a signature by a different enrolled device, or
   a report resolving to a different device's work is rejected before recording
   (drop + log).
-- **AC-8** Seal/open round-trips under X25519+HKDF-SHA256+AES-256-GCM with the
-  mandated info strings and context binding; empty key material and empty
-  plaintext are rejected symmetrically at seal AND open; opening under a wrong
-  info string or wrong context fails.
+- **AC-8** The sealed-blob message shapes exist with fields for ciphertext,
+  ephemeral public key, and the domain/context identifiers mandated by
+  [WIRE-23]; the mandated info strings are contract constants. The seal/open
+  crypto itself (round-trip, wrong-info, wrong-context, empty-input symmetry)
+  is implemented and tested in `sdk` (SDK-13/14 ACs, SPEC-004) — no seal/open
+  code exists in `contract` (crypto allocation, §2).
 - **AC-9** A sync manifest with `(epoch, generation)` ≤ the last accepted pair is
   rejected; a valid newer manifest is accepted; removal-by-omission is observable
   as the sole cleanup authority in the manifest schema (no delete verbs exist on
@@ -346,7 +355,9 @@ SPEC-010), the relay in (GW-3, SPEC-012), and the verification chokepoint in
 - **AC-12** `encoding/json` marshal/unmarshal of any proto message is a build
   failure (G-6).
 - **AC-13** Generated Go and TS code compile from one `buf generate`; buf lint
-  and buf breaking (against the previous release tag) pass.
+  passes. `buf breaking` is deliberately NOT a gate: proto evolution re-tags in
+  place with no `reserved` markers (recorded decision), which is exactly what a
+  breaking-change gate would reject.
 - **AC-14** Ed25519 command-signing or CA keys are refused at boot by the
   verification helper's key-load path.
 
@@ -389,8 +400,8 @@ neutralizing edit, never a revert) before implementing.
    loud; tamper matrix per AC-4/AC-6; domain pairwise-isolation per AC-5.
 3. **DeviceSigned**: sign/verify round-trip; forged-key, cross-device, and
    tampered-payload rejections (AC-7).
-4. **Sealed transport**: round-trip, wrong-info, wrong-context, empty-input
-   symmetry (AC-8).
+4. **Sealed transport**: message-shape and info-string-constant assertions only
+   (AC-8); the crypto round-trip/rejection matrix runs in `sdk` (SPEC-004).
 5. **Manifest monotonicity**: property test over `(epoch, generation)` sequences
    (AC-9).
 6. **Frame shape tests** for artifact fetch (AC-10) — schema-level here;
@@ -467,14 +478,14 @@ that exist so far pass).
    green on the skeleton.
 2. **M2 — ActionParams + action shape.** The single oneof registry, the one
    action shape, validate tags with generated enum bounds, explicit-presence
-   booleans; G-3/G-4 green; buf lint/breaking wired in CI.
+   booleans; G-3/G-4 green; buf lint wired in CI (no breaking gate — AC-13).
 3. **M3 — SignedCommand.** Envelope message, framing + verification helpers
    (stdlib crypto), domain constants, freshness rules, Ed25519 boot refusal;
    golden preimage + tamper matrix + G-5 green.
 4. **M4 — Identity + results + sealing + manifest.** SPIFFE/CN certificate
-   profile constants, `DeviceSigned` envelope, sealed-transport messages and
-   helpers, sync manifest message with `(epoch, generation)`; AC-7/8/9 tests
-   green.
+   profile constants, `DeviceSigned` envelope, sealed-transport message shapes
+   and info-string constants (crypto lives in `sdk` — §2 allocation), sync
+   manifest message with `(epoch, generation)`; AC-7/8/9 tests green.
 5. **M5 — Stream protocols + deny-list.** AgentService and InternalService
    stream frame sets including artifact fetch ([WIRE-28/29]), ScimService and
    ExportService surfaces, G-7/G-8 green; full contract test suite green under

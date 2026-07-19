@@ -4,14 +4,14 @@ title: "SPEC-001 — Architecture and Trust Model"
 # SPEC-001 — Architecture and Trust Model
 
 Status: READY FOR IMPLEMENTATION
-Builds on: nothing
+Builds on: SPEC-000 (M2–M3: guard harness and invariant registry — this spec's guards register there)
 Enables: SPEC-002..SPEC-017 (every design decision derives from this trust model)
 Module(s): all (`contract/`, `sdk/`, `server/`, `agent/`); normative reference for the separate web repo
 
 ## 1. Scope
 
 The system's components, the five-actor trust model, the normative trust-boundary
-inventory B1–B10, the availability model, the trust-model invariants
+inventory B1–B11, the availability model, the trust-model invariants
 [TM-1..TM-5], and the storage philosophy (Postgres only; durability lives at the
 edges). Every other spec names which actor and boundary its rules defend.
 
@@ -100,7 +100,7 @@ MUST name which actor they defend against.
    agent validates gateway certificates against the enrolled internal CA only
    (system roots ignored), https→http redirects refused.
 
-### 3.4 Trust boundaries B1–B10 (normative inventory) [ARCH-3]
+### 3.4 Trust boundaries B1–B11 (normative inventory) [ARCH-3]
 
 | # | Boundary | AuthN | AuthZ / integrity |
 |---|---|---|---|
@@ -114,6 +114,7 @@ MUST name which actor they defend against.
 | B8 | Control → Agent (commands) | (via B4/B6 transport) | **CA signature over exact executed bytes, per-surface domain, with freshness** (WIRE-14/15, SPEC-003) |
 | B9 | Agent → Control (results) | (via B4/B6 transport) | **device-key signature over the result envelope** (WIRE-20, SPEC-003) |
 | B10 | Agent/Gateway → PkiService (`:8083`) | server-auth TLS only (no client cert exists yet); per-operation authorization: registration token (enroll) / fingerprint + proof-of-possession (renewal) — PKI-1a, SPEC-006 | rate-limit ladder on every procedure; anti-enumeration; version-pinned token consume |
+| B11 | Browser → Gateway (terminal WS, behind the edge) | edge TLS; WS attach token via `Sec-WebSocket-Protocol` header ONLY (never query param), validated against control (unary InternalService op) before bridging (GW-7, SPEC-012) | the CA-signed terminal grant verified by the AGENT (WIRE-16, SPEC-003, ≤60 s expiry) is the authority to open a PTY — token validation alone never suffices; session recording per AUD-8 (SPEC-011) |
 
 Every network listener and local socket in the codebase maps to exactly one
 boundary above; a new listener requires a new boundary row in this table first.
@@ -192,8 +193,9 @@ routing. Linux endpoints only. Full operations surface: SPEC-016.
   it must at minimum find those two sanctioned drivers.
 - **AC-2** A boundary-registry guard discovers every `net.Listen`/serve call
   site and unix-socket creation by AST walk and fails unless each is registered
-  against exactly one of B1–B10; matches-zero floor rises as component specs
-  land (final floor: four control/gateway listeners + two agent local sockets).
+  against exactly one of B1–B11; matches-zero floor rises as component specs
+  land (final floor: five control/gateway listeners — `:8081`, `:8082`,
+  `:8083`, `:8080`, terminal WS — plus two agent local sockets).
 - **AC-3** A gateway-purity archtest walks the gateway binary's import closure
   and fails if it reaches the event store, secret custody, or CA-key packages
   [TM-2]; matches-zero: the closure must be non-empty.
@@ -244,7 +246,7 @@ Write first, confirm red, then implement:
 | Guard | Discovery | Matches-zero floor |
 |---|---|---|
 | G-001-1 storage-dependency allowlist | Walks `go.mod`/import graphs of all modules; classifies storage/queue/cache/search clients | Must find the Postgres driver (server) and SQLite driver (agent) |
-| G-001-2 boundary registry | AST walk for listen/socket call sites, joined to B1–B10 registrations | ≥1 listener once server code exists; final floor 6 |
+| G-001-2 boundary registry | AST walk for listen/socket call sites, joined to B1–B11 registrations | ≥1 listener once server code exists; final floor 7 |
 | G-001-3 gateway purity | Import-closure walk of the gateway binary | Non-empty closure |
 | G-001-4 singleton advisory-lock coverage | AST walk for ticker/timer loops in `server/`, joined to the advisory-lock helper | ≥1 background loop (lands with SPEC-016) |
 
@@ -275,7 +277,7 @@ Write first, confirm red, then implement:
 ## 9. Milestones
 
 1. **M1 — Storage + purity guards**: G-001-1 and G-001-3 with red fixtures;
-   boundary table B1–B10 encoded as the machine-readable registry data.
+   boundary table B1–B11 encoded as the machine-readable registry data.
    Ends green.
 2. **M2 — Boundary registry harness**: G-001-2 with its ratcheting floor;
    registration API for later specs. Ends green (floor = current listener

@@ -4,7 +4,7 @@ title: "SPEC-015 — Secret Surfaces"
 # SPEC-015 — Secret Surfaces
 
 Status: READY FOR IMPLEMENTATION
-Builds on: SPEC-006 (pki-and-identity), SPEC-009 (crud-kernel-search-and-domains), SPEC-013 (agent-core)
+Builds on: SPEC-006 (pki-and-identity), SPEC-009 (crud-kernel-search-and-domains), SPEC-011 (audit-and-retention — secret-read audit events), SPEC-013 (agent-core); transitively SPEC-003/004/005/008 via those
 Enables: SPEC-017
 Module(s): server, agent
 
@@ -175,8 +175,8 @@ Plaintext exists in control's memory only between steps 2 and 3.
   ingest failure) defers and leaves the old slot intact; escrow durability
   strictly precedes local destruction.
 - Optional device-bound key: TPM2 (PCRs 7+14, best-effort) or a USER_PASSPHRASE
-  slot enrolled interactively via luksd (AG-19, SPEC-013). The user passphrase
-  is NEVER sent to the server; reuse is checked by local hash only.
+  in slot 7, enrolled interactively via luksd (AG-19, SPEC-013). The user
+  passphrase is NEVER sent to the server; reuse is checked by local hash only.
 - `luks-revoke` is a SignedCommand type under the instant-command freshness
   window (WIRE-15, SPEC-003).
 - `ABSENT` removes agent-side state only; escrowed passphrases are retained.
@@ -246,7 +246,8 @@ B4/B6 mTLS seams.
 
 The rule of (WIRE-24, SPEC-003) is unqualified — no plaintext secret ever
 transits the gateway in either direction — so these fields transit SEALED,
-device-directed, inside the signed command:
+device-directed, inside the signed command (recorded operator decision,
+2026-07-19 — decisions doc; this extends enrollment beyond CSR + token):
 
 - At enrollment, and again at every certificate renewal, the agent generates an
   X25519 sealing keypair beside its mTLS key and submits the public key with

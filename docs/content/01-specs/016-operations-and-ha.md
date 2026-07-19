@@ -250,7 +250,8 @@ architecture.
   after restart with nothing lost within the buffer bounds.
 - **AC-4** A gateway cold boot with a CRL cache older than max-age refuses to
   serve; within max-age it serves fail-static.
-- **AC-5** `control doctor` runs without a bootable server config, emits
+- **AC-5** `control doctor` runs without booting the server (it reads config
+  and state, never starts listeners), emits
   `--json`, and exits 0/1/100/2 with 2 taking precedence; every registered
   check has a unit test (guard-enforced); an unregistered check cannot ship.
 - **AC-6** A restore drill from the documented backup set (full dump + config +

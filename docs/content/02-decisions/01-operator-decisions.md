@@ -163,3 +163,15 @@ Bracketed IDs (e.g. AUTH-3, ES-8) refer to requirement IDs in `docs/content/01-s
 54. **Tags `vYYYY.MM.PP` only on explicit operator instruction.**
 55. **Release provenance is the monorepo SHA** (+ web SHA recorded at release
     time).
+
+## Sealed transport (recorded 2026-07-19, after spec derivation)
+
+56. **Device-directed sealing key.** The agent generates an X25519 sealing
+    keypair beside its mTLS key; the public key is registered at enrollment
+    and re-submitted at every renewal (SEC-11). Control seals inline
+    action-field secrets (WIFI PSK, EAP-TLS material) per-device at
+    dispatch-mint time under `power-manage-action-field-secret:v1` with
+    device|action|field context binding. This extends enrollment beyond
+    CSR + token, and is approved as the mechanism that makes "no plaintext
+    secret transits the gateway in either direction" (WIRE-24) hold for
+    control→agent inline fields.

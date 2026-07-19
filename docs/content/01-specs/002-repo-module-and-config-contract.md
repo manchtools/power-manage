@@ -4,7 +4,7 @@ title: "SPEC-002 — Repo, Module, and Config Contract"
 # SPEC-002 — Repo, Module, and Config Contract
 
 Status: READY FOR IMPLEMENTATION
-Builds on: nothing
+Builds on: SPEC-000 (M2: guard harness — this spec's guards use its discovery/matches-zero helpers)
 Enables: SPEC-003..SPEC-017 (all code lands inside this layout, licensing, and config discipline)
 Module(s): repo root + all (`contract/`, `sdk/`, `server/`, `agent/`)
 
@@ -123,7 +123,10 @@ One repository holds four Go modules; nothing else contains code:
   under [INV-19], and a config loader is pure mechanism (SDK-1, SPEC-004).
 - **[CFG-2]** Deployment tooling passes configuration exclusively through this
   contract: one config file per binary plus derived `PM_*` overrides. No
-  binary reads any other environment variable.
+  binary reads any other environment variable, with exactly two sanctioned
+  readers of the process environment: the config loader itself (derived `PM_*`
+  names) and the SDK Runner's curated child-env builder (SDK-4, SPEC-004),
+  which reads named parent variables solely to construct child allowlists.
 
 ### 3.6 Versioning and commits
 

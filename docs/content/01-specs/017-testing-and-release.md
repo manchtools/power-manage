@@ -25,15 +25,16 @@ Minimum prior knowledge, restated. The TDD core rules are DEFINED in SPEC-000
   table) → tests written from ACs, confirmed FAILING red for the RIGHT reason
   via a scoped neutralizing edit — never a revert — → minimal implementation →
   verify gate → docs/ADR.
-- **[TEST-2]** (SPEC-000) Handler tests use REAL Postgres (testcontainer, ONE
-  shared container per package test binary, template-cloned per test) and REAL
-  handlers — never mocks or stubs of either. Correct/absent/wrong coverage for
-  every request field ("wrong" violates the field's validate tag). A
-  rejection-path test for every authorization gate: unauthenticated, wrong
-  role, self-scope override attempt, scoped-grant denial, cross-actor →
-  NotFound. One scenario per test function, named `Test<Method>_<Scenario>`;
-  the only exception is a complementary positive-path sanity check inside a
-  rejection test.
+- **[TEST-2]** (SPEC-000) Handler tests use REAL Postgres (testcontainer,
+  template-cloned per test) and REAL handlers — never mocks or stubs of
+  either. Correct/absent/wrong coverage for every request field ("wrong"
+  violates the field's validate tag). A rejection-path test for every
+  authorization gate: unauthenticated, wrong role, self-scope override
+  attempt, scoped-grant denial, cross-actor → NotFound. This spec ADDS two
+  mechanics on top of SPEC-000's rule: ONE shared container per package test
+  binary (template-cloning keeps isolation), and one scenario per test
+  function, named `Test<Method>_<Scenario>` — the only exception is a
+  complementary positive-path sanity check inside a rejection test.
 - **[TEST-3]** (SPEC-000) CI gates the FULL unit + arch suite under `-race`; a
   self-discovering CI-lane guard proves every test-bearing package runs in some
   workflow, matches-zero protected.
@@ -72,8 +73,9 @@ Minimum prior knowledge, restated. The TDD core rules are DEFINED in SPEC-000
   TEST-OWNED threat model — a fixed list of attacks the test asserts are
   blocked — never by iterating the implementation's own set, which proves only
   self-consistency.
-- **[TEST-4a]** Locale lanes: integration lanes run under at least one
-  non-English locale (e.g. `ja_JP.UTF-8`). They exist to prove the Runner's
+- **[TEST-4a]** Locale lanes: integration lanes run under non-English locales
+  (at minimum `de_DE.UTF-8` and one non-Latin locale such as `ja_JP.UTF-8`).
+  They exist to prove the Runner's
   forced `LC_ALL=C` / `LANG=C` / `NO_COLOR=1` invariant (SDK-3, SPEC-004)
   actually reaches every parser: parsing prefers exit codes and count-diffs
   over localized strings, and a parser that reads localized output fails the

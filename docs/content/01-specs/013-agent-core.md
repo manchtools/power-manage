@@ -68,7 +68,10 @@ A fresh implementer needs exactly this from prior specs:
   drop-ins win; drift in the managed section is reverted loudly.
   `install-unit` is ONE function with NO flags (the unit is bundled; nothing
   to parameterize) — exactly one install/reconcile code path, never two
-  near-duplicates.
+  near-duplicates. Unit reconcile NEVER self-restarts the agent (recorded
+  decision — a reconciler that restarts its own process is an outage
+  generator); a reverted unit takes effect at the next restart the operator
+  or self-update flow ([AG-16]) performs.
 - **[AG-3]** At startup the agent compares the live capability bounding set
   and protections against the unit's requirements and surfaces drift as an
   ERROR log + a heartbeat field. Documentation states that capability-drift
@@ -216,7 +219,8 @@ A fresh implementer needs exactly this from prior specs:
   directives are present and validated against child needs.
 - **AC-2** A modification inside the marker-delimited managed unit section is
   reverted (loudly logged) by reconcile; a drop-in override survives
-  reconcile and takes precedence.
+  reconcile and takes precedence; the reconcile issues NO restart of the
+  agent process (recorded decision, [AG-2]).
 - **AC-3** `install-unit` takes no flags; the self-update path and the
   install path invoke the same function; after a simulated self-update the
   installed unit's managed section matches the new binary's embedded content.
@@ -293,6 +297,7 @@ A fresh implementer needs exactly this from prior specs:
 | `http://` URL, https→http redirect, >10 hops, unpinned cross-origin ([AG-13a]) | Refuse fetch |
 | Cached manifest/window/action fails to decode | Defer / refuse dispatch / keep prior state (fail closed) |
 | Removed action fails to decode | Quarantine + alert; never delete-without-revert |
+| Managed-section unit drift detected by reconcile | Revert loudly; agent process is NEVER restarted by the reconciler ([AG-2], recorded decision) |
 | Sub-step failure inside an executor | Action FAILED; no silent success |
 | Capability absent for an action | Structured NOT_APPLICABLE result |
 | Self-update: downgrade without signed `allow_downgrade` | Reject action |

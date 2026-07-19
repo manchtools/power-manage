@@ -138,7 +138,9 @@ SPEC-002); the defaults and classes below are normative.
   read) emits exactly one audit event per call, containing requester, target,
   and outcome — and zero secret material.
 - **AC-3** A DENIED secret-returning read emits a `*ViewDenied` audit event; the
-  caller receives the uniform denial (NotFound posture per SPEC-008).
+  caller receives the uniform denial (NotFound posture per SPEC-008 — except
+  execution/log reads by scoped callers, which return PermissionDenied per
+  SPEC-008's recorded exception; the audit event is emitted either way).
 - **AC-4** The redaction AST sweep fails the build when a new payload struct
   gains a secret-bearing field without a redaction schema entry; it fails when it
   discovers zero payload structs (matches-zero).

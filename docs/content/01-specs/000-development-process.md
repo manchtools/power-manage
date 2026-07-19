@@ -223,7 +223,9 @@ list an implementer builds guards for FIRST.
   never config VALUES — file-path indirection only. Adding a knob requires a
   recorded rationale; the default is convention over configuration ([META-3]:
   seams, not optionality). Mechanics: SPEC-002.
-- **Module boundaries & licensing**
+
+**Module boundaries & licensing**
+
 - **[INV-19]** Directional in-repo import allowlist: `contract` imports no
   in-repo module; `sdk` imports no in-repo module; `agent` imports only
   {`contract`, `sdk`}; `server` imports only {`contract`, `sdk`}. Enforced by
