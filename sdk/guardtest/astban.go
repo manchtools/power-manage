@@ -293,12 +293,16 @@ func EnumSwitchesWithoutErroringDefault(root string, enumPkgPrefixes []string, a
 	return out, err
 }
 
-// returnsOrPanics reports whether the clause body contains a return
-// statement or a panic call.
+// returnsOrPanics reports whether the clause body itself contains a return
+// statement or a panic call. Nested function literals are not descended
+// into — their returns do not make the enclosing clause error.
 func returnsOrPanics(cc *ast.CaseClause) bool {
 	found := false
 	for _, s := range cc.Body {
 		ast.Inspect(s, func(n ast.Node) bool {
+			if _, ok := n.(*ast.FuncLit); ok {
+				return false
+			}
 			switch x := n.(type) {
 			case *ast.ReturnStmt:
 				found = true

@@ -5,21 +5,24 @@ import (
 	"testing"
 )
 
-// requireFlagged asserts that for every wanted substring exactly the
-// violations containing it are present, and that nothing matches any of
-// the mustNotFlag substrings.
+// requireFlagged asserts the exact violation set: exactly one violation per
+// wanted substring, no extras (an overmatching scan must not stay green),
+// and nothing matching any of the mustNotFlag substrings.
 func requireFlagged(t *testing.T, violations []string, want []string, mustNotFlag []string) {
 	t.Helper()
 	for _, w := range want {
-		found := false
+		matches := 0
 		for _, v := range violations {
 			if strings.Contains(v, w) {
-				found = true
+				matches++
 			}
 		}
-		if !found {
-			t.Errorf("planted violation %q was not flagged (got %v) — the scan can no longer go red against it", w, violations)
+		if matches != 1 {
+			t.Errorf("want exactly one violation matching %q, got %d (%v) — a miss means the scan can no longer go red, extras mean it overmatches", w, matches, violations)
 		}
+	}
+	if len(violations) != len(want) {
+		t.Errorf("violation count = %d, want %d — unexpected extras or misses: got %v, want matches for %v", len(violations), len(want), violations, want)
 	}
 	for _, n := range mustNotFlag {
 		for _, v := range violations {
@@ -105,7 +108,8 @@ func TestEnumSwitches_Fixture(t *testing.T) {
 	if err != nil {
 		t.Fatalf("scanning the enumdefault fixture: %v", err)
 	}
-	// The no-default switch and the non-erroring-default switch are both
-	// violations; the erroring switch and the non-enum switch are clean.
-	requireFlagged(t, v, []string{"bad.go:11", "bad.go:24"}, []string{"clean.go"})
+	// The no-default switch, the non-erroring-default switch, and the
+	// return-only-inside-a-closure switch are violations; the erroring
+	// switch and the non-enum switch are clean.
+	requireFlagged(t, v, []string{"bad.go:11", "bad.go:24", "bad.go:36"}, []string{"clean.go"})
 }
