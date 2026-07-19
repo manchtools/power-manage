@@ -34,7 +34,9 @@ order; `docs/content/01-specs/00-index.md` is the status ledger.
 9. **Ship**: push the branch and open the PR (spec section + AC IDs in the
    body), run the `reviewer` agent, batch review + CI fixes into one commit
    naming the findings (fixed defects get their regression test proven red
-   first), poll CI to completion, and merge yourself once — re-checked at
+   first), then re-run the `reviewer` agent on the post-fix diff — new
+   findings mean another fix round; merge only on a clean re-review. Poll
+   CI to completion, and merge yourself once — re-checked at
    merge time — every gate is green and every finding is addressed. Then
    return to step 1 and take the next milestone while context allows.
 

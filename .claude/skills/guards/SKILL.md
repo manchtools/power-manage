@@ -51,3 +51,23 @@ An allowlist inside a guard is acceptable only when keyed by specific function
 identity WITH a comment stating why each entry is sanctioned; an allowlist
 that grows silently is the hand-maintained list returning through the back
 door.
+
+## The matcher's grammar is the threat model
+
+A syntax-level matcher (AST scan, grep, workflow/YAML probe) models a
+language; every construct the model omits is a bypass. This repo's own
+history: a name-only call matcher accepted a same-named helper from an
+unrelated import; a text probe accepted a comment-only mention as CI
+wiring; a callee switch missed generic instantiations
+(`*ast.IndexExpr`/`*ast.IndexListExpr`); an erroring-default scan
+descended into closures and credited their returns to the enclosing case.
+
+Before a matcher ships, enumerate the input-space families it must decide
+and give each an evasion fixture. For Go call matchers: plain call,
+aliased import, dot-import, local shadowing, generic instantiation,
+parenthesized/indirect callee, the construct inside a closure. For text
+probes: the pattern inside a comment or a string literal. Each family is
+either handled (fixture proven red) or an explicitly recorded ceiling
+with rationale at the call site. Passing fixtures only prove the matcher
+catches what you already imagined — the enumeration is how you imagine
+the rest.
