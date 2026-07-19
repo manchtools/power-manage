@@ -381,6 +381,14 @@ Each rule above is load-bearing; these incidents are why.
 Each milestone ends with the full suite green (including guards) and is sized
 for one implementation session.
 
+This module is the primary PROC-6 (SPEC-000) porting target: the
+predecessor's capability library already converged on the §3 design in place,
+so M2–M7 default to porting its code and test estates — the package-manager
+fidelity suites and container lanes above all — rather than re-deriving them.
+The acceptance criteria and guards below gate the port exactly as they would
+fresh code; where the port falls short of a §3 requirement, the requirement
+wins.
+
 1. **M1 — Skeleton + guards.** Both modules laid out per SPEC-002; guards
    G-1..G-9 implemented and proven red via scoped fixtures, then green.
 2. **M2 — Runner.** [SDK-3..6]: env baseline, locale invariant, argv/`--`,

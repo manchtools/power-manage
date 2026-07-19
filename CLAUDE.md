@@ -96,6 +96,9 @@ regression test proven red first.
   `docs/content/02-decisions/01-operator-decisions.md`.
 - Go symbols: gopls MCP (go-to-definition, references, symbol search) —
   `.mcp.json`; needs `go install golang.org/x/tools/gopls@latest`.
+- Predecessor checkout for PROC-6 ports (SPEC-000): `../power-manage` when
+  present. Its sdk capability library is the main porting source (SPEC-004
+  §9); specs stay implementable without it.
 - When the operator corrects the same thing twice, propose adding it here or
   to the matching rule file. When something here is stale, say so — don't
   work around it.

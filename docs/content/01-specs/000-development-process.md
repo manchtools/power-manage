@@ -272,6 +272,19 @@ locale lanes, the deployment E2E gate, release provenance — is SPEC-017.
   spec's §9 and ends with a green `scripts/verify.sh`. A session never ends
   red: finish to green or restore the last green state. Milestones are sized so
   this is possible.
+- **[PROC-6]** **Porting from the predecessor.** This system re-implements a
+  working predecessor. When a predecessor checkout is available and its code
+  already satisfies a milestone's requirements, porting that code and its
+  tests is the PREFERRED implementation route — re-deriving proven mechanism
+  from prose is waste, and the predecessor's test estates (tool-fidelity and
+  container suites especially) are encoded ground truth that transfers
+  regardless of implementation. Porting changes where the implementation text
+  comes from, never the gate: acceptance criteria, guards, and red-first
+  discipline apply unchanged, with ported tests proven red via scoped
+  neutralizing edits [TEST-1]. Where ported code and this spec series
+  disagree, the spec wins — fix the port, never relax the spec. Every spec
+  remains implementable standalone; porting is an optimization, never a
+  dependency.
 
 ## 4. Acceptance criteria
 
