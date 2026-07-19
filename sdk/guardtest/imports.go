@@ -135,6 +135,8 @@ func directionalImportViolations(root string, mods []string) ([]string, map[stri
 // scan sees; the module's go.mod stays the reviewable second line.
 var protoImportPrefixes = []string{
 	"google.golang.org/protobuf",
+	"github.com/golang/protobuf", // legacy APIv1 proto bindings — deprecated but still importable, same family
+	"github.com/gogo/protobuf",   // gogo proto family
 	"google.golang.org/genproto",
 	"google.golang.org/grpc",
 	"connectrpc.com",

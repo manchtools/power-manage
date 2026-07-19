@@ -34,6 +34,14 @@ func TestGuard_DirectionalImports(t *testing.T) {
 		if len(pkgs[mod]) < floor {
 			t.Errorf("module %s has %d packages, floor is %d — a code-bearing module cannot drop to zero; fix the walk, never lower the floor without a spec change", mod, len(pkgs[mod]), floor)
 		}
+		if _, ok := importAllowlist[mod]; !ok {
+			t.Errorf("module %s has a package floor but no §3.3 allowlist entry — the two classifications must cover the same module set", mod)
+		}
+	}
+	for mod := range importAllowlist {
+		if _, ok := modulePackageFloors[mod]; !ok {
+			t.Errorf("module %s is §3.3-classified but has no package floor — a new module needs its ratchet entry too", mod)
+		}
 	}
 	for _, s := range v {
 		t.Errorf("%s — INV-19: contract/sdk import nothing in-repo; agent/server import only contract+sdk (SPEC-002 §3.3); an agent→server import relicenses the GPL binary AGPL", s)
@@ -105,6 +113,8 @@ func TestGuard_ProtoPurity_Liveness(t *testing.T) {
 func TestProtoImportPrefixes_ThreatModel(t *testing.T) {
 	classified := []string{
 		"google.golang.org/protobuf/proto",
+		"github.com/golang/protobuf/proto", // legacy APIv1 module path — still importable, same family
+		"github.com/gogo/protobuf/proto",   // gogo proto family
 		"google.golang.org/genproto/googleapis/rpc/status",
 		"google.golang.org/grpc",
 		"connectrpc.com/connect",
