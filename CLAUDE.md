@@ -1,83 +1,93 @@
 # CLAUDE.md
 
-Instructions for working in this repository. These are binding.
+<!-- HARD BUDGET: 200 lines. This file is paid for every session.
+     Module-specific guidance lives in .claude/rules/ (path-scoped, loaded on
+     demand). Process pipelines live in .claude/skills/. Don't inline either
+     here. -->
 
-## What this repo is
+## What this is
 
-The Power Manage monorepo: `contract/` (protos + generated, MIT), `sdk/` (pure
-OS capability library, MIT), `server/` (control + gateway, AGPL-3.0), `agent/`
-(device agent, GPL-3.0). The web UI is a separate repository and out of scope.
+Power Manage monorepo: `contract/` (protos, MIT), `sdk/` (pure OS capability
+library, MIT), `server/` (control + gateway, AGPL-3.0), `agent/` (device
+agent, GPL-3.0). The web UI is a separate repository and out of scope.
 
-This repo is **self-contained**: never reference issues, ADRs, specs, or files
-from any other repository. All rationale lives in `docs/`. CI enforces this.
+The repo is **self-contained**: never reference other repositories' issues,
+ADRs, specs, or files — inline the rationale instead. CI enforces this
+(`scripts/check-self-contained.sh`).
 
-## How work happens here
+## How work happens
 
-Every session implements **one milestone of one spec** from `docs/content/01-specs/`, in
-build order, following the pipeline in `docs/content/01-specs/000-development-process.md`:
+One session = **one milestone of one spec** from `docs/content/01-specs/`
+(status ledger: `00-index.md`). Pipeline (details in the `spec-driven-dev`
+skill): read the spec + the context capsules of its Builds-on specs → write
+tests RED first → implement to green → `./scripts/verify.sh` → update the
+ledger → conventional commit. Code goes through a PR; docs/spec changes may
+go direct to main.
 
-1. Read the spec you are implementing IN FULL, plus the "Context capsule" of
-   every spec it builds on. Do not start from memory of the codebase.
-2. Write tests from the spec's acceptance criteria FIRST. Run them. Confirm
-   they FAIL, for the right reason, before writing implementation code.
-3. Implement the minimum that turns them green.
-4. Run `./scripts/verify.sh`. Everything must pass.
-5. Update the status ledger in `docs/content/01-specs/00-index.md` (milestone → done).
-6. Commit with a conventional-commit message. Code changes go through a PR;
-   docs/spec changes may go direct to main.
+Specs are operator-approved: implement as written. Material deviation
+(behavior, new dependency, skipped guard) needs operator sign-off first.
+Mechanical spec gaps are fixed in the spec in the same PR.
 
-The specs are pre-approved by the operator. Implement them as written. A
-material deviation (changed behavior, new dependency, skipped guard) requires
-operator sign-off first — ask, don't improvise. Small mechanical gaps in a spec
-are fixed by editing the spec in the same PR as the code.
+## Model tiering and test authorship
 
-## Skills
+- Plan on Opus, implement on Sonnet (`--model opusplan`).
+- Before implementing, save the agreed plan to `docs/plans/<short-name>.md`:
+  reference the spec milestone and write only the delta (files, symbols, test
+  names) — do not duplicate the spec.
+- Trust-boundary milestones (SPEC-003 envelope/sealing, SPEC-005 append core,
+  SPEC-006–008, SPEC-015): the failing tests are AUTHORED by the
+  `test-writer` agent (Opus) before implementation starts. Mechanical
+  milestones: the plan specifies the scenario matrix; row tests are written
+  from it.
+- **NEVER weaken a test to make it pass.** Implementation sessions do not
+  edit test expectations — a failing test is a finding to report, not an
+  obstacle. Any test-file change by an implementer must be explicitly
+  justified in the PR.
+- After substantial changes, run the `reviewer` agent against the plan.
 
-The skills in `.claude/skills/` encode the non-negotiable working rules:
+## Commands
 
-| Skill | When it applies |
-|---|---|
-| `spec-driven-dev` | Every implementation session |
-| `test-quality` | Writing or reviewing any test |
-| `guards` | Any invariant, list, or coverage claim |
-| `secure-defaults` | Writing or reviewing any code |
-| `go-discipline` | All Go code |
-| `verification` | Before every commit and push |
+- Verify gate (before every commit): `./scripts/verify.sh`
+- Build: `go build ./server/cmd/control` | `./server/cmd/gateway`;
+  `CGO_ENABLED=0 go build ./agent/cmd/agent`
+- Test one module: `go test -C <module> ./... -count=1`
+- Protos: `cd contract && buf lint && buf generate`
 
-When a skill exists for a topic, follow it. The skill file is authoritative.
+## Always / never
 
-## Hard rules (grep-enforced or review-enforced)
-
-- **No AI attribution anywhere**: commits, PRs, comments, docs. No
-  `Co-Authored-By`, no "generated with" trailers.
-- **ULID everywhere, never UUID.**
-- **No `context.Background()` in request paths.**
-- **No secrets in logs, events, URLs, or error messages.**
-- **`errors` are never silently ignored** — no `_ =` on error returns, no empty
-  catch blocks, no proceeding on decode failure.
-- **Fail closed**: revocation unavailable → deny; decode error on persisted
-  security state → deny; unknown enum → reject; verifier not wired → refuse to
-  boot.
-- **Never edit a shipped migration** — add a forward one.
-- **Generated code is never hand-edited** — regenerate from source.
-- **Module imports are one-way**: `contract`/`sdk` import nothing in-repo;
-  `agent`/`server` import only `contract`/`sdk` (INV-19). An `agent`→`server`
-  import is also a license violation.
-- Do not commit `REWRITE_SPEC.md` or any file from outside this repository.
-
-## Verification mechanics
-
-- Never truncate a command's only copy of its output: no `| tail -N` /
-  `| head -N` on test or build output. `cmd 2>&1 | tee /tmp/out` first, then
-  grep the file.
-- Judge test runs by grepping the FULL output for `FAIL`, not by the last lines.
-- Use `PIPESTATUS`/`set -o pipefail` when piping build/test commands.
-- Run `gofmt -w` on touched Go files before committing.
-- After pushing a PR, poll CI to completion; fix failures in the same session.
-
-## Commit and release
-
-- Conventional commits (`feat:`, `fix:`, `test:`, `docs:`, `chore:`...).
-- Tags `vYYYY.MM.PP` only on explicit operator instruction — never tag
+- **No AI attribution anywhere** — commits, PRs, comments, docs. No
+  `Co-Authored-By`, no "generated with".
+- **ULID everywhere, never UUID** — sortable IDs are load-bearing in the
+  event store.
+- **Never edit a shipped migration** (the tool tracks by version, not
+  content) — add a forward one.
+- **Never hand-edit generated code** (`gen/`, sqlc output) — regenerate from
+  source.
+- **Module imports are one-way** (INV-19): `contract`/`sdk` import nothing
+  in-repo; `agent`/`server` import only `contract`+`sdk`. This is also the
+  license boundary — an `agent`→`server` import puts AGPL code in a GPL
+  binary.
+- **Tags `vYYYY.MM.PP` only on explicit operator instruction** — never tag
   unprompted.
-- Release provenance: monorepo SHA (+ web SHA, recorded externally).
+- Fail closed, validate-then-authorize, no secrets in logs/URLs/errors/argv
+  — full rules load from `.claude/rules/` when you touch code.
+
+## Verification honesty
+
+- Never truncate a command's only copy of its output: `cmd 2>&1 | tee` to a
+  file first, then grep the file; `set -o pipefail`. <!-- a tail -30 once
+  kept 1 of 7 review findings and forced a full re-run -->
+- Judge test runs by grepping the FULL output for `FAIL`, not the last lines.
+- After pushing, poll CI to completion in the same session; fix failures
+  immediately.
+- Report plainly: what passed, what failed, what was skipped.
+
+## Navigation
+
+- Specs: `docs/content/01-specs/` — requirement IDs (`[WIRE-24]`, `[ES-4]`)
+  are grep-exact; cross-references use the form `(ID, SPEC-NNN)`.
+- Operator decisions (final — do not re-litigate):
+  `docs/content/02-decisions/01-operator-decisions.md`.
+- When the operator corrects the same thing twice, propose adding it here or
+  to the matching rule file. When something here is stale, say so — don't
+  work around it.
