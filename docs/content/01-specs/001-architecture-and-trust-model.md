@@ -189,8 +189,10 @@ routing. Linux endpoints only. Full operations surface: SPEC-016.
 
 - **AC-1** A storage-dependency guard walks every module's dependency graph and
   fails on any datastore/queue/cache/search client library other than the
-  Postgres driver (server) and the pure-Go SQLite driver (agent); matches-zero:
-  it must at minimum find those two sanctioned drivers.
+  Postgres driver (server) and the pure-Go SQLite driver (agent); matches-zero
+  ratchet: module discovery (all four modules) is the floor until the
+  sanctioned drivers exist — it rises to require the Postgres driver when
+  SPEC-005 lands it and the SQLite driver when SPEC-013 does.
 - **AC-2** A boundary-registry guard discovers every `net.Listen`/serve call
   site and unix-socket creation by AST walk and fails unless each is registered
   against exactly one of B1–B11; matches-zero floor rises as component specs
@@ -198,7 +200,9 @@ routing. Linux endpoints only. Full operations surface: SPEC-016.
   `:8083`, `:8080`, terminal WS — plus two agent local sockets).
 - **AC-3** A gateway-purity archtest walks the gateway binary's import closure
   and fails if it reaches the event store, secret custody, or CA-key packages
-  [TM-2]; matches-zero: the closure must be non-empty.
+  [TM-2]; matches-zero: the closure must be non-empty once `server/cmd/gateway`
+  exists (a reported skip before then; the liveness fixture stays active
+  throughout).
 - **AC-4** Fail-closed behavioral tests exist at each boundary as owning specs
   land: revocation unavailable → deny; persisted-security-state decode error →
   deny; unknown enum → reject; unwired verifier → boot failure [TM-5].
@@ -245,9 +249,9 @@ Write first, confirm red, then implement:
 
 | Guard | Discovery | Matches-zero floor |
 |---|---|---|
-| G-001-1 storage-dependency allowlist | Walks `go.mod`/import graphs of all modules; classifies storage/queue/cache/search clients | Must find the Postgres driver (server) and SQLite driver (agent) |
+| G-001-1 storage-dependency allowlist | Walks `go.mod`/import graphs of all modules; classifies storage/queue/cache/search clients | All four modules discovered; rises to the sanctioned drivers as SPEC-005/013 land them |
 | G-001-2 boundary registry | AST walk for listen/socket call sites, joined to B1–B11 registrations | ≥1 listener once server code exists; final floor 7 |
-| G-001-3 gateway purity | Import-closure walk of the gateway binary | Non-empty closure |
+| G-001-3 gateway purity | Import-closure walk of the gateway binary | Non-empty closure once `server/cmd/gateway` exists (reported skip before) |
 | G-001-4 singleton advisory-lock coverage | AST walk for ticker/timer loops in `server/`, joined to the advisory-lock helper | ≥1 background loop (lands with SPEC-016) |
 
 ## 8. Historical lessons
