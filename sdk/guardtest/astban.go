@@ -88,10 +88,30 @@ func pathAllowed(rel string, allow []string) bool {
 	return false
 }
 
+// unwrapExpr peels parenthesization and explicit generic instantiation:
+// (pkg.Fn)(), pkg.Fn[T](), and (pkg.Fn[T])() all still denote pkg.Fn.
+func unwrapExpr(e ast.Expr) ast.Expr {
+	for {
+		switch w := e.(type) {
+		case *ast.ParenExpr:
+			e = w.X
+		case *ast.IndexExpr:
+			e = w.X
+		case *ast.IndexListExpr:
+			e = w.X
+		default:
+			return e
+		}
+	}
+}
+
 // BannedCalls returns every call of pkgPath.fn outside allowed prefixes —
 // e.g. ("time", "Now") for the clock seam (a seam-less SetDeadline is
 // caught at its time.Now argument), ("context", "Background") for request
 // paths.
+// Recorded ceiling: an indirect reference (f := pkg.Fn; f(), or pkg.Fn
+// passed as a value) is not syntactically detectable at the call site —
+// per-value enforcement is the owning spec's behavioral guard.
 func BannedCalls(root, pkgPath, fn string, allow ...string) ([]string, error) {
 	var out []string
 	err := walkGoFiles(root, false, func(rel string, fset *token.FileSet, file *ast.File) error {
@@ -107,18 +127,8 @@ func BannedCalls(root, pkgPath, fn string, allow ...string) ([]string, error) {
 			if !ok {
 				return true
 			}
-			// An explicitly instantiated generic call wraps the callee in
-			// IndexExpr / IndexListExpr — unwrap so the ban is not
-			// bypassable by instantiation.
-			fun := call.Fun
-			switch idx := fun.(type) {
-			case *ast.IndexExpr:
-				fun = idx.X
-			case *ast.IndexListExpr:
-				fun = idx.X
-			}
 			flagged := false
-			switch f := fun.(type) {
+			switch f := unwrapExpr(call.Fun).(type) {
 			case *ast.Ident:
 				flagged = dot && f.Name == fn
 			case *ast.SelectorExpr:
@@ -187,7 +197,7 @@ func SentinelComparisons(root string, sentinels map[string][]string, allow ...st
 			return nil
 		}
 		isSentinel := func(e ast.Expr) bool {
-			switch x := e.(type) {
+			switch x := unwrapExpr(e).(type) {
 			case *ast.SelectorExpr:
 				id, ok := x.X.(*ast.Ident)
 				if !ok {

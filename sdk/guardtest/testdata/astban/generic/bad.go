@@ -8,3 +8,5 @@ import g "example.com/registry"
 func one() { g.Make[int]() }
 
 func two() { g.Make[int, string]() }
+
+func combo() { (g.Make[int])() }

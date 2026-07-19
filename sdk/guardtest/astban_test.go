@@ -46,9 +46,10 @@ func TestBannedCalls_ClockFixture(t *testing.T) {
 		t.Fatalf("scanning the clock fixture: %v", err)
 	}
 	// bad.go plants two call sites (plain + inside SetDeadline), the alias
-	// and dot-import files one more each; clean.go and the decoy alias must
+	// and dot-import files one more each, paren_bad.go a parenthesized
+	// callee and a closure-wrapped call; clean.go and the decoy alias must
 	// stay unflagged.
-	requireFlagged(t, v, []string{"bad.go:10", "bad.go:13", "aliased_bad.go:6", "dot_bad.go:6"}, []string{"decoy.go", "clean.go"})
+	requireFlagged(t, v, []string{"bad.go:10", "bad.go:13", "aliased_bad.go:6", "dot_bad.go:6", "paren_bad.go:8", "paren_bad.go:10"}, []string{"decoy.go", "clean.go"})
 }
 
 func TestBannedCalls_CtxBackgroundFixture(t *testing.T) {
@@ -72,9 +73,10 @@ func TestBannedCalls_GenericInstantiationFixture(t *testing.T) {
 	if err != nil {
 		t.Fatalf("scanning the generic fixture: %v", err)
 	}
-	// IndexExpr (one type arg) and IndexListExpr (two) call sites; the
-	// same package's other symbol stays unflagged.
-	requireFlagged(t, v, []string{"bad.go:8", "bad.go:10"}, []string{"clean.go"})
+	// IndexExpr (one type arg), IndexListExpr (two), and the
+	// paren-wrapped instantiation; the same package's other symbol stays
+	// unflagged.
+	requireFlagged(t, v, []string{"bad.go:8", "bad.go:10", "bad.go:12"}, []string{"clean.go"})
 }
 
 func TestBannedImports_MathRandFixture(t *testing.T) {
@@ -119,9 +121,10 @@ func TestSentinelComparisons_Fixture(t *testing.T) {
 	if err != nil {
 		t.Fatalf("scanning the sentinel fixture: %v", err)
 	}
-	// errors.Is, ==, != in bad.go plus the aliased and dot-imported
-	// errors.Is — the clean recognizer call must stay unflagged.
-	requireFlagged(t, v, []string{"bad.go:11", "bad.go:13", "bad.go:15", "aliased_bad.go:9", "dot_bad.go:10"}, []string{"clean.go"})
+	// errors.Is, ==, != in bad.go, the paren-wrapped comparison and
+	// errors.Is operand, plus the aliased and dot-imported errors.Is —
+	// the clean recognizer call must stay unflagged.
+	requireFlagged(t, v, []string{"bad.go:11", "bad.go:13", "bad.go:15", "bad.go:17", "bad.go:19", "aliased_bad.go:9", "dot_bad.go:10"}, []string{"clean.go"})
 }
 
 func TestEnumSwitches_Fixture(t *testing.T) {
