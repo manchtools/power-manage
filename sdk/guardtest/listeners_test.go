@@ -60,6 +60,7 @@ func TestGuard_BoundaryRegistry_Liveness(t *testing.T) {
 		"plain.go:7",    // registered against the unknown B99
 		"plain.go:9",    // unregistered unix socket
 		"plain.go:11",   // multicast UDP listener
+		"plain.go:13",   // file-based packet conn
 		"wrapped.go:8",  // aliased
 		"wrapped.go:10", // paren-wrapped callee
 		"wrapped.go:12", // inside a closure

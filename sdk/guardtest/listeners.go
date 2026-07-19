@@ -20,9 +20,10 @@ import (
 )
 
 // ListenerRegistrations is the G-001-2 registration API: owning specs map
-// each listener/serve call site ("<repo-rel-file>:<enclosing-func>") to
-// exactly one boundary ID from Boundaries as their listeners land. One
-// registration covers every listen call inside that function (recorded
+// each listener/serve call site ("<repo-rel-file>:<enclosing-func>" — for a
+// method, "<repo-rel-file>:(T).name" receiver-qualified as declUnits keys
+// it) to exactly one boundary ID from Boundaries as their listeners land.
+// One registration covers every listen call inside that function (recorded
 // ceiling: a function serving two boundaries cannot be expressed — split
 // the function).
 var ListenerRegistrations = map[string]string{}

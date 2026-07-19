@@ -36,32 +36,43 @@ var ownerlessPending = map[string]string{
 
 var (
 	invEntryRe = regexp.MustCompile(`(?m)^- \*\*\[INV-(\d+)\]\*\*`)
+	tmEntryRe  = regexp.MustCompile(`(?m)^- \*\*\[TM-(\d+)\]\*\*`)
 	specRefRe  = regexp.MustCompile(`\bSPEC-(\d{3})\b`)
 	invRefRe   = regexp.MustCompile(`\bINV-(\d+)\b`)
+	tmRefRe    = regexp.MustCompile(`\bTM-(\d+)\b`)
 )
 
 // invariantRegistry parses SPEC-000 §3.4 under root and returns one entry
 // per catalog invariant, owners unioned with any other spec citing the ID.
 func invariantRegistry(root string) ([]invariant, error) {
+	return derivedRegistry(root, "000-development-process.md", "### 3.4", "### 3.5", "INV-", invEntryRe, invRefRe)
+}
+
+// derivedRegistry parses the catalog section [secStart, secEnd) of sourceFile
+// under root, one row per entryRe match; owners are the SPEC refs in the
+// entry's own text unioned with any OTHER spec file citing the ID via refRe —
+// the defining spec's own file is excluded, or its completion would demand
+// every one of its rows' guards at once.
+func derivedRegistry(root, sourceFile, secStart, secEnd, idPrefix string, entryRe, refRe *regexp.Regexp) ([]invariant, error) {
 	specDir := filepath.Join(root, "docs", "content", "01-specs")
-	spec000, err := os.ReadFile(filepath.Join(specDir, "000-development-process.md"))
+	src, err := os.ReadFile(filepath.Join(specDir, sourceFile))
 	if err != nil {
-		return nil, fmt.Errorf("reading SPEC-000: %w", err)
+		return nil, fmt.Errorf("reading %s: %w", sourceFile, err)
 	}
-	text := string(spec000)
-	start := strings.Index(text, "### 3.4")
-	end := strings.Index(text, "### 3.5")
+	text := string(src)
+	start := strings.Index(text, secStart)
+	end := strings.Index(text, secEnd)
 	if start < 0 || end < start {
-		return nil, fmt.Errorf("SPEC-000 §3.4 catalog section not found — the spec layout moved")
+		return nil, fmt.Errorf("%s catalog section %q not found — the spec layout moved", sourceFile, secStart)
 	}
 	catalog := text[start:end]
 
 	// Each catalog entry's own text names its owning specs.
 	owners := map[string]map[string]bool{}
 	var ids []string
-	entries := invEntryRe.FindAllStringSubmatchIndex(catalog, -1)
+	entries := entryRe.FindAllStringSubmatchIndex(catalog, -1)
 	for i, e := range entries {
-		id := "INV-" + catalog[e[2]:e[3]]
+		id := idPrefix + catalog[e[2]:e[3]]
 		entryEnd := len(catalog)
 		if i+1 < len(entries) {
 			entryEnd = entries[i+1][0]
@@ -81,15 +92,15 @@ func invariantRegistry(root string) ([]invariant, error) {
 	}
 	for _, f := range files {
 		base := filepath.Base(f)
-		if base == "000-development-process.md" {
+		if base == sourceFile {
 			continue
 		}
 		body, err := os.ReadFile(f)
 		if err != nil {
 			return nil, fmt.Errorf("reading %s: %w", base, err)
 		}
-		for _, m := range invRefRe.FindAllStringSubmatch(string(body), -1) {
-			if set, ok := owners["INV-"+m[1]]; ok {
+		for _, m := range refRe.FindAllStringSubmatch(string(body), -1) {
+			if set, ok := owners[idPrefix+m[1]]; ok {
 				set["SPEC-"+base[:3]] = true
 			}
 		}
@@ -105,6 +116,14 @@ func invariantRegistry(root string) ([]invariant, error) {
 		invs = append(invs, invariant{ID: id, OwningSpecs: specs, InRepo: notInRepo[id] == ""})
 	}
 	return invs, nil
+}
+
+// trustModelRegistry parses SPEC-001 §3.2 under root and returns one entry
+// per trust-model invariant TM-1..TM-5, owners derived the same way as the
+// INV rows (SPEC-001 M3 ledger wiring): entry refs unioned with cross-citing
+// specs, SPEC-001 itself excluded as the defining spec.
+func trustModelRegistry(root string) ([]invariant, error) {
+	return derivedRegistry(root, "001-architecture-and-trust-model.md", "### 3.2", "### 3.3", "TM-", tmEntryRe, tmRefRe)
 }
 
 // specStatuses parses the ledger table in 00-index.md under root and maps
@@ -207,11 +226,41 @@ func TestGuard_InvariantCoverage(t *testing.T) {
 		}
 	}
 
+	// SPEC-001 M3: the trust-model rows join the same ledger with the same
+	// exact-set, owner-floor, and coverage demands.
+	tms := Discover(t, "trust-model invariants from SPEC-001 §3.2", 5, func() ([]invariant, error) {
+		return trustModelRegistry(root)
+	})
+	seen = map[string]bool{}
+	for _, tm := range tms {
+		seen[tm.ID] = true
+	}
+	for i := 1; i <= 5; i++ {
+		id := fmt.Sprintf("TM-%d", i)
+		if !seen[id] {
+			t.Errorf("registry is missing %s — the SPEC-001 §3.2 catalog or its parse moved", id)
+		}
+		delete(seen, id)
+	}
+	for id := range seen {
+		t.Errorf("registry contains unexpected entry %q — SPEC-001 §3.2 holds exactly TM-1..TM-5; a new trust-model invariant needs a spec change first", id)
+	}
+	for _, tm := range tms {
+		if tm.InRepo && len(tm.OwningSpecs) == 0 && ownerlessPending[tm.ID] == "" {
+			t.Errorf("%s has no derived owning spec and no recorded pending decision — the coverage join can never demand its guard", tm.ID)
+		}
+		for _, owner := range tm.OwningSpecs {
+			if _, ok := statusMap[owner]; !ok {
+				t.Errorf("%s names owning spec %s which is not in the ledger — parse drift", tm.ID, owner)
+			}
+		}
+	}
+
 	_, _, guardsByInv, err := guardInventory(root)
 	if err != nil {
 		t.Fatalf("guard inventory: %v", err)
 	}
-	for _, v := range coverageViolations(invs, statusMap, guardsByInv) {
+	for _, v := range coverageViolations(append(invs, tms...), statusMap, guardsByInv) {
 		t.Error(v)
 	}
 }
@@ -253,6 +302,47 @@ func TestInvariantRegistry_DerivedOwners(t *testing.T) {
 	}
 	if !byID["INV-19"].InRepo {
 		t.Error("INV-19 must be in-repo")
+	}
+}
+
+// TestTrustModelRegistry_DerivedOwners spot-checks TM derivation against
+// hand-verified facts: TM-1's §3.2 entry cites SPEC-005, TM-3's cites
+// SPEC-016 and is cross-cited by SPEC-005 (the AC-5 singleton-work
+// obligation), TM-5 is cross-cited by SPEC-003 and SPEC-013 (the AC-4
+// fail-closed obligation), and SPEC-001 never owns its own rows.
+func TestTrustModelRegistry_DerivedOwners(t *testing.T) {
+	tms, err := trustModelRegistry(RepoRoot(t))
+	if err != nil {
+		t.Fatalf("trustModelRegistry: %v", err)
+	}
+	byID := map[string]invariant{}
+	for _, tm := range tms {
+		byID[tm.ID] = tm
+	}
+	owns := func(id, spec string) bool {
+		for _, s := range byID[id].OwningSpecs {
+			if s == spec {
+				return true
+			}
+		}
+		return false
+	}
+	if !owns("TM-1", "SPEC-005") {
+		t.Errorf("TM-1 owners = %v, want SPEC-005 among them (its §3.2 entry cites ES-1)", byID["TM-1"].OwningSpecs)
+	}
+	if !owns("TM-3", "SPEC-016") || !owns("TM-3", "SPEC-005") {
+		t.Errorf("TM-3 owners = %v, want SPEC-016 (entry ref) and SPEC-005 (cross-ref) among them — AC-5's singleton-work guard is demanded when either implements", byID["TM-3"].OwningSpecs)
+	}
+	if !owns("TM-5", "SPEC-003") || !owns("TM-5", "SPEC-013") {
+		t.Errorf("TM-5 owners = %v, want SPEC-003 and SPEC-013 among them — AC-4's fail-closed tests are demanded when either implements", byID["TM-5"].OwningSpecs)
+	}
+	for _, tm := range tms {
+		if owns(tm.ID, "SPEC-001") {
+			t.Errorf("%s lists defining spec SPEC-001 as an owner (%v) — the defining spec is excluded, or its own completion would demand every TM guard at once", tm.ID, tm.OwningSpecs)
+		}
+		if !tm.InRepo {
+			t.Errorf("%s marked not-in-repo — every trust-model invariant is enforced in this repository", tm.ID)
+		}
 	}
 }
 

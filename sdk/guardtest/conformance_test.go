@@ -49,7 +49,7 @@ func guardInventory(root string) (all, bad []string, guardsByInv map[string][]st
 
 const guardtestImportPath = "github.com/manchtools/power-manage/sdk/guardtest"
 
-var guardsLineRe = regexp.MustCompile(`^Guards: (INV-\d+(?:, INV-\d+)*)\.?$`)
+var guardsLineRe = regexp.MustCompile(`^Guards: ((?:INV|TM)-\d+(?:, (?:INV|TM)-\d+)*)\.?$`)
 
 // guardRegistrations extracts the invariant IDs from a guard's
 // "Guards: INV-n[, INV-m]." doc-comment line, if any. The registration must
@@ -164,5 +164,14 @@ func TestGuardInventory_ExtractsRegistrations(t *testing.T) {
 	}
 	if regs := guardsByInv["INV-12"]; len(regs) != 0 {
 		t.Fatalf("the NON-conforming fixture guard's 'Guards: INV-12.' line was counted (%v) — a guard without matches-zero protection must not satisfy G-000-1 coverage", regs)
+	}
+	found = false
+	for _, g := range guardsByInv["TM-3"] {
+		if strings.HasSuffix(g, ":TestGuard_ConformingTM") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("fixture guard's 'Guards: TM-3.' registration was not extracted, got %v — trust-model rows (SPEC-001 M3) are registered through the same grammar", guardsByInv)
 	}
 }
