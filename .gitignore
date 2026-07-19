@@ -2,7 +2,9 @@ bin/
 dist/
 *.out
 *.test
-coverage*
+# Narrowed from `coverage*`, which silently ignored coverage_test.go;
+# coverage.out is already caught by *.out above.
+coverage*.html
 .env
 node_modules/
 REWRITE_SPEC.md

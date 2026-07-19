@@ -7,16 +7,20 @@ import (
 	"go/token"
 	"io/fs"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
 )
 
 // guardInventory walks root for *_test.go files (skipping testdata and hidden
-// directories), parses each, and returns every TestGuard_* function it finds
-// plus the subset that never calls a harness helper (Discover or
-// RequireViolation). Entries are "relpath:FuncName".
-func guardInventory(root string) (all, bad []string, err error) {
+// directories), parses each, and returns every TestGuard_* function it finds,
+// the subset that never calls a harness helper (Discover or
+// RequireViolation), and the invariant registrations extracted from
+// "Guards: INV-n[, INV-m]" doc-comment lines (SPEC-000 AC-5 — registration
+// is co-located with the guard). Entries are "relpath:FuncName".
+func guardInventory(root string) (all, bad []string, guardsByInv map[string][]string, err error) {
+	guardsByInv = map[string][]string{}
 	fset := token.NewFileSet()
 	err = filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -33,7 +37,7 @@ func guardInventory(root string) (all, bad []string, err error) {
 		if !strings.HasSuffix(d.Name(), "_test.go") {
 			return nil
 		}
-		file, perr := parser.ParseFile(fset, path, nil, 0)
+		file, perr := parser.ParseFile(fset, path, nil, parser.ParseComments)
 		if perr != nil {
 			return fmt.Errorf("parse %s: %w", path, perr)
 		}
@@ -56,16 +60,35 @@ func guardInventory(root string) (all, bad []string, err error) {
 			if !callsHarness(file, fn, inHarnessPkg) {
 				bad = append(bad, id)
 			}
+			for _, inv := range guardRegistrations(fn.Doc) {
+				guardsByInv[inv] = append(guardsByInv[inv], id)
+			}
 		}
 		return nil
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return all, bad, nil
+	return all, bad, guardsByInv, nil
 }
 
 const guardtestImportPath = "github.com/manchtools/power-manage/sdk/guardtest"
+
+var guardsLineRe = regexp.MustCompile(`^Guards: (INV-\d+(?:, INV-\d+)*)\.?$`)
+
+// guardRegistrations extracts the invariant IDs from a guard's
+// "Guards: INV-n[, INV-m]." doc-comment line, if any.
+func guardRegistrations(doc *ast.CommentGroup) []string {
+	if doc == nil {
+		return nil
+	}
+	for _, line := range strings.Split(doc.Text(), "\n") {
+		if m := guardsLineRe.FindStringSubmatch(strings.TrimSpace(line)); m != nil {
+			return strings.Split(strings.ReplaceAll(m[1], " ", ""), ",")
+		}
+	}
+	return nil
+}
 
 // harnessRefs returns the local identifiers through which file can reach the
 // real harness: names bound to an import of guardtestImportPath, and whether
@@ -132,7 +155,7 @@ func TestGuard_GuardAPIConformance(t *testing.T) {
 	root := RepoRoot(t)
 	var bad []string
 	Discover(t, "TestGuard_* functions in the repository", 1, func() ([]string, error) {
-		all, b, err := guardInventory(root)
+		all, b, _, err := guardInventory(root)
 		bad = b
 		return all, err
 	})
@@ -147,7 +170,7 @@ func TestGuard_GuardAPIConformance(t *testing.T) {
 // local declaration — and the scan must flag each, while the conforming
 // fixture stays clean.
 func TestGuardAPIConformance_Liveness(t *testing.T) {
-	_, bad, err := guardInventory("testdata/liveness")
+	_, bad, _, err := guardInventory("testdata/liveness")
 	if err != nil {
 		t.Fatalf("scanning the liveness fixture failed: %v", err)
 	}
@@ -166,5 +189,23 @@ func TestGuardAPIConformance_Liveness(t *testing.T) {
 	}
 	if flagged("TestGuard_Conforming") {
 		t.Errorf("the conforming fixture guard was flagged (got %v) — the checker went always-red", bad)
+	}
+}
+
+// TestGuardInventory_ExtractsRegistrations: the "Guards: INV-n" doc-comment
+// line on the conforming fixture guard must surface as a registration.
+func TestGuardInventory_ExtractsRegistrations(t *testing.T) {
+	_, _, guardsByInv, err := guardInventory("testdata/liveness")
+	if err != nil {
+		t.Fatalf("scanning the liveness fixture failed: %v", err)
+	}
+	found := false
+	for _, g := range guardsByInv["INV-19"] {
+		if strings.HasSuffix(g, ":TestGuard_Conforming") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("fixture guard's 'Guards: INV-19.' registration was not extracted, got %v", guardsByInv)
 	}
 }
