@@ -15,7 +15,12 @@ type reportConfig struct {
 	Store diskSection
 	CacheSection
 	extern.RemoteSection
+	winSection[int]
 	Ext extern.PoolSection
+}
+
+type winSection[T any] struct {
+	Limit T `doc:"generic sections resolve to no plain struct decl"`
 }
 
 type diskSection struct {
