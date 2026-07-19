@@ -11,7 +11,9 @@ import (
 
 // recordTB captures a harness helper's failure instead of aborting, so the
 // tests can observe it. Embedding testing.TB satisfies the interface's
-// unexported method; only the failure surface is overridden.
+// unexported method. Load-bearing constraint: harness helpers fail via
+// Fatalf ONLY — any other failure method would fall through to the real
+// *testing.T instead of being recorded here.
 type recordTB struct {
 	testing.TB
 	failed bool
@@ -33,6 +35,20 @@ func TestDiscover_EmptyDiscoveryFails(t *testing.T) {
 	}
 	if !strings.Contains(rec.last, "floor") {
 		t.Fatalf("failure message must name the floor so the tripping session knows what broke, got: %q", rec.last)
+	}
+	if got != nil {
+		t.Fatalf("Discover returned subjects after failing: %v", got)
+	}
+}
+
+func TestDiscover_FloorBelowOneFails(t *testing.T) {
+	rec := &recordTB{TB: t}
+	got := Discover(rec, "no-floor", 0, func() ([]string, error) { return []string{"a"}, nil })
+	if !rec.failed {
+		t.Fatal("Discover accepted floor 0 — a guard could disable its own matches-zero protection")
+	}
+	if !strings.Contains(rec.last, "floor") {
+		t.Fatalf("failure message must name the floor, got: %q", rec.last)
 	}
 	if got != nil {
 		t.Fatalf("Discover returned subjects after failing: %v", got)

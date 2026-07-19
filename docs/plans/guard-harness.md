@@ -46,6 +46,15 @@ returns nothing; the violation fixture is each guard's standing red proof §6.4)
 Failure recording uses a `testing.TB`-embedding recorder so helper failures
 are observable without aborting the harness test.
 
+## Known limitation (recorded)
+
+G-000-3's conformance check is syntactic: harness calls are resolved through
+the file's imports to the real `sdk/guardtest` path (aliases, dot-imports),
+but without `go/types`. A dot-import shadowed by a local declaration would
+still pass; a guard delegating its harness call to a helper function is
+flagged (false positive — the fail-closed direction). Move to type-checked
+resolution with the M4 AST-guard library if either ever bites.
+
 ## Out of scope
 
 Invariant registry + G-000-1/2 (M3), AST guard library (M4), module discovery
