@@ -18,7 +18,7 @@ spec's own header, which is authoritative.
 |---|------|-----------|-----------|--------|
 | 000 | [development-process](000-development-process.md) | — | all | Implemented |
 | 001 | [architecture-and-trust-model](001-architecture-and-trust-model.md) | 000 (M2–M3) | all | Implemented |
-| 002 | [repo-module-and-config-contract](002-repo-module-and-config-contract.md) | 000 (M2) | all | In progress (M2 done) |
+| 002 | [repo-module-and-config-contract](002-repo-module-and-config-contract.md) | 000 (M2) | all | In progress (M3 done) |
 | 003 | [wire-contract](003-wire-contract.md) | 000–002 | contract | Spec ready |
 | 004 | [sdk-core](004-sdk-core.md) | 000–002 | sdk | Spec ready |
 | 005 | [event-store](005-event-store.md) | 000–003 | server | Spec ready |
@@ -54,6 +54,7 @@ SPEC-001 M2 — boundary-registry harness G-001-2: listener discovery, registrat
 SPEC-001 M3 — ledger wiring: TM-1..TM-5 derived rows, TM registration grammar, coverage-join demand (AC-4, AC-5) — PR #8
 SPEC-002 M1 — repo skeleton + license-layout guard G-002-3: go.work discovery, identity classifier, README mapping probe (AC-1) — PR #9
 SPEC-002 M2 — archtests G-002-1 (INV-19 directional imports, Guards-registered) + G-002-2 (SDK-0 proto purity) with liveness fixtures (AC-2, AC-3) — PR #10
+SPEC-002 M3 — sdk/config loader (strict INI subset, derived PM_* set, named boot failures) + G-002-4 env hygiene, G-002-5 round-trip/adoption, G-002-7 secret indirection (AC-4, AC-5, AC-7) — PR #11
 
 ## Rules
 
