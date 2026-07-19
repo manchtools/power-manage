@@ -268,10 +268,11 @@ locale lanes, the deployment E2E gate, release provenance — is SPEC-017.
   `-race`, the entire guard suite, doc-anchor checks, and generated-artifact
   freshness checks. Exit is nonzero on any failure. CI runs it on every PR;
   merge is blocked on red.
-- **[PROC-5]** Each implementation session picks exactly ONE milestone from one
-  spec's §9 and ends with a green `scripts/verify.sh`. A session never ends
-  red: finish to green or restore the last green state. Milestones are sized so
-  this is possible.
+- **[PROC-5]** A session works ONE milestone at a time, from one spec's §9,
+  and every milestone ends with a green `scripts/verify.sh` before the next
+  begins; a session that has merged its milestone green may take the next one.
+  A session never ends red: finish to green or restore the last green state.
+  Milestones are sized so this is possible.
 - **[PROC-6]** **Porting from the predecessor.** This system re-implements a
   working predecessor. When a predecessor checkout is available and its code
   already satisfies a milestone's requirements, porting that code and its

@@ -28,6 +28,24 @@ Specs are operator-approved: implement as written. Material deviation
 (behavior, new dependency, skipped guard) needs operator sign-off first.
 Mechanical spec gaps are fixed in the spec in the same PR.
 
+## Autonomous operation
+
+The specs are the operator's standing instructions — work autonomously by
+default and proceed without asking wherever they answer the question.
+
+- Resume open work first (open PR / in-flight branch: fix findings, finish to
+  merge), then take the next milestone the ledger and Builds-on order dictate.
+- Plans in `docs/plans/` need no operator sign-off unless they contain a
+  material deviation.
+- Merge your own PRs once — re-checked at merge time — every gate is green
+  and every review finding is addressed; then continue with the next
+  milestone while context allows (PROC-5).
+- Stop and ask ONLY for: material deviation from a spec; changing a recorded
+  operator decision; tags/releases or anything destructive beyond the repo;
+  a spec contradiction that is more than a mechanical gap. When blocked and
+  the operator is away, file the question as a GitHub issue and take the
+  next milestone that does not depend on the answer.
+
 Merge only after re-checking, at merge time, that every check is green and
 every review finding is addressed — never chain watch-and-merge. Review
 fixes land as their own commit naming the findings; a fixed defect gets its
