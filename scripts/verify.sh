@@ -87,6 +87,7 @@ fi
 # bypass the self-test uses when invoking this script against fixtures.
 if [ "${PM_VERIFY_SKIP_SELFTEST:-0}" != "1" ]; then
   run "scripts: verify.sh self-test" "$SCRIPT_DIR/verify_test.sh"
+  run "scripts: conventions self-test" "$SCRIPT_DIR/check-conventions_test.sh"
 fi
 
 say "result"

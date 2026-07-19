@@ -1,0 +1,143 @@
+#!/usr/bin/env bash
+# Self-test for check-conventions.sh (SPEC-002 AC-8, G-002-8): every row
+# builds a throwaway git fixture and asserts the check goes red for the
+# right reason — a conventions lint that cannot reject is not a lint.
+# This file plants the attribution patterns in fixtures and is exempt
+# from check-self-contained.sh for that reason.
+set -u -o pipefail
+
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+CHECK="$SCRIPT_DIR/check-conventions.sh"
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT
+FAIL=0
+
+ok() { printf 'ok   - %s\n' "$1"; }
+bad() { printf 'FAIL - %s\n' "$1"; FAIL=1; }
+
+# expect <0|1> <description> -- <cmd...>: assert exit code, capture output.
+expect() {
+  local want="$1" desc="$2"; shift 3
+  local out rc
+  out=$("$@" 2>&1); rc=$?
+  if [ "$rc" -eq "$want" ]; then
+    ok "$desc"
+  else
+    bad "$desc (exit $rc, want $want): $out"
+  fi
+  LAST_OUT="$out"
+}
+
+# expect_naming <substr>: the previous expect's output must name it.
+expect_naming() {
+  if grep -qF "$1" <<<"$LAST_OUT"; then
+    ok "  names $1"
+  else
+    bad "  output does not name $1: $LAST_OUT"
+  fi
+}
+
+mkrepo() {
+  local dir="$TMP/$1"
+  git init -q "$dir"
+  git -C "$dir" -c user.name=t -c user.email=t@example.invalid \
+    commit -q --allow-empty -m "chore: root"
+  echo "$dir"
+}
+
+commit() { # commit <repo> <message...>
+  local dir="$1"; shift
+  git -C "$dir" -c user.name=t -c user.email=t@example.invalid \
+    commit -q --allow-empty -m "$@"
+}
+
+# --- commits mode -----------------------------------------------------
+# pushd, not a subshell — a subshell would lose FAIL updates.
+
+r=$(mkrepo lint)
+base=$(git -C "$r" rev-parse HEAD)
+commit "$r" "feat(config): add a knob"
+commit "$r" "fix: close the gap"
+commit "$r" "docs: explain it"
+commit "$r" "revert: feat(config): add a knob"
+commit "$r" "feat!: breaking change"
+pushd "$r" >/dev/null
+expect 0 "conventional subjects pass" -- "$CHECK" commits "$base..HEAD"
+popd >/dev/null
+
+commit "$r" "fixed stuff quickly"
+badsha=$(git -C "$r" rev-parse HEAD)
+pushd "$r" >/dev/null
+expect 1 "non-conventional subject rejected [VER-2]" -- "$CHECK" commits "$base..HEAD"
+expect_naming "${badsha:0:7}"
+expect_naming "VER-2"
+popd >/dev/null
+
+r=$(mkrepo attr)
+base=$(git -C "$r" rev-parse HEAD)
+commit "$r" "feat: fine subject" -m "Co-Authored-By: Robot <bot@example.invalid>"
+pushd "$r" >/dev/null
+expect 1 "attribution trailer in a commit rejected [META-4]" -- "$CHECK" commits "$base..HEAD"
+expect_naming "META-4"
+popd >/dev/null
+
+r=$(mkrepo genattr)
+base=$(git -C "$r" rev-parse HEAD)
+commit "$r" "feat: fine subject" -m "Generated with SomeBot Code"
+pushd "$r" >/dev/null
+expect 1 "generated-with phrasing in a commit rejected [META-4]" -- "$CHECK" commits "$base..HEAD"
+popd >/dev/null
+
+r=$(mkrepo empty)
+head=$(git -C "$r" rev-parse HEAD)
+pushd "$r" >/dev/null
+expect 1 "zero commits examined fails — G-002-8 floor" -- "$CHECK" commits "$head..$head"
+expect_naming "G-002-8"
+popd >/dev/null
+
+# --- tag mode ---------------------------------------------------------
+
+expect 0 "well-formed tag passes [VER-1]" -- "$CHECK" tag "v2026.07.01"
+for t in v1.2.3 v2026.7.1 2026.07.01 v2026.13.01 v2026.07.1; do
+  expect 1 "malformed tag $t rejected [VER-1]" -- "$CHECK" tag "$t"
+done
+
+# --- pr-body mode -----------------------------------------------------
+
+printf 'A clean body.\n' > "$TMP/body-clean.txt"
+expect 0 "clean PR body passes" -- "$CHECK" pr-body-file "$TMP/body-clean.txt"
+
+printf 'Nice change.\n\nCo-Authored-By: Robot <bot@example.invalid>\n' > "$TMP/body-attr.txt"
+expect 1 "attribution in the PR body rejected [META-4]" -- "$CHECK" pr-body-file "$TMP/body-attr.txt"
+
+printf 'Done.\n\n\xF0\x9F\xA4\x96 Generated with SomeBot Code\n' > "$TMP/body-robot.txt"
+expect 1 "robot-emoji footer in the PR body rejected [META-4]" -- "$CHECK" pr-body-file "$TMP/body-robot.txt"
+
+# --- ci-commits mode (range resolution for workflow context) ----------
+
+r=$(mkrepo cirange)
+base=$(git -C "$r" rev-parse HEAD)
+commit "$r" "feat: first"
+commit "$r" "totally not conventional"
+head=$(git -C "$r" rev-parse HEAD)
+pushd "$r" >/dev/null
+expect 1 "ci-commits with a valid base lints the whole range" -- "$CHECK" ci-commits "$base" "$head"
+expect_naming "VER-2"
+expect 1 "ci-commits with an unknown base falls back to the head commit" -- "$CHECK" ci-commits "0000000000000000000000000000000000000000" "$head"
+expect 1 "ci-commits with an empty base falls back to the head commit" -- "$CHECK" ci-commits "" "$head"
+git -C "$r" -c user.name=t -c user.email=t@example.invalid \
+  commit -q --allow-empty -m "fix: conforming head"
+goodhead=$(git -C "$r" rev-parse HEAD)
+expect 0 "ci-commits fallback passes on a conforming head commit" -- "$CHECK" ci-commits "" "$goodhead"
+popd >/dev/null
+
+# --- usage ------------------------------------------------------------
+
+expect 2 "unknown mode is a usage error, not a pass" -- "$CHECK" frobnicate
+
+echo
+if [ "$FAIL" -ne 0 ]; then
+  echo "check-conventions_test: FAILED"
+  exit 1
+fi
+echo "check-conventions_test: OK"

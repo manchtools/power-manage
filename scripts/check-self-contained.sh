@@ -21,7 +21,8 @@ for p in "${PATTERNS[@]}"; do
   hits=$(grep -rInE "$p" . \
     --exclude-dir=.git --exclude-dir=.claude --exclude-dir=node_modules \
     --exclude-dir=bin --exclude-dir=dist \
-    --exclude=CLAUDE.md --exclude=.gitignore --exclude=check-self-contained.sh)
+    --exclude=CLAUDE.md --exclude=.gitignore --exclude=check-self-contained.sh \
+    --exclude=check-conventions.sh --exclude=check-conventions_test.sh)
   rc=$?
   if [ "$rc" -gt 1 ]; then
     printf '\nGUARD ERROR: grep failed (exit %s) on pattern: %s\n' "$rc" "$p"

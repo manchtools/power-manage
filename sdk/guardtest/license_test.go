@@ -22,6 +22,24 @@ func TestGuard_LicenseLayout(t *testing.T) {
 	}
 }
 
+// TestGuard_ContractManifestLicense is AC-9 (SPEC-002 [LIC-4]): the
+// contract module's TS package manifest declares MIT — the published
+// package must carry the contract's license; publication mechanics are
+// SPEC-017's.
+func TestGuard_ContractManifestLicense(t *testing.T) {
+	root := RepoRoot(t)
+	lics := Discover(t, "contract TS manifest license", 1, func() ([]string, error) {
+		lic, err := contractManifestLicense(root)
+		if err != nil {
+			return nil, err
+		}
+		return []string{lic}, nil
+	})
+	if len(lics) != 1 || lics[0] != "MIT" {
+		t.Errorf("contract/package.json license = %v, want exactly MIT [LIC-4]", lics)
+	}
+}
+
 // TestGuard_LicenseLayout_Liveness: the bad fixture plants every violation
 // class — missing module LICENSE, wrong-identity LICENSE, unclassified
 // fifth module, top-level LICENSE, missing README row, missing grant — and

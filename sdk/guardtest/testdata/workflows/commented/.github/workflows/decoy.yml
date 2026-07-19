@@ -8,3 +8,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: echo noop
+# It also used to run scripts/check-conventions.sh commits on PRs.
