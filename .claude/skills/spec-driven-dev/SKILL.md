@@ -37,7 +37,11 @@ order; `docs/content/01-specs/00-index.md` is the status ledger.
    first), then re-run the `reviewer` agent on the post-fix diff — new
    findings mean another fix round; merge only on a clean re-review. Poll
    CI to completion, and merge yourself once — re-checked at
-   merge time — every gate is green and every finding is addressed. Then
+   merge time — every gate is green and every finding is addressed:
+   `gh pr merge <n> --rebase --delete-branch`. The method flag is
+   mandatory — headless gh cannot prompt for one and errors without it;
+   never `--auto` (disabled on the repo: merge-time re-checking is the
+   point). Then
    return to step 1 and take the next milestone while context allows.
 
 ## Deviation rules
