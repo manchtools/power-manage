@@ -75,8 +75,13 @@ Minimum prior knowledge, restated:
   - Upload-time metadata rides the artifact row (e.g. detected package format
     for PACKAGE_FILE — file magic evaluated at upload, SPEC-014).
   - The size cap is enforced at upload against the binary's typed config
-    (SPEC-002). DECISION NEEDED (operator): the default and maximum blob size
-    cap values.
+    (SPEC-002). Default: 1 GiB; hard maximum: 8 GiB. Rationale: the largest
+    legitimate blob class is a vendor `PACKAGE_FILE` payload (multi-hundred-MB
+    `.deb`/`.rpm` bundles); upload and fetch are chunked, so the cap protects
+    Postgres row and backup growth, not memory. Operators shipping larger
+    vendor bundles raise the knob explicitly (INV-18 knob rationale, SPEC-002);
+    beyond the hard maximum, the object-storage seam — not a bigger `bytea` —
+    is the answer.
 
 ### 3.2 Blob-class references and the inline exception
 

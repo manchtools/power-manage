@@ -184,7 +184,7 @@ first group.
 | ID | Type | Contract |
 |---|---|---|
 | [ACT-19] | `ENCRYPTION` | LUKS only — no other backend enum values exist (WIRE-4). PSK bootstrap slot: consumed and wiped after the first managed rotation. Managed word-passphrase slot rotated on schedule; the NEW slot is server-round-trip-verified before the old one is wiped (a device is never left with zero working managed slots). Optional device-bound key: TPM2 (PCRs 7+14, best-effort) or `USER_PASSPHRASE` in slot 7 enrolled via luksd (AG-19, SPEC-013). Passphrases move only under sealed transport (WIRE-23; SPEC-015). `ABSENT` removes agent-side state only — it never strips LUKS slots. |
-| [ACT-20] | `WIFI` | NetworkManager only. PSK (WPA2/3) or EAP-TLS profile named `pm-wifi-<id>`; configuration-only (profile management, not radio state). INI values are injection-rejected before write (SDK-11, SPEC-004); certificate/key files land mode 0600. The PSK cannot be read back for diffing; the resulting rewrite/`changed` semantics are DOCUMENTED contract, not a surprise. |
+| [ACT-20] | `WIFI` | NetworkManager only. PSK (WPA2/3) or EAP-TLS profile named `pm-wifi-<id>`; configuration-only (profile management, not radio state). INI values are injection-rejected before write (SDK-11, SPEC-004); certificate/key files land mode 0600. PSK and EAP-TLS key material transit sealed device-directed (SEC-11, SPEC-015). The PSK cannot be read back for diffing; the resulting rewrite/`changed` semantics are DOCUMENTED contract, not a surprise. |
 
 **Lifecycle**
 

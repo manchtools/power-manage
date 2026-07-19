@@ -224,6 +224,11 @@ crypto gap in the old system.
   binding (device|action|username, or device|action). The relay sees only opaque
   blobs. The control-side sealing public key is delivered CA-signed (the
   `lps-pubkey` command type).
+  Control-originated inline action-field secrets (WIFI PSK, EAP-TLS key
+  material) travel the same envelope in the opposite direction: sealed at
+  dispatch-mint time to the device's enrollment-registered X25519 public key,
+  under a dedicated domain with device | action | field context binding.
+  Surface registry and device key lifecycle: (SEC-11, SPEC-015).
 - **[WIRE-24]** **No plaintext secret ever transits the gateway in either
   direction.** Every gateway-proxied secret RPC carries sealed blobs; control
   unseals only at its own edge (admin retrieval over B1 TLS+JWT, which never

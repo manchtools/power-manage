@@ -73,7 +73,7 @@ the same change that introduces it.
 | Registration/enrollment tokens | Control | Stdin or `--token-file` only (AG-17, SPEC-013) | SHA-256 hash | Shown once at mint |
 | SCIM bearer tokens | Control | — | bcrypt hash (AUTH-7, SPEC-007) | Shown once at mint |
 | API tokens (PATs), refresh tokens | Control | — | Hashed (AUTH-9, SPEC-007) | Shown once at mint |
-| WIFI PSK / EAP-TLS key material | Operator | Inline action fields inside the signed command (see [SEC-11]) | `enc:v1` mandate + AUD-3 redaction | Never returned after write |
+| WIFI PSK / EAP-TLS key material | Operator | Sealed device-directed inline fields inside the signed command (see [SEC-11]) | `enc:v1` mandate + AUD-3 redaction | Never returned after write |
 
 Secrets stored as hashes are compared in constant time and are never
 recoverable; secrets stored as `enc:v1` ciphertext are recoverable only through
@@ -88,6 +88,7 @@ The envelope of (WIRE-23, SPEC-003) is used by exactly these flows:
 | LPS password escrow | device→control | `power-manage-lps-password:v1` | device \| action \| username |
 | LUKS passphrase escrow | device→control | `power-manage-luks-passphrase:v1` | device \| action |
 | USER temporary password escrow | device→control | `power-manage-user-temp-password:v1` | device \| action \| username |
+| Inline action-field secrets (WIFI PSK, EAP-TLS key material) | control→device | `power-manage-action-field-secret:v1` | device \| action \| field |
 
 Rules:
 
@@ -243,13 +244,31 @@ the `enc:v1` at-rest mandate, enumerated in the AUD-3 redaction schema, written
 by the agent with mode 0600, and delivered inside the CA-signed command over the
 B4/B6 mTLS seams.
 
-DECISION NEEDED (operator): the wire contract's rule that no plaintext secret
-transits the gateway is elaborated only for escrow flows and gateway-proxied
-secret RPCs. Inline secret fields (WIFI PSK, EAP-TLS client key) transit the
-relay inside signed — but relay-readable — command payloads. Decide whether
-these fields additionally require device-directed sealing (implying a device
-X25519 key lifecycle) or whether relay visibility of operator-authored network
-credentials is accepted and documented against actor 4.
+The rule of (WIRE-24, SPEC-003) is unqualified — no plaintext secret ever
+transits the gateway in either direction — so these fields transit SEALED,
+device-directed, inside the signed command:
+
+- At enrollment, and again at every certificate renewal, the agent generates an
+  X25519 sealing keypair beside its mTLS key and submits the public key with
+  the CSR; control stores it on the device record, bound to the certificate
+  identity (PKI-2, SPEC-006). The private key never leaves the device and
+  follows the same custody rules as the mTLS key (0600, root).
+- Control seals the enumerated fields at dispatch-mint time — commands are
+  already minted and signed per device, so per-device sealing adds no new
+  fan-out path — under the `power-manage-action-field-secret:v1` domain with
+  device | action | field context binding ([SEC-2]).
+- The gateway relays opaque ciphertext. The agent unseals at apply time, after
+  command signature verification, and only in memory — the sealed form is what
+  persists in the agent's action buffer.
+- A dispatch sealed to a superseded device key fails to open, fails the action
+  honestly, and self-heals on re-dispatch: control always seals to the
+  currently registered key, and key rotation is atomic on the device record at
+  renewal.
+- At rest on control these fields remain under the `enc:v1` mandate ([SEC-7]) —
+  control must re-seal them for future dispatches, so device-directed sealing
+  replaces nothing at rest.
+- Per-device ciphertext also removes the cross-device content-equality leak
+  that ruled out content-addressing these fields (ART-2, SPEC-010).
 
 ## 4. Acceptance criteria
 
@@ -289,6 +308,10 @@ credentials is accepted and documented against actor 4.
   fixtures.
 - **AC-15** Boot with a missing at-rest encryption key fails; no code path
   writes a classified secret column in plaintext.
+- **AC-16** A WIFI dispatch captured at the gateway contains no plaintext PSK
+  or EAP-TLS key material; the agent unseals and applies it; an agent whose
+  sealing keypair does not match the registered public key fails the action
+  with no partial profile write.
 
 ## 5. Rejection paths
 
@@ -299,6 +322,7 @@ credentials is accepted and documented against actor 4.
 | Empty key material or empty plaintext/ciphertext at seal/open | Symmetric rejection (WIRE-25, SPEC-003) |
 | Agent has no CA-verified sealing public key | Secret-producing operation fails closed; account state unchanged |
 | Sealing key delivered outside signed material | Agent refuses the key (WIRE-17, SPEC-003) |
+| Inline action-field secret sealed to a superseded device key | Unseal fails; action fails honestly; re-dispatch under the current key succeeds |
 | Escrow report fails device-signature verification | Reject before opening; drop + log |
 | Escrow report resolves to zero rows for the signing device | Drop + log (WIRE-21, SPEC-003) |
 | LUKS round-trip confirmation absent at rotation | Old slot NOT wiped; rotation defers |
