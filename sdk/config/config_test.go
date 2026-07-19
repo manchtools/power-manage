@@ -83,15 +83,16 @@ func TestLoad_FileRejections(t *testing.T) {
 		name    string
 		content string
 		wants   []string
+		bans    []string
 	}{
-		{"unknown key", "[server]\nbogus_knob = 1\n", []string{"unknown key", "server.bogus_knob"}},
-		{"unknown section", "[nope]\nx = 1\n", []string{"unknown section", "nope"}},
-		{"malformed line", "[server]\nlisten_addr = :1\nwhat is this\n", []string{"malformed", ":3:"}},
-		{"duplicate key", "[server]\nmax_conns = 1\nmax_conns = 2\n", []string{"duplicate key", "server.max_conns"}},
-		{"duplicate section", "[server]\nmax_conns = 1\n[log]\nformat = x\n[server]\nhttp_port = 1\n", []string{"duplicate section", "server"}},
-		{"key before section", "listen_addr = :1\n", []string{"before any", "listen_addr"}},
-		{"bad int value", "[server]\nmax_conns = many\n", []string{"server.max_conns", "many"}},
-		{"bad bool value", "[log]\nverbose = maybe\n", []string{"log.verbose", "maybe"}},
+		{"unknown key", "[server]\nbogus_knob = 1\n", []string{"unknown key", "server.bogus_knob"}, nil},
+		{"unknown section", "[nope]\nx = 1\n", []string{"unknown section", "nope"}, nil},
+		{"malformed line", "[server]\nlisten_addr = :1\nwhat is this\n", []string{"malformed", ":3:"}, nil},
+		{"duplicate key", "[server]\nmax_conns = 1\nmax_conns = 2\n", []string{"duplicate key", "server.max_conns"}, nil},
+		{"duplicate section", "[server]\nmax_conns = 1\n[log]\nformat = x\n[server]\nhttp_port = 1\n", []string{"duplicate section", "server"}, nil},
+		{"key before section", "listen_addr = :1\n", []string{"before any", "listen_addr"}, nil},
+		{"bad int value", "[server]\nmax_conns = many\n", []string{"server.max_conns", "not an integer"}, []string{"many"}},
+		{"bad bool value", "[log]\nverbose = maybe\n", []string{"log.verbose", "not a bool"}, []string{"maybe"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -105,6 +106,11 @@ func TestLoad_FileRejections(t *testing.T) {
 					t.Errorf("error %q does not name %q", err, w)
 				}
 			}
+			for _, b := range tc.bans {
+				if strings.Contains(err.Error(), b) {
+					t.Errorf("error %q echoes the config value %q — a fat-fingered secret would land in boot logs", err, b)
+				}
+			}
 		})
 	}
 }
@@ -115,12 +121,13 @@ func TestLoad_EnvRejections(t *testing.T) {
 		envVar string
 		val    string
 		wants  []string
+		bans   []string
 	}{
-		{"unknown PM_ variable", "PM_BOGUS_KNOB", "x", []string{"PM_BOGUS_KNOB", "unrecognized"}},
-		{"near-miss name", "PM_SERVER_LISTENADDR", ":1", []string{"PM_SERVER_LISTENADDR", "unrecognized"}},
-		{"bare PM_", "PM_", "x", []string{"unrecognized"}},
-		{"bad int value", "PM_SERVER_MAX_CONNS", "many", []string{"PM_SERVER_MAX_CONNS", "many"}},
-		{"bad bool value", "PM_LOG_VERBOSE", "maybe", []string{"PM_LOG_VERBOSE", "maybe"}},
+		{"unknown PM_ variable", "PM_BOGUS_KNOB", "x", []string{"PM_BOGUS_KNOB", "unrecognized"}, nil},
+		{"near-miss name", "PM_SERVER_LISTENADDR", ":1", []string{"PM_SERVER_LISTENADDR", "unrecognized"}, nil},
+		{"bare PM_", "PM_", "x", []string{"unrecognized"}, nil},
+		{"bad int value", "PM_SERVER_MAX_CONNS", "many", []string{"PM_SERVER_MAX_CONNS", "not an integer"}, []string{"many"}},
+		{"bad bool value", "PM_LOG_VERBOSE", "maybe", []string{"PM_LOG_VERBOSE", "not a bool"}, []string{"maybe"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -133,6 +140,11 @@ func TestLoad_EnvRejections(t *testing.T) {
 			for _, w := range tc.wants {
 				if !strings.Contains(err.Error(), w) {
 					t.Errorf("error %q does not name %q", err, w)
+				}
+			}
+			for _, b := range tc.bans {
+				if strings.Contains(err.Error(), b) {
+					t.Errorf("error %q echoes the environment value %q — a fat-fingered secret would land in boot logs", err, b)
 				}
 			}
 		})

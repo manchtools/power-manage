@@ -197,7 +197,9 @@ func applyEnv(v reflect.Value, byEnv map[string]field) error {
 }
 
 // setField parses raw per the field's kind; where names the offender for
-// the boot error.
+// the boot error. The value itself is never echoed — a fat-fingered
+// secret must not land in boot logs (go-security: no secrets in error
+// messages).
 func setField(v reflect.Value, f field, raw, where string) error {
 	target := v.Elem().Field(f.section).Field(f.key)
 	switch f.kind {
@@ -206,13 +208,13 @@ func setField(v reflect.Value, f field, raw, where string) error {
 	case reflect.Int:
 		n, err := strconv.Atoi(strings.TrimSpace(raw))
 		if err != nil {
-			return fmt.Errorf("%s: value %q is not an integer", where, raw)
+			return fmt.Errorf("%s: not an integer", where)
 		}
 		target.SetInt(int64(n))
 	case reflect.Bool:
 		b, err := strconv.ParseBool(strings.TrimSpace(raw))
 		if err != nil {
-			return fmt.Errorf("%s: value %q is not a bool", where, raw)
+			return fmt.Errorf("%s: not a bool (want true/false)", where)
 		}
 		target.SetBool(b)
 	}
