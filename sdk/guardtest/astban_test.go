@@ -63,6 +63,20 @@ func TestBannedCalls_CtxBackgroundFixture(t *testing.T) {
 	requireFlagged(t, v, []string{"bad.go:7"}, []string{"clean.go"})
 }
 
+func TestBannedCalls_GenericInstantiationFixture(t *testing.T) {
+	RequireViolation(t, "generic-call ban", func(root string) ([]string, error) {
+		return BannedCalls(root, "example.com/registry", "Make")
+	}, "testdata/astban/generic")
+
+	v, err := BannedCalls("testdata/astban/generic", "example.com/registry", "Make")
+	if err != nil {
+		t.Fatalf("scanning the generic fixture: %v", err)
+	}
+	// IndexExpr (one type arg) and IndexListExpr (two) call sites; the
+	// same package's other symbol stays unflagged.
+	requireFlagged(t, v, []string{"bad.go:8", "bad.go:10"}, []string{"clean.go"})
+}
+
 func TestBannedImports_MathRandFixture(t *testing.T) {
 	RequireViolation(t, "math/rand ban", func(root string) ([]string, error) {
 		return BannedImports(root, "math/rand")
