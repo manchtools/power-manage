@@ -26,6 +26,21 @@ never round a partial run up to "verified".
 - When piping, use `set -o pipefail` / check `PIPESTATUS[0]` — otherwise the
   pipe reports the grep's exit code, not the build's.
 
+## Gate scripts fail closed
+
+A check script with a quietly disabled stage is fail-open — the worst kind,
+because it keeps printing OK. In verify/CI/guard scripts:
+
+- No `|| true`, no `2>/dev/null`, no unchecked `$(...)` on a check's only
+  error signal; every stage records its own FAIL on a nonzero exit.
+- A required tool that is missing FAILS the gate — never a silent skip.
+- Discovery-driven stages (module walks, package lists) carry a matches-zero
+  floor: discovering less than the known population fails the gate.
+- The gate has a self-test against fixtures (planted failure turns it red),
+  run as a gate stage itself.
+  <!-- lesson: the scaffold's gofmt stage swallowed parse errors via
+       2>/dev/null + || true; caught only in PR #1 review -->
+
 ## Red checks
 
 - Prove a test can fail: neutralize the code under test with a scoped edit

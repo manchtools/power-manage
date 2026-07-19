@@ -28,6 +28,11 @@ Specs are operator-approved: implement as written. Material deviation
 (behavior, new dependency, skipped guard) needs operator sign-off first.
 Mechanical spec gaps are fixed in the spec in the same PR.
 
+Merge only after re-checking, at merge time, that every check is green and
+every review finding is addressed — never chain watch-and-merge. Review
+fixes land as their own commit naming the findings; a fixed defect gets its
+regression test proven red first.
+
 ## Model tiering and test authorship
 
 - Plan on Opus, implement on Sonnet (`--model opusplan`).
