@@ -66,4 +66,6 @@ because it keeps printing OK. In verify/CI/guard scripts:
   one commit rather than a dribble.
 - A "passed" from an external reviewer that actually errored or was
   rate-limited is a fake skip — read the review body, not just the check
-  status.
+  status. When that happens, say so in the PR (one line: which review was
+  skipped and what covered it instead, e.g. the local run) — otherwise the
+  green check stands in for a review that never happened at merge time.
