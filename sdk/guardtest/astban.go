@@ -107,8 +107,18 @@ func BannedCalls(root, pkgPath, fn string, allow ...string) ([]string, error) {
 			if !ok {
 				return true
 			}
+			// An explicitly instantiated generic call wraps the callee in
+			// IndexExpr / IndexListExpr — unwrap so the ban is not
+			// bypassable by instantiation.
+			fun := call.Fun
+			switch idx := fun.(type) {
+			case *ast.IndexExpr:
+				fun = idx.X
+			case *ast.IndexListExpr:
+				fun = idx.X
+			}
 			flagged := false
-			switch f := call.Fun.(type) {
+			switch f := fun.(type) {
 			case *ast.Ident:
 				flagged = dot && f.Name == fn
 			case *ast.SelectorExpr:
