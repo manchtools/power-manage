@@ -76,11 +76,12 @@ func TestGuard_EnvHygiene_Liveness(t *testing.T) {
 		t.Fatalf("scanning the env fixture: %v", err)
 	}
 	requireFlagged(t, v, []string{
-		"plain.go:8",  // os.Getenv in a function body
-		"plain.go:11", // os.ExpandEnv in a var initializer
-		"alias.go:8",  // aliased osx.LookupEnv
-		"alias.go:12", // parenthesized (osx.Environ)()
-		"dot.go:8",    // dot-imported Getenv
+		"plain.go:8",   // os.Getenv in a function body
+		"plain.go:11",  // os.ExpandEnv in a var initializer
+		"alias.go:8",   // aliased osx.LookupEnv
+		"alias.go:12",  // parenthesized (osx.Environ)()
+		"dot.go:8",     // dot-imported Getenv
+		"closure.go:9", // read inside a closure, attributed to viaClosure
 	}, []string{"clean.go"})
 }
 
