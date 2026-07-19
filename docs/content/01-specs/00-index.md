@@ -16,7 +16,7 @@ spec's own header, which is authoritative.
 
 | # | Spec | Builds on | Module(s) | Status |
 |---|------|-----------|-----------|--------|
-| 000 | [development-process](000-development-process.md) | — | all | In progress (M3 done) |
+| 000 | [development-process](000-development-process.md) | — | all | Implemented |
 | 001 | [architecture-and-trust-model](001-architecture-and-trust-model.md) | 000 (M2–M3) | all | Spec ready |
 | 002 | [repo-module-and-config-contract](002-repo-module-and-config-contract.md) | 000 (M2) | all | Spec ready |
 | 003 | [wire-contract](003-wire-contract.md) | 000–002 | contract | Spec ready |
@@ -48,6 +48,7 @@ SPEC-NNN M<k> — <one-line summary> — <commit/PR>
 SPEC-000 M1 — self-discovering verify gate (module walk + floor, -race, self-test) — PR #1
 SPEC-000 M2 — guard harness sdk/guardtest (Discover + matches-zero, liveness pattern, G-000-3) — PR #2
 SPEC-000 M3 — derived invariant registry + coverage join G-000-1 + CI-lane guard G-000-2 (AC-5) — PR #3
+SPEC-000 M4 — portable AST-guard library (clock, ctx, imports, sentinel, enum-default) with fixture self-tests (AC-7) — PR #4
 
 ## Rules
 

@@ -1,14 +1,9 @@
 package guardtest
 
 import (
-	"fmt"
 	"go/ast"
-	"go/parser"
 	"go/token"
-	"io/fs"
-	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"testing"
 )
@@ -21,35 +16,12 @@ import (
 // is co-located with the guard). Entries are "relpath:FuncName".
 func guardInventory(root string) (all, bad []string, guardsByInv map[string][]string, err error) {
 	guardsByInv = map[string][]string{}
-	fset := token.NewFileSet()
-	err = filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if d.IsDir() {
-			// The fixture root itself may live under a testdata directory;
-			// only descents below root are pruned.
-			if path != root && (d.Name() == "testdata" || strings.HasPrefix(d.Name(), ".")) {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if !strings.HasSuffix(d.Name(), "_test.go") {
-			return nil
-		}
-		file, perr := parser.ParseFile(fset, path, nil, parser.ParseComments)
-		if perr != nil {
-			return fmt.Errorf("parse %s: %w", path, perr)
-		}
-		rel, rerr := filepath.Rel(root, path)
-		if rerr != nil {
-			return fmt.Errorf("rel %s: %w", path, rerr)
-		}
+	err = walkGoFiles(root, true, func(rel string, _ *token.FileSet, file *ast.File) error {
 		// The harness package's own files call the helpers unqualified;
 		// everywhere else the call must resolve through an import of the
 		// real harness path.
 		inHarnessPkg := file.Name.Name == "guardtest" &&
-			strings.HasPrefix(filepath.ToSlash(rel), "sdk/guardtest/")
+			strings.HasPrefix(rel, "sdk/guardtest/")
 		for _, decl := range file.Decls {
 			fn, ok := decl.(*ast.FuncDecl)
 			if !ok || fn.Recv != nil || !strings.HasPrefix(fn.Name.Name, "TestGuard_") {
@@ -95,39 +67,16 @@ func guardRegistrations(doc *ast.CommentGroup) []string {
 	return nil
 }
 
-// harnessRefs returns the local identifiers through which file can reach the
-// real harness: names bound to an import of guardtestImportPath, and whether
-// a dot-import makes unqualified calls resolve to it.
-func harnessRefs(file *ast.File) (names map[string]bool, dotImported bool) {
-	names = map[string]bool{}
-	for _, imp := range file.Imports {
-		path, err := strconv.Unquote(imp.Path.Value)
-		if err != nil || path != guardtestImportPath {
-			// An unquotable path literal cannot be the harness import;
-			// either way this import is not a harness ref.
-			continue
-		}
-		switch {
-		case imp.Name == nil:
-			names["guardtest"] = true
-		case imp.Name.Name == ".":
-			dotImported = true
-		default:
-			names[imp.Name.Name] = true
-		}
-	}
-	return names, dotImported
-}
-
 // callsHarness reports whether fn's body calls a harness helper that
 // actually resolves to this package — a same-named helper from an unrelated
 // import or a shadowing local declaration does not count (G-000-3 would
-// otherwise be bypassable by naming).
+// otherwise be bypassable by naming). Import resolution is shared with the
+// AST-guard library (importAliases, astban.go).
 func callsHarness(file *ast.File, fn *ast.FuncDecl, inHarnessPkg bool) bool {
 	if fn.Body == nil {
 		return false
 	}
-	names, dotImported := harnessRefs(file)
+	names, dotImported := importAliases(file, guardtestImportPath)
 	found := false
 	ast.Inspect(fn.Body, func(n ast.Node) bool {
 		call, ok := n.(*ast.CallExpr)
