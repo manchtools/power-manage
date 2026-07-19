@@ -17,7 +17,7 @@ spec's own header, which is authoritative.
 | # | Spec | Builds on | Module(s) | Status |
 |---|------|-----------|-----------|--------|
 | 000 | [development-process](000-development-process.md) | — | all | Implemented |
-| 001 | [architecture-and-trust-model](001-architecture-and-trust-model.md) | 000 (M2–M3) | all | In progress (M1 done) |
+| 001 | [architecture-and-trust-model](001-architecture-and-trust-model.md) | 000 (M2–M3) | all | In progress (M2 done) |
 | 002 | [repo-module-and-config-contract](002-repo-module-and-config-contract.md) | 000 (M2) | all | Spec ready |
 | 003 | [wire-contract](003-wire-contract.md) | 000–002 | contract | Spec ready |
 | 004 | [sdk-core](004-sdk-core.md) | 000–002 | sdk | Spec ready |
@@ -50,6 +50,7 @@ SPEC-000 M2 — guard harness sdk/guardtest (Discover + matches-zero, liveness p
 SPEC-000 M3 — derived invariant registry + coverage join G-000-1 + CI-lane guard G-000-2 (AC-5) — PR #3
 SPEC-000 M4 — portable AST-guard library (clock, ctx, imports, sentinel, enum-default) with fixture self-tests (AC-7) — PR #4
 SPEC-001 M1 — storage-dependency + gateway-purity guards, B1–B11 machine-readable registry (AC-1, AC-3) — PR #6
+SPEC-001 M2 — boundary-registry harness G-001-2: listener discovery, registration API, exact-set join (AC-2) — PR #7
 
 ## Rules
 
