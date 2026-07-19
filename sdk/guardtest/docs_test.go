@@ -23,6 +23,7 @@ func TestGuard_ConfigReads_Liveness(t *testing.T) {
 			"reportConfig.CacheSection.TTL",
 			"reportConfig.Ext",
 			"reportConfig.RemoteSection",
+			"reportConfig.winSection",
 		},
 		[]string{
 			"reportConfig.Tuning.UsedKnob",

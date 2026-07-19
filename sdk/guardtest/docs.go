@@ -126,7 +126,8 @@ func ConfigReadViolations(root, structName string) ([]string, error) {
 }
 
 // embeddedTypeName names an embedded field by its type — the same name
-// derive gives the section.
+// derive gives the section. Generic instantiations resolve to their base
+// name, matching reflect.
 func embeddedTypeName(t ast.Expr) string {
 	switch tt := t.(type) {
 	case *ast.Ident:
@@ -134,6 +135,10 @@ func embeddedTypeName(t ast.Expr) string {
 	case *ast.SelectorExpr:
 		return tt.Sel.Name
 	case *ast.StarExpr:
+		return embeddedTypeName(tt.X)
+	case *ast.IndexExpr:
+		return embeddedTypeName(tt.X)
+	case *ast.IndexListExpr:
 		return embeddedTypeName(tt.X)
 	}
 	return ""
