@@ -37,7 +37,8 @@ type ListenerSite struct {
 // through imports of the keyed import path.
 var listenerPkgFuncs = map[string]map[string]bool{
 	"net": {"Listen": true, "ListenTCP": true, "ListenUDP": true, "ListenIP": true,
-		"ListenUnix": true, "ListenUnixgram": true, "ListenPacket": true, "FileListener": true},
+		"ListenUnix": true, "ListenUnixgram": true, "ListenPacket": true,
+		"ListenMulticastUDP": true, "FileListener": true, "FilePacketConn": true},
 	"crypto/tls": {"Listen": true, "NewListener": true},
 	"net/http":   {"ListenAndServe": true, "ListenAndServeTLS": true, "Serve": true, "ServeTLS": true},
 }
@@ -80,69 +81,105 @@ func ListenerSites(root string) ([]ListenerSite, error) {
 			}
 		}
 		for _, decl := range file.Decls {
-			name, body := declNameAndNode(decl)
-			if body == nil {
-				continue
-			}
-			ast.Inspect(body, func(n ast.Node) bool {
-				call, ok := n.(*ast.CallExpr)
-				if !ok {
-					return true
-				}
-				flagged := false
-				switch f := unwrapExpr(call.Fun).(type) {
-				case *ast.Ident:
-					for _, r := range refs {
-						if r.dot && r.funcs[f.Name] {
-							flagged = true
-						}
+			for _, u := range declUnits(decl) {
+				name := u.name
+				ast.Inspect(u.node, func(n ast.Node) bool {
+					call, ok := n.(*ast.CallExpr)
+					if !ok {
+						return true
 					}
-				case *ast.SelectorExpr:
-					if id, ok := f.X.(*ast.Ident); ok {
+					flagged := false
+					switch f := unwrapExpr(call.Fun).(type) {
+					case *ast.Ident:
 						for _, r := range refs {
-							if r.names[id.Name] && r.funcs[f.Sel.Name] {
+							if r.dot && r.funcs[f.Name] {
 								flagged = true
 							}
 						}
-						if !flagged && !imported[id.Name] && serveMethodNames[f.Sel.Name] {
+					case *ast.SelectorExpr:
+						if id, ok := f.X.(*ast.Ident); ok {
+							for _, r := range refs {
+								if r.names[id.Name] && r.funcs[f.Sel.Name] {
+									flagged = true
+								}
+							}
+							if !flagged && !imported[id.Name] && serveMethodNames[f.Sel.Name] {
+								flagged = true
+							}
+						} else if serveMethodNames[f.Sel.Name] {
 							flagged = true
 						}
-					} else if serveMethodNames[f.Sel.Name] {
-						flagged = true
 					}
-				}
-				if flagged {
-					sites = append(sites, ListenerSite{
-						Pos: fmt.Sprintf("%s:%d", rel, fset.Position(call.Pos()).Line),
-						Key: rel + ":" + name,
-					})
-				}
-				return true
-			})
+					if flagged {
+						sites = append(sites, ListenerSite{
+							Pos: fmt.Sprintf("%s:%d", rel, fset.Position(call.Pos()).Line),
+							Key: rel + ":" + name,
+						})
+					}
+					return true
+				})
+			}
 		}
 		return nil
 	})
 	return sites, err
 }
 
-// declNameAndNode returns the registration name and inspectable node for a
-// top-level declaration: a function's name and body, or a var/const spec's
-// first name (closures assigned at file scope register under the var name).
-func declNameAndNode(decl ast.Decl) (string, ast.Node) {
+// declUnit is one registration unit of a top-level declaration: its key name
+// and the node whose calls it owns.
+type declUnit struct {
+	name string
+	node ast.Node
+}
+
+// declUnits splits a top-level declaration into registration units: a
+// function's body under its name (methods qualified as "(T).name" so
+// same-named methods on different types stay distinct), and each var/const
+// spec's values under that spec's own first name.
+// ponytail: multiple init functions, and multi-name specs (a, b = f, g),
+// still collapse to one key — split the declaration if that ever matters.
+func declUnits(decl ast.Decl) []declUnit {
 	switch d := decl.(type) {
 	case *ast.FuncDecl:
 		if d.Body == nil {
-			return "", nil
+			return nil
 		}
-		return d.Name.Name, d.Body
+		name := d.Name.Name
+		if d.Recv != nil && len(d.Recv.List) > 0 {
+			name = "(" + receiverTypeName(d.Recv.List[0].Type) + ")." + name
+		}
+		return []declUnit{{name, d.Body}}
 	case *ast.GenDecl:
+		var units []declUnit
 		for _, spec := range d.Specs {
-			if vs, ok := spec.(*ast.ValueSpec); ok && len(vs.Names) > 0 && len(vs.Values) > 0 {
-				return vs.Names[0].Name, d
+			vs, ok := spec.(*ast.ValueSpec)
+			if !ok || len(vs.Names) == 0 {
+				continue
+			}
+			for _, val := range vs.Values {
+				units = append(units, declUnit{vs.Names[0].Name, val})
 			}
 		}
+		return units
 	}
-	return "", nil
+	return nil
+}
+
+// receiverTypeName renders a method receiver's type for the registration key:
+// Ident, pointer, and generic (IndexExpr/IndexListExpr) receivers reduce to
+// the named type, "*" preserved.
+func receiverTypeName(e ast.Expr) string {
+	switch t := e.(type) {
+	case *ast.Ident:
+		return t.Name
+	case *ast.StarExpr:
+		return "*" + receiverTypeName(t.X)
+	case *ast.IndexExpr:
+		return receiverTypeName(t.X)
+	case *ast.IndexListExpr:
+		return receiverTypeName(t.X)
+	}
+	return "?"
 }
 
 // boundaryJoinViolations is the exact-set join: every site registered
@@ -152,11 +189,12 @@ func boundaryJoinViolations(sites []ListenerSite, regs, boundaries map[string]st
 	live := map[string]bool{}
 	for _, s := range sites {
 		live[s.Key] = true
-		b, ok := regs[s.Key]
+		b, registered := regs[s.Key]
+		_, known := boundaries[b]
 		switch {
-		case !ok:
+		case !registered:
 			out = append(out, fmt.Sprintf("%s: unregistered listener/serve call site — register %q in guardtest.ListenerRegistrations against exactly one boundary B1–B11", s.Pos, s.Key))
-		case boundaries[b] == "":
+		case !known:
 			out = append(out, fmt.Sprintf("%s: site %q registered against unknown boundary %q — Boundaries is the normative set", s.Pos, s.Key, b))
 		}
 	}

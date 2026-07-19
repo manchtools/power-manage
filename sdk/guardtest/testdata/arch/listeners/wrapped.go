@@ -24,3 +24,12 @@ func viaConfig() (nl.Listener, error) {
 	var lc nl.ListenConfig
 	return lc.Listen(nil, "tcp", ":6")
 }
+
+func viaPointer() (nl.Listener, error) { return (&nl.ListenConfig{}).Listen(nil, "tcp", ":7") }
+
+type holder struct{ srv server }
+
+func chained() error {
+	var h holder
+	return h.srv.ListenAndServe()
+}

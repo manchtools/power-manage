@@ -41,6 +41,8 @@ func TestGuard_BoundaryRegistry_Liveness(t *testing.T) {
 		"registered.go:gatewayListen": "B4",  // sanctioned: the clean case
 		"plain.go:tcp":                "B99", // unknown boundary — violation
 		"ghost.go:Nope":               "B1",  // orphan — violation
+		"attrib.go:blockB":            "B5",  // second var-block spec keys under its own name
+		"attrib.go:(second).run":      "B6",  // method key qualified by receiver type
 	}
 	scan := func(root string) ([]string, error) {
 		sites, err := ListenerSites(root)
@@ -57,14 +59,17 @@ func TestGuard_BoundaryRegistry_Liveness(t *testing.T) {
 	requireFlagged(t, v, []string{
 		"plain.go:7",    // registered against the unknown B99
 		"plain.go:9",    // unregistered unix socket
+		"plain.go:11",   // multicast UDP listener
 		"wrapped.go:8",  // aliased
 		"wrapped.go:10", // paren-wrapped callee
 		"wrapped.go:12", // inside a closure
 		"wrapped.go:20", // serve-family method on a custom server
 		"wrapped.go:25", // ListenConfig.Listen method
+		"wrapped.go:28", // pointer-composite receiver
+		"wrapped.go:34", // chained selector receiver
 		"dot.go:6",      // dot-imported
 		"ghost.go:Nope", // orphan registration
-	}, []string{"decoy.go", "registered.go"})
+	}, []string{"decoy.go", "registered.go", "attrib.go"})
 }
 
 // TestBoundaryJoin_Exhaustive: pure-function proof of the three violation
@@ -75,13 +80,15 @@ func TestBoundaryJoin_Exhaustive(t *testing.T) {
 		{Pos: "a.go:5", Key: "a.go:F"},  // registered, valid — clean
 		{Pos: "b.go:7", Key: "b.go:G"},  // registered, unknown boundary
 		{Pos: "d.go:9", Key: "d.go:HH"}, // unregistered
+		{Pos: "e.go:3", Key: "e.go:E"},  // registered against a PRESENT boundary with an empty description — clean
 	}
 	regs := map[string]string{
 		"a.go:F": "B1",
 		"b.go:G": "B99",
 		"c.go:H": "B2", // orphan
+		"e.go:E": "B3",
 	}
-	boundaries := map[string]string{"B1": "one", "B2": "two"}
+	boundaries := map[string]string{"B1": "one", "B2": "two", "B3": ""}
 	v := boundaryJoinViolations(sites, regs, boundaries)
-	requireFlagged(t, v, []string{"b.go:7", "d.go:9", "c.go:H"}, []string{"a.go:5", "a.go:F"})
+	requireFlagged(t, v, []string{"b.go:7", "d.go:9", "c.go:H"}, []string{"a.go:5", "a.go:F", "e.go:3", "e.go:E"})
 }
