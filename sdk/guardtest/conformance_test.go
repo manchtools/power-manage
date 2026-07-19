@@ -7,6 +7,7 @@ import (
 	"go/token"
 	"io/fs"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -40,6 +41,11 @@ func guardInventory(root string) (all, bad []string, err error) {
 		if rerr != nil {
 			return fmt.Errorf("rel %s: %w", path, rerr)
 		}
+		// The harness package's own files call the helpers unqualified;
+		// everywhere else the call must resolve through an import of the
+		// real harness path.
+		inHarnessPkg := file.Name.Name == "guardtest" &&
+			strings.HasPrefix(filepath.ToSlash(rel), "sdk/guardtest/")
 		for _, decl := range file.Decls {
 			fn, ok := decl.(*ast.FuncDecl)
 			if !ok || fn.Recv != nil || !strings.HasPrefix(fn.Name.Name, "TestGuard_") {
@@ -47,7 +53,7 @@ func guardInventory(root string) (all, bad []string, err error) {
 			}
 			id := rel + ":" + fn.Name.Name
 			all = append(all, id)
-			if !callsHarness(fn) {
+			if !callsHarness(file, fn, inHarnessPkg) {
 				bad = append(bad, id)
 			}
 		}
@@ -59,27 +65,60 @@ func guardInventory(root string) (all, bad []string, err error) {
 	return all, bad, nil
 }
 
-// callsHarness reports whether fn's body contains a call to a harness helper,
-// qualified (guardtest.Discover) or not (Discover, inside this package).
-func callsHarness(fn *ast.FuncDecl) bool {
+const guardtestImportPath = "github.com/manchtools/power-manage/sdk/guardtest"
+
+// harnessRefs returns the local identifiers through which file can reach the
+// real harness: names bound to an import of guardtestImportPath, and whether
+// a dot-import makes unqualified calls resolve to it.
+func harnessRefs(file *ast.File) (names map[string]bool, dotImported bool) {
+	names = map[string]bool{}
+	for _, imp := range file.Imports {
+		path, err := strconv.Unquote(imp.Path.Value)
+		if err != nil || path != guardtestImportPath {
+			// An unquotable path literal cannot be the harness import;
+			// either way this import is not a harness ref.
+			continue
+		}
+		switch {
+		case imp.Name == nil:
+			names["guardtest"] = true
+		case imp.Name.Name == ".":
+			dotImported = true
+		default:
+			names[imp.Name.Name] = true
+		}
+	}
+	return names, dotImported
+}
+
+// callsHarness reports whether fn's body calls a harness helper that
+// actually resolves to this package — a same-named helper from an unrelated
+// import or a shadowing local declaration does not count (G-000-3 would
+// otherwise be bypassable by naming).
+func callsHarness(file *ast.File, fn *ast.FuncDecl, inHarnessPkg bool) bool {
 	if fn.Body == nil {
 		return false
 	}
+	names, dotImported := harnessRefs(file)
 	found := false
 	ast.Inspect(fn.Body, func(n ast.Node) bool {
 		call, ok := n.(*ast.CallExpr)
 		if !ok {
 			return true
 		}
-		var name string
 		switch fun := call.Fun.(type) {
 		case *ast.Ident:
-			name = fun.Name
+			// ponytail: a dot-import shadowed by a local decl would still
+			// pass this syntactic check; move to type-checked resolution
+			// if that ever bites.
+			if (inHarnessPkg || dotImported) && (fun.Name == "Discover" || fun.Name == "RequireViolation") {
+				found = true
+			}
 		case *ast.SelectorExpr:
-			name = fun.Sel.Name
-		}
-		if name == "Discover" || name == "RequireViolation" {
-			found = true
+			pkg, ok := fun.X.(*ast.Ident)
+			if ok && names[pkg.Name] && (fun.Sel.Name == "Discover" || fun.Sel.Name == "RequireViolation") {
+				found = true
+			}
 		}
 		return !found
 	})
@@ -103,20 +142,29 @@ func TestGuard_GuardAPIConformance(t *testing.T) {
 }
 
 // TestGuardAPIConformance_Liveness proves G-000-3 can still go red: the
-// fixture under testdata/liveness contains a deliberately non-conforming
-// guard that the scan must flag.
+// fixtures under testdata/liveness plant every known bypass — no harness
+// call at all, a same-named helper from an unrelated import, a shadowing
+// local declaration — and the scan must flag each, while the conforming
+// fixture stays clean.
 func TestGuardAPIConformance_Liveness(t *testing.T) {
 	_, bad, err := guardInventory("testdata/liveness")
 	if err != nil {
 		t.Fatalf("scanning the liveness fixture failed: %v", err)
 	}
-	found := false
-	for _, g := range bad {
-		if strings.HasSuffix(g, "TestGuard_Fixture") {
-			found = true
+	flagged := func(name string) bool {
+		for _, g := range bad {
+			if strings.HasSuffix(g, ":"+name) {
+				return true
+			}
+		}
+		return false
+	}
+	for _, planted := range []string{"TestGuard_Fixture", "TestGuard_UnrelatedImport", "TestGuard_Shadowed"} {
+		if !flagged(planted) {
+			t.Errorf("planted non-conforming guard %s was not flagged (got %v) — G-000-3 can no longer go red against this bypass", planted, bad)
 		}
 	}
-	if !found {
-		t.Fatalf("the planted non-conforming guard TestGuard_Fixture was not flagged (got %v) — G-000-3 can no longer go red", bad)
+	if flagged("TestGuard_Conforming") {
+		t.Errorf("the conforming fixture guard was flagged (got %v) — the checker went always-red", bad)
 	}
 }
