@@ -65,6 +65,9 @@ func Doc(cfg any) (string, error) {
 	v := reflect.ValueOf(cfg).Elem()
 	t := v.Type()
 	var b strings.Builder
+	// A pipe or newline in a description or default would break the
+	// rendered table.
+	cell := strings.NewReplacer("|", `\|`, "\r\n", " ", "\n", " ", "\r", " ")
 	b.WriteString("One file per binary; every key can be overridden with its derived\nenvironment variable. Unknown keys and unknown `PM_*` variables fail\nboot [INV-18].\n")
 	for i := 0; i < t.NumField(); i++ {
 		sf := t.Field(i)
@@ -77,8 +80,9 @@ func Doc(cfg any) (string, error) {
 				return "", fmt.Errorf("key %s.%s has no doc tag — an undocumented knob cannot ship; state what it does and why it exists [INV-18]", sf.Name, kf.Name)
 			}
 			key := snake(kf.Name)
-			fmt.Fprintf(&b, "| `%s` | `PM_%s_%s` | %s | `%v` | %s |\n",
-				key, strings.ToUpper(sec), strings.ToUpper(key), kf.Type.Kind(), v.Field(i).Field(j).Interface(), doc)
+			fmt.Fprintf(&b, "| `%s` | `PM_%s_%s` | %s | `%s` | %s |\n",
+				key, strings.ToUpper(sec), strings.ToUpper(key), kf.Type.Kind(),
+				cell.Replace(fmt.Sprintf("%v", v.Field(i).Field(j).Interface())), cell.Replace(doc))
 		}
 	}
 	return b.String(), nil

@@ -240,6 +240,25 @@ func TestDoc_GoldenMatch(t *testing.T) {
 	}
 }
 
+func TestDoc_EscapesTableCells(t *testing.T) {
+	var c struct {
+		S struct {
+			Mode string `doc:"one of a|b"`
+		}
+	}
+	c.S.Mode = "x|y\nz"
+	got, err := config.Doc(&c)
+	if err != nil {
+		t.Fatalf("Doc: %v", err)
+	}
+	if strings.Contains(got, "a|b") || strings.Contains(got, "x|y") {
+		t.Errorf("unescaped pipe or newline in a table cell breaks the rendered table:\n%s", got)
+	}
+	if !strings.Contains(got, `a\|b`) || !strings.Contains(got, `x\|y z`) {
+		t.Errorf("escaped cell forms missing — pipes must render as \\| and newlines as spaces:\n%s", got)
+	}
+}
+
 func TestDoc_MissingTagFails(t *testing.T) {
 	var c struct {
 		S struct {
