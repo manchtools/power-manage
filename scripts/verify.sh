@@ -61,6 +61,14 @@ if [ "${#MODULES[@]}" -gt 0 ]; then
     run "$m: go vet"        go vet -C "$m" ./...
     run "$m: staticcheck"   env -C "$m" staticcheck ./...
     run "$m: go test"       go test -C "$m" ./... -count=1 -race
+
+    # Dormant guards are reported, not hidden: without -v a skipped
+    # TestGuard_* is invisible in go test output, so surface any here.
+    GUARD_SKIPS=$(go test -C "$m" ./... -count=1 -run 'TestGuard_' -v 2>/dev/null | grep '^--- SKIP: TestGuard_' || true)
+    if [ -n "$GUARD_SKIPS" ]; then
+      say "$m: dormant guards (reported, not hidden)"
+      echo "$GUARD_SKIPS" | tee -a "$LOG"
+    fi
   done
 fi
 

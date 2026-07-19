@@ -104,6 +104,11 @@ var storageClientTokens = map[string]bool{
 	"mongo": true, "etcd": true,
 	"bbolt": true, "badger": true, "goleveldb": true, "leveldb": true,
 	"ristretto": true, "bigcache": true, "groupcache": true,
+	// Native-client datastores with no database/sql driver to fall back on —
+	// the token here is their only line of defense.
+	"gocql": true, "gocb": true, "couchbase": true, "clickhouse": true,
+	"scylla": true, "cassandra": true, "spanner": true, "bigtable": true,
+	"dynamodb": true,
 }
 
 // StorageClients returns the subset of requires classified as
@@ -127,6 +132,44 @@ func storageClientToken(modulePath string) string {
 		}
 	}
 	return ""
+}
+
+// moduleSubstitutions is the fail-closed tripwire for the classifier's
+// substitution blindness: G-001-1 classifies require paths only, so a
+// replace/exclude directive could swap an innocent path for a storage
+// client. The repo has none today; the day one appears, this fires and
+// forces the classifier to learn substitutions instead of silently passing.
+func moduleSubstitutions(root string) ([]string, error) {
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return nil, fmt.Errorf("reading module root %s: %w", root, err)
+	}
+	var out []string
+	for _, e := range entries {
+		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+			continue
+		}
+		src, err := os.ReadFile(filepath.Join(root, e.Name(), "go.mod"))
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("reading %s/go.mod: %w", e.Name(), err)
+		}
+		for _, line := range strings.Split(string(src), "\n") {
+			if i := strings.Index(line, "//"); i >= 0 {
+				line = line[:i]
+			}
+			line = strings.TrimSpace(line)
+			if strings.HasPrefix(line, "replace ") || line == "replace (" ||
+				strings.HasPrefix(line, "exclude ") || line == "exclude (" {
+				out = append(out, fmt.Sprintf("%s: go.mod carries a replace/exclude directive", e.Name()))
+				break
+			}
+		}
+	}
+	sort.Strings(out)
+	return out, nil
 }
 
 // storageDepViolations joins each module's classified clients against its
@@ -194,7 +237,10 @@ func ImportClosure(root, entry, modPrefix string) ([]string, error) {
 
 // authorityTokens mark, by path segment, the packages holding authority the
 // gateway must never link [TM-2]: the event store, secret custody, and CA
-// keys. Segment names ratchet as SPEC-002/005/006 fix the server layout.
+// keys. Segment names ratchet as SPEC-002/005/006 fix the server layout —
+// and the CA-key-custody token must then be chosen to EXCLUDE the PKI
+// client path: the gateway is a sanctioned PkiService client (B10, cert
+// renewal), so a blanket "pki" match would false-positive on activation.
 var authorityTokens = map[string]bool{"eventstore": true, "secrets": true, "ca": true, "pki": true}
 
 // authorityViolations returns the closure entries under scope that reach an

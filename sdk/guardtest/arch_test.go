@@ -47,11 +47,18 @@ func TestGuard_StorageDependencies(t *testing.T) {
 	for _, v := range storageDepViolations(mods, sanctionedDrivers) {
 		t.Errorf("%s — a datastore/queue/cache/search client outside the sanctioned drivers (G-001-1, SPEC-001 AC-1, recorded decision §3.6); every such job has a Postgres or gateway-stream home", v)
 	}
+	subs, err := moduleSubstitutions(root)
+	if err != nil {
+		t.Fatalf("scanning for go.mod substitution directives: %v", err)
+	}
+	for _, v := range subs {
+		t.Errorf("%s — G-001-1 classifies require paths only, so a substitution can smuggle a storage client past the deny-list; extend the classifier to resolve it before adding the directive", v)
+	}
 }
 
 // TestGuard_StorageDependencies_Liveness: the fixture plants a redis require
-// in block form; the comment-only kafka mention and the allowlisted pgx
-// driver must stay clean.
+// in block form and a replace directive; the comment-only kafka mention and
+// the allowlisted pgx driver must stay clean.
 func TestGuard_StorageDependencies_Liveness(t *testing.T) {
 	fixtureAllow := map[string][]string{"pgmod": {"github.com/jackc/pgx/v5"}}
 	scan := func(root string) ([]string, error) {
@@ -59,15 +66,34 @@ func TestGuard_StorageDependencies_Liveness(t *testing.T) {
 		if err != nil {
 			return nil, err
 		}
-		return storageDepViolations(mods, fixtureAllow), nil
+		subs, err := moduleSubstitutions(root)
+		if err != nil {
+			return nil, err
+		}
+		return append(storageDepViolations(mods, fixtureAllow), subs...), nil
 	}
 	RequireViolation(t, "storage-dependency ban", scan, "testdata/arch/storagedeps")
 	v, err := scan("testdata/arch/storagedeps")
 	if err != nil {
 		t.Fatalf("scanning the storagedeps fixture: %v", err)
 	}
-	if len(v) != 1 || !strings.Contains(v[0], "queuemod") || !strings.Contains(v[0], "go-redis") {
-		t.Errorf("want exactly the planted queuemod go-redis violation, got %v — cleanmod's comment-only kafka mention and pgmod's allowlisted driver must stay clean", v)
+	wantParts := map[string][]string{
+		"queuemod go-redis":       {"queuemod", "go-redis"},
+		"replacemod substitution": {"replacemod", "replace"},
+	}
+	for name, parts := range wantParts {
+		found := 0
+		for _, viol := range v {
+			if strings.Contains(viol, parts[0]) && strings.Contains(viol, parts[1]) {
+				found++
+			}
+		}
+		if found != 1 {
+			t.Errorf("want exactly one %s violation, got %d in %v", name, found, v)
+		}
+	}
+	if len(v) != len(wantParts) {
+		t.Errorf("violation count = %d, want %d — cleanmod's comment-only kafka mention and pgmod's allowlisted driver must stay clean: %v", len(v), len(wantParts), v)
 	}
 }
 
@@ -98,6 +124,12 @@ func TestStorageClients_ThreatModel(t *testing.T) {
 		"github.com/syndtr/goleveldb",
 		"github.com/dgraph-io/ristretto",
 		"github.com/allegro/bigcache/v3",
+		"github.com/gocql/gocql",
+		"github.com/couchbase/gocb/v2",
+		"github.com/ClickHouse/clickhouse-go/v2",
+		"cloud.google.com/go/spanner",
+		"cloud.google.com/go/bigtable",
+		"github.com/aws/aws-sdk-go-v2/service/dynamodb",
 	}
 	innocent := []string{
 		"github.com/spf13/cobra",
@@ -125,9 +157,10 @@ func TestModuleRequires_ParsesForms(t *testing.T) {
 		t.Fatalf("parsing the storagedeps fixture: %v", err)
 	}
 	want := map[string][]string{
-		"queuemod": {"github.com/redis/go-redis/v9", "golang.org/x/mod"},
-		"cleanmod": {"github.com/spf13/cobra"},
-		"pgmod":    {"github.com/jackc/pgx/v5"},
+		"queuemod":   {"github.com/redis/go-redis/v9", "golang.org/x/mod"},
+		"cleanmod":   {"github.com/spf13/cobra"},
+		"pgmod":      {"github.com/jackc/pgx/v5"},
+		"replacemod": {"github.com/spf13/cobra"},
 	}
 	if len(mods) != len(want) {
 		t.Errorf("module count = %d (%v), want %d", len(mods), mods, len(want))
@@ -179,14 +212,22 @@ func TestGuard_GatewayPurity_Liveness(t *testing.T) {
 	if len(v) != 1 || !strings.Contains(v[0], "internal/eventstore") {
 		t.Errorf("want exactly the transitive blank-import eventstore violation, got %v — internal/frames must stay clean", v)
 	}
+	closure, err := ImportClosure("testdata/arch/gwpure", "cmd/gateway", "example.com/gwpure/")
+	if err != nil {
+		t.Fatalf("scanning the gwpure fixture: %v", err)
+	}
+	if out := authorityViolations(closure, "server/"); len(out) != 0 {
+		t.Errorf("out-of-scope packages were flagged (%v) — the scope prefix must confine the join", out)
+	}
 }
 
 var boundaryRowRe = regexp.MustCompile(`(?m)^\| (B\d+) \|`)
 
-// TestBoundaryRegistry_MatchesSpec: Boundaries and the normative §3.4 table
+// TestGuard_BoundaryRegistryParity: Boundaries and the normative §3.4 table
 // are the same set, in both directions — a new listener needs a spec row
-// first [ARCH-3], and an orphan registry entry means the table moved.
-func TestBoundaryRegistry_MatchesSpec(t *testing.T) {
+// first [ARCH-3], and an orphan registry entry means the table moved. The
+// TestGuard_ prefix keeps it under the G-000-3 conformance sweep.
+func TestGuard_BoundaryRegistryParity(t *testing.T) {
 	root := RepoRoot(t)
 	rows := Discover(t, "boundary rows in SPEC-001 §3.4", 11, func() ([]string, error) {
 		src, err := os.ReadFile(filepath.Join(root, "docs", "content", "01-specs", "001-architecture-and-trust-model.md"))
