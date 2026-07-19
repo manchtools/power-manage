@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -93,10 +94,18 @@ func testBearingPackages(root string) ([]string, error) {
 	return pkgs, err
 }
 
+var (
+	// pull_request as a trigger key: `pull_request:` or in an `on: [...]` list.
+	workflowTriggerRe = regexp.MustCompile(`(?m)^\s*(on:.*\bpull_request\b|pull_request:)`)
+	workflowRunRe     = regexp.MustCompile(`(?m)^\s*(-\s*)?run:.*scripts/verify\.sh`)
+)
+
 // workflowRunsVerify reports whether some workflow under .github/workflows
-// runs scripts/verify.sh on pull_request.
-// ponytail: text-level match, not YAML parsing — a workflow that mentions
-// both without wiring them would slip through; parse YAML if that ever bites.
+// has a pull_request trigger and a run step invoking scripts/verify.sh,
+// comments stripped.
+// ponytail: line-level match, not a YAML parse — it cannot prove the run
+// step's JOB is reachable on PR events (an event-name `if:` guard, or the
+// script inside a block scalar, would mislead it); parse YAML if that bites.
 func workflowRunsVerify(root string) (bool, error) {
 	files, err := filepath.Glob(filepath.Join(root, ".github", "workflows", "*.y*ml"))
 	if err != nil {
@@ -107,7 +116,18 @@ func workflowRunsVerify(root string) (bool, error) {
 		if err != nil {
 			return false, fmt.Errorf("reading %s: %w", f, err)
 		}
-		if strings.Contains(string(body), "scripts/verify.sh") && strings.Contains(string(body), "pull_request") {
+		var kept []string
+		for _, line := range strings.Split(string(body), "\n") {
+			if i := strings.Index(line, " #"); i >= 0 {
+				line = line[:i]
+			}
+			if strings.HasPrefix(strings.TrimSpace(line), "#") {
+				continue
+			}
+			kept = append(kept, line)
+		}
+		text := strings.Join(kept, "\n")
+		if workflowTriggerRe.MatchString(text) && workflowRunRe.MatchString(text) {
 			return true, nil
 		}
 	}
@@ -140,6 +160,27 @@ func TestGuard_CILaneCompleteness(t *testing.T) {
 	}
 }
 
+// TestWorkflowRunsVerify_CommentOnlyMentionsRejected is the regression for
+// the review finding "parse workflow structure before accepting the CI
+// gate": scripts/verify.sh and pull_request appearing only in comments must
+// not satisfy the check; the wired fixture must (always-false sanity).
+func TestWorkflowRunsVerify_CommentOnlyMentionsRejected(t *testing.T) {
+	ok, err := workflowRunsVerify("testdata/workflows/commented")
+	if err != nil {
+		t.Fatalf("reading the commented fixture: %v", err)
+	}
+	if ok {
+		t.Fatal("comment-only mentions satisfied the CI-lane workflow check — the gate can pass with no PR job running verify.sh")
+	}
+	ok, err = workflowRunsVerify("testdata/workflows/wired")
+	if err != nil {
+		t.Fatalf("reading the wired fixture: %v", err)
+	}
+	if !ok {
+		t.Fatal("the wired fixture workflow was not recognized — the check went always-false")
+	}
+}
+
 // TestCILane_Liveness: the fixture plants a test-bearing package inside a
 // nested (depth-2) module — invisible to the verify.sh walk — next to a
 // conforming depth-1 module. The scan must flag exactly the nested one.
@@ -157,7 +198,7 @@ func TestCILane_Liveness(t *testing.T) {
 			t.Errorf("depth-1 fixture module was flagged (%q) — the scan went always-red", v)
 		}
 	}
-	if !foundNested {
-		t.Fatalf("planted nested-module package tools/helper was not flagged (got %v) — G-000-2 can no longer go red", violations)
+	if !foundNested || len(violations) != 1 {
+		t.Fatalf("want exactly the planted tools/helper violation, got %v — a miss means G-000-2 can no longer go red, an extra means the scan is unreliable", violations)
 	}
 }
