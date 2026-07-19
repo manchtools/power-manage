@@ -1,0 +1,10 @@
+# Fixture: mentions scripts/verify.sh and pull_request ONLY in comments —
+# must not satisfy the CI-lane workflow check.
+# This workflow used to run scripts/verify.sh on pull_request events.
+name: decoy
+on: [push]
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo noop
