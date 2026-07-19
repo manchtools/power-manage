@@ -11,13 +11,15 @@ const loaderImportPath = "github.com/manchtools/power-manage/sdk/config"
 // silently drop out of adoption.
 const binaryFloor = 0
 
-// TestGuard_ConfigAdoption is G-002-5's per-binary ratchet (SPEC-002 AC-4,
-// [CFG-1]): every main package under a module's cmd/ tree imports the
-// shared loader — one typed struct, one file, derived overrides. The
-// round-trip proof itself is TestGuard_ConfigRoundTrip in sdk/config.
-// Zero binaries exist today, so this guard's red proof is its liveness
-// fixture. ponytail: a main package outside cmd/ is not a shipped binary
-// by repo convention (recorded ceiling).
+// TestGuard_ConfigAdoption is the per-binary ratchet for G-002-5 and
+// G-002-6 (SPEC-002 AC-4/AC-6, [CFG-1]): every main package under a
+// module's cmd/ tree imports the shared loader AND carries a test calling
+// the loader's Doc, so each binary's config reference stays generated.
+// The round-trip and golden proofs themselves are TestGuard_ConfigRoundTrip
+// and TestDoc_GoldenMatch in sdk/config. Zero binaries exist today, so
+// this guard's red proof is its liveness fixture. ponytail: a main package
+// outside cmd/ is not a shipped binary by repo convention (recorded
+// ceiling).
 func TestGuard_ConfigAdoption(t *testing.T) {
 	root := RepoRoot(t)
 	mods := Discover(t, "workspace modules from go.work", 4, func() ([]string, error) {
@@ -36,7 +38,10 @@ func TestGuard_ConfigAdoption(t *testing.T) {
 }
 
 // TestGuard_ConfigAdoption_Liveness: the fixture workspace plants one
-// binary that never imports the loader; the adopted one stays clean.
+// binary that neither imports the loader nor carries a docs test — both
+// violation classes fire on it; the adopted one (import + a test calling
+// Doc) stays clean. Locators are class-qualified (`:import`, `:docs`) so
+// each class is proven independently on the colon boundary.
 func TestGuard_ConfigAdoption_Liveness(t *testing.T) {
 	scan := func(root string) ([]string, error) {
 		mods, err := workspaceModules(root)
@@ -51,5 +56,7 @@ func TestGuard_ConfigAdoption_Liveness(t *testing.T) {
 	if err != nil {
 		t.Fatalf("scanning the adoption fixture: %v", err)
 	}
-	requireFlagged(t, v, []string{"app/cmd/bad"}, []string{"app/cmd/good"})
+	requireFlagged(t, v,
+		[]string{"app/cmd/bad:import", "app/cmd/bad:docs"},
+		[]string{"app/cmd/good"})
 }

@@ -16,14 +16,25 @@ import (
 // per-binary adoption ratchets via TestGuard_ConfigAdoption).
 type demoConfig struct {
 	Server struct {
-		ListenAddr string
-		MaxConns   int
-		HTTPPort   int
+		ListenAddr string `doc:"Bind address for the demo listener."`
+		MaxConns   int    `doc:"Upper bound on concurrent demo connections."`
+		HTTPPort   int    `doc:"Demo HTTPS port."`
 	}
 	Log struct {
-		Verbose bool
-		Format  string
+		Verbose bool   `doc:"Emit per-request demo logging."`
+		Format  string `doc:"Demo log encoding."`
 	}
+}
+
+// demoDefaults returns the demo struct pre-filled with the defaults the
+// committed reference documents.
+func demoDefaults() demoConfig {
+	var c demoConfig
+	c.Server.ListenAddr = "127.0.0.1:8080"
+	c.Server.MaxConns = 42
+	c.Server.HTTPPort = 8443
+	c.Log.Format = "json"
+	return c
 }
 
 const validFile = `# demo config
@@ -200,6 +211,79 @@ func TestGuard_ConfigRoundTrip(t *testing.T) {
 				t.Errorf("override %s=%q not applied over the file value", name, o.val)
 			}
 		})
+	}
+}
+
+// TestDoc_GoldenMatch is AC-6's staleness mechanism: the committed
+// reference is byte-diffed against a fresh render, so drift goes red.
+// Defaults rendering is covered by the pre-filled values; the deliberately
+// stale fixture proves the diff can go red at all.
+func TestDoc_GoldenMatch(t *testing.T) {
+	c := demoDefaults()
+	got, err := config.Doc(&c)
+	if err != nil {
+		t.Fatalf("Doc: %v", err)
+	}
+	want, err := os.ReadFile("testdata/demo.md")
+	if err != nil {
+		t.Fatalf("reading the committed reference: %v", err)
+	}
+	if got != string(want) {
+		t.Errorf("committed reference is stale — regenerate testdata/demo.md from demoConfig\ngot:\n%s\nwant:\n%s", got, want)
+	}
+	stale, err := os.ReadFile("testdata/demo_stale.md")
+	if err != nil {
+		t.Fatalf("reading the stale fixture: %v", err)
+	}
+	if got == string(stale) {
+		t.Error("render matches the deliberately stale fixture — the freshness diff can no longer go red")
+	}
+}
+
+func TestDoc_MissingTagFails(t *testing.T) {
+	var c struct {
+		S struct {
+			Documented int `doc:"has one"`
+			Bare       int
+		}
+	}
+	if _, err := config.Doc(&c); err == nil || !strings.Contains(err.Error(), "S.Bare") || !strings.Contains(err.Error(), "doc tag") {
+		t.Fatalf("an undocumented knob must fail the generator naming the key, got: %v", err)
+	}
+}
+
+// TestGuard_ConfigDocs is G-002-6 (SPEC-002 AC-6, [INV-18]): the reference
+// renders from the struct itself (TestDoc_GoldenMatch is the staleness
+// diff), the render never loses a derived knob, and every knob has a read
+// site — an unread knob is dead configuration.
+func TestGuard_ConfigDocs(t *testing.T) {
+	c := demoDefaults()
+	rendered, err := config.Doc(&c)
+	if err != nil {
+		t.Fatalf("Doc: %v", err)
+	}
+	rows := guardtest.Discover(t, "documented demo knobs", 1, func() ([]string, error) {
+		var rows []string
+		for _, line := range strings.Split(rendered, "\n") {
+			if strings.HasPrefix(line, "| `") {
+				rows = append(rows, line)
+			}
+		}
+		return rows, nil
+	})
+	names, err := config.EnvVars(&demoConfig{})
+	if err != nil {
+		t.Fatalf("EnvVars: %v", err)
+	}
+	if len(rows) != len(names) {
+		t.Errorf("rendered %d knob rows, derivation has %d keys — the generator lost a knob", len(rows), len(names))
+	}
+	v, err := guardtest.ConfigReadViolations(filepath.Join(guardtest.RepoRoot(t), "sdk"), "demoConfig")
+	if err != nil {
+		t.Fatalf("scanning read sites: %v", err)
+	}
+	for _, s := range v {
+		t.Errorf("%s", s)
 	}
 }
 
