@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
-	"path"
 	"regexp"
 	"sort"
 	"strconv"
@@ -44,27 +43,11 @@ type structDecl struct {
 // and returns AC-7 violations plus the subjects scanned (*Config structs
 // and literal-named string flags).
 func secretIndirectionViolations(root string) (violations, subjects []string, err error) {
-	structs := map[string]map[string]structDecl{} // package dir → type name
+	structs, err := collectStructDecls(root) // package dir → type name
+	if err != nil {
+		return nil, nil, err
+	}
 	err = walkAllGoFiles(root, func(rel string, fset *token.FileSet, file *ast.File) error {
-		dir := path.Dir(rel)
-		for _, decl := range file.Decls {
-			gd, ok := decl.(*ast.GenDecl)
-			if !ok || gd.Tok != token.TYPE {
-				continue
-			}
-			for _, spec := range gd.Specs {
-				ts, ok := spec.(*ast.TypeSpec)
-				if !ok {
-					continue
-				}
-				if st, ok := ts.Type.(*ast.StructType); ok {
-					if structs[dir] == nil {
-						structs[dir] = map[string]structDecl{}
-					}
-					structs[dir][ts.Name.Name] = structDecl{rel, fset, st}
-				}
-			}
-		}
 		names, dot := importAliases(file, "flag")
 		if len(names) == 0 && !dot {
 			return nil

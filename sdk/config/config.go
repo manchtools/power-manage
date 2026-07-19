@@ -54,6 +54,36 @@ func EnvVars(cfg any) ([]string, error) {
 	return names, nil
 }
 
+// Doc renders the reference documentation for cfg's type from the struct
+// itself (INV-18.4): one markdown table per section with the derived file
+// key, env override, kind, the passed struct's value as the default, and
+// the mandatory `doc` tag. An undocumented knob fails by name.
+func Doc(cfg any) (string, error) {
+	if _, _, _, err := derive(cfg); err != nil {
+		return "", err
+	}
+	v := reflect.ValueOf(cfg).Elem()
+	t := v.Type()
+	var b strings.Builder
+	b.WriteString("One file per binary; every key can be overridden with its derived\nenvironment variable. Unknown keys and unknown `PM_*` variables fail\nboot [INV-18].\n")
+	for i := 0; i < t.NumField(); i++ {
+		sf := t.Field(i)
+		sec := snake(sf.Name)
+		fmt.Fprintf(&b, "\n## [%s]\n\n| key | env override | type | default | description |\n|---|---|---|---|---|\n", sec)
+		for j := 0; j < sf.Type.NumField(); j++ {
+			kf := sf.Type.Field(j)
+			doc := strings.TrimSpace(kf.Tag.Get("doc"))
+			if doc == "" {
+				return "", fmt.Errorf("key %s.%s has no doc tag — an undocumented knob cannot ship; state what it does and why it exists [INV-18]", sf.Name, kf.Name)
+			}
+			key := snake(kf.Name)
+			fmt.Fprintf(&b, "| `%s` | `PM_%s_%s` | %s | `%v` | %s |\n",
+				key, strings.ToUpper(sec), strings.ToUpper(key), kf.Type.Kind(), v.Field(i).Field(j).Interface(), doc)
+		}
+	}
+	return b.String(), nil
+}
+
 // derive walks cfg's two-level struct and fails closed on anything the
 // model cannot express: non-struct or unexported top-level fields,
 // unexported or unsupported-kind keys, and name collisions after
