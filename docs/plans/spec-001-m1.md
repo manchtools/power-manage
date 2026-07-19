@@ -35,7 +35,7 @@ spec is authoritative.
 | `TestModuleRequires_ParsesForms` | single-line require, block require, `// indirect`, comment-only mention NOT parsed |
 | `TestGuard_GatewayPurity` | G-001-3: reported skip while `server/cmd/gateway` is absent; once present, Discover floor ≥1 on the closure and banned-prefix join |
 | `TestGuard_GatewayPurity_Liveness` | RequireViolation on the gwpure fixture — transitive reach of the eventstore package flags, incl. via blank import |
-| `TestBoundaryRegistry_MatchesSpec` | exact-set both directions: `Boundaries` keys == `| Bn |` rows parsed from SPEC-001 §3.4 (section-sliced); Discover floor 11 |
+| `TestGuard_BoundaryRegistryParity` | exact-set both directions: `Boundaries` keys == `| Bn |` rows parsed from SPEC-001 §3.4 (section-sliced); Discover floor 11 |
 
 All new tests observed red first (missing symbols = compile-red for new
 code; fixture liveness proven by the harness's standing red-proof).

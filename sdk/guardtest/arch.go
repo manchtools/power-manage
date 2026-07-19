@@ -17,7 +17,7 @@ import (
 )
 
 // Boundaries is the machine-readable form of the SPEC-001 §3.4 trust-boundary
-// inventory. TestBoundaryRegistry_MatchesSpec keeps it in exact-set parity
+// inventory. TestGuard_BoundaryRegistryParity keeps it in exact-set parity
 // with the normative table; G-001-2 (M2) joins listener registrations
 // against it.
 var Boundaries = map[string]string{
@@ -38,9 +38,10 @@ var Boundaries = map[string]string{
 // verify.sh module shape), the module paths its go.mod requires. The parser
 // handles gofmt-formatted go.mod only — single-line and block require
 // directives, comments stripped.
-// ponytail: replace directives are not classified — a replace swapping an
-// innocent path for a storage client evades G-001-1; parse them if a replace
-// ever appears in this repo.
+// ponytail: replace targets are not resolved — but moduleSubstitutions
+// fail-closes on any replace/exclude directive, so the evasion trips the
+// guard instead of passing; teach the classifier replace targets when the
+// first sanctioned substitution appears.
 func ModuleRequires(root string) (map[string][]string, error) {
 	entries, err := os.ReadDir(root)
 	if err != nil {
@@ -93,7 +94,9 @@ func parseRequires(src string) []string {
 // path-segment identity (segments split further on "." and "-", so
 // "go-redis", "nats.go", and "go.etcd.io" all resolve). The deny-list can
 // never be complete — TestStorageClients_ThreatModel owns one known client
-// per family, and a new family means a new token WITH a threat-model entry.
+// per family, and a new family means a new token WITH a threat-model entry;
+// synonym/backup tokens (amqp091, leveldb, gocb) may ride a family whose
+// primary token carries the entry.
 var storageClientTokens = map[string]bool{
 	"pgx": true, "pq": true, "mysql": true, "sqlite": true, "sqlite3": true,
 	"redis": true, "redigo": true, "valkey": true,

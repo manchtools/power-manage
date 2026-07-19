@@ -125,6 +125,8 @@ func TestStorageClients_ThreatModel(t *testing.T) {
 		"github.com/dgraph-io/ristretto",
 		"github.com/allegro/bigcache/v3",
 		"github.com/gocql/gocql",
+		"github.com/scylladb/scylla-go-driver",
+		"github.com/apache/cassandra-gocql-driver",
 		"github.com/couchbase/gocb/v2",
 		"github.com/ClickHouse/clickhouse-go/v2",
 		"cloud.google.com/go/spanner",
