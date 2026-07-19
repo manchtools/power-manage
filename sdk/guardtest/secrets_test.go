@@ -2,6 +2,7 @@ package guardtest
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -59,6 +60,36 @@ func TestGuard_SecretIndirection_Liveness(t *testing.T) {
 		"flags.go:8",  // flag.String("auth-token")
 		"flags.go:13", // flag.StringVar(..., "client-secret")
 	}, []string{"cfg.go:8", "cfg.go:15", "flags.go:9", "flags.go:14", "innocent.go"})
+}
+
+// TestGuard_SecretIndirection_SiblingSections: two sibling fields of one
+// section type must BOTH be walked — the recursion's cycle guard is
+// path-scoped, and a visited-set that never unwinds silently skips the
+// second sibling's subtree.
+func TestGuard_SecretIndirection_SiblingSections(t *testing.T) {
+	scan := func(root string) ([]string, error) {
+		v, _, err := secretIndirectionViolations(root)
+		return v, err
+	}
+	RequireViolation(t, "secret sibling sections", scan, "testdata/arch/secrets_siblings")
+	v, err := scan("testdata/arch/secrets_siblings")
+	if err != nil {
+		t.Fatalf("scanning the sibling fixture: %v", err)
+	}
+	for _, want := range []string{"replicaConfig.ReadDB.Passphrase", "replicaConfig.WriteDB.Passphrase"} {
+		n := 0
+		for _, s := range v {
+			if strings.Contains(s, want) {
+				n++
+			}
+		}
+		if n != 1 {
+			t.Errorf("field %s reported %d time(s), want exactly 1 — a sibling sharing the section type must not be skipped (violations: %v)", want, n, v)
+		}
+	}
+	if len(v) != 2 {
+		t.Errorf("violation count = %d, want 2: %v", len(v), v)
+	}
 }
 
 // TestSecretPatterns_ThreatModel: the pattern set is the threat model — a

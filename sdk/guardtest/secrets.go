@@ -161,6 +161,11 @@ func checkSecretFields(prefix string, sd structDecl, decls map[string]structDecl
 		for _, fname := range fieldNames {
 			checkSecretFields(prefix+"."+fname, sub, decls, seen, violations)
 		}
+		if nestedName != "" {
+			// The cycle guard is path-scoped: unwind so a sibling field
+			// sharing this section type still gets its own walk.
+			delete(seen, nestedName)
+		}
 	}
 }
 
