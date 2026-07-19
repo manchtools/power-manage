@@ -264,8 +264,8 @@ func TestSpecStatuses_ReadsLedger(t *testing.T) {
 	if len(statuses) != 18 {
 		t.Fatalf("ledger yielded %d specs, want 18", len(statuses))
 	}
-	if s := statuses["SPEC-000"]; !strings.HasPrefix(s, "In progress") {
-		t.Errorf("SPEC-000 status = %q, want an In-progress value at this point in the build", s)
+	if s := statuses["SPEC-000"]; s != "Implemented" {
+		t.Errorf("SPEC-000 status = %q, want %q (all four milestones landed)", s, "Implemented")
 	}
 	if s := statuses["SPEC-017"]; s != "Spec ready" {
 		t.Errorf("SPEC-017 status = %q, want %q", s, "Spec ready")
