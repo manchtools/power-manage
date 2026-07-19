@@ -42,3 +42,13 @@ func silent(s pb.State) string {
 	}
 	return ""
 }
+
+// Planted violation: all case expressions parenthesized — still an enum
+// switch, still needs an erroring default.
+func wrapped(s pb.State) string {
+	switch s {
+	case (pb.State_ACTIVE):
+		return "active"
+	}
+	return ""
+}

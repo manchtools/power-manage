@@ -121,10 +121,10 @@ func TestSentinelComparisons_Fixture(t *testing.T) {
 	if err != nil {
 		t.Fatalf("scanning the sentinel fixture: %v", err)
 	}
-	// errors.Is, ==, != in bad.go, the paren-wrapped comparison and
-	// errors.Is operand, plus the aliased and dot-imported errors.Is —
-	// the clean recognizer call must stay unflagged.
-	requireFlagged(t, v, []string{"bad.go:11", "bad.go:13", "bad.go:15", "bad.go:17", "bad.go:19", "aliased_bad.go:9", "dot_bad.go:10"}, []string{"clean.go"})
+	// errors.Is, ==, != in bad.go, the paren-wrapped comparison, errors.Is
+	// operand, and errors.Is callee, plus the aliased and dot-imported
+	// errors.Is — the clean recognizer call must stay unflagged.
+	requireFlagged(t, v, []string{"bad.go:11", "bad.go:13", "bad.go:15", "bad.go:17", "bad.go:19", "bad.go:21", "aliased_bad.go:9", "dot_bad.go:10"}, []string{"clean.go"})
 }
 
 func TestEnumSwitches_Fixture(t *testing.T) {
@@ -137,8 +137,9 @@ func TestEnumSwitches_Fixture(t *testing.T) {
 	if err != nil {
 		t.Fatalf("scanning the enumdefault fixture: %v", err)
 	}
-	// The no-default switch, the non-erroring-default switch, and the
-	// return-only-inside-a-closure switch are violations; the erroring
-	// switch and the non-enum switch are clean.
-	requireFlagged(t, v, []string{"bad.go:11", "bad.go:24", "bad.go:36"}, []string{"clean.go"})
+	// The no-default switch, the non-erroring-default switch, the
+	// return-only-inside-a-closure switch, and the parenthesized-cases
+	// switch are violations; the erroring switch and the non-enum switch
+	// are clean.
+	requireFlagged(t, v, []string{"bad.go:11", "bad.go:24", "bad.go:36", "bad.go:49"}, []string{"clean.go"})
 }

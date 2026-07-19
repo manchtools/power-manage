@@ -17,3 +17,5 @@ func isPresent(err error) bool { return err != sql.ErrNoRows }
 func isMissingParen(err error) bool { return err == (sql.ErrNoRows) }
 
 func isMissingIsParen(err error) bool { return errors.Is(err, (sql.ErrNoRows)) }
+
+func isMissingIsParenCallee(err error) bool { return (errors.Is)(err, sql.ErrNoRows) }
