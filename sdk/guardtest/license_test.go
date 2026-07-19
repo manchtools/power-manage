@@ -1,0 +1,98 @@
+package guardtest
+
+import (
+	"testing"
+)
+
+// TestGuard_LicenseLayout is G-002-3 (SPEC-002 AC-1): every go.work module
+// carries its own LICENSE matching the normative [LIC-1] mapping, no
+// top-level LICENSE exists, and the root README names each module's license
+// and the outside-the-modules MIT grant [LIC-2].
+func TestGuard_LicenseLayout(t *testing.T) {
+	root := RepoRoot(t)
+	mods := Discover(t, "workspace modules from go.work", 4, func() ([]string, error) {
+		return workspaceModules(root)
+	})
+	v, err := licenseLayoutViolations(root, mods)
+	if err != nil {
+		t.Fatalf("checking the license layout: %v", err)
+	}
+	for _, s := range v {
+		t.Errorf("%s — one accidental relicense is all it takes; fix the layout, never the mapping (SPEC-002 §3.4)", s)
+	}
+}
+
+// TestGuard_LicenseLayout_Liveness: the bad fixture plants every violation
+// class — missing module LICENSE, wrong-identity LICENSE, unclassified
+// fifth module, top-level LICENSE, missing README row, missing grant — and
+// the good fixture proves the checker is not always-red.
+func TestGuard_LicenseLayout_Liveness(t *testing.T) {
+	scan := func(root string) ([]string, error) {
+		mods, err := workspaceModules(root)
+		if err != nil {
+			return nil, err
+		}
+		return licenseLayoutViolations(root, mods)
+	}
+	RequireViolation(t, "license layout", scan, "testdata/arch/licenses/bad")
+	v, err := scan("testdata/arch/licenses/bad")
+	if err != nil {
+		t.Fatalf("scanning the bad fixture: %v", err)
+	}
+	requireFlagged(t, v, []string{
+		"contract",         // LICENSE file missing
+		"agent",            // wrong identity: MIT where GPL-3.0 is required
+		"extramod",         // module outside the [LIC-1] mapping
+		"LICENSE",          // top-level license file must not exist
+		"README.md:server", // README lacks the server row
+		"README.md:grant",  // README lacks the root grant
+	}, []string{"sdk", "server", "README.md:contract", "README.md:agent"})
+
+	clean, err := scan("testdata/arch/licenses/good")
+	if err != nil {
+		t.Fatalf("scanning the good fixture: %v", err)
+	}
+	if len(clean) != 0 {
+		t.Fatalf("conforming fixture flagged: %v — the checker went always-red", clean)
+	}
+}
+
+// TestWorkspaceModules_ParsesForms: block use, single-line use, and comment
+// stripping, pinned against the bad fixture's mixed-form go.work.
+func TestWorkspaceModules_ParsesForms(t *testing.T) {
+	mods, err := workspaceModules("testdata/arch/licenses/bad")
+	if err != nil {
+		t.Fatalf("workspaceModules: %v", err)
+	}
+	want := []string{"contract", "sdk", "server", "agent", "extramod"}
+	if len(mods) != len(want) {
+		t.Fatalf("modules = %v, want %v", mods, want)
+	}
+	for i, m := range want {
+		if mods[i] != m {
+			t.Fatalf("modules = %v, want %v", mods, want)
+		}
+	}
+}
+
+// TestLicenseIdentity_ThreatModel: the classifier's phrase set is the threat
+// model — each family classified, near-misses (GPLv2, AGPL-vs-GPL) held
+// apart, unknown text unclassified.
+func TestLicenseIdentity_ThreatModel(t *testing.T) {
+	cases := []struct {
+		name, text, want string
+	}{
+		{"mit header", "MIT License\n\nCopyright (c) 2026", "MIT"},
+		{"mit grant sentence only", "Permission is hereby granted, free of charge, to any person", "MIT"},
+		{"agpl v3", "GNU AFFERO GENERAL PUBLIC LICENSE\nVersion 3, 19 November 2007", "AGPL-3.0"},
+		{"gpl v3", "GNU GENERAL PUBLIC LICENSE\nVersion 3, 29 June 2007", "GPL-3.0"},
+		{"gpl v2 is not v3", "GNU GENERAL PUBLIC LICENSE\nVersion 2, June 1991", ""},
+		{"agpl v1 is not v3", "GNU AFFERO GENERAL PUBLIC LICENSE\nVersion 1, March 2002", ""},
+		{"unknown text", "All rights reserved.", ""},
+	}
+	for _, c := range cases {
+		if got := licenseIdentity(c.text); got != c.want {
+			t.Errorf("%s: licenseIdentity = %q, want %q", c.name, got, c.want)
+		}
+	}
+}

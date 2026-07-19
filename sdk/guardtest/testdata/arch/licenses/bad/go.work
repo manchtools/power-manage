@@ -1,0 +1,10 @@
+go 1.26
+
+// planted: extramod is not in the license mapping
+use (
+	./contract
+	./sdk
+	./server
+	./agent
+)
+use ./extramod
