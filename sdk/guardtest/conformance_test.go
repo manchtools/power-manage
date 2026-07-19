@@ -58,7 +58,10 @@ func guardInventory(root string) (all, bad []string, guardsByInv map[string][]st
 			id := rel + ":" + fn.Name.Name
 			all = append(all, id)
 			if !callsHarness(file, fn, inHarnessPkg) {
+				// A non-conforming guard has no matches-zero protection, so
+				// its registrations must not satisfy G-000-1 coverage.
 				bad = append(bad, id)
+				continue
 			}
 			for _, inv := range guardRegistrations(fn.Doc) {
 				guardsByInv[inv] = append(guardsByInv[inv], id)
@@ -77,7 +80,9 @@ const guardtestImportPath = "github.com/manchtools/power-manage/sdk/guardtest"
 var guardsLineRe = regexp.MustCompile(`^Guards: (INV-\d+(?:, INV-\d+)*)\.?$`)
 
 // guardRegistrations extracts the invariant IDs from a guard's
-// "Guards: INV-n[, INV-m]." doc-comment line, if any.
+// "Guards: INV-n[, INV-m]." doc-comment line, if any. The registration must
+// be a single unwrapped line exactly in that form — a wrapped or reformatted
+// line is not extracted and surfaces as a missing guard (fail-closed).
 func guardRegistrations(doc *ast.CommentGroup) []string {
 	if doc == nil {
 		return nil
@@ -207,5 +212,8 @@ func TestGuardInventory_ExtractsRegistrations(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("fixture guard's 'Guards: INV-19.' registration was not extracted, got %v", guardsByInv)
+	}
+	if regs := guardsByInv["INV-12"]; len(regs) != 0 {
+		t.Fatalf("the NON-conforming fixture guard's 'Guards: INV-12.' line was counted (%v) — a guard without matches-zero protection must not satisfy G-000-1 coverage", regs)
 	}
 }

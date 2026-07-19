@@ -59,12 +59,22 @@ parsed from ground truth at guard time, in `sdk/guardtest`:
 | 7 | G-000-2 liveness: nested-module test fixture | flagged specifically, depth-1 neighbor clean — red while scan stub |
 | 8 | G-000-1 + G-000-2 on the real repo | green (no Implemented spec yet; all packages covered) |
 
-## Known catalog gaps (operator-visible, not silently patched)
+## Known catalog gaps (resolved during review)
 
-INV-3 and INV-5 carry no `SPEC-NNN` ref in their §3.4 entries and no other
-spec cites them, so their derived owner set is empty and the completeness
-join can never demand a guard for them. Surfaced in the PR for an operator
-decision (add refs to the catalog vs. accept as cross-cutting).
+INV-3, INV-5, and INV-11 carried no `SPEC-NNN` ref in their §3.4 entries and
+no other spec cited them — empty derived owner sets, so the completeness
+join could never demand a guard for them (INV-11 was found by the reviewer
+pass). Resolution:
+
+- A per-invariant owner floor now makes the hole loud: every in-repo
+  invariant needs ≥1 derived owner or an identity-keyed `ownerlessPending`
+  entry recording the open question.
+- INV-5 → SPEC-003 (WIRE-14) and INV-11 → SPEC-008 (AUTHZ-2) refs added to
+  the catalog as mechanical gap fixes — both requirements exist verbatim in
+  those specs; the omission was the citation only. Pinned by owner
+  spot-checks.
+- INV-3 is specified verbatim in both SPEC-003 and SPEC-006; the ref choice
+  is an operator decision, recorded in `ownerlessPending` until made.
 
 ## Out of scope
 
