@@ -88,6 +88,8 @@ Mechanical spec gaps are fixed in the spec in the same PR.
   are grep-exact; cross-references use the form `(ID, SPEC-NNN)`.
 - Operator decisions (final — do not re-litigate):
   `docs/content/02-decisions/01-operator-decisions.md`.
+- Go symbols: gopls MCP (go-to-definition, references, symbol search) —
+  `.mcp.json`; needs `go install golang.org/x/tools/gopls@latest`.
 - When the operator corrects the same thing twice, propose adding it here or
   to the matching rule file. When something here is stale, say so — don't
   work around it.
