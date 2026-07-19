@@ -1,0 +1,25 @@
+# power-manage docs — runtime composition.
+#
+# This directory holds only content + assets; the rendering engine is the
+# open-docs container. Bring the container up and it builds the site at
+# startup with the mounted markdown baked in.
+#
+# Production deploy: replace the host-network port mapping with your
+# reverse-proxy wiring. Everything else stays the same.
+
+services:
+  docs:
+    image: ghcr.io/manchtools/open-docs:latest
+    container_name: power-manage-docs
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./content:/content:ro
+      - ./static:/static:ro
+    environment:
+      PUBLIC_BRAND_NAME: "power-manage"
+      PUBLIC_BRAND_TAGLINE: "docs"
+      PUBLIC_SITE_TITLE: "power-manage · Documentation"
+      PUBLIC_SITE_DESCRIPTION: "power-manage is an open-source platform for managing Linux endpoints. mTLS-authenticated agents, an event-sourced audit log, OIDC and SCIM provisioning, and idempotent desired-state actions."
+      PUBLIC_REPO_URL: "https://github.com/manchtools/power-manage"

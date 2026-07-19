@@ -1,0 +1,8 @@
+bin/
+dist/
+*.out
+*.test
+coverage*
+.env
+node_modules/
+REWRITE_SPEC.md
