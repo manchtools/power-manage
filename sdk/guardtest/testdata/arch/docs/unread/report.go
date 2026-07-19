@@ -1,6 +1,10 @@
-// Fixture: knobs read below stay clean; UnreadKnob (inline section) and
-// Retries (named section type) have no read site and must be flagged.
+// Fixture: knobs read below stay clean; UnreadKnob (inline section),
+// Retries (named section type), and TTL (embedded section) have no read
+// site and must be flagged. Ext's cross-package section type cannot be
+// enumerated from the AST — the scan must fail closed on it, not skip.
 package fixture
+
+import "example.com/extern"
 
 type reportConfig struct {
 	Tuning struct {
@@ -8,6 +12,8 @@ type reportConfig struct {
 		UsedKnob   int `doc:"read in use()"`
 	}
 	Store diskSection
+	CacheSection
+	Ext extern.PoolSection
 }
 
 type diskSection struct {
@@ -15,6 +21,11 @@ type diskSection struct {
 	Retries int    `doc:"never read"`
 }
 
-func use(c reportConfig) (int, string) {
-	return c.Tuning.UsedKnob, c.Store.Path
+type CacheSection struct {
+	TTL     int `doc:"never read"`
+	Refresh int `doc:"read in use()"`
+}
+
+func use(c reportConfig) (int, string, int) {
+	return c.Tuning.UsedKnob, c.Store.Path, c.CacheSection.Refresh
 }

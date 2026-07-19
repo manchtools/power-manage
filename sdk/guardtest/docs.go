@@ -43,12 +43,14 @@ func collectStructDecls(root string) (map[string]map[string]structDecl, error) {
 
 // ConfigReadViolations locates structName's declaration under root and
 // returns a violation for every section key that no `.Section.Key`
-// selector chain under root (tests included) ever touches.
-// ponytail: recorded ceilings — matching is a syntactic name chain, so an
-// unrelated same-named chain or an assignment counts as the read, and a
-// section copied to a local (`s := c.Tuning; s.Knob`) breaks the chain
-// and over-flags; embedded sections are not enumerated (the loader's
-// derive rejects shapes beyond the two-level model anyway).
+// selector chain under root (tests included) ever touches. A section
+// whose type the AST cannot resolve (cross-package) is its own
+// violation — its keys would otherwise go unchecked (fail closed).
+// ponytail: recorded ceilings — matching is a syntactic name chain, so
+// an unrelated same-named chain or an assignment counts as the read,
+// while a section copied to a local (`s := c.Tuning; s.Knob`) or an
+// embedded key read promoted (`c.Knob` for an embedded section) breaks
+// the chain and over-flags.
 func ConfigReadViolations(root, structName string) ([]string, error) {
 	structs, err := collectStructDecls(root)
 	if err != nil {
@@ -67,15 +69,31 @@ func ConfigReadViolations(root, structName string) ([]string, error) {
 	}
 	type key struct{ section, name string }
 	unread := map[key]bool{}
+	var out []string
 	for _, f := range sd.st.Fields.List {
-		nested, _, _ := resolveNested(f.Type, structs[pkg])
+		nested, nestedName, _ := resolveNested(f.Type, structs[pkg])
 		if nested == nil {
-			continue // not a section struct — derive fails boot on this shape
+			// derive accepts any struct-kinded section, but a
+			// cross-package type is un-enumerable from this package's
+			// AST — flag it rather than silently skip its keys. A
+			// non-struct field also lands here; derive rejects that at
+			// boot, so the message stays accurate for real configs.
+			for _, sec := range f.Names {
+				out = append(out, fmt.Sprintf("%s.%s: section type is not resolvable in the struct's package — its keys cannot be checked for read sites; declare section types next to the config struct [INV-18]", structName, sec.Name))
+			}
+			continue
 		}
+		secNames := make([]string, 0, len(f.Names))
 		for _, sec := range f.Names {
+			secNames = append(secNames, sec.Name)
+		}
+		if len(secNames) == 0 && nestedName != "" { // embedded named section
+			secNames = append(secNames, nestedName)
+		}
+		for _, sec := range secNames {
 			for _, kf := range nested.Fields.List {
 				for _, kn := range kf.Names {
-					unread[key{sec.Name, kn.Name}] = true
+					unread[key{sec, kn.Name}] = true
 				}
 			}
 		}
@@ -94,7 +112,6 @@ func ConfigReadViolations(root, structName string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	var out []string
 	for k := range unread {
 		out = append(out, fmt.Sprintf("%s.%s.%s: no read site under %s — an unread knob is dead configuration; read it or delete it [INV-18]", structName, k.section, k.name, root))
 	}
