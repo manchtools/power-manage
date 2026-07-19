@@ -26,6 +26,7 @@ authoritative.
 | 2 | 4 modules, one failing test | nonzero exit, output names the failure | scaffold discovers nothing in the fixture → exits 0 |
 | 3 | fixture of #1 plus a 5th module with a failing test, script untouched | nonzero exit | scaffold's list can't pick up a new module → exits 0 |
 | 4 | 3 modules | nonzero exit naming the discovery floor | scaffold has no matches-zero floor → exits 0 |
+| 5 | 4 modules, one Go file gofmt cannot parse | nonzero exit with the gofmt stage itself recording FAIL | the stage's `2>/dev/null … \|\| true` swallowed gofmt's nonzero exit — red proven against the swallow before the fix |
 
 Guard-suite and generated-artifact freshness stages of AC-1 have no subjects
 yet: guards are Go tests inside modules (picked up by the test stage as they

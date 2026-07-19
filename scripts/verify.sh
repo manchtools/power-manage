@@ -41,11 +41,14 @@ if [ "${#MODULES[@]}" -gt 0 ]; then
   say "modules: ${MODULES[*]}"
   require staticcheck
 
-  # gofmt: fail on any diff (generated code under gen/ is exempt).
+  # gofmt: fail on any diff or parse error (generated code under gen/ exempt).
   say "gofmt"
-  UNFORMATTED=$(gofmt -l "${MODULES[@]}" 2>/dev/null | grep -v '/gen/' || true)
+  if ! GOFMT_OUT=$(gofmt -l "${MODULES[@]}" 2>&1); then
+    fail "gofmt — parse error"
+  fi
+  UNFORMATTED=$(grep -v '/gen/' <<<"$GOFMT_OUT" || true)
   if [ -n "$UNFORMATTED" ]; then
-    fail "gofmt — unformatted files:"
+    fail "gofmt — unformatted or unparseable files:"
     echo "$UNFORMATTED" | tee -a "$LOG"
   fi
 

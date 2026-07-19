@@ -99,10 +99,10 @@ fi
 # script — its planted failure must turn the gate red.
 write_module "$FIX1" m5 failing
 run_verify "$FIX1" "$WORK/s3.out"
-if [ "$RC" -ne 0 ] && grep -q 'm5' "$WORK/s3.out"; then
+if [ "$RC" -ne 0 ] && grep -q 'FAIL: m5: go test' "$WORK/s3.out"; then
   pass "newly added module is discovered and its failure turns the gate red"
 else
-  flunk "added module: want nonzero exit + m5 in output, got exit $RC"
+  flunk "added module: want nonzero exit + 'FAIL: m5: go test' in output, got exit $RC"
   dump_on_flunk "$WORK/s3.out"
 fi
 
@@ -116,6 +116,19 @@ if [ "$RC" -ne 0 ] && grep -qi 'module discovery' "$WORK/s4.out"; then
 else
   flunk "discovery floor: want nonzero exit naming module discovery, got exit $RC"
   dump_on_flunk "$WORK/s4.out"
+fi
+
+# Scenario 5: a Go file that gofmt cannot parse must fail the gofmt stage
+# itself — not slip through to be caught only by later stages.
+FIX5="$WORK/fix5"
+for m in m1 m2 m3 m4; do write_module "$FIX5" "$m" ok; done
+printf 'package m1\n\nfunc Broken( {\n' > "$FIX5/m1/lib.go"
+run_verify "$FIX5" "$WORK/s5.out"
+if [ "$RC" -ne 0 ] && grep -q 'FAIL: gofmt' "$WORK/s5.out"; then
+  pass "unparseable Go file fails the gofmt stage"
+else
+  flunk "gofmt parse error: want nonzero exit + 'FAIL: gofmt' in output, got exit $RC"
+  dump_on_flunk "$WORK/s5.out"
 fi
 
 echo
