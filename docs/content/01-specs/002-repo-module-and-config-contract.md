@@ -147,7 +147,10 @@ One repository holds four Go modules; nothing else contains code:
 - **AC-2** The [INV-19] archtest discovers all modules and packages from the
   repo layout and fails on any import outside the allowlist; its liveness
   fixture (an `agent`→`server` import) is detected; discovery of fewer than
-  four modules or zero packages in any module fails.
+  four modules or zero packages workspace-wide fails. Per-module package
+  floors ratchet from the current counts (`sdk` ≥ 1 today; the others gain
+  theirs as their specs land code), so a code-bearing module can never drop
+  to zero packages silently.
 - **AC-3** The [SDK-0] proto-purity archtest fails when any `sdk` package
   imports proto/connect/protobuf or generated contract packages; its liveness
   fixture is detected; zero scanned packages fails.
@@ -217,7 +220,7 @@ These are pure Go/tooling tests; no real-backend requirement applies
 
 | Guard | Discovery | Matches-zero floor |
 |---|---|---|
-| G-002-1 directional imports [INV-19] | Modules from repo layout/`go.work`; packages and imports per module | ≥4 modules, ≥1 package each |
+| G-002-1 directional imports [INV-19] | Modules from repo layout/`go.work`; packages and imports per module | ≥4 modules; ≥1 package workspace-wide; per-module floors ratchet (`sdk` ≥1 today) |
 | G-002-2 proto purity [SDK-0] | All `sdk` packages and their imports | ≥1 `sdk` package scanned |
 | G-002-3 license layout [LIC-1/2] | Module dirs from `go.work`; LICENSE presence/identity; root LICENSE absence; README mapping + grant present | ≥4 module dirs |
 | G-002-4 env hygiene [INV-18] | AST walk for `os.Getenv`/`os.LookupEnv`/`os.Environ` across all modules, allowlist keyed by function (loader; the SDK Runner's curated env builder) | Must find the loader's own lookup |
