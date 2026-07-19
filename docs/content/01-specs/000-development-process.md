@@ -121,8 +121,9 @@ list an implementer builds guards for FIRST.
 
 **Identity, signing, secrets**
 
-- **[INV-5]** Signed bytes == executed bytes; single representation; sign at
-  one seam; framed, length-prefixed, domain-separated preimages. Guards:
+- **[INV-5]** Signed bytes == executed bytes (WIRE-14, SPEC-003); single
+  representation; sign at one seam; framed, length-prefixed, domain-separated
+  preimages. Guards:
   signature-over-deterministic-proto tests, a no-unframed-hash-preimage scan,
   and domain round-trip + pairwise-isolation tests over self-discovered
   `*SignatureDomain` constants. Lesson: a second canonical-JSON representation
@@ -162,7 +163,8 @@ list an implementer builds guards for FIRST.
   presence-based type-level checks. Lesson: list/dispatch handlers passed a
   type-level authorization check while their queries applied no scope filter.
 - **[INV-11]** Every admin-removing handler takes the last-admin advisory lock
-  (self-discovering coverage guard); the count includes enabled,
+  (AUTHZ-2, SPEC-008; self-discovering coverage guard); the count includes
+  enabled,
   group-inherited admins and is atomic with the mutation. The role-management
   permission is the SOLE grant gate — no grant-subset ceiling (recorded
   decision; do not re-add).

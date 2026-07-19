@@ -26,6 +26,14 @@ var notInRepo = map[string]string{
 	"INV-17": "web UI invariant; enforced in the separate web repository (SPEC-000 §3.4)",
 }
 
+// ownerlessPending records in-repo invariants whose §3.4 entry cites no
+// owning spec yet — keyed by identity with the open question. An entry here
+// is a loud hole: G-000-1 can never demand a guard for the invariant until
+// the catalog gains the ref and the entry is removed.
+var ownerlessPending = map[string]string{
+	"INV-3": "boot-fail-closed is specified verbatim in both SPEC-003 and SPEC-006; operator to pick the §3.4 ref(s)",
+}
+
 var (
 	invEntryRe = regexp.MustCompile(`(?m)^- \*\*\[INV-(\d+)\]\*\*`)
 	specRefRe  = regexp.MustCompile(`\bSPEC-(\d{3})\b`)
@@ -170,23 +178,27 @@ func TestGuard_InvariantCoverage(t *testing.T) {
 		t.Errorf("registry contains unexpected entry %q — the catalog holds exactly INV-1..INV-19; a new invariant needs a spec change first", id)
 	}
 
-	statuses := Discover(t, "spec statuses from the ledger", 18, func() ([]string, error) {
+	// Per-invariant owner floor: an empty owner set makes the coverage join
+	// vacuous for that invariant forever — silent fail-open.
+	for _, inv := range invs {
+		if inv.InRepo && len(inv.OwningSpecs) == 0 && ownerlessPending[inv.ID] == "" {
+			t.Errorf("%s has no derived owning spec and no recorded pending decision — G-000-1 can never demand its guard; add the ref to its §3.4 entry or record the open question in ownerlessPending", inv.ID)
+		}
+	}
+
+	var statusMap map[string]string
+	Discover(t, "spec statuses from the ledger", 18, func() ([]string, error) {
 		m, err := specStatuses(root)
 		if err != nil {
 			return nil, err
 		}
+		statusMap = m
 		flat := make([]string, 0, len(m))
 		for spec, status := range m {
 			flat = append(flat, spec+"="+status)
 		}
 		return flat, nil
 	})
-	_ = statuses
-
-	statusMap, err := specStatuses(root)
-	if err != nil {
-		t.Fatalf("re-reading spec statuses: %v", err)
-	}
 	for _, inv := range invs {
 		for _, owner := range inv.OwningSpecs {
 			if _, ok := statusMap[owner]; !ok {
@@ -229,6 +241,12 @@ func TestInvariantRegistry_DerivedOwners(t *testing.T) {
 	}
 	if !owns("INV-12", "SPEC-005") {
 		t.Errorf("INV-12 owners = %v, want SPEC-005 among them", byID["INV-12"].OwningSpecs)
+	}
+	if !owns("INV-5", "SPEC-003") {
+		t.Errorf("INV-5 owners = %v, want SPEC-003 among them (signed-bytes/preimage requirements live there)", byID["INV-5"].OwningSpecs)
+	}
+	if !owns("INV-11", "SPEC-008") {
+		t.Errorf("INV-11 owners = %v, want SPEC-008 among them (AUTHZ-2 last-admin protection)", byID["INV-11"].OwningSpecs)
 	}
 	if byID["INV-17"].InRepo {
 		t.Error("INV-17 is enforced in the web repository (SPEC-000 §3.4/§10) and must be marked not-in-repo")
