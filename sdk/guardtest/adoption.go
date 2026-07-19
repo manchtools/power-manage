@@ -58,23 +58,34 @@ func binaryAdoptionViolations(root string, mods []string, loaderPath string) (vi
 			if len(names) == 0 && !dot {
 				return nil
 			}
-			ast.Inspect(file, func(n ast.Node) bool {
-				call, ok := n.(*ast.CallExpr)
-				if !ok {
+			// Only a call inside a Test function's body counts — a
+			// helper, init, or package-level call would satisfy a
+			// file-level scan without any test ever running Doc.
+			// ponytail: a Doc call reached only through a helper is
+			// over-flagged by design (fail closed).
+			for _, decl := range file.Decls {
+				fd, ok := decl.(*ast.FuncDecl)
+				if !ok || fd.Recv != nil || fd.Body == nil || !strings.HasPrefix(fd.Name.Name, "Test") {
+					continue
+				}
+				ast.Inspect(fd.Body, func(n ast.Node) bool {
+					call, ok := n.(*ast.CallExpr)
+					if !ok {
+						return true
+					}
+					switch f := unwrapExpr(call.Fun).(type) {
+					case *ast.Ident:
+						if dot && f.Name == "Doc" {
+							docsTested[bin] = true
+						}
+					case *ast.SelectorExpr:
+						if id, ok := f.X.(*ast.Ident); ok && names[id.Name] && f.Sel.Name == "Doc" {
+							docsTested[bin] = true
+						}
+					}
 					return true
-				}
-				switch f := unwrapExpr(call.Fun).(type) {
-				case *ast.Ident:
-					if dot && f.Name == "Doc" {
-						docsTested[bin] = true
-					}
-				case *ast.SelectorExpr:
-					if id, ok := f.X.(*ast.Ident); ok && names[id.Name] && f.Sel.Name == "Doc" {
-						docsTested[bin] = true
-					}
-				}
-				return true
-			})
+				})
+			}
 			return nil
 		})
 		if err != nil {

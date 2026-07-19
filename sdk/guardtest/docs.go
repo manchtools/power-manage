@@ -72,20 +72,26 @@ func ConfigReadViolations(root, structName string) ([]string, error) {
 	var out []string
 	for _, f := range sd.st.Fields.List {
 		nested, nestedName, _ := resolveNested(f.Type, structs[pkg])
-		if nested == nil {
-			// derive accepts any struct-kinded section, but a
-			// cross-package type is un-enumerable from this package's
-			// AST — flag it rather than silently skip its keys. A
-			// non-struct field also lands here; derive rejects that at
-			// boot, so the message stays accurate for real configs.
-			for _, sec := range f.Names {
-				out = append(out, fmt.Sprintf("%s.%s: section type is not resolvable in the struct's package — its keys cannot be checked for read sites; declare section types next to the config struct [INV-18]", structName, sec.Name))
-			}
-			continue
-		}
 		secNames := make([]string, 0, len(f.Names))
 		for _, sec := range f.Names {
 			secNames = append(secNames, sec.Name)
+		}
+		if nested == nil {
+			// derive accepts any struct-kinded section, but a
+			// cross-package type is un-enumerable from this package's
+			// AST — flag it rather than silently skip its keys, named
+			// or embedded. A non-struct field also lands here; derive
+			// rejects that at boot, so the message stays accurate for
+			// real configs.
+			if len(secNames) == 0 {
+				if n := embeddedTypeName(f.Type); n != "" {
+					secNames = append(secNames, n)
+				}
+			}
+			for _, sec := range secNames {
+				out = append(out, fmt.Sprintf("%s.%s: section type is not resolvable in the struct's package — its keys cannot be checked for read sites; declare section types next to the config struct [INV-18]", structName, sec))
+			}
+			continue
 		}
 		if len(secNames) == 0 && nestedName != "" { // embedded named section
 			secNames = append(secNames, nestedName)
@@ -117,4 +123,18 @@ func ConfigReadViolations(root, structName string) ([]string, error) {
 	}
 	sort.Strings(out)
 	return out, nil
+}
+
+// embeddedTypeName names an embedded field by its type — the same name
+// derive gives the section.
+func embeddedTypeName(t ast.Expr) string {
+	switch tt := t.(type) {
+	case *ast.Ident:
+		return tt.Name
+	case *ast.SelectorExpr:
+		return tt.Sel.Name
+	case *ast.StarExpr:
+		return embeddedTypeName(tt.X)
+	}
+	return ""
 }

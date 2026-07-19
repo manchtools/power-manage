@@ -57,6 +57,6 @@ func TestGuard_ConfigAdoption_Liveness(t *testing.T) {
 		t.Fatalf("scanning the adoption fixture: %v", err)
 	}
 	requireFlagged(t, v,
-		[]string{"app/cmd/bad:import", "app/cmd/bad:docs"},
-		[]string{"app/cmd/good"})
+		[]string{"app/cmd/bad:import", "app/cmd/bad:docs", "app/cmd/helperdoc:docs"},
+		[]string{"app/cmd/good", "app/cmd/helperdoc:import"})
 }

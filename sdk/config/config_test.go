@@ -244,9 +244,11 @@ func TestDoc_EscapesTableCells(t *testing.T) {
 	var c struct {
 		S struct {
 			Mode string `doc:"one of a|b"`
+			Tick string `doc:"holds a backtick"`
 		}
 	}
 	c.S.Mode = "x|y\nz"
+	c.S.Tick = "a`b"
 	got, err := config.Doc(&c)
 	if err != nil {
 		t.Fatalf("Doc: %v", err)
@@ -256,6 +258,9 @@ func TestDoc_EscapesTableCells(t *testing.T) {
 	}
 	if !strings.Contains(got, `a\|b`) || !strings.Contains(got, `x\|y z`) {
 		t.Errorf("escaped cell forms missing — pipes must render as \\| and newlines as spaces:\n%s", got)
+	}
+	if !strings.Contains(got, "| `` a`b `` |") {
+		t.Errorf("a backtick in a default must render inside a wider code span, not terminate it:\n%s", got)
 	}
 }
 
