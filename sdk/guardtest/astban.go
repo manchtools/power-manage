@@ -26,7 +26,9 @@ import (
 
 // walkGoFiles visits every parsed .go file under root (test files only
 // when testFiles is set), skipping testdata and hidden directories below
-// root so fixture trees never leak into a real scan.
+// root so fixture trees never leak into a real scan. rel is always
+// slash-separated — visitors may use path.Dir/path-prefix checks on it
+// directly on every platform.
 func walkGoFiles(root string, testFiles bool, visit func(rel string, fset *token.FileSet, file *ast.File) error) error {
 	fset := token.NewFileSet()
 	return filepath.WalkDir(root, func(p string, d fs.DirEntry, walkErr error) error {
