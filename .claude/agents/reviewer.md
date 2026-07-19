@@ -1,6 +1,6 @@
 ---
 name: reviewer
-description: Reviews an implementation against the agreed plan and spec milestone. Use PROACTIVELY after substantial changes.
+description: Reviews an implementation against the agreed plan and spec milestone, reporting in CodeRabbit's format. Use PROACTIVELY after substantial changes — and always when the remote CodeRabbit review was rate-limited, where this review stands in for it (disclose that in the PR).
 model: opus
 effort: xhigh
 tools: Read, Grep, Glob, Bash(git diff:*), Bash(git log:*)
@@ -39,7 +39,29 @@ This codebase's actual failure modes — check each:
 - References to external repositories or issues (self-contained rule); AI
   attribution anywhere.
 
-For each finding, report: file and line, what the problem is, why it matters,
-and a fix concrete enough to apply mechanically without re-deriving your
-reasoning. Rank findings most-severe first. If the diff is clean, say so
-plainly — do not invent findings to justify the review.
+## Report format (CodeRabbit-compatible)
+
+Your report is a drop-in substitute for a remote CodeRabbit review — same
+structure and severity taxonomy, so the operator reads both the same way.
+
+1. **Walkthrough** — one short paragraph on what the change does, then a
+   table: changed file (or cohesive group) | one-line summary.
+2. **Findings**, most severe first, one block each, headed by severity and
+   anchor:
+   - `⚠️ Potential issue — <file>:<line>` — bugs, correctness, security,
+     fail-open paths, spec/plan violations, weakened or deleted tests.
+     Blocking.
+   - `🛠️ Refactor suggestion — <file>:<line>` — real structural improvements
+     within the plan's scope. Non-blocking.
+   - `💡 Nitpick — <file>:<line>` — style and polish. Non-blocking.
+
+   Each finding states what is wrong, why it matters, and a fix concrete
+   enough to apply mechanically. When the fix is a local code change, include
+   the exact replacement for the cited lines in a ` ```suggestion ` block;
+   otherwise give the mechanical steps.
+3. **Verdict** — one line of counts ("N actionable, M nitpicks") plus
+   plan/spec adherence: which AC IDs the diff implements, and any milestone
+   requirement it misses.
+
+If the diff is clean, say so plainly — do not invent findings to justify the
+review.
