@@ -1,7 +1,8 @@
 // Fixture: knobs read below stay clean; UnreadKnob (inline section),
 // Retries (named section type), and TTL (embedded section) have no read
-// site and must be flagged. Ext's cross-package section type cannot be
-// enumerated from the AST — the scan must fail closed on it, not skip.
+// site and must be flagged. Cross-package section types — named (Ext)
+// AND embedded (RemoteSection) — cannot be enumerated from the AST; the
+// scan must fail closed on each, never skip.
 package fixture
 
 import "example.com/extern"
@@ -13,6 +14,7 @@ type reportConfig struct {
 	}
 	Store diskSection
 	CacheSection
+	extern.RemoteSection
 	Ext extern.PoolSection
 }
 

@@ -80,12 +80,34 @@ func Doc(cfg any) (string, error) {
 				return "", fmt.Errorf("key %s.%s has no doc tag — an undocumented knob cannot ship; state what it does and why it exists [INV-18]", sf.Name, kf.Name)
 			}
 			key := snake(kf.Name)
-			fmt.Fprintf(&b, "| `%s` | `PM_%s_%s` | %s | `%s` | %s |\n",
+			fmt.Fprintf(&b, "| `%s` | `PM_%s_%s` | %s | %s | %s |\n",
 				key, strings.ToUpper(sec), strings.ToUpper(key), kf.Type.Kind(),
-				cell.Replace(fmt.Sprintf("%v", v.Field(i).Field(j).Interface())), cell.Replace(doc))
+				codeCell(cell.Replace(fmt.Sprintf("%v", v.Field(i).Field(j).Interface()))), cell.Replace(doc))
 		}
 	}
 	return b.String(), nil
+}
+
+// codeCell wraps s as a code span whose delimiter out-runs any backtick
+// run inside s, so a backtick in a default cannot terminate the cell's
+// span.
+func codeCell(s string) string {
+	longest, run := 0, 0
+	for _, r := range s {
+		if r != '`' {
+			run = 0
+			continue
+		}
+		run++
+		if run > longest {
+			longest = run
+		}
+	}
+	if longest == 0 {
+		return "`" + s + "`"
+	}
+	d := strings.Repeat("`", longest+1)
+	return d + " " + s + " " + d
 }
 
 // derive walks cfg's two-level struct and fails closed on anything the
