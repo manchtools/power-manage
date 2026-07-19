@@ -16,11 +16,17 @@ PATTERNS=(
 
 FAIL=0
 for p in "${PATTERNS[@]}"; do
+  # grep exit codes: 0 = hits (finding), 1 = clean, >1 = grep itself failed.
+  # Conflating "grep broke" with "clean" would make this guard fail open.
   hits=$(grep -rInE "$p" . \
     --exclude-dir=.git --exclude-dir=.claude --exclude-dir=node_modules \
     --exclude-dir=bin --exclude-dir=dist \
-    --exclude=CLAUDE.md --exclude=.gitignore --exclude=check-self-contained.sh || true)
-  if [ -n "$hits" ]; then
+    --exclude=CLAUDE.md --exclude=.gitignore --exclude=check-self-contained.sh)
+  rc=$?
+  if [ "$rc" -gt 1 ]; then
+    printf '\nGUARD ERROR: grep failed (exit %s) on pattern: %s\n' "$rc" "$p"
+    FAIL=1
+  elif [ "$rc" -eq 0 ]; then
     printf '\nFORBIDDEN external reference (pattern: %s):\n%s\n' "$p" "$hits"
     FAIL=1
   fi

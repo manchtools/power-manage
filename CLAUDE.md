@@ -55,7 +55,7 @@ regression test proven red first.
 - Verify gate (before every commit): `./scripts/verify.sh`
 - Build: `go build ./server/cmd/control` | `./server/cmd/gateway`;
   `CGO_ENABLED=0 go build ./agent/cmd/agent`
-- Test one module: `go test -C <module> ./... -count=1`
+- Test one module: `go test -C <module> ./... -count=1 -race`
 - Protos: `cd contract && buf lint && buf generate`
 
 ## Always / never
