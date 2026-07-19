@@ -1,6 +1,7 @@
 package guardtest
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -37,6 +38,30 @@ func TestGuard_ContractManifestLicense(t *testing.T) {
 	})
 	if len(lics) != 1 || lics[0] != "MIT" {
 		t.Errorf("contract/package.json license = %v, want exactly MIT [LIC-4]", lics)
+	}
+}
+
+// TestGuard_ContractManifestLicense_Liveness: a non-MIT manifest carries
+// the exact value the guard rejects, and malformed or missing manifests
+// error — fail closed, never an empty pass.
+func TestGuard_ContractManifestLicense_Liveness(t *testing.T) {
+	scan := func(root string) ([]string, error) {
+		lic, err := contractManifestLicense(root)
+		if err != nil {
+			return nil, err
+		}
+		if lic != "MIT" {
+			return []string{fmt.Sprintf("contract/package.json license %q, want MIT [LIC-4]", lic)}, nil
+		}
+		return nil, nil
+	}
+	RequireViolation(t, "contract manifest license", scan, "testdata/arch/manifest/nonmit")
+
+	if _, err := contractManifestLicense("testdata/arch/manifest/malformed"); err == nil {
+		t.Errorf("malformed manifest parsed cleanly — a broken manifest must fail the guard, not pass it")
+	}
+	if _, err := contractManifestLicense("testdata/arch/manifest"); err == nil {
+		t.Errorf("missing manifest read cleanly — absence must fail the guard, not pass it")
 	}
 }
 
