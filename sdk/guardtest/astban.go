@@ -226,7 +226,7 @@ func SentinelComparisons(root string, sentinels map[string][]string, allow ...st
 				}
 			case *ast.CallExpr:
 				isErrorsIs := false
-				switch f := x.Fun.(type) {
+				switch f := unwrapExpr(x.Fun).(type) {
 				case *ast.SelectorExpr:
 					id, ok := f.X.(*ast.Ident)
 					isErrorsIs = ok && errNames[id.Name] && f.Sel.Name == "Is"
@@ -296,7 +296,7 @@ func EnumSwitchesWithoutErroringDefault(root string, enumPkgPrefixes []string, a
 					continue
 				}
 				for _, e := range cc.List {
-					if sel, ok := e.(*ast.SelectorExpr); ok {
+					if sel, ok := unwrapExpr(e).(*ast.SelectorExpr); ok {
 						if id, ok := sel.X.(*ast.Ident); ok && enumPkgs[id.Name] {
 							enumSwitch = true
 						}
