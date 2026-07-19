@@ -33,9 +33,10 @@ every review finding is addressed — never chain watch-and-merge. Review
 fixes land as their own commit naming the findings; a fixed defect gets its
 regression test proven red first.
 
-## Model tiering and test authorship
+## Test authorship and planning
 
-- Plan on Opus, implement on Sonnet (`--model opusplan`).
+- Sessions run on a top-tier model end to end (operator decision) — no model
+  downshifting for implementation.
 - Before implementing, save the agreed plan to `docs/plans/<short-name>.md`:
   reference the spec milestone and write only the delta (files, symbols, test
   names) — do not duplicate the spec.
