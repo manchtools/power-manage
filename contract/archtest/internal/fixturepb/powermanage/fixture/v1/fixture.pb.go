@@ -1083,6 +1083,56 @@ func (x *FixtureDenyFields) GetCleanToken() string {
 	return ""
 }
 
+// G-7 evasion fixture (matcher-grammar family): the camelCase spelling of a
+// banned field name. proto3 accepts non-snake field names (this module is
+// never linted), so the deny-list matcher must canonicalize case AND
+// underscores — a name-only lowercase compare accepts authToken while
+// banning auth_token. In its own message: a same-message plant would
+// collide with auth_token's JSON name.
+type FixtureDenyCamel struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AuthToken     string                 `protobuf:"bytes,1,opt,name=authToken,proto3" json:"authToken,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FixtureDenyCamel) Reset() {
+	*x = FixtureDenyCamel{}
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FixtureDenyCamel) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FixtureDenyCamel) ProtoMessage() {}
+
+func (x *FixtureDenyCamel) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FixtureDenyCamel.ProtoReflect.Descriptor instead.
+func (*FixtureDenyCamel) Descriptor() ([]byte, []int) {
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *FixtureDenyCamel) GetAuthToken() string {
+	if x != nil {
+		return x.AuthToken
+	}
+	return ""
+}
+
 // G-8 near-copy liveness: an exact structural twin pair — identical
 // field-name+type multiset {twin_id: string}. The near-copy walk must flag
 // exactly this pair. Service-UNREACHABLE (does not perturb other want-sets);
@@ -1097,7 +1147,7 @@ type FixtureTwinA struct {
 
 func (x *FixtureTwinA) Reset() {
 	*x = FixtureTwinA{}
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[16]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1109,7 +1159,7 @@ func (x *FixtureTwinA) String() string {
 func (*FixtureTwinA) ProtoMessage() {}
 
 func (x *FixtureTwinA) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[16]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1122,7 +1172,7 @@ func (x *FixtureTwinA) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FixtureTwinA.ProtoReflect.Descriptor instead.
 func (*FixtureTwinA) Descriptor() ([]byte, []int) {
-	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{16}
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *FixtureTwinA) GetTwinId() string {
@@ -1141,7 +1191,7 @@ type FixtureTwinB struct {
 
 func (x *FixtureTwinB) Reset() {
 	*x = FixtureTwinB{}
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[17]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1153,7 +1203,7 @@ func (x *FixtureTwinB) String() string {
 func (*FixtureTwinB) ProtoMessage() {}
 
 func (x *FixtureTwinB) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[17]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1166,7 +1216,7 @@ func (x *FixtureTwinB) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FixtureTwinB.ProtoReflect.Descriptor instead.
 func (*FixtureTwinB) Descriptor() ([]byte, []int) {
-	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{17}
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *FixtureTwinB) GetTwinId() string {
@@ -1239,7 +1289,9 @@ const file_powermanage_fixture_v1_fixture_proto_rawDesc = "" +
 	"auth_token\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\tauthToken\x122\n" +
 	"\x10params_canonical\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x0fparamsCanonical\x12(\n" +
 	"\vclean_token\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\n" +
-	"cleanToken\"0\n" +
+	"cleanToken\"9\n" +
+	"\x10FixtureDenyCamel\x12%\n" +
+	"\tauthToken\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\tauthToken\"0\n" +
 	"\fFixtureTwinA\x12 \n" +
 	"\atwin_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x06twinId\"0\n" +
 	"\fFixtureTwinB\x12 \n" +
@@ -1268,7 +1320,7 @@ func file_powermanage_fixture_v1_fixture_proto_rawDescGZIP() []byte {
 }
 
 var file_powermanage_fixture_v1_fixture_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_powermanage_fixture_v1_fixture_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
+var file_powermanage_fixture_v1_fixture_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
 var file_powermanage_fixture_v1_fixture_proto_goTypes = []any{
 	(FixtureBadEnum)(0),            // 0: powermanage.fixture.v1.FixtureBadEnum
 	(FixtureGoodEnum)(0),           // 1: powermanage.fixture.v1.FixtureGoodEnum
@@ -1288,20 +1340,21 @@ var file_powermanage_fixture_v1_fixture_proto_goTypes = []any{
 	(*FixtureManifest)(nil),        // 15: powermanage.fixture.v1.FixtureManifest
 	(*FixtureManifestEntry)(nil),   // 16: powermanage.fixture.v1.FixtureManifestEntry
 	(*FixtureDenyFields)(nil),      // 17: powermanage.fixture.v1.FixtureDenyFields
-	(*FixtureTwinA)(nil),           // 18: powermanage.fixture.v1.FixtureTwinA
-	(*FixtureTwinB)(nil),           // 19: powermanage.fixture.v1.FixtureTwinB
-	(*timestamppb.Timestamp)(nil),  // 20: google.protobuf.Timestamp
-	(*wrapperspb.BoolValue)(nil),   // 21: google.protobuf.BoolValue
+	(*FixtureDenyCamel)(nil),       // 18: powermanage.fixture.v1.FixtureDenyCamel
+	(*FixtureTwinA)(nil),           // 19: powermanage.fixture.v1.FixtureTwinA
+	(*FixtureTwinB)(nil),           // 20: powermanage.fixture.v1.FixtureTwinB
+	(*timestamppb.Timestamp)(nil),  // 21: google.protobuf.Timestamp
+	(*wrapperspb.BoolValue)(nil),   // 22: google.protobuf.BoolValue
 }
 var file_powermanage_fixture_v1_fixture_proto_depIdxs = []int32{
 	3,  // 0: powermanage.fixture.v1.FixtureRequest.nested:type_name -> powermanage.fixture.v1.NestedParams
-	20, // 1: powermanage.fixture.v1.FixtureRequest.stamped_at:type_name -> google.protobuf.Timestamp
+	21, // 1: powermanage.fixture.v1.FixtureRequest.stamped_at:type_name -> google.protobuf.Timestamp
 	14, // 2: powermanage.fixture.v1.FixtureRequest.enum_carrier:type_name -> powermanage.fixture.v1.FixtureEnumCarrier
 	7,  // 3: powermanage.fixture.v1.FixtureActionParams.a:type_name -> powermanage.fixture.v1.FixtureAParams
 	8,  // 4: powermanage.fixture.v1.FixtureActionParams.b:type_name -> powermanage.fixture.v1.FixtureBParams
 	9,  // 5: powermanage.fixture.v1.FixtureActionParams.c:type_name -> powermanage.fixture.v1.FixtureBoolParams
 	10, // 6: powermanage.fixture.v1.FixtureActionParams.d:type_name -> powermanage.fixture.v1.FixtureOptBoolParams
-	21, // 7: powermanage.fixture.v1.FixtureBParams.wrapped:type_name -> google.protobuf.BoolValue
+	22, // 7: powermanage.fixture.v1.FixtureBParams.wrapped:type_name -> google.protobuf.BoolValue
 	7,  // 8: powermanage.fixture.v1.FixtureDirectEmbed.direct:type_name -> powermanage.fixture.v1.FixtureAParams
 	7,  // 9: powermanage.fixture.v1.FixtureSecondOneof.a2:type_name -> powermanage.fixture.v1.FixtureAParams
 	8,  // 10: powermanage.fixture.v1.FixtureSecondOneof.b2:type_name -> powermanage.fixture.v1.FixtureBParams
@@ -1344,7 +1397,7 @@ func file_powermanage_fixture_v1_fixture_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_powermanage_fixture_v1_fixture_proto_rawDesc), len(file_powermanage_fixture_v1_fixture_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   18,
+			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

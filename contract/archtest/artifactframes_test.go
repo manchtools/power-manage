@@ -84,9 +84,9 @@ func assertSha256Field(t *testing.T, md protoreflect.MessageDescriptor, name str
 
 // assertUnconstrainedOffset pins the deliberate absence of rules on offset
 // (plan choice 4): the field is present, uint64, and carries NO buf.validate
-// constraint. NOTE (reported spec gap): G-1's untaggedFields will nonetheless
-// flag this reachable field — see the M5 report; resolving that is the
-// implementer's, not this test's, concern.
+// constraint. The G-1 collision reported at test authorship is resolved:
+// descwalk.go's untaggedExemptions sanctions exactly these two offset
+// fields, keyed by full name with rationale.
 func assertUnconstrainedOffset(t *testing.T, md protoreflect.MessageDescriptor, name string, num protoreflect.FieldNumber) {
 	t.Helper()
 	f := requireFieldNum(t, md, name, num)

@@ -120,6 +120,7 @@ func TestGuard_DenyList_Liveness(t *testing.T) {
 	})
 
 	requireExactPrefixes(t, "banned field names", bannedFieldNameViolations(files), []string{
+		"powermanage.fixture.v1.FixtureDenyCamel.authToken",
 		"powermanage.fixture.v1.FixtureDenyFields.auth_token",
 		"powermanage.fixture.v1.FixtureDenyFields.params_canonical",
 	}, []string{"clean_token"})
@@ -191,13 +192,26 @@ func TestDenyListSets_ThreatModel(t *testing.T) {
 // descriptor scans
 // ---------------------------------------------------------------------------
 
+// canonicalFieldToken lowers a field name and strips underscores so the
+// snake, camel, and screaming spellings of a banned name all collide with
+// its canonical form — proto3 accepts non-snake field names, and a
+// case-only compare would accept authToken while banning auth_token
+// (review finding, PR #19 round 1).
+func canonicalFieldToken(name string) string {
+	return strings.ReplaceAll(strings.ToLower(name), "_", "")
+}
+
 func bannedFieldNameViolations(files []protoreflect.FileDescriptor) []string {
+	canon := make(map[string]bool, len(bannedFieldNames))
+	for name := range bannedFieldNames {
+		canon[canonicalFieldToken(name)] = true
+	}
 	var out []string
 	for _, md := range allMessages(files) {
 		fields := md.Fields()
 		for i := 0; i < fields.Len(); i++ {
 			f := fields.Get(i)
-			if bannedFieldNames[strings.ToLower(string(f.Name()))] {
+			if canon[canonicalFieldToken(string(f.Name()))] {
 				out = append(out, fmt.Sprintf("%s: field name is on the [WIRE-30] deny-list — self-asserted identity comes only from the mTLS cert, and signed content has ONE deterministic representation", f.FullName()))
 			}
 		}
@@ -311,28 +325,98 @@ func goImportViolations(root string, prefixes []string) ([]string, error) {
 	return out, nil
 }
 
-// workspaceModuleDirs returns the absolute module directories listed in the
-// repo's go.work `use` block — the self-discovering population for the import
-// scan (floor 4).
+// workspaceModuleDirs returns the module directories named by the repo's
+// go.work use directives — the self-discovering population for the import
+// scan (floor 4). It parses ONLY use directives (single-line and block),
+// strips comments first, and accepts every legal path form (./-relative,
+// bare relative, quoted, absolute): a missed form would silently exempt a
+// module from the scan (fail-open), and a comment or replace token taken
+// for a module would poison the walk (review finding, PR #19 round 1).
 func workspaceModuleDirs(root string) ([]string, error) {
 	src, err := os.ReadFile(filepath.Join(root, "go.work"))
 	if err != nil {
 		return nil, fmt.Errorf("reading go.work: %w", err)
 	}
 	var dirs []string
+	inUseBlock := false
 	for _, line := range strings.Split(string(src), "\n") {
-		line = strings.TrimSpace(line)
-		line = strings.TrimPrefix(line, "use ")
-		line = strings.TrimSpace(strings.TrimPrefix(line, "use"))
-		for _, tok := range strings.Fields(line) {
-			tok = strings.Trim(tok, "()")
-			if strings.HasPrefix(tok, "./") {
-				dirs = append(dirs, filepath.Join(root, filepath.FromSlash(tok)))
-			}
+		if i := strings.Index(line, "//"); i >= 0 {
+			line = line[:i]
 		}
+		line = strings.TrimSpace(line)
+		var path string
+		switch {
+		case inUseBlock:
+			if line == ")" {
+				inUseBlock = false
+				continue
+			}
+			path = line
+		case line == "use (":
+			inUseBlock = true
+			continue
+		case strings.HasPrefix(line, "use "):
+			path = strings.TrimSpace(strings.TrimPrefix(line, "use "))
+		default:
+			continue
+		}
+		if path == "" {
+			continue
+		}
+		if unquoted, uerr := strconv.Unquote(path); uerr == nil {
+			path = unquoted
+		}
+		if !filepath.IsAbs(path) {
+			path = filepath.Join(root, filepath.FromSlash(path))
+		}
+		dirs = append(dirs, path)
 	}
 	sort.Strings(dirs)
 	return dirs, nil
+}
+
+// TestWorkspaceModuleDirs_Grammar enumerates the go.work input families the
+// parser must decide (the matcher's grammar is the threat model): block and
+// single-line use directives, quoted paths, paths WITHOUT the ./ prefix
+// (legal go.work syntax — missing one silently exempts a module from the
+// import scan, fail-open), absolute paths, and ./-tokens inside comments or
+// replace directives (which must NOT be collected).
+func TestWorkspaceModuleDirs_Grammar(t *testing.T) {
+	root := t.TempDir()
+	work := `go 1.26
+
+// a comment naming ./commented must not be collected
+use (
+	./contract // trailing comment
+	plain
+	"./qu oted"
+	/abs/mod
+)
+
+use ./single
+use bare
+
+replace example.com/x => ./replaced
+`
+	if err := os.WriteFile(filepath.Join(root, "go.work"), []byte(work), 0o600); err != nil {
+		t.Fatalf("writing fixture go.work: %v", err)
+	}
+	got, err := workspaceModuleDirs(root)
+	if err != nil {
+		t.Fatalf("workspaceModuleDirs: %v", err)
+	}
+	want := []string{
+		"/abs/mod",
+		filepath.Join(root, "bare"),
+		filepath.Join(root, "contract"),
+		filepath.Join(root, "plain"),
+		filepath.Join(root, "qu oted"),
+		filepath.Join(root, "single"),
+	}
+	sort.Strings(want)
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Errorf("workspaceModuleDirs = %v, want %v — every use directive is a scanned module (missing one exempts it from the import guard, fail-open) and comment/replace tokens are never modules", got, want)
+	}
 }
 
 // archtestRepoRoot walks up from the test's working directory to the go.work

@@ -1,9 +1,10 @@
 # SPEC-003 M5 — stream protocols + deny-list
 
 Milestone: SPEC-003 §9 M5 — AgentService and InternalService stream frame
-sets including artifact fetch ([WIRE-28/29]), ScimService and ExportService
-surfaces, G-7/G-8 green; full contract suite green under `-race`. Flips
-SPEC-003 to Implemented.
+sets including artifact fetch ([WIRE-28/29]); ScimService and ExportService
+demoted to non-proto boundaries with their proto files deleted (amended
+§3.2, choice 9); G-7/G-8 green; full contract suite green under `-race`.
+Flips SPEC-003 to Implemented.
 
 ## Recorded mechanical choices
 

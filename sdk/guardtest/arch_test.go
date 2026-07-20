@@ -180,10 +180,14 @@ func TestModuleRequires_ParsesForms(t *testing.T) {
 // TestGuard_GatewayPurity is G-001-3 (SPEC-001 AC-3): the gateway binary's
 // import closure must not reach event-store, secret-custody, or CA-key
 // packages [TM-2]. Dormant (reported skip) until server/cmd/gateway exists;
-// TestGuard_GatewayPurity_Liveness keeps the scan honest meanwhile. The
-// wire-schema half of TM-2 — the stateless artifact relay, CRL as the only
-// cached artifact ([WIRE-29], SPEC-003) — is pinned by the contract frame
-// shapes; this closure scan is the custody half.
+// TestGuard_GatewayPurity_Liveness keeps the scan honest meanwhile.
+//
+// TM-2 scope: THIS test enforces only the custody/import half — the gateway
+// binary cannot link event-store, secret-custody, or CA-key packages. The
+// wire-schema half (stateless artifact relay, CRL as the only cached
+// artifact — [WIRE-29], SPEC-003) is pinned separately by the contract
+// frame-shape tests in contract/archtest (streams_test.go,
+// artifactframes_test.go).
 //
 // Guards: TM-2.
 func TestGuard_GatewayPurity(t *testing.T) {
