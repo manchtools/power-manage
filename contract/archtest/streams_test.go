@@ -76,6 +76,16 @@ func TestGuard_AgentFrameMembers(t *testing.T) {
 // TestGuard_ServerFrameMembers: ServerFrame.frame oneof is exactly
 // {welcome: Welcome, command: SignedCommand, artifact_chunk: ArtifactChunk,
 // artifact_fetch_error: ArtifactFetchError}, required (plan choice 1).
+//
+// TM-4 scope: connectivity is never authority — on the control→agent
+// direction the ONLY authority-bearing frame is the CA-signed envelope
+// (command: SignedCommand, verified fail-closed per G-5), Welcome is empty
+// by [WIRE-17], and artifact chunks carry data whose digest the signed
+// command already covers ([WIRE-29]). Reaching the stream grants nothing
+// executable; the runtime socket/permission halves arm with SPEC-012/013 —
+// extend there, never weaken here.
+//
+// Guards: TM-4.
 func TestGuard_ServerFrameMembers(t *testing.T) {
 	got := Discover(t, "ServerFrame.frame oneof members", 4, func() ([]string, error) {
 		return frameOneofMemberNames("ServerFrame")

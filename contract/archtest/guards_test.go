@@ -34,6 +34,17 @@ const fixturePackage = "powermanage.fixture.v1"
 // dead contract). A missing service is unimplemented surface; an extra one —
 // including a re-added ScimService/ExportService proto — is surface the spec
 // never approved.
+//
+// INV-9 scope ([WIRE-18/19]): certificate-only identity's schema half — the
+// four mTLS-authenticated services are the exact wire surface, so no
+// identity-asserting service or RPC can appear unseen; the per-message bans
+// ride the shape pins (Welcome empty, Hello capabilities-only,
+// ValidateTerminalTokenRequest opaque-token-only, the [WIRE-9] no-dual-field
+// wrappers). DER-derived authority state, proof-of-possession, and the
+// enrollment lock are PKI-2..4 and arm with SPEC-006 — extend there, never
+// weaken here.
+//
+// Guards: INV-9.
 func TestGuard_ServiceSurface(t *testing.T) {
 	got := Discover(t, "contract services", 4, func() ([]string, error) {
 		return services(packageFiles(ContractPackage)), nil
@@ -296,6 +307,16 @@ func TestGuard_ExplicitPresence_Liveness(t *testing.T) {
 // service-reachable enum fields (docs/plans/spec-003-m5.md choice 13, which
 // retires the M2 vacuity ceiling of docs/plans/spec-003-m2.md choice 4); the
 // liveness row still proves the walk can go red.
+//
+// INV-2 / TM-5 scope: the bound pair rejects unknown and UNSPECIFIED enum
+// values at every reachable boundary field — the descriptor-walk half of
+// INV-2 and the "unknown enum → reject" row of TM-5. The erroring-default
+// switch half of INV-2 arms with the first in-repo Go switch over a wire
+// enum (SPEC-012/013 consumers), and TM-5's decode-deny / unwired-verifier
+// rows arm with the server/agent boot paths — extend there, never weaken
+// here. Zero-value hygiene is the sibling TestGuard_EnumHygiene.
+//
+// Guards: INV-2, TM-5.
 func TestGuard_EnumBounds(t *testing.T) {
 	files := Discover(t, "contract proto files", 11, func() ([]protoreflect.FileDescriptor, error) {
 		return packageFiles(ContractPackage), nil
@@ -393,7 +414,7 @@ func TestAction_Shape(t *testing.T) {
 // preimage is pinned separately by the golden-framing tests. AC-5/AC-7 hold
 // through the composition (domains are 1:1 with types).
 //
-// Guards: INV-5.
+// Guards: INV-5, INV-6.
 func TestGuard_SignatureDomains(t *testing.T) {
 	consts := Discover(t, "contract/sign *SignatureDomain constants", 14, ScanSignatureDomains)
 
@@ -706,8 +727,10 @@ func TestGuard_ManifestNoRemovalVerbs_Liveness(t *testing.T) {
 // relational (manifest.Newer against agent state — inexpressible as a field
 // rule; a vacuous bound would satisfy G-1's letter while validating
 // nothing) and empty occurrences/maintenance_windows are load-bearing
-// removal-by-omission. M5 must resolve their tagging when the manifest
-// becomes reachable from a service method (G-1 scope).
+// removal-by-omission. Resolved at M5: the manifest never becomes
+// G-1-reachable — it rides SignedCommand.payload bytes by design
+// ([WIRE-15/26]), and its post-verification validation is agent-side
+// (SPEC-013) — so this schema pin plus manifest.Newer is its whole gate.
 func TestSyncManifest_IntervalsRequired(t *testing.T) {
 	md, err := findRegistry(packageFiles(ContractPackage), "SyncManifest")
 	if err != nil {

@@ -70,6 +70,17 @@ var bannedImportPrefixes = []string{
 }
 
 // TestGuard_DenyList is G-7 over the real contract + workspace (AC-11).
+//
+// INV-7 scope: the schema half — auth_token (a plaintext self-asserted
+// credential on the wire) and the [WIRE-30] plaintext-secret shapes cannot
+// return to the contract; sealed transport is the only secret carriage
+// ([WIRE-23/24]). Runtime redaction and audit halves arm with SPEC-011/015
+// — extend there, never weaken here. TM-1 scope: the banned middle-tier
+// dependencies (Asynq, Valkey/Redis) whose restart-losable state TM-1
+// forbids are unimportable in all four modules; the total storage
+// classification half arms with SPEC-005.
+//
+// Guards: INV-7, TM-1.
 func TestGuard_DenyList(t *testing.T) {
 	files := Discover(t, "contract proto files", 11, func() ([]protoreflect.FileDescriptor, error) {
 		return packageFiles(ContractPackage), nil

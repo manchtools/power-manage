@@ -124,17 +124,40 @@ func enums(files []protoreflect.FileDescriptor) []protoreflect.EnumDescriptor {
 	return out
 }
 
+// untaggedExemptions are the sanctioned deliberately-unconstrained fields,
+// keyed by full name WITH a per-entry rationale (the guards skill's
+// allowlist rule: specific identity, stated reason — never a growing list).
+var untaggedExemptions = map[protoreflect.FullName]string{
+	// The full uint64 range is legal resume input; the bound is the
+	// artifact's size, enforced server-side (ART-2, SPEC-010) — a tag here
+	// would over-constrain legitimate resume ([WIRE-2], plan-003-m5 choice 4).
+	"powermanage.v1.ArtifactFetchRequest.offset": "resume offset — bounds are the artifact's size, server-side (ART-2)",
+	"powermanage.v1.ArtifactChunk.offset":        "chunk offset — bounds are the artifact's size, server-side (ART-2)",
+}
+
 // untaggedFields returns a violation per field of every service-reachable
 // message in files that carries no buf.validate rules ([WIRE-2], G-1).
 // M1 demands presence of constraints; constraint sufficiency
 // (type/format/length/range per field class) tightens in M2 with the
 // first real fields.
+//
+// Members of a (buf.validate.oneof).required oneof are credited
+// structurally: buf lint rejects field-level `required` on oneof members,
+// so the oneof-level demand is the only expressible constraint — the frame
+// discriminant IS the validation ([WIRE-2]; the member types' own fields
+// stay in the walk).
 func untaggedFields(files []protoreflect.FileDescriptor) []string {
 	var out []string
 	for _, md := range reachableMessages(files) {
 		fields := md.Fields()
 		for i := 0; i < fields.Len(); i++ {
 			f := fields.Get(i)
+			if _, exempt := untaggedExemptions[f.FullName()]; exempt {
+				continue
+			}
+			if oo := f.ContainingOneof(); oo != nil && !oo.IsSynthetic() && oneofRequired(oo) {
+				continue
+			}
 			rules, _ := proto.GetExtension(f.Options(), validate.E_Field).(*validate.FieldRules)
 			if rules == nil || (rules.Type == nil && rules.Cel == nil && rules.Required == nil) {
 				out = append(out, fmt.Sprintf("%s: boundary field carries no buf.validate rules — absence leaves unvalidated surface [WIRE-2]", f.FullName()))
@@ -143,6 +166,12 @@ func untaggedFields(files []protoreflect.FileDescriptor) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// oneofRequired reports whether oneof carries (buf.validate.oneof).required.
+func oneofRequired(oneof protoreflect.OneofDescriptor) bool {
+	rules, _ := proto.GetExtension(oneof.Options(), validate.E_Oneof).(*validate.OneofRules)
+	return rules.GetRequired()
 }
 
 // enumHygieneViolations returns a violation per enum in files whose zero

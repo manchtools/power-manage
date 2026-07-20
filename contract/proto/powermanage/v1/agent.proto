@@ -1,10 +1,64 @@
-// AgentService (SPEC-003 §3.2): the ONE bidirectional agent stream — Hello/
-// Welcome, signed command delivery, signed sync manifest, result upload,
-// artifact fetch by digest [WIRE-28] — over mTLS via the gateway.
+// AgentService (SPEC-003 §3.2): the ONE bidirectional agent stream —
+// Hello/Welcome, signed command delivery, signed sync manifest, result
+// upload, artifact fetch by digest [WIRE-28] — over mTLS via the gateway.
+//
+// The sync manifest is NOT a frame: it rides SignedCommand with
+// command_type "sync-manifest" ([WIRE-15/26]) — a second manifest carriage
+// would be a second freshness path. The stream carries no ack frames:
+// delivery reliability is control's work-table re-push (GW-4, SPEC-012)
+// plus the agent's durable result buffer (AG-10, SPEC-013).
 syntax = "proto3";
 
 package powermanage.v1;
 
+import "buf/validate/validate.proto";
+import "powermanage/v1/artifact.proto";
+import "powermanage/v1/device_signed.proto";
+import "powermanage/v1/signed_command.proto";
+
 option go_package = "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1;powermanagev1";
 
-service AgentService {}
+// The agent's opening frame: the boot-probe capability set (AG-12a,
+// SPEC-013). Identity comes from the mTLS certificate, never a field
+// ([WIRE-18]). Token grammar stays open until SPEC-004 pins the probe
+// vocabulary — the same posture the result-type grammar held before
+// [WIRE-20a] closed it.
+message Hello {
+  repeated string capabilities = 1 [(buf.validate.field).repeated.items.string = {
+    pattern: "^[a-z0-9-]+$"
+    max_len: 64
+  }];
+}
+
+// Deliberately EMPTY — a protocol acknowledgment and nothing else.
+// Everything server-authoritative rides signed material ([WIRE-17]);
+// Welcome-driven update fields are banned ([WIRE-30]); identity fields are
+// banned ([WIRE-18]). A new Welcome field needs a spec change.
+message Welcome {}
+
+// Agent→server multiplexing envelope for the one stream.
+message AgentFrame {
+  oneof frame {
+    option (buf.validate.oneof).required = true;
+
+    Hello hello = 1;
+    DeviceSigned report = 2;
+    ArtifactFetchRequest artifact_fetch_request = 3;
+  }
+}
+
+// Server→agent multiplexing envelope for the one stream.
+message ServerFrame {
+  oneof frame {
+    option (buf.validate.oneof).required = true;
+
+    Welcome welcome = 1;
+    SignedCommand command = 2;
+    ArtifactChunk artifact_chunk = 3;
+    ArtifactFetchError artifact_fetch_error = 4;
+  }
+}
+
+service AgentService {
+  rpc Stream(stream AgentFrame) returns (stream ServerFrame);
+}
