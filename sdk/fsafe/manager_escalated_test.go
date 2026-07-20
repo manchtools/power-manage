@@ -594,9 +594,16 @@ func TestManager_EscalatedMutators_UnsafeParentRefusedBeforeSudo(t *testing.T) {
 // escalated `rm -rf` would otherwise unlink the symlink and exit 0, a silent
 // divergence from the same public method. The leaf points at a NON-protected
 // target so the protected-prefix guard passes and the symlink check is what
-// refuses; the refusal must precede any command. Runs at any uid — the symlink
-// check fires before the parent vet.
+// refuses; the refusal must precede any command. Runs at any uid.
+//
+// parentDirSafe is stubbed to nil so the ONLY pre-condition that can refuse is
+// the Lstat symlink-leaf branch this test is named for — otherwise the non-root
+// t.TempDir() parent would trip parentDirSafe and the test would pass even if
+// the symlink branch were deleted (it would no longer discriminate that branch).
 func TestManager_RemoveDir_Escalated_RefusesSymlinkLeaf(t *testing.T) {
+	restore := parentDirSafe
+	parentDirSafe = func(string) error { return nil }
+	t.Cleanup(func() { parentDirSafe = restore })
 	fr, m := newEscalatedManager(t)
 	base := t.TempDir()
 	victim := filepath.Join(base, "victim")
