@@ -130,7 +130,10 @@ type FixtureRequest struct {
 	// Foreign well-known type: reachable through this (tagged) field, but its
 	// internal fields are not contract surface — the closure must not walk
 	// into messages defined outside the audited files.
-	StampedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=stamped_at,json=stampedAt,proto3" json:"stamped_at,omitempty"`
+	StampedAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=stamped_at,json=stampedAt,proto3" json:"stamped_at,omitempty"`
+	// Reachability hop for the enum-bounds liveness shapes (tagged so the
+	// G-1 want-set stays exactly two).
+	EnumCarrier   *FixtureEnumCarrier `protobuf:"bytes,5,opt,name=enum_carrier,json=enumCarrier,proto3" json:"enum_carrier,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -189,6 +192,13 @@ func (x *FixtureRequest) GetNested() *NestedParams {
 func (x *FixtureRequest) GetStampedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.StampedAt
+	}
+	return nil
+}
+
+func (x *FixtureRequest) GetEnumCarrier() *FixtureEnumCarrier {
+	if x != nil {
+		return x.EnumCarrier
 	}
 	return nil
 }
@@ -327,24 +337,559 @@ func (x *UnreachableLoose) GetNeverFlagged() string {
 	return ""
 }
 
+// G-3 liveness: a fixture-local registry analog. Members double as G-4
+// shapes: FixtureBoolParams plants the plain state-changing bool, its
+// optional sibling plants the conforming form.
+type FixtureActionParams struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Params:
+	//
+	//	*FixtureActionParams_A
+	//	*FixtureActionParams_B
+	//	*FixtureActionParams_C
+	//	*FixtureActionParams_D
+	Params        isFixtureActionParams_Params `protobuf_oneof:"params"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FixtureActionParams) Reset() {
+	*x = FixtureActionParams{}
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FixtureActionParams) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FixtureActionParams) ProtoMessage() {}
+
+func (x *FixtureActionParams) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FixtureActionParams.ProtoReflect.Descriptor instead.
+func (*FixtureActionParams) Descriptor() ([]byte, []int) {
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *FixtureActionParams) GetParams() isFixtureActionParams_Params {
+	if x != nil {
+		return x.Params
+	}
+	return nil
+}
+
+func (x *FixtureActionParams) GetA() *FixtureAParams {
+	if x != nil {
+		if x, ok := x.Params.(*FixtureActionParams_A); ok {
+			return x.A
+		}
+	}
+	return nil
+}
+
+func (x *FixtureActionParams) GetB() *FixtureBParams {
+	if x != nil {
+		if x, ok := x.Params.(*FixtureActionParams_B); ok {
+			return x.B
+		}
+	}
+	return nil
+}
+
+func (x *FixtureActionParams) GetC() *FixtureBoolParams {
+	if x != nil {
+		if x, ok := x.Params.(*FixtureActionParams_C); ok {
+			return x.C
+		}
+	}
+	return nil
+}
+
+func (x *FixtureActionParams) GetD() *FixtureOptBoolParams {
+	if x != nil {
+		if x, ok := x.Params.(*FixtureActionParams_D); ok {
+			return x.D
+		}
+	}
+	return nil
+}
+
+type isFixtureActionParams_Params interface {
+	isFixtureActionParams_Params()
+}
+
+type FixtureActionParams_A struct {
+	A *FixtureAParams `protobuf:"bytes,1,opt,name=a,proto3,oneof"`
+}
+
+type FixtureActionParams_B struct {
+	B *FixtureBParams `protobuf:"bytes,2,opt,name=b,proto3,oneof"`
+}
+
+type FixtureActionParams_C struct {
+	C *FixtureBoolParams `protobuf:"bytes,3,opt,name=c,proto3,oneof"`
+}
+
+type FixtureActionParams_D struct {
+	D *FixtureOptBoolParams `protobuf:"bytes,4,opt,name=d,proto3,oneof"`
+}
+
+func (*FixtureActionParams_A) isFixtureActionParams_Params() {}
+
+func (*FixtureActionParams_B) isFixtureActionParams_Params() {}
+
+func (*FixtureActionParams_C) isFixtureActionParams_Params() {}
+
+func (*FixtureActionParams_D) isFixtureActionParams_Params() {}
+
+type FixtureAParams struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FixtureAParams) Reset() {
+	*x = FixtureAParams{}
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FixtureAParams) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FixtureAParams) ProtoMessage() {}
+
+func (x *FixtureAParams) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FixtureAParams.ProtoReflect.Descriptor instead.
+func (*FixtureAParams) Descriptor() ([]byte, []int) {
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{5}
+}
+
+type FixtureBParams struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FixtureBParams) Reset() {
+	*x = FixtureBParams{}
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FixtureBParams) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FixtureBParams) ProtoMessage() {}
+
+func (x *FixtureBParams) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FixtureBParams.ProtoReflect.Descriptor instead.
+func (*FixtureBParams) Descriptor() ([]byte, []int) {
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{6}
+}
+
+// G-4 must flag: plain bool in the registry subtree.
+type FixtureBoolParams struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PlainFlag     bool                   `protobuf:"varint,1,opt,name=plain_flag,json=plainFlag,proto3" json:"plain_flag,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FixtureBoolParams) Reset() {
+	*x = FixtureBoolParams{}
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FixtureBoolParams) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FixtureBoolParams) ProtoMessage() {}
+
+func (x *FixtureBoolParams) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FixtureBoolParams.ProtoReflect.Descriptor instead.
+func (*FixtureBoolParams) Descriptor() ([]byte, []int) {
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *FixtureBoolParams) GetPlainFlag() bool {
+	if x != nil {
+		return x.PlainFlag
+	}
+	return false
+}
+
+// G-4 must not flag: explicit presence.
+type FixtureOptBoolParams struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	OptFlag       *bool                  `protobuf:"varint,1,opt,name=opt_flag,json=optFlag,proto3,oneof" json:"opt_flag,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FixtureOptBoolParams) Reset() {
+	*x = FixtureOptBoolParams{}
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FixtureOptBoolParams) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FixtureOptBoolParams) ProtoMessage() {}
+
+func (x *FixtureOptBoolParams) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FixtureOptBoolParams.ProtoReflect.Descriptor instead.
+func (*FixtureOptBoolParams) Descriptor() ([]byte, []int) {
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *FixtureOptBoolParams) GetOptFlag() bool {
+	if x != nil && x.OptFlag != nil {
+		return *x.OptFlag
+	}
+	return false
+}
+
+// G-3 must flag: embeds a registry member type directly, bypassing the
+// registry — the predecessor's five-copy drift in miniature.
+type FixtureDirectEmbed struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Direct        *FixtureAParams        `protobuf:"bytes,1,opt,name=direct,proto3" json:"direct,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FixtureDirectEmbed) Reset() {
+	*x = FixtureDirectEmbed{}
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FixtureDirectEmbed) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FixtureDirectEmbed) ProtoMessage() {}
+
+func (x *FixtureDirectEmbed) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FixtureDirectEmbed.ProtoReflect.Descriptor instead.
+func (*FixtureDirectEmbed) Descriptor() ([]byte, []int) {
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *FixtureDirectEmbed) GetDirect() *FixtureAParams {
+	if x != nil {
+		return x.Direct
+	}
+	return nil
+}
+
+// G-3 must flag: a second oneof over the registry's member types.
+type FixtureSecondOneof struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Dup:
+	//
+	//	*FixtureSecondOneof_A2
+	//	*FixtureSecondOneof_B2
+	Dup           isFixtureSecondOneof_Dup `protobuf_oneof:"dup"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FixtureSecondOneof) Reset() {
+	*x = FixtureSecondOneof{}
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FixtureSecondOneof) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FixtureSecondOneof) ProtoMessage() {}
+
+func (x *FixtureSecondOneof) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FixtureSecondOneof.ProtoReflect.Descriptor instead.
+func (*FixtureSecondOneof) Descriptor() ([]byte, []int) {
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *FixtureSecondOneof) GetDup() isFixtureSecondOneof_Dup {
+	if x != nil {
+		return x.Dup
+	}
+	return nil
+}
+
+func (x *FixtureSecondOneof) GetA2() *FixtureAParams {
+	if x != nil {
+		if x, ok := x.Dup.(*FixtureSecondOneof_A2); ok {
+			return x.A2
+		}
+	}
+	return nil
+}
+
+func (x *FixtureSecondOneof) GetB2() *FixtureBParams {
+	if x != nil {
+		if x, ok := x.Dup.(*FixtureSecondOneof_B2); ok {
+			return x.B2
+		}
+	}
+	return nil
+}
+
+type isFixtureSecondOneof_Dup interface {
+	isFixtureSecondOneof_Dup()
+}
+
+type FixtureSecondOneof_A2 struct {
+	A2 *FixtureAParams `protobuf:"bytes,1,opt,name=a2,proto3,oneof"`
+}
+
+type FixtureSecondOneof_B2 struct {
+	B2 *FixtureBParams `protobuf:"bytes,2,opt,name=b2,proto3,oneof"`
+}
+
+func (*FixtureSecondOneof_A2) isFixtureSecondOneof_Dup() {}
+
+func (*FixtureSecondOneof_B2) isFixtureSecondOneof_Dup() {}
+
+// G-3 must not flag: embedding the registry itself is the conforming form.
+type FixtureConformingEmbed struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Params        *FixtureActionParams   `protobuf:"bytes,1,opt,name=params,proto3" json:"params,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FixtureConformingEmbed) Reset() {
+	*x = FixtureConformingEmbed{}
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FixtureConformingEmbed) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FixtureConformingEmbed) ProtoMessage() {}
+
+func (x *FixtureConformingEmbed) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FixtureConformingEmbed.ProtoReflect.Descriptor instead.
+func (*FixtureConformingEmbed) Descriptor() ([]byte, []int) {
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *FixtureConformingEmbed) GetParams() *FixtureActionParams {
+	if x != nil {
+		return x.Params
+	}
+	return nil
+}
+
+// Enum-bounds liveness: both fields carry SOME rule (so the G-1 want-set
+// is untouched); only the first violates the enum-bounds pair.
+type FixtureEnumCarrier struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UntaggedEnum  FixtureGoodEnum        `protobuf:"varint,1,opt,name=untagged_enum,json=untaggedEnum,proto3,enum=powermanage.fixture.v1.FixtureGoodEnum" json:"untagged_enum,omitempty"`
+	TaggedEnum    FixtureGoodEnum        `protobuf:"varint,2,opt,name=tagged_enum,json=taggedEnum,proto3,enum=powermanage.fixture.v1.FixtureGoodEnum" json:"tagged_enum,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FixtureEnumCarrier) Reset() {
+	*x = FixtureEnumCarrier{}
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FixtureEnumCarrier) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FixtureEnumCarrier) ProtoMessage() {}
+
+func (x *FixtureEnumCarrier) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FixtureEnumCarrier.ProtoReflect.Descriptor instead.
+func (*FixtureEnumCarrier) Descriptor() ([]byte, []int) {
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *FixtureEnumCarrier) GetUntaggedEnum() FixtureGoodEnum {
+	if x != nil {
+		return x.UntaggedEnum
+	}
+	return FixtureGoodEnum_FIXTURE_GOOD_ENUM_UNSPECIFIED
+}
+
+func (x *FixtureEnumCarrier) GetTaggedEnum() FixtureGoodEnum {
+	if x != nil {
+		return x.TaggedEnum
+	}
+	return FixtureGoodEnum_FIXTURE_GOOD_ENUM_UNSPECIFIED
+}
+
 var File_powermanage_fixture_v1_fixture_proto protoreflect.FileDescriptor
 
 const file_powermanage_fixture_v1_fixture_proto_rawDesc = "" +
 	"\n" +
-	"$powermanage/fixture/v1/fixture.proto\x12\x16powermanage.fixture.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe5\x01\n" +
+	"$powermanage/fixture/v1/fixture.proto\x12\x16powermanage.fixture.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xbc\x02\n" +
 	"\x0eFixtureRequest\x12#\n" +
 	"\runtagged_name\x18\x01 \x01(\tR\funtaggedName\x12%\n" +
 	"\ttagged_id\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x98\x01\x1aR\btaggedId\x12D\n" +
 	"\x06nested\x18\x03 \x01(\v2$.powermanage.fixture.v1.NestedParamsB\x06\xbaH\x03\xc8\x01\x01R\x06nested\x12A\n" +
 	"\n" +
-	"stamped_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\tstampedAt\"5\n" +
+	"stamped_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\tstampedAt\x12U\n" +
+	"\fenum_carrier\x18\x05 \x01(\v2*.powermanage.fixture.v1.FixtureEnumCarrierB\x06\xbaH\x03\xc8\x01\x01R\venumCarrier\"5\n" +
 	"\fNestedParams\x12%\n" +
 	"\x0euntagged_inner\x18\x01 \x01(\tR\runtaggedInner\"9\n" +
 	"\x0fFixtureResponse\x12&\n" +
 	"\n" +
 	"tagged_out\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\ttaggedOut\"7\n" +
 	"\x10UnreachableLoose\x12#\n" +
-	"\rnever_flagged\x18\x01 \x01(\tR\fneverFlagged*I\n" +
+	"\rnever_flagged\x18\x01 \x01(\tR\fneverFlagged\"\x88\x02\n" +
+	"\x13FixtureActionParams\x126\n" +
+	"\x01a\x18\x01 \x01(\v2&.powermanage.fixture.v1.FixtureAParamsH\x00R\x01a\x126\n" +
+	"\x01b\x18\x02 \x01(\v2&.powermanage.fixture.v1.FixtureBParamsH\x00R\x01b\x129\n" +
+	"\x01c\x18\x03 \x01(\v2).powermanage.fixture.v1.FixtureBoolParamsH\x00R\x01c\x12<\n" +
+	"\x01d\x18\x04 \x01(\v2,.powermanage.fixture.v1.FixtureOptBoolParamsH\x00R\x01dB\b\n" +
+	"\x06params\"\x10\n" +
+	"\x0eFixtureAParams\"\x10\n" +
+	"\x0eFixtureBParams\"2\n" +
+	"\x11FixtureBoolParams\x12\x1d\n" +
+	"\n" +
+	"plain_flag\x18\x01 \x01(\bR\tplainFlag\"C\n" +
+	"\x14FixtureOptBoolParams\x12\x1e\n" +
+	"\bopt_flag\x18\x01 \x01(\bH\x00R\aoptFlag\x88\x01\x01B\v\n" +
+	"\t_opt_flag\"T\n" +
+	"\x12FixtureDirectEmbed\x12>\n" +
+	"\x06direct\x18\x01 \x01(\v2&.powermanage.fixture.v1.FixtureAParamsR\x06direct\"\x8f\x01\n" +
+	"\x12FixtureSecondOneof\x128\n" +
+	"\x02a2\x18\x01 \x01(\v2&.powermanage.fixture.v1.FixtureAParamsH\x00R\x02a2\x128\n" +
+	"\x02b2\x18\x02 \x01(\v2&.powermanage.fixture.v1.FixtureBParamsH\x00R\x02b2B\x05\n" +
+	"\x03dup\"e\n" +
+	"\x16FixtureConformingEmbed\x12K\n" +
+	"\x06params\x18\x01 \x01(\v2+.powermanage.fixture.v1.FixtureActionParamsB\x06\xbaH\x03\xc8\x01\x01R\x06params\"\xc0\x01\n" +
+	"\x12FixtureEnumCarrier\x12T\n" +
+	"\runtagged_enum\x18\x01 \x01(\x0e2'.powermanage.fixture.v1.FixtureGoodEnumB\x06\xbaH\x03\xc8\x01\x01R\funtaggedEnum\x12T\n" +
+	"\vtagged_enum\x18\x02 \x01(\x0e2'.powermanage.fixture.v1.FixtureGoodEnumB\n" +
+	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\n" +
+	"taggedEnum*I\n" +
 	"\x0eFixtureBadEnum\x12\x1b\n" +
 	"\x17FIXTURE_BAD_ENUM_ACTIVE\x10\x00\x12\x1a\n" +
 	"\x16FIXTURE_BAD_ENUM_OTHER\x10\x01*N\n" +
@@ -367,26 +912,46 @@ func file_powermanage_fixture_v1_fixture_proto_rawDescGZIP() []byte {
 }
 
 var file_powermanage_fixture_v1_fixture_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_powermanage_fixture_v1_fixture_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_powermanage_fixture_v1_fixture_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_powermanage_fixture_v1_fixture_proto_goTypes = []any{
-	(FixtureBadEnum)(0),           // 0: powermanage.fixture.v1.FixtureBadEnum
-	(FixtureGoodEnum)(0),          // 1: powermanage.fixture.v1.FixtureGoodEnum
-	(*FixtureRequest)(nil),        // 2: powermanage.fixture.v1.FixtureRequest
-	(*NestedParams)(nil),          // 3: powermanage.fixture.v1.NestedParams
-	(*FixtureResponse)(nil),       // 4: powermanage.fixture.v1.FixtureResponse
-	(*UnreachableLoose)(nil),      // 5: powermanage.fixture.v1.UnreachableLoose
-	(*timestamppb.Timestamp)(nil), // 6: google.protobuf.Timestamp
+	(FixtureBadEnum)(0),            // 0: powermanage.fixture.v1.FixtureBadEnum
+	(FixtureGoodEnum)(0),           // 1: powermanage.fixture.v1.FixtureGoodEnum
+	(*FixtureRequest)(nil),         // 2: powermanage.fixture.v1.FixtureRequest
+	(*NestedParams)(nil),           // 3: powermanage.fixture.v1.NestedParams
+	(*FixtureResponse)(nil),        // 4: powermanage.fixture.v1.FixtureResponse
+	(*UnreachableLoose)(nil),       // 5: powermanage.fixture.v1.UnreachableLoose
+	(*FixtureActionParams)(nil),    // 6: powermanage.fixture.v1.FixtureActionParams
+	(*FixtureAParams)(nil),         // 7: powermanage.fixture.v1.FixtureAParams
+	(*FixtureBParams)(nil),         // 8: powermanage.fixture.v1.FixtureBParams
+	(*FixtureBoolParams)(nil),      // 9: powermanage.fixture.v1.FixtureBoolParams
+	(*FixtureOptBoolParams)(nil),   // 10: powermanage.fixture.v1.FixtureOptBoolParams
+	(*FixtureDirectEmbed)(nil),     // 11: powermanage.fixture.v1.FixtureDirectEmbed
+	(*FixtureSecondOneof)(nil),     // 12: powermanage.fixture.v1.FixtureSecondOneof
+	(*FixtureConformingEmbed)(nil), // 13: powermanage.fixture.v1.FixtureConformingEmbed
+	(*FixtureEnumCarrier)(nil),     // 14: powermanage.fixture.v1.FixtureEnumCarrier
+	(*timestamppb.Timestamp)(nil),  // 15: google.protobuf.Timestamp
 }
 var file_powermanage_fixture_v1_fixture_proto_depIdxs = []int32{
-	3, // 0: powermanage.fixture.v1.FixtureRequest.nested:type_name -> powermanage.fixture.v1.NestedParams
-	6, // 1: powermanage.fixture.v1.FixtureRequest.stamped_at:type_name -> google.protobuf.Timestamp
-	2, // 2: powermanage.fixture.v1.FixtureService.Do:input_type -> powermanage.fixture.v1.FixtureRequest
-	4, // 3: powermanage.fixture.v1.FixtureService.Do:output_type -> powermanage.fixture.v1.FixtureResponse
-	3, // [3:4] is the sub-list for method output_type
-	2, // [2:3] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	3,  // 0: powermanage.fixture.v1.FixtureRequest.nested:type_name -> powermanage.fixture.v1.NestedParams
+	15, // 1: powermanage.fixture.v1.FixtureRequest.stamped_at:type_name -> google.protobuf.Timestamp
+	14, // 2: powermanage.fixture.v1.FixtureRequest.enum_carrier:type_name -> powermanage.fixture.v1.FixtureEnumCarrier
+	7,  // 3: powermanage.fixture.v1.FixtureActionParams.a:type_name -> powermanage.fixture.v1.FixtureAParams
+	8,  // 4: powermanage.fixture.v1.FixtureActionParams.b:type_name -> powermanage.fixture.v1.FixtureBParams
+	9,  // 5: powermanage.fixture.v1.FixtureActionParams.c:type_name -> powermanage.fixture.v1.FixtureBoolParams
+	10, // 6: powermanage.fixture.v1.FixtureActionParams.d:type_name -> powermanage.fixture.v1.FixtureOptBoolParams
+	7,  // 7: powermanage.fixture.v1.FixtureDirectEmbed.direct:type_name -> powermanage.fixture.v1.FixtureAParams
+	7,  // 8: powermanage.fixture.v1.FixtureSecondOneof.a2:type_name -> powermanage.fixture.v1.FixtureAParams
+	8,  // 9: powermanage.fixture.v1.FixtureSecondOneof.b2:type_name -> powermanage.fixture.v1.FixtureBParams
+	6,  // 10: powermanage.fixture.v1.FixtureConformingEmbed.params:type_name -> powermanage.fixture.v1.FixtureActionParams
+	1,  // 11: powermanage.fixture.v1.FixtureEnumCarrier.untagged_enum:type_name -> powermanage.fixture.v1.FixtureGoodEnum
+	1,  // 12: powermanage.fixture.v1.FixtureEnumCarrier.tagged_enum:type_name -> powermanage.fixture.v1.FixtureGoodEnum
+	2,  // 13: powermanage.fixture.v1.FixtureService.Do:input_type -> powermanage.fixture.v1.FixtureRequest
+	4,  // 14: powermanage.fixture.v1.FixtureService.Do:output_type -> powermanage.fixture.v1.FixtureResponse
+	14, // [14:15] is the sub-list for method output_type
+	13, // [13:14] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_powermanage_fixture_v1_fixture_proto_init() }
@@ -394,13 +959,24 @@ func file_powermanage_fixture_v1_fixture_proto_init() {
 	if File_powermanage_fixture_v1_fixture_proto != nil {
 		return
 	}
+	file_powermanage_fixture_v1_fixture_proto_msgTypes[4].OneofWrappers = []any{
+		(*FixtureActionParams_A)(nil),
+		(*FixtureActionParams_B)(nil),
+		(*FixtureActionParams_C)(nil),
+		(*FixtureActionParams_D)(nil),
+	}
+	file_powermanage_fixture_v1_fixture_proto_msgTypes[8].OneofWrappers = []any{}
+	file_powermanage_fixture_v1_fixture_proto_msgTypes[10].OneofWrappers = []any{
+		(*FixtureSecondOneof_A2)(nil),
+		(*FixtureSecondOneof_B2)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_powermanage_fixture_v1_fixture_proto_rawDesc), len(file_powermanage_fixture_v1_fixture_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   4,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

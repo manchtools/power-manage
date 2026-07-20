@@ -1,0 +1,103 @@
+// The single ActionParams registry and the one action shape (SPEC-003
+// §3.3, [WIRE-12], [WIRE-13]).
+//
+// Exactly ONE message carries the per-type oneof; every action-bearing
+// message embeds it by type reference. The predecessor duplicated this
+// oneof across five messages and the copies drifted — guard G-3 makes
+// that unrepresentable. The oneof member set IS the type registry: the
+// catalog is closed at these 21 types (CAT-1, SPEC-014) and a parallel
+// type enum would be a second registry that can drift.
+//
+// The per-type messages are structural stubs here: their fields and
+// validate tags are the action catalog's semantics and land with
+// SPEC-014 M1 ("this spec fixes only the registry structure they plug
+// into", SPEC-003 §10).
+syntax = "proto3";
+
+package powermanage.v1;
+
+import "buf/validate/validate.proto";
+import "powermanage/v1/common.proto";
+
+option go_package = "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1;powermanagev1";
+
+message ActionParams {
+  oneof params {
+    PackageParams package = 1;
+    UpdateParams update = 2;
+    RepositoryParams repository = 3;
+    PackageFileParams package_file = 4;
+    AppImageParams app_image = 5;
+    FlatpakParams flatpak = 6;
+    ShellParams shell = 7;
+    ServiceParams service = 8;
+    FileParams file = 9;
+    DirectoryParams directory = 10;
+    RebootParams reboot = 11;
+    SyncParams sync = 12;
+    UserParams user = 13;
+    GroupParams group = 14;
+    SshParams ssh = 15;
+    SshdParams sshd = 16;
+    AdminPolicyParams admin_policy = 17;
+    LpsParams lps = 18;
+    EncryptionParams encryption = 19;
+    WifiParams wifi = 20;
+    AgentUpdateParams agent_update = 21;
+  }
+}
+
+message PackageParams {}
+
+message UpdateParams {}
+
+message RepositoryParams {}
+
+message PackageFileParams {}
+
+message AppImageParams {}
+
+message FlatpakParams {}
+
+message ShellParams {}
+
+message ServiceParams {}
+
+message FileParams {}
+
+message DirectoryParams {}
+
+message RebootParams {}
+
+message SyncParams {}
+
+message UserParams {}
+
+message GroupParams {}
+
+message SshParams {}
+
+message SshdParams {}
+
+message AdminPolicyParams {}
+
+message LpsParams {}
+
+message EncryptionParams {}
+
+message WifiParams {}
+
+message AgentUpdateParams {}
+
+// The ONE action shape ([WIRE-13]). Enrichment — assignment mode,
+// schedule, resolved target — is composition around this shape, never a
+// parallel copy of its fields. Per-type execution semantics (desired
+// state, timeouts, lifecycle) live inside the per-type params (SPEC-014).
+message Action {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+  }];
+  ActionParams params = 3 [(buf.validate.field).required = true];
+}
