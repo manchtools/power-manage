@@ -377,6 +377,16 @@ func TestManager_Mkdir_RefusesSymlinkResolvingIntoProtected(t *testing.T) {
 }
 
 func TestManager_Mkdir_CreatesWithMode(t *testing.T) {
+	// The direct backend now vets the create anchor root-owned on BOTH backends
+	// ([SDK-7], reviewer round 5: Direct IS already root). t.TempDir() is owned
+	// by the (non-root) test runner, so createAnchorSafe correctly refuses the
+	// positive create unless the whole suite runs as root — the only environment
+	// where a root-owned parent exists to create beneath. The refusal itself is
+	// covered by TestManager_Mkdir_Direct_UnsafeParentRefused, which runs
+	// regardless of uid.
+	if os.Geteuid() != 0 {
+		t.Skip("direct-backend positive create needs a root-owned parent; only exercisable as root")
+	}
 	m := newDirectManager(t)
 	path := filepath.Join(t.TempDir(), "a", "b")
 	if err := m.Mkdir(context.Background(), path, MkdirOptions{Recursive: true, Mode: 0o750}); err != nil {
@@ -388,6 +398,50 @@ func TestManager_Mkdir_CreatesWithMode(t *testing.T) {
 	}
 	if !info.IsDir() || info.Mode().Perm() != 0o750 {
 		t.Errorf("created dir mode = %#o, want 0750", info.Mode().Perm())
+	}
+}
+
+// Reviewer round 5 (Finding 1): the Direct backend IS already root (see
+// exec.Direct), so a writable create anchor races a root mkdir exactly as the
+// escalated tier does. The `!m.direct()` gate that once skipped createAnchorSafe
+// on Direct is removed — a world-writable parent must be refused before any
+// mkdir on the direct backend too, with nothing created on disk. Runs at any
+// uid: the parent is world-writable, so parentDirSafe refuses on the 0o022 bit
+// whether or not it is root-owned.
+func TestManager_Mkdir_Direct_UnsafeParentRefused(t *testing.T) {
+	m := newDirectManager(t)
+	dir := t.TempDir()
+	if err := os.Chmod(dir, 0o777); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(dir, "newdir")
+	if err := m.Mkdir(context.Background(), target, MkdirOptions{}); !errors.Is(err, ErrUnsafeParentDir) {
+		t.Fatalf("err = %v, want ErrUnsafeParentDir (direct create must vet the anchor — Direct is root)", err)
+	}
+	if _, err := os.Lstat(target); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("directory was created despite the unsafe parent: %v", err)
+	}
+}
+
+// CopyTree CREATES a subtree at dst — the same create-mutation as Mkdir, and it
+// shells cp on every backend (Direct is root). A world-writable destination
+// parent must be refused before any cp on the direct backend too.
+func TestManager_CopyTree_Direct_UnsafeParentRefused(t *testing.T) {
+	m := newDirectManager(t)
+	src := t.TempDir()
+	if err := os.WriteFile(filepath.Join(src, "f"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	dstParent := t.TempDir()
+	if err := os.Chmod(dstParent, 0o777); err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(dstParent, "copy")
+	if err := m.CopyTree(context.Background(), src, dst); !errors.Is(err, ErrUnsafeParentDir) {
+		t.Fatalf("err = %v, want ErrUnsafeParentDir (direct tree copy must vet the anchor)", err)
+	}
+	if _, err := os.Lstat(dst); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("tree was copied despite the unsafe destination parent: %v", err)
 	}
 }
 
