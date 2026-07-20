@@ -56,6 +56,15 @@ is already satisfied (M1: verify.sh proto stage runs inside CI's verify job).
 7. **File layout.** New `contract/proto/powermanage/v1/action.proto`
    (shared types, not a service file). The M1 file-count floor rises 7 → 8
    in the existing G-1/G-2 anchors (test-file change: strengthening only).
+8. **Recorded ceilings (review round).** (a) G-4 walks the registry
+   subtree plus registry-embedding messages — narrower than the spec's
+   "or another state-changing message" wording; no state-changing message
+   exists at M2, and the walk must widen when the first SPEC-008/009
+   mutation request lands. (b) `reachableMessages` (and therefore the
+   enum-bounds walk) does not descend into map VALUES' enum types — enums
+   as `map<_, Enum>` values are unwalked; revisit when the first
+   enum-valued map field lands. Both vacuous today, recorded so they are
+   not silently dropped.
 
 ## Files
 

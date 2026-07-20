@@ -90,11 +90,21 @@ func registryViolations(files []protoreflect.FileDescriptor, name protoreflect.N
 
 // registrySubtree returns the registry message plus the transitive closure
 // of its member types and every message in files that embeds the registry —
-// the population G-4 walks.
+// the population G-4 walks. As in reachableMessages, the closure stops at
+// messages defined outside the audited files: a well-known type's internal
+// plain bool (google.protobuf.BoolValue.value) is referenced surface, not
+// ours to audit.
 func registrySubtree(files []protoreflect.FileDescriptor, registry protoreflect.MessageDescriptor) []protoreflect.MessageDescriptor {
+	audited := make(map[string]bool, len(files))
+	for _, fd := range files {
+		audited[fd.Path()] = true
+	}
 	seen := map[protoreflect.FullName]protoreflect.MessageDescriptor{}
 	var visit func(md protoreflect.MessageDescriptor)
 	visit = func(md protoreflect.MessageDescriptor) {
+		if !audited[md.ParentFile().Path()] {
+			return
+		}
 		if _, ok := seen[md.FullName()]; ok {
 			return
 		}
@@ -144,9 +154,12 @@ func plainBoolViolations(files []protoreflect.FileDescriptor, name protoreflect.
 	if err != nil {
 		return nil, err
 	}
+	// Floor: the registry itself plus every oneof member. visit(registry)
+	// always seeds one entry, so a bare < 1 check could never fire; anchoring
+	// on the member count makes a broken member walk loud.
 	subtree := registrySubtree(files, registry)
-	if len(subtree) < 1 {
-		return nil, fmt.Errorf("registry subtree walk found no messages — the walk broke, not the contract")
+	if want := 1 + len(registryMembers(registry)); len(subtree) < want {
+		return nil, fmt.Errorf("registry subtree walk found %d messages, want at least %d (registry + members) — the walk broke, not the contract", len(subtree), want)
 	}
 	var out []string
 	for _, md := range subtree {

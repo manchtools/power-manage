@@ -14,6 +14,7 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -490,8 +491,12 @@ func (*FixtureAParams) Descriptor() ([]byte, []int) {
 	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{5}
 }
 
+// G-4 must not walk into the foreign type: BoolValue carries a plain bool
+// internally, but imported messages are referenced surface, not ours to
+// audit — the subtree closure stops at them.
 type FixtureBParams struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Wrapped       *wrapperspb.BoolValue  `protobuf:"bytes,1,opt,name=wrapped,proto3" json:"wrapped,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -524,6 +529,13 @@ func (x *FixtureBParams) ProtoReflect() protoreflect.Message {
 // Deprecated: Use FixtureBParams.ProtoReflect.Descriptor instead.
 func (*FixtureBParams) Descriptor() ([]byte, []int) {
 	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *FixtureBParams) GetWrapped() *wrapperspb.BoolValue {
+	if x != nil {
+		return x.Wrapped
+	}
+	return nil
 }
 
 // G-4 must flag: plain bool in the registry subtree.
@@ -848,7 +860,7 @@ var File_powermanage_fixture_v1_fixture_proto protoreflect.FileDescriptor
 
 const file_powermanage_fixture_v1_fixture_proto_rawDesc = "" +
 	"\n" +
-	"$powermanage/fixture/v1/fixture.proto\x12\x16powermanage.fixture.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xbc\x02\n" +
+	"$powermanage/fixture/v1/fixture.proto\x12\x16powermanage.fixture.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1egoogle/protobuf/wrappers.proto\"\xbc\x02\n" +
 	"\x0eFixtureRequest\x12#\n" +
 	"\runtagged_name\x18\x01 \x01(\tR\funtaggedName\x12%\n" +
 	"\ttagged_id\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x98\x01\x1aR\btaggedId\x12D\n" +
@@ -869,8 +881,9 @@ const file_powermanage_fixture_v1_fixture_proto_rawDesc = "" +
 	"\x01c\x18\x03 \x01(\v2).powermanage.fixture.v1.FixtureBoolParamsH\x00R\x01c\x12<\n" +
 	"\x01d\x18\x04 \x01(\v2,.powermanage.fixture.v1.FixtureOptBoolParamsH\x00R\x01dB\b\n" +
 	"\x06params\"\x10\n" +
-	"\x0eFixtureAParams\"\x10\n" +
-	"\x0eFixtureBParams\"2\n" +
+	"\x0eFixtureAParams\"F\n" +
+	"\x0eFixtureBParams\x124\n" +
+	"\awrapped\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\awrapped\"2\n" +
 	"\x11FixtureBoolParams\x12\x1d\n" +
 	"\n" +
 	"plain_flag\x18\x01 \x01(\bR\tplainFlag\"C\n" +
@@ -930,6 +943,7 @@ var file_powermanage_fixture_v1_fixture_proto_goTypes = []any{
 	(*FixtureConformingEmbed)(nil), // 13: powermanage.fixture.v1.FixtureConformingEmbed
 	(*FixtureEnumCarrier)(nil),     // 14: powermanage.fixture.v1.FixtureEnumCarrier
 	(*timestamppb.Timestamp)(nil),  // 15: google.protobuf.Timestamp
+	(*wrapperspb.BoolValue)(nil),   // 16: google.protobuf.BoolValue
 }
 var file_powermanage_fixture_v1_fixture_proto_depIdxs = []int32{
 	3,  // 0: powermanage.fixture.v1.FixtureRequest.nested:type_name -> powermanage.fixture.v1.NestedParams
@@ -939,19 +953,20 @@ var file_powermanage_fixture_v1_fixture_proto_depIdxs = []int32{
 	8,  // 4: powermanage.fixture.v1.FixtureActionParams.b:type_name -> powermanage.fixture.v1.FixtureBParams
 	9,  // 5: powermanage.fixture.v1.FixtureActionParams.c:type_name -> powermanage.fixture.v1.FixtureBoolParams
 	10, // 6: powermanage.fixture.v1.FixtureActionParams.d:type_name -> powermanage.fixture.v1.FixtureOptBoolParams
-	7,  // 7: powermanage.fixture.v1.FixtureDirectEmbed.direct:type_name -> powermanage.fixture.v1.FixtureAParams
-	7,  // 8: powermanage.fixture.v1.FixtureSecondOneof.a2:type_name -> powermanage.fixture.v1.FixtureAParams
-	8,  // 9: powermanage.fixture.v1.FixtureSecondOneof.b2:type_name -> powermanage.fixture.v1.FixtureBParams
-	6,  // 10: powermanage.fixture.v1.FixtureConformingEmbed.params:type_name -> powermanage.fixture.v1.FixtureActionParams
-	1,  // 11: powermanage.fixture.v1.FixtureEnumCarrier.untagged_enum:type_name -> powermanage.fixture.v1.FixtureGoodEnum
-	1,  // 12: powermanage.fixture.v1.FixtureEnumCarrier.tagged_enum:type_name -> powermanage.fixture.v1.FixtureGoodEnum
-	2,  // 13: powermanage.fixture.v1.FixtureService.Do:input_type -> powermanage.fixture.v1.FixtureRequest
-	4,  // 14: powermanage.fixture.v1.FixtureService.Do:output_type -> powermanage.fixture.v1.FixtureResponse
-	14, // [14:15] is the sub-list for method output_type
-	13, // [13:14] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	16, // 7: powermanage.fixture.v1.FixtureBParams.wrapped:type_name -> google.protobuf.BoolValue
+	7,  // 8: powermanage.fixture.v1.FixtureDirectEmbed.direct:type_name -> powermanage.fixture.v1.FixtureAParams
+	7,  // 9: powermanage.fixture.v1.FixtureSecondOneof.a2:type_name -> powermanage.fixture.v1.FixtureAParams
+	8,  // 10: powermanage.fixture.v1.FixtureSecondOneof.b2:type_name -> powermanage.fixture.v1.FixtureBParams
+	6,  // 11: powermanage.fixture.v1.FixtureConformingEmbed.params:type_name -> powermanage.fixture.v1.FixtureActionParams
+	1,  // 12: powermanage.fixture.v1.FixtureEnumCarrier.untagged_enum:type_name -> powermanage.fixture.v1.FixtureGoodEnum
+	1,  // 13: powermanage.fixture.v1.FixtureEnumCarrier.tagged_enum:type_name -> powermanage.fixture.v1.FixtureGoodEnum
+	2,  // 14: powermanage.fixture.v1.FixtureService.Do:input_type -> powermanage.fixture.v1.FixtureRequest
+	4,  // 15: powermanage.fixture.v1.FixtureService.Do:output_type -> powermanage.fixture.v1.FixtureResponse
+	15, // [15:16] is the sub-list for method output_type
+	14, // [14:15] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_powermanage_fixture_v1_fixture_proto_init() }
