@@ -23,6 +23,7 @@ option go_package = "github.com/manchtools/power-manage/contract/gen/go/powerman
 
 message ActionParams {
   oneof params {
+    option (buf.validate.oneof).required = true;
     PackageParams package = 1;
     UpdateParams update = 2;
     RepositoryParams repository = 3;

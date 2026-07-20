@@ -1247,7 +1247,7 @@ var File_powermanage_v1_action_proto protoreflect.FileDescriptor
 
 const file_powermanage_v1_action_proto_rawDesc = "" +
 	"\n" +
-	"\x1bpowermanage/v1/action.proto\x12\x0epowermanage.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1bpowermanage/v1/common.proto\"\xdb\t\n" +
+	"\x1bpowermanage/v1/action.proto\x12\x0epowermanage.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1bpowermanage/v1/common.proto\"\xe2\t\n" +
 	"\fActionParams\x129\n" +
 	"\apackage\x18\x01 \x01(\v2\x1d.powermanage.v1.PackageParamsH\x00R\apackage\x126\n" +
 	"\x06update\x18\x02 \x01(\v2\x1c.powermanage.v1.UpdateParamsH\x00R\x06update\x12B\n" +
@@ -1274,8 +1274,8 @@ const file_powermanage_v1_action_proto_rawDesc = "" +
 	"encryption\x18\x13 \x01(\v2 .powermanage.v1.EncryptionParamsH\x00R\n" +
 	"encryption\x120\n" +
 	"\x04wifi\x18\x14 \x01(\v2\x1a.powermanage.v1.WifiParamsH\x00R\x04wifi\x12F\n" +
-	"\fagent_update\x18\x15 \x01(\v2!.powermanage.v1.AgentUpdateParamsH\x00R\vagentUpdateB\b\n" +
-	"\x06params\"\x0f\n" +
+	"\fagent_update\x18\x15 \x01(\v2!.powermanage.v1.AgentUpdateParamsH\x00R\vagentUpdateB\x0f\n" +
+	"\x06params\x12\x05\xbaH\x02\b\x01\"\x0f\n" +
 	"\rPackageParams\"\x0e\n" +
 	"\fUpdateParams\"\x12\n" +
 	"\x10RepositoryParams\"\x13\n" +

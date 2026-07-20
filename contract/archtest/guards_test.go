@@ -175,6 +175,18 @@ func TestGuard_ActionRegistry(t *testing.T) {
 			t.Errorf("registry member %s is not a catalog type — adding one is a contract+executor+spec change (CAT-1, SPEC-014)", g)
 		}
 	}
+	// An empty ActionParams is an action with no executable type: the oneof
+	// itself must demand a selected member — `params required` on Action
+	// only guarantees the wrapper exists.
+	registry, err := findRegistry(packageFiles(ContractPackage), "ActionParams")
+	if err != nil {
+		t.Fatalf("registry lookup: %v", err)
+	}
+	oo := registry.Oneofs().Get(0)
+	rules, _ := proto.GetExtension(oo.Options(), validate.E_Oneof).(*validate.OneofRules)
+	if !rules.GetRequired() {
+		t.Errorf("ActionParams oneof %s must carry (buf.validate.oneof).required = true — an unset member is untyped surface [WIRE-12]", oo.Name())
+	}
 }
 
 // TestGuard_ActionParamsAuthority is G-3 (SPEC-003): exactly one
@@ -256,6 +268,9 @@ func TestGuard_ExplicitPresence_Liveness(t *testing.T) {
 	for _, g := range got {
 		if strings.Contains(g, "opt_flag") {
 			t.Errorf("guard flagged %q — optional bool is the conforming form", g)
+		}
+		if strings.Contains(g, "oneof_flag") {
+			t.Errorf("guard flagged %q — oneof membership is explicit presence too", g)
 		}
 		if strings.Contains(g, "google.protobuf.BoolValue") {
 			t.Errorf("guard flagged %q — foreign well-known types are referenced surface; the subtree closure must stop at them", g)
