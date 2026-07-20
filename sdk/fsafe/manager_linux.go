@@ -285,8 +285,10 @@ func (m Manager) writeFileFromEscalated(ctx context.Context, resolved string, sr
 // backends — the escalated tier runs the mutation as root via sudo (this check
 // is unprivileged, before sudo), and the Direct tier IS already root (see
 // exec.Direct), so a writable parent races a root create/chmod/chown/cp on
-// both. The fd-anchored Direct mutators (WriteFile/SetMode/SetOwnership/Remove
-// no-follow) close the same race by construction and skip this check.
+// both. The remaining fd-anchored Direct mutators (SetMode/SetOwnership/Remove
+// no-follow) close the same race by construction and skip this check; the
+// Direct WriteFile path is NOT fd-anchored (random-temp CreateTemp + rename),
+// so it vets the parent here just like the escalated tier.
 //
 // The sticky bit is NOT an exemption. Sticky (e.g. /tmp's 1777) only stops an
 // unprivileged co-tenant from unlinking or renaming ANOTHER user's EXISTING
