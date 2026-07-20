@@ -189,9 +189,11 @@ func pathologicalReason(p string) string {
 // never reaches their metachar switches (a ')' inside `[)]` is a literal, not
 // the group close; a '+' inside `[+]` is no quantifier). Honors the class
 // grammar: optional leading '^', a ']' immediately after `[` or `[^` is a
-// literal member (`[]]`, `[^]]`), and `\]` does not terminate. An unterminated
-// class consumes the rest of the pattern — it cannot compile anyway, so no
-// pathological shape is lost.
+// literal member (`[]]`, `[^]]`), `\]` does not terminate, and the ']' ending
+// a POSIX sub-expression — `[:name:]`, `[.sym.]`, `[=equiv=]` — closes the
+// sub-expression, not the class (`[[:alpha:])]` is alpha plus a literal ')').
+// An unterminated class consumes the rest of the pattern — it cannot compile
+// anyway, so no pathological shape is lost.
 func skipClass(p string, i int) int {
 	j := i + 1
 	if j < len(p) && p[j] == '^' {
@@ -204,6 +206,15 @@ func skipClass(p string, i int) int {
 		if p[j] == '\\' && j+1 < len(p) {
 			j++
 			continue
+		}
+		if p[j] == '[' && j+1 < len(p) && (p[j+1] == ':' || p[j+1] == '.' || p[j+1] == '=') {
+			// Skip to the sub-expression's two-byte closer (`:]`, `.]`, `=]`).
+			// No closer means a malformed sub-expression no engine compiles;
+			// fall through and treat the bytes as ordinary members.
+			if k := strings.Index(p[j+2:], string(p[j+1])+"]"); k >= 0 {
+				j += 2 + k + 1
+				continue
+			}
 		}
 		if p[j] == ']' {
 			return j
