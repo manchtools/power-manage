@@ -70,9 +70,13 @@ message FixtureBoolParams {
   bool plain_flag = 1;
 }
 
-// G-4 must not flag: explicit presence.
+// G-4 must not flag either form: `optional` and oneof membership both give
+// a bool explicit presence.
 message FixtureOptBoolParams {
   optional bool opt_flag = 1;
+  oneof choice {
+    bool oneof_flag = 2;
+  }
 }
 
 // G-3 must flag: embeds a registry member type directly, bypassing the

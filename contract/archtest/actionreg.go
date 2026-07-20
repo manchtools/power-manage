@@ -166,13 +166,15 @@ func plainBoolViolations(files []protoreflect.FileDescriptor, name protoreflect.
 		fields := md.Fields()
 		for i := 0; i < fields.Len(); i++ {
 			f := fields.Get(i)
-			if f.Kind() != protoreflect.BoolKind || f.HasOptionalKeyword() {
+			// HasPresence, not HasOptionalKeyword: `optional` and oneof
+			// membership both give a bool explicit presence.
+			if f.Kind() != protoreflect.BoolKind || f.HasPresence() {
 				continue
 			}
 			if _, sanctioned := plainBoolAllowlist[f.FullName()]; sanctioned {
 				continue
 			}
-			out = append(out, fmt.Sprintf("%s: plain bool in the registry subtree — make it `optional bool` (explicit presence) or record a two-value rationale in the allowlist [WIRE-6]", f.FullName()))
+			out = append(out, fmt.Sprintf("%s: plain bool in the registry subtree — give it explicit presence (`optional` or oneof membership) or record a two-value rationale in the allowlist [WIRE-6]", f.FullName()))
 		}
 	}
 	sort.Strings(out)

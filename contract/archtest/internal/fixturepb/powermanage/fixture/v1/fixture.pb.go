@@ -583,10 +583,15 @@ func (x *FixtureBoolParams) GetPlainFlag() bool {
 	return false
 }
 
-// G-4 must not flag: explicit presence.
+// G-4 must not flag either form: `optional` and oneof membership both give
+// a bool explicit presence.
 type FixtureOptBoolParams struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	OptFlag       *bool                  `protobuf:"varint,1,opt,name=opt_flag,json=optFlag,proto3,oneof" json:"opt_flag,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	OptFlag *bool                  `protobuf:"varint,1,opt,name=opt_flag,json=optFlag,proto3,oneof" json:"opt_flag,omitempty"`
+	// Types that are valid to be assigned to Choice:
+	//
+	//	*FixtureOptBoolParams_OneofFlag
+	Choice        isFixtureOptBoolParams_Choice `protobuf_oneof:"choice"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -627,6 +632,32 @@ func (x *FixtureOptBoolParams) GetOptFlag() bool {
 	}
 	return false
 }
+
+func (x *FixtureOptBoolParams) GetChoice() isFixtureOptBoolParams_Choice {
+	if x != nil {
+		return x.Choice
+	}
+	return nil
+}
+
+func (x *FixtureOptBoolParams) GetOneofFlag() bool {
+	if x != nil {
+		if x, ok := x.Choice.(*FixtureOptBoolParams_OneofFlag); ok {
+			return x.OneofFlag
+		}
+	}
+	return false
+}
+
+type isFixtureOptBoolParams_Choice interface {
+	isFixtureOptBoolParams_Choice()
+}
+
+type FixtureOptBoolParams_OneofFlag struct {
+	OneofFlag bool `protobuf:"varint,2,opt,name=oneof_flag,json=oneofFlag,proto3,oneof"`
+}
+
+func (*FixtureOptBoolParams_OneofFlag) isFixtureOptBoolParams_Choice() {}
 
 // G-3 must flag: embeds a registry member type directly, bypassing the
 // registry — the predecessor's five-copy drift in miniature.
@@ -886,9 +917,12 @@ const file_powermanage_fixture_v1_fixture_proto_rawDesc = "" +
 	"\awrapped\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\awrapped\"2\n" +
 	"\x11FixtureBoolParams\x12\x1d\n" +
 	"\n" +
-	"plain_flag\x18\x01 \x01(\bR\tplainFlag\"C\n" +
+	"plain_flag\x18\x01 \x01(\bR\tplainFlag\"n\n" +
 	"\x14FixtureOptBoolParams\x12\x1e\n" +
-	"\bopt_flag\x18\x01 \x01(\bH\x00R\aoptFlag\x88\x01\x01B\v\n" +
+	"\bopt_flag\x18\x01 \x01(\bH\x01R\aoptFlag\x88\x01\x01\x12\x1f\n" +
+	"\n" +
+	"oneof_flag\x18\x02 \x01(\bH\x00R\toneofFlagB\b\n" +
+	"\x06choiceB\v\n" +
 	"\t_opt_flag\"T\n" +
 	"\x12FixtureDirectEmbed\x12>\n" +
 	"\x06direct\x18\x01 \x01(\v2&.powermanage.fixture.v1.FixtureAParamsR\x06direct\"\x8f\x01\n" +
@@ -980,7 +1014,9 @@ func file_powermanage_fixture_v1_fixture_proto_init() {
 		(*FixtureActionParams_C)(nil),
 		(*FixtureActionParams_D)(nil),
 	}
-	file_powermanage_fixture_v1_fixture_proto_msgTypes[8].OneofWrappers = []any{}
+	file_powermanage_fixture_v1_fixture_proto_msgTypes[8].OneofWrappers = []any{
+		(*FixtureOptBoolParams_OneofFlag)(nil),
+	}
 	file_powermanage_fixture_v1_fixture_proto_msgTypes[10].OneofWrappers = []any{
 		(*FixtureSecondOneof_A2)(nil),
 		(*FixtureSecondOneof_B2)(nil),
