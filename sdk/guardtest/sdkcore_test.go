@@ -23,18 +23,29 @@ func sdkRoot(t *testing.T) string {
 // TestGuard_Randomness is SPEC-004 G-3 ([SDK-13]): math/rand AND
 // math/rand/v2 are banned across sdk. The jitter allowlist is empty until
 // the jitter package lands (M2) — extend the allow there with rationale,
-// never weaken the ban here. The spec's ≥1-crypto-call-site floor arms at
-// M5 with sdk/crypto; until then the floor is the scanned-file population.
+// never weaken the ban here. The spec's ≥1-crypto-call-site floor is now
+// armed (M5): discovery must find at least one crypto/rand consumer in sdk,
+// so the good-RNG surface can never silently vanish and leave the ban
+// scanning nothing (matches-zero).
 //
-// INV-8 scope: THIS guard proves the math/rand-ban half. The ULID-not-UUID
-// and crypto/rand-error-checking halves arm at M5 (sdk/crypto unit tests
-// and the G-5 extension) — extend there, never weaken here.
+// INV-8 scope: THIS guard proves the math/rand-ban half and the
+// crypto/rand-is-used floor. crypto/rand-error propagation is proven by the
+// sdk/crypto unit tests (AC-17); ULID-not-UUID arms with the ulidx generator
+// — extend there, never weaken here.
 //
 // Guards: INV-8.
 func TestGuard_Randomness(t *testing.T) {
 	root := sdkRoot(t)
-	Discover(t, "sdk Go files", 1, func() ([]string, error) {
-		return sdkGoFiles(root)
+	Discover(t, "crypto/rand call sites in sdk", 1, func() ([]string, error) {
+		imp, err := filesImporting(root, "crypto/rand")
+		if err != nil {
+			return nil, err
+		}
+		out := make([]string, 0, len(imp))
+		for f := range imp {
+			out = append(out, f)
+		}
+		return out, nil
 	})
 	v, err := randomnessViolations(root)
 	if err != nil {
@@ -115,14 +126,17 @@ func TestGuard_RegexChokepoint_Liveness(t *testing.T) {
 	}
 }
 
-// TestGuard_PreimageFraming is SPEC-004 G-5 ([SDK-13]) in its M1 form:
-// crypto/sha256, crypto/sha512, and crypto/hmac are banned in sdk outside
-// the crypto package path, so no hash/MAC surface can grow outside the
-// package the M5 guard will walk. Per-construction lp/domain-helper
-// enforcement INSIDE sdk/crypto is the M5 extension — extend there, never
-// weaken this ban. The one per-path file-keyed exception (crypto/sha256 in
-// fetch/fetch.go) and its M5 sunset are documented at hashImportAllow (plan
-// 8b); an orphaned exemption fails this guard.
+// TestGuard_PreimageFraming is SPEC-004 G-5 ([SDK-13]). Two halves:
+//
+//   - M1 import-ban: crypto/sha256, crypto/sha512, and crypto/hmac are banned
+//     in sdk outside the crypto package path, so no hash/MAC surface can grow
+//     outside the package the framing walk covers. The one per-path file-keyed
+//     exception (crypto/sha256 in fetch/fetch.go) and its M5 sunset are
+//     documented at hashImportAllow; an orphaned exemption fails this guard.
+//   - M5 per-construction framing (armed once sdk/crypto exists): every
+//     function in sdk/crypto that constructs a hash/MAC/derived key routes its
+//     preimage through framePreimage. Discovery must find ≥1 such construction
+//     (matches-zero) — never weaken either half.
 func TestGuard_PreimageFraming(t *testing.T) {
 	root := sdkRoot(t)
 	Discover(t, "sdk Go files", 1, func() ([]string, error) {
@@ -141,6 +155,23 @@ func TestGuard_PreimageFraming(t *testing.T) {
 	}
 	for _, s := range orphans {
 		t.Errorf("%s", s)
+	}
+
+	// M5 framing: dormant until sdk/crypto lands (the liveness row keeps the
+	// walk honest meanwhile).
+	cryptoRoot := filepath.Join(root, "crypto")
+	if _, err := os.Stat(cryptoRoot); errors.Is(err, fs.ErrNotExist) {
+		return
+	}
+	fv, fns, err := hashFramingViolations(cryptoRoot)
+	if err != nil {
+		t.Fatalf("scanning sdk/crypto for unframed hash constructions: %v", err)
+	}
+	Discover(t, "hash/MAC constructions in sdk/crypto", 1, func() ([]string, error) {
+		return fns, nil
+	})
+	for _, s := range fv {
+		t.Errorf("%s — route the preimage through %s; no naked hash/MAC over a hand-concatenated preimage", s, framingHelper)
 	}
 }
 
@@ -191,6 +222,30 @@ func TestGuard_PreimageFraming_OrphanExemption(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("stale file-keyed exemption not flagged as orphaned: %v", v)
+	}
+}
+
+// TestGuard_PreimageFraming_M5Liveness: inside a crypto surface, a plain HKDF
+// derivation, a raw digest, and an aliased-import KDF that each skip the
+// framing helper are flagged; the framed derivation, the helper itself, and a
+// constant-time compare stay clean.
+func TestGuard_PreimageFraming_M5Liveness(t *testing.T) {
+	scan := func(root string) ([]string, error) {
+		v, _, err := hashFramingViolations(root)
+		return v, err
+	}
+	RequireViolation(t, "unframed hash construction", scan, "testdata/sdkcore/hashframe")
+	v, fns, err := hashFramingViolations("testdata/sdkcore/hashframe")
+	if err != nil {
+		t.Fatalf("scanning the hashframe fixture: %v", err)
+	}
+	requireFlagged(t, v,
+		[]string{"bad.go:9", "raw_bad.go:6", "aliased_bad.go:6"},
+		[]string{"clean.go", "decoy.go"})
+	// The framed derivation is still discovered as a construction (population),
+	// it simply does not violate — so the floor counts it.
+	if len(fns) < 4 {
+		t.Errorf("discovered %d hash-construction functions, want >= 4 (bad, raw_bad, aliased_bad, clean): %v", len(fns), fns)
 	}
 }
 
