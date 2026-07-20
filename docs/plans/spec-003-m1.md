@@ -43,8 +43,10 @@ Changed files:
   `google.golang.org/protobuf`, `connectrpc.com/connect`,
   `buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go`.
 - `scripts/verify.sh` — proto stage: remove the `buf breaking` run
-  (AC-13 mechanical alignment); add `buf generate` + clean-`git status`
-  check on `contract/gen` (generated code stays in sync with source).
+  (AC-13 mechanical alignment); add a gen-sync stage: sha256 snapshot of
+  `contract/gen` before/after `buf generate` must match, fail-closed on a
+  failing snapshot (regeneration is a no-op against the working tree; CI
+  runs it against the committed state).
 - `.github/workflows/ci.yml` — verify job: drop the fetch-depth-0 block
   (its stated reason was buf breaking).
 - `docs/content/01-specs/00-index.md` — SPEC-003 → In progress (M1 done).

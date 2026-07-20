@@ -1,9 +1,10 @@
 // Shared contract types and rules (SPEC-003 §3.1).
 //
 // The ULID rule [WIRE-5]: IDs are bare ULID strings everywhere — 26
-// characters of the Crockford base32 alphabet (no I, L, O, U). The rule is
-// predefined once here; every ID field attaches it instead of repeating a
-// pattern that could drift per field.
+// characters of the Crockford base32 alphabet (no I, L, O, U), and the
+// first character is 0–7 because 26 characters encode exactly 128 bits.
+// The rule is predefined once here; every ID field attaches it instead of
+// repeating a pattern that could drift per field.
 edition = "2023";
 
 package powermanage.v1;
@@ -17,6 +18,6 @@ extend buf.validate.StringRules {
   bool ulid = 80001 [(buf.validate.predefined).cel = {
     id: "string.ulid"
     message: "value must be a ULID (26 chars, Crockford base32)"
-    expression: "this.matches('^[0-9A-HJKMNP-TV-Z]{26}$')"
+    expression: "this.matches('^[0-7][0-9A-HJKMNP-TV-Z]{25}$')"
   }];
 }

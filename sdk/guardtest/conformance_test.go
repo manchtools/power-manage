@@ -3,6 +3,7 @@ package guardtest
 import (
 	"go/ast"
 	"go/token"
+	"path"
 	"regexp"
 	"strings"
 	"testing"
@@ -19,11 +20,13 @@ func guardInventory(root string) (all, bad []string, guardsByInv map[string][]st
 	err = walkGoFiles(root, true, func(rel string, _ *token.FileSet, file *ast.File) error {
 		// The harness packages' own files call the helpers unqualified;
 		// everywhere else the call must resolve through an import of a
-		// sanctioned harness path.
+		// sanctioned harness path. Exact-directory match: a nested package
+		// reusing the name (contract/archtest/x declaring package archtest)
+		// must not inherit the unqualified-call privilege.
 		inHarnessPkg := (file.Name.Name == "guardtest" &&
-			strings.HasPrefix(rel, "sdk/guardtest/")) ||
+			path.Dir(rel) == "sdk/guardtest") ||
 			(file.Name.Name == "archtest" &&
-				strings.HasPrefix(rel, "contract/archtest/"))
+				path.Dir(rel) == "contract/archtest")
 		for _, decl := range file.Decls {
 			fn, ok := decl.(*ast.FuncDecl)
 			if !ok || fn.Recv != nil || !strings.HasPrefix(fn.Name.Name, "TestGuard_") {

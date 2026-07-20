@@ -127,7 +127,7 @@ func untaggedFields(files []protoreflect.FileDescriptor) []string {
 			f := fields.Get(i)
 			rules, _ := proto.GetExtension(f.Options(), validate.E_Field).(*validate.FieldRules)
 			if rules == nil || (rules.Type == nil && rules.Cel == nil && rules.Required == nil) {
-				out = append(out, fmt.Sprintf("%s: boundary field carries no buf.validate rules — required alone is insufficient and absence is unvalidated surface [WIRE-2]", f.FullName()))
+				out = append(out, fmt.Sprintf("%s: boundary field carries no buf.validate rules — absence leaves unvalidated surface [WIRE-2]", f.FullName()))
 			}
 		}
 	}
