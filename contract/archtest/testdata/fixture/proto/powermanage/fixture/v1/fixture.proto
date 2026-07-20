@@ -108,6 +108,25 @@ message FixtureEnumCarrier {
   }];
 }
 
+// AC-9 removal-verb never-check liveness (TestGuard_ManifestNoRemovalVerbs):
+// FixtureManifest plants a top-level removal-verb field (removed_ids) beside a
+// clean sibling (occurrence_ids); the closure hop (entry) reaches
+// FixtureManifestEntry, which plants a removal verb one hop deep
+// (tombstone_key) beside a clean sibling (assignment_key). The message is
+// deliberately service-UNREACHABLE, so it never perturbs the G-1 / enum-bounds
+// / registry want-sets — the removal-verb walk finds it by name, not by
+// reachability.
+message FixtureManifest {
+  repeated string removed_ids = 1 [(buf.validate.field).repeated.items.string.min_len = 1];
+  repeated string occurrence_ids = 2 [(buf.validate.field).repeated.items.string.min_len = 1];
+  FixtureManifestEntry entry = 3 [(buf.validate.field).required = true];
+}
+
+message FixtureManifestEntry {
+  string tombstone_key = 1 [(buf.validate.field).string.min_len = 1];
+  string assignment_key = 2 [(buf.validate.field).string.min_len = 1];
+}
+
 enum FixtureBadEnum {
   // G-2 must flag: zero value is not *_UNSPECIFIED.
   FIXTURE_BAD_ENUM_ACTIVE = 0;

@@ -1,0 +1,72 @@
+// The CA-signed sync manifest (SPEC-003 §3.8, [WIRE-26/27]).
+//
+// Every sync response is this manifest riding the "sync-manifest"
+// SignedCommand: monotonic (epoch, generation) is the durable-class
+// anti-replay authority, the ≤15-min validity window is enforced by the
+// command envelope's instant mechanics at the chokepoint (SPEC-013), and
+// the device's complete desired state travels as occurrence keys
+// (assignment × action). Removal-by-omission is the SOLE cleanup authority
+// — the schema carries no removal vocabulary (guarded), and there is no
+// in-agent staleness kill-switch: offline autonomy is the product.
+syntax = "proto3";
+
+package powermanage.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+import "powermanage/v1/common.proto";
+
+option go_package = "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1;powermanagev1";
+
+// Days for maintenance windows ([WIRE-8] typed messages; ASG-3 evaluation is
+// device-local). UNSPECIFIED is always invalid at boundaries (AC-2).
+enum DayOfWeek {
+  DAY_OF_WEEK_UNSPECIFIED = 0;
+  DAY_OF_WEEK_MONDAY = 1;
+  DAY_OF_WEEK_TUESDAY = 2;
+  DAY_OF_WEEK_WEDNESDAY = 3;
+  DAY_OF_WEEK_THURSDAY = 4;
+  DAY_OF_WEEK_FRIDAY = 5;
+  DAY_OF_WEEK_SATURDAY = 6;
+  DAY_OF_WEEK_SUNDAY = 7;
+}
+
+// One occurrence key: (assignment × action). The manifest carries KEYS; the
+// action content rides the signed assignment envelopes ([WIRE-15] durable
+// class). Cron and interval are mutually optional — both empty means
+// unscheduled/immediate (ASG-1).
+message Occurrence {
+  string assignment_id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string action_id = 2 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string cron_schedule = 3 [(buf.validate.field).string.max_len = 100];
+  uint64 interval_seconds = 4;
+}
+
+// A maintenance window ([WIRE-8]): weekday set plus start/end minute-of-day.
+// Midnight-crossing is allowed, so start_minute > end_minute is legal
+// (ASG-3); both are bounded to a day.
+message MaintenanceWindow {
+  repeated DayOfWeek days = 1 [(buf.validate.field).repeated.items.enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  uint32 start_minute = 2 [(buf.validate.field).uint32.lte = 1439];
+  uint32 end_minute = 3 [(buf.validate.field).uint32.lte = 1439];
+}
+
+// Server-set intervals ([WIRE-17]): server-authoritative configuration
+// arrives only inside signed material.
+message Intervals {
+  uint64 sync_seconds = 1 [(buf.validate.field).uint64.gte = 1];
+  uint64 inventory_seconds = 2 [(buf.validate.field).uint64.gte = 1];
+}
+
+message SyncManifest {
+  uint64 epoch = 1;
+  uint64 generation = 2;
+  google.protobuf.Timestamp issued_at = 3 [(buf.validate.field).required = true];
+  google.protobuf.Timestamp expires_at = 4 [(buf.validate.field).required = true];
+  repeated Occurrence occurrences = 5;
+  repeated MaintenanceWindow maintenance_windows = 6;
+  Intervals intervals = 7;
+}

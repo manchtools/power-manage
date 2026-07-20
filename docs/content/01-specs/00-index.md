@@ -19,7 +19,7 @@ spec's own header, which is authoritative.
 | 000 | [development-process](000-development-process.md) | — | all | Implemented |
 | 001 | [architecture-and-trust-model](001-architecture-and-trust-model.md) | 000 (M2–M3) | all | Implemented |
 | 002 | [repo-module-and-config-contract](002-repo-module-and-config-contract.md) | 000 (M2) | all | Implemented |
-| 003 | [wire-contract](003-wire-contract.md) | 000–002 | contract | In progress (M3 done) |
+| 003 | [wire-contract](003-wire-contract.md) | 000–002 | contract | In progress (M4 done) |
 | 004 | [sdk-core](004-sdk-core.md) | 000–002 | sdk | Spec ready |
 | 005 | [event-store](005-event-store.md) | 000–003 | server | Spec ready |
 | 006 | [pki-and-identity](006-pki-and-identity.md) | 003, 005 | server | Spec ready |
@@ -60,6 +60,7 @@ SPEC-002 M5 — CI conventions lane G-002-8 (commit lint, vYYYY.MM.PP tags, attr
 SPEC-003 M1 — contract scaffold: six services, protovalidate ULID rule, descriptor-walk harness (G-1, G-2a, exact-set surface), G-6 protojson ban, gen-sync verify stage — PR #14
 SPEC-003 M2 — ActionParams registry: 21-member oneof + stub params, one Action shape, G-3 authority walk, G-4 explicit presence, enum-bounds pair — PR #15
 SPEC-003 M3 — SignedCommand envelope: golden-pinned domain framing, contract/sign sign/verify helpers, freshness windows, Ed25519 refusal, G-5 domain isolation — PR #16
+SPEC-003 M4 — DeviceSigned results, SealedBlob + seal infos, SPIFFE identity constants, SyncManifest + monotonicity, no-removal-verbs guard — PR #17
 
 ## Rules
 

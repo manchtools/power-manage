@@ -1,0 +1,39 @@
+// The one authenticated device→control result envelope (SPEC-003 §3.6,
+// [WIRE-20..22]).
+//
+// The predecessor's entire result path (executions, compliance, inventory,
+// alerts, offline queue drain) had zero cryptographic coverage — a
+// compromised relay could forge any device's results. Every device-originated
+// report now travels wrapped in this envelope, signed by the device's
+// enrolled key under "power-manage:result:" + type + ":v1"; control verifies
+// against the DER-derived registered certificate (PKI-4, SPEC-006) before
+// recording. The framing and verification helpers live in contract/sign
+// beside the SignedCommand helpers (§2 allocation).
+syntax = "proto3";
+
+package powermanage.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+import "powermanage/v1/common.proto";
+
+option go_package = "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1;powermanagev1";
+
+message DeviceSigned {
+  // Deterministic serialization of the typed report; never empty
+  // ([WIRE-25]).
+  bytes payload = 1 [(buf.validate.field).bytes.min_len = 1];
+  // Open grammar-checked token at M4 ([a-z0-9-]+); the signature domain
+  // derives from it. The closed per-type set arms with M5's stream frames
+  // (plan choice 3 ceiling).
+  string result_type = 2 [(buf.validate.field).string.pattern = "^[a-z0-9-]+$"];
+  // The reporting device's own ULID. Signature-covered origin claim,
+  // verified against the device's registered key — not self-asserted
+  // authentication ([WIRE-18], [WIRE-20]).
+  string device_id = 3 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  google.protobuf.Timestamp issued_at = 4 [(buf.validate.field).required = true];
+  // Over the domain-framed covered fields (result_type, device_id,
+  // issued_at, payload) — see contract/sign's ResultPreimage. No expiry:
+  // results are records, not commands; staleness policy is control-side.
+  bytes signature = 5 [(buf.validate.field).bytes.min_len = 1];
+}
