@@ -54,7 +54,10 @@ if [ "${#MODULES[@]}" -gt 0 ]; then
 
   for m in "${MODULES[@]}"; do
     # Modules with no Go sources yet (scaffold phase): reported, not hidden.
-    if ! find "$m" -name '*.go' -not -path '*/gen/*' | grep -q .; then
+    # -print -quit, no pipe: `find | grep -q` dies of SIGPIPE under pipefail
+    # once the file census outgrows what grep drains before exiting, and the
+    # "failed" pipeline silently skipped a populated module (fail-open).
+    if [ -z "$(find "$m" -name '*.go' -not -path '*/gen/*' -print -quit)" ]; then
       say "$m: no Go sources yet — skipped (reported, not hidden)"
       continue
     fi
@@ -75,7 +78,7 @@ fi
 # Proto lint + generated-code sync (only once protos exist). Deliberately
 # NO buf-breaking gate: proto evolution re-tags in place with no reserved
 # markers (AC-13, SPEC-003) — exactly what a breaking gate would reject.
-if [ -f contract/buf.yaml ] && find contract/proto -name '*.proto' 2>/dev/null | grep -q .; then
+if [ -f contract/buf.yaml ] && [ -n "$(find contract/proto -name '*.proto' -print -quit 2>/dev/null)" ]; then
   require buf
   require sha256sum
   if command -v buf >/dev/null 2>&1 && command -v sha256sum >/dev/null 2>&1; then
