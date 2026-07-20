@@ -12,7 +12,7 @@ Module(s): server (kernel, search, limits), contract (domain messages, validate 
 
 The management API of the control server: the single table-driven CRUD kernel
 [API-1], the ~20 management domains as product surface [WIRE-11], nestable action
-sets, the single Postgres-FTS read path for lists and search [SRCH-1..3], and
+sets, the single Postgres-FTS read path for lists and search [SRCH-1..4], and
 request-boundary hardening [LIM-1..4].
 
 ## 2. Context capsule
@@ -142,6 +142,16 @@ sets.
   rebuild rebuilds search by construction, ES-2/ES-7, SPEC-005). A
   descriptor-walking parity test proves every filterable API field maps to an
   indexed column, matches-zero guarded.
+- **[SRCH-4]** Global search: ONE cross-domain endpoint on ControlService
+  drives the UI's global search box. It fans the query out to the per-domain
+  FTS queries (SRCH-1) and returns results grouped by domain with honest
+  per-domain totals. The domain set is discovered from the domain registry —
+  never a hardcoded entity list — so a newly registered searchable domain is
+  globally searchable by construction. Each per-domain sub-query IS the
+  domain's own list/search query: same scope predicates and fail-closed
+  empty-scope sentinel (SRCH-2), same system-managed invisibility (AUTHZ-6).
+  A domain the caller lacks list permission for is simply absent from the
+  response — never an error, never a count leak.
 
 ### 3.5 Request-boundary hardening
 
@@ -203,6 +213,11 @@ sets.
 - **AC-13** A forged XFF from an untrusted peer does not change the resolved
   client IP; a trusted-proxy chain resolves right-to-left to the true client;
   rate-limit buckets and audit actor-IP use the resolved value.
+- **AC-14** For a caller with mixed grants, the global-search response equals
+  the union of what each domain's own search returns for the same query,
+  grouped per domain with honest totals; domains the caller cannot list and
+  out-of-scope rows are absent (not errors); a row created in the previous
+  request is found (AC-7 freshness holds through the global path).
 
 ## 5. Rejection paths
 
@@ -220,6 +235,7 @@ sets.
 | Statement exceeding `statement_timeout` / handler deadline | Query canceled; deadline error to the caller |
 | Execution output beyond byte/chunk budget | Stored truncated with explicit truncation marker; never unbounded |
 | XFF header from an untrusted peer | Ignored; peer address used for rate limiting and audit |
+| Global search touching a domain the caller cannot list | Domain absent from the response — no error status, no count leak |
 | Unclassified ControlService RPC (neither kernel nor custom list) | CI failure via DOM-1 guard; unmergeable |
 
 ## 6. Test plan (TDD)
@@ -242,7 +258,9 @@ Order of work:
 4. **Set tests**: cycle rejection (self, deep), flatten order, first-wins dedup
    (AC-5, AC-6); system-managed invisibility at depth (SET-5).
 5. **Search tests**: read-after-write freshness (AC-7), honest totals (AC-8),
-   substring/fuzzy behavior via `pg_trgm`, parity guard red case (AC-9).
+   substring/fuzzy behavior via `pg_trgm`, parity guard red case (AC-9);
+   global-search union parity against per-domain search under mixed grants,
+   permission-absent domains, freshness through the global path (AC-14).
 6. **Limit tests**: transport-level size refusal, offset ceiling, deadline and
    statement-timeout behavior, recursion cap, output truncation marker
    (AC-10, AC-11), XFF resolution matrix (AC-13).
@@ -257,6 +275,7 @@ Self-discovering, matches-zero protected (META-2, SPEC-000):
 | Validate-before-work / auth order (AUTHZ-7) | Proto descriptors + interceptor wiring | Any RPC unclassified as public / permission / alt-auth, or reachable without validation |
 | Boundary-test generation | Proto descriptors + validate tags | Any kernel-domain field without generated correct/absent/wrong cases; zero fields discovered |
 | FTS parity (SRCH-3) | Descriptor walk of filterable fields → index catalog | A filterable field with no indexed column; zero fields discovered |
+| Global-search coverage (SRCH-4) | Domain registry walk vs the global endpoint's fan-out set | A registered searchable domain absent from global search; zero domains discovered |
 | Scope-filter behavior | Domain registry walk emitting per-domain behavioral tests | Any registered domain lacking the scope suite; zero domains discovered |
 | System-managed invisibility (SET-5 / AUTHZ-6) | Registry of read/list/search/add-to-set/dispatch paths | Any path returning a system-managed object |
 | `context.Background()` ban (LIM-3) | AST scan of request paths, allowlist keyed by function | A request path constructs `context.Background()`; zero paths scanned |
@@ -305,7 +324,8 @@ Each milestone is one implementation session ending green.
    flatten with first-wins dedup, system-managed invisibility at depth.
    Tests: AC-5, AC-6.
 5. **M5 — Search**: FTS columns in-tx, one list/search read path, honest totals,
-   parity guard. Tests: AC-7..9.
+   parity guard, global-search endpoint over the domain registry (SRCH-4).
+   Tests: AC-7..9, AC-14.
 6. **M6 — Limits**: size caps, offset ceiling, deadlines/statement timeouts,
    recursion cap, output budgets + truncation marker, XFF resolution.
    Tests: AC-10, AC-11, AC-13.
