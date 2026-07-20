@@ -68,8 +68,11 @@ func TestManager_WriteFile_Escalated_SingleRootShell(t *testing.T) {
 	if len(c.Args) != 7 {
 		t.Fatalf("Args = %q, want 7 elements [-c script sh path mode ownership backup]", c.Args)
 	}
-	if c.Args[0] != "-c" || c.Args[1] == "" || c.Args[2] != "sh" {
-		t.Errorf("Args[0..2] = %q, want [-c <script> sh]", c.Args[:3])
+	// Pin the EXACT approved script, not merely non-empty: a regression that
+	// dropped the atomic mv -T, the symlink-refusal, or the stdin redirect must
+	// fail here and force a deliberate re-review of the trust boundary.
+	if c.Args[0] != "-c" || c.Args[1] != escalatedWriteScript || c.Args[2] != "sh" {
+		t.Errorf("Args[0..2] = %q, want [-c <exact approved script> sh]", c.Args[:3])
 	}
 	if got, want := c.Args[3:], []string{"/etc/pm-test.conf", "0600", "root:wheel", "/etc/pm-test.conf.bak"}; !slices.Equal(got, want) {
 		t.Errorf("positional args = %q, want %q", got, want)
@@ -84,9 +87,12 @@ func TestManager_WriteFile_Escalated_SingleRootShell(t *testing.T) {
 	if string(data) != "secret=1\n" {
 		t.Errorf("stdin = %q, want the file content", data)
 	}
+	// Reject the payload ANYWHERE in any argv element (substring), not only as
+	// a standalone argument — content interpolated into the script body would
+	// be a substring of Args[1], which an exact-element check would miss.
 	for _, a := range c.Args {
-		if a == "secret=1\n" {
-			t.Error("file content leaked into argv")
+		if strings.Contains(a, "secret=1") {
+			t.Errorf("file content leaked into argv element %q — content must travel only via stdin", a)
 		}
 	}
 }
@@ -452,15 +458,28 @@ func TestManager_Copy_Escalated_AllowsSingleFileUnderEtc(t *testing.T) {
 	mustCalls(t, fr, 1)
 }
 
-// WriteFileFrom on an escalated backend still streams via stdin — the shape
-// is identical to WriteFile; only the source differs.
+// WriteFileFrom on an escalated backend routes through the SAME single-root-
+// shell contract as WriteFile — only the source differs. Pinning the full
+// command shape (not just stdin) guards against a regression to a non-atomic
+// or non-escalated write on the streaming path.
 func TestManager_WriteFileFrom_Escalated_StreamsStdin(t *testing.T) {
 	fr, m := newEscalatedManager(t)
 	src := bytes.NewReader([]byte("streamed\n"))
-	if err := m.WriteFileFrom(context.Background(), "/etc/pm-test.conf", src, WriteOptions{}); err != nil {
+	if err := m.WriteFileFrom(context.Background(), "/etc/pm-test.conf", src, WriteOptions{
+		Mode: 0o640, Owner: "root", Group: "wheel",
+	}); err != nil {
 		t.Fatalf("WriteFileFrom: %v", err)
 	}
 	c := mustCalls(t, fr, 1)[0]
+	if c.Name != "sh" || !c.Escalate {
+		t.Errorf("Name/Escalate = %q/%v, want sh/true", c.Name, c.Escalate)
+	}
+	if len(c.Args) != 7 || c.Args[0] != "-c" || c.Args[1] != escalatedWriteScript || c.Args[2] != "sh" {
+		t.Fatalf("Args = %q, want [-c <exact approved script> sh ...] (7 elements)", c.Args)
+	}
+	if got, want := c.Args[3:], []string{"/etc/pm-test.conf", "0640", "root:wheel", ""}; !slices.Equal(got, want) {
+		t.Errorf("positional args = %q, want %q", got, want)
+	}
 	if c.Stdin == nil {
 		t.Fatal("no stdin on streamed escalated write")
 	}
@@ -470,5 +489,10 @@ func TestManager_WriteFileFrom_Escalated_StreamsStdin(t *testing.T) {
 	}
 	if string(data) != "streamed\n" {
 		t.Errorf("stdin = %q", data)
+	}
+	for _, a := range c.Args {
+		if strings.Contains(a, "streamed") {
+			t.Errorf("streamed content leaked into argv element %q — must travel only via stdin", a)
+		}
 	}
 }

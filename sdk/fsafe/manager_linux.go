@@ -59,7 +59,24 @@ func (m Manager) ReadFile(ctx context.Context, path string) ([]byte, error) {
 		return nil, err
 	}
 	if m.direct() {
-		b, err := os.ReadFile(resolved)
+		// No-follow read, matching the direct-backend mutators: a symlink
+		// swapped in at the resolved path after resolution is refused (ELOOP)
+		// rather than followed, so this privileged read cannot be redirected to
+		// an arbitrary target; O_NONBLOCK + the IsRegular check keep a planted
+		// FIFO from hanging the open and refuse every non-regular type.
+		f, err := os.OpenFile(resolved, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK|syscall.O_CLOEXEC, 0)
+		if err != nil {
+			return nil, err
+		}
+		defer func() { _ = f.Close() }() // read-only fd
+		info, err := f.Stat()
+		if err != nil {
+			return nil, err
+		}
+		if !info.Mode().IsRegular() {
+			return nil, fmt.Errorf("read %s: not a regular file (%v)", path, info.Mode().Type())
+		}
+		b, err := io.ReadAll(f)
 		if err != nil {
 			return nil, err
 		}
@@ -260,7 +277,16 @@ func (m Manager) ReadDir(ctx context.Context, path string) ([]DirEntry, error) {
 		return nil, err
 	}
 	if m.direct() {
-		entries, err := os.ReadDir(resolved)
+		// No-follow dir open (OpenRealDir = O_DIRECTORY|O_NOFOLLOW): a symlink
+		// swapped in at the resolved path after resolution is refused (ELOOP)
+		// rather than followed, so this privileged listing cannot be redirected
+		// to an arbitrary directory. Entries still report their OWN type.
+		f, err := OpenRealDir(resolved)
+		if err != nil {
+			return nil, err
+		}
+		defer func() { _ = f.Close() }() // read-only dir fd
+		entries, err := f.ReadDir(-1)
 		if err != nil {
 			return nil, err
 		}
