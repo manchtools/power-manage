@@ -179,8 +179,7 @@ func TestModuleRequires_ParsesForms(t *testing.T) {
 
 // TestGuard_GatewayPurity is G-001-3 (SPEC-001 AC-3): the gateway binary's
 // import closure must not reach event-store, secret-custody, or CA-key
-// packages [TM-2]. Dormant (reported skip) until server/cmd/gateway exists;
-// TestGuard_GatewayPurity_Liveness keeps the scan honest meanwhile.
+// packages [TM-2]. Dormant (reported skip) until server/cmd/gateway exists.
 //
 // TM-2 scope: THIS test enforces only the custody/import half — the gateway
 // binary cannot link event-store, secret-custody, or CA-key packages. The
@@ -204,9 +203,10 @@ func TestGuard_GatewayPurity(t *testing.T) {
 	}
 }
 
-// TestGuard_GatewayPurity_Liveness: the fixture's violation is transitive
-// (cmd/gateway → relay → eventstore) and rides a blank import; the innocent
-// frames package must stay clean.
+// TestGuard_GatewayPurity_Liveness keeps the scan honest while the real
+// guard is dormant: the fixture's violation is transitive (cmd/gateway →
+// relay → eventstore) and rides a blank import; the innocent frames package
+// must stay clean.
 func TestGuard_GatewayPurity_Liveness(t *testing.T) {
 	scan := func(root string) ([]string, error) {
 		closure, err := ImportClosure(root, "cmd/gateway", "example.com/gwpure/")
