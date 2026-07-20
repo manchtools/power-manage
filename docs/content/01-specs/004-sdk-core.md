@@ -313,7 +313,7 @@ if its discovery step finds nothing to check.
 | G-3 | Randomness ([SDK-13]) | AST scan: `math/rand` banned outside the jitter allowlist; discovery must find ≥1 crypto call site |
 | G-4 | Regex chokepoint ([SDK-6]) | Discover all `regexp.Compile`/`MustCompile` call sites; each must route through the ReDoS guard package |
 | G-5 | Preimage framing ([SDK-13]) | Discover hash/MAC constructions in the crypto surface; each uses the length-prefix/domain helper |
-| G-6 | No nil-AAD API ([SDK-13]) | Reflection walk over exported seal/open functions; every one requires an AAD parameter |
+| G-6 | No nil-AAD API ([SDK-13]) | AST walk over exported seal/open functions and methods; every one requires an `aad` parameter (reflection cannot see parameter names or link a deliberately-wrong violation fixture) |
 | G-7 | Mutation chokepoint ([SDK-7]) | AST scan: `os.Chmod`/`os.Chown`/`os.Rename`/path-based mutation calls banned outside the fd-anchored helpers package |
 | G-8 | Directional imports ([SDK-0], SPEC-002) | Module-discovering archtest: `sdk` and `contract` import no in-repo module |
 | G-9 | Clock seam (SPEC-000 cross-cutting) | No unabstracted `time.Now()` in sdk, including `SetDeadline` call sites; injected clock only |
