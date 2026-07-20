@@ -25,9 +25,11 @@ import (
 
 // nearCopyAllowlist records identical-shape pairs that are legitimately
 // distinct (keyed by the sorted "fullA|fullB" pair, value = the rationale).
-// It starts EMPTY (plan choice 12): every entry is a deliberate, reviewable
-// decision that these two identical shapes are NOT a [WIRE-1] mirrored copy.
-var nearCopyAllowlist = map[string]string{}
+// Every entry is a deliberate, reviewable decision that these two identical
+// shapes are NOT a [WIRE-1] mirrored copy.
+var nearCopyAllowlist = map[string]string{
+	"powermanage.v1.DeviceConnected|powermanage.v1.DeviceDisconnected": "two distinct lifecycle events sharing the minimal addressing-only shape {device_id: ULID}; the discriminant is the frame-oneof tag, not a drifted payload field (GW-3.1)",
+}
 
 // TestGuard_NearCopies is G-8 over the real contract: no two messages share an
 // identical field-name/type shape outside the allowlist.

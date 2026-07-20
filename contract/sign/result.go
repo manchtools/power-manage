@@ -18,6 +18,33 @@ import (
 	powermanagev1 "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1"
 )
 
+// The [WIRE-20a] signature domains, one per closed §3.6 result type:
+// "power-manage:result:" + result_type + ":v1". G-5 discovers these
+// constants by AST scan and pins them, exact-set, to the catalog. Escrowed
+// device secrets (LPS, LUKS, USER temp passwords) mint NO result type —
+// the sealed blob rides the execution result and the sealing info string
+// ([WIRE-23]) binds the secret.
+const (
+	ExecutionResultSignatureDomain  = "power-manage:result:execution:v1"
+	ComplianceResultSignatureDomain = "power-manage:result:compliance:v1"
+	InventoryResultSignatureDomain  = "power-manage:result:inventory:v1"
+	AlertResultSignatureDomain      = "power-manage:result:alert:v1"
+	OsqueryResultSignatureDomain    = "power-manage:result:osquery:v1"
+	LogqueryResultSignatureDomain   = "power-manage:result:logquery:v1"
+)
+
+// resultDomains is the closed result_type → domain registry, the mirror of
+// commandDomains: ResultDomain fails on anything outside it, so an
+// unregistered type can never frame a preimage (fail-closed, [WIRE-20a]).
+var resultDomains = map[string]string{
+	"execution":  ExecutionResultSignatureDomain,
+	"compliance": ComplianceResultSignatureDomain,
+	"inventory":  InventoryResultSignatureDomain,
+	"alert":      AlertResultSignatureDomain,
+	"osquery":    OsqueryResultSignatureDomain,
+	"logquery":   LogqueryResultSignatureDomain,
+}
+
 // ResultVerifyOptions carries the verifier's context. Control resolves the
 // claimed reporter to its DER-derived registered key (PKI-4, SPEC-006) and
 // states here which device it expects; the envelope's device_id must equal
@@ -26,15 +53,19 @@ type ResultVerifyOptions struct {
 	DeviceID string
 }
 
-// ResultDomain maps a result type to its [WIRE-20] signature domain
-// "power-manage:result:" + type + ":v1". The type set is OPEN at M4 — the
-// closed per-type set arms with M5's stream frames — so the whole gate is
-// the grammar: a non-empty [a-z0-9-]+ token, fail-closed otherwise.
+// ResultDomain maps a closed-set result type to its [WIRE-20a] signature
+// domain. The grammar gate stays as defense in depth ahead of the
+// membership check; a grammar-valid non-member is a structured reject — a
+// new result type is a spec change, never an ad-hoc token.
 func ResultDomain(resultType string) (string, error) {
 	if !isResultType(resultType) {
 		return "", fmt.Errorf("result_type %q violates the [a-z0-9-]+ grammar: an unframable type never gets a domain", resultType)
 	}
-	return "power-manage:result:" + resultType + ":v1", nil
+	domain, ok := resultDomains[resultType]
+	if !ok {
+		return "", fmt.Errorf("result_type %q is not in the closed [WIRE-20a] set: an unregistered type never gets a domain", resultType)
+	}
+	return domain, nil
 }
 
 // isResultType reports whether s is a non-empty lowercase [a-z0-9-]+ token.

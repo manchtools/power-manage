@@ -6,6 +6,18 @@ deps:
 lint:
   use:
     - STANDARD
+  # The bidi stream frame envelopes carry their spec-pinned names —
+  # AgentFrame/ServerFrame (§3.2, SPEC-003) and GatewayFrame/ControlFrame
+  # (GW-3 table, SPEC-012) — not the Buf <Rpc>Request/<Rpc>Response
+  # convention. Scoped to the two stream services; every unary RPC keeps
+  # the standard names.
+  ignore_only:
+    RPC_REQUEST_STANDARD_NAME:
+      - proto/powermanage/v1/agent.proto
+      - proto/powermanage/v1/internal.proto
+    RPC_RESPONSE_STANDARD_NAME:
+      - proto/powermanage/v1/agent.proto
+      - proto/powermanage/v1/internal.proto
 # No breaking gate: proto evolution re-tags in place with no reserved
 # markers (AC-13, SPEC-003; recorded decision) — exactly what a
 # breaking-change gate would reject.

@@ -1,11 +1,134 @@
 // InternalService (SPEC-003 §3.2): ONE persistent bidi stream per gateway
-// (registration-by-presence, device online/offline, command push, result
-// relay, CRL updates, artifact-chunk relay) plus unary ops — mTLS,
-// gateway-class certificates only [WIRE-18/19].
+// (registration-by-presence, device online/offline, report relay, terminal
+// recording, CRL updates, command push, artifact relay) plus exactly ONE
+// unary op — terminal token validation. mTLS, gateway-class certificates
+// only [WIRE-18/19]. Frame names come verbatim from the GW-3 table
+// (SPEC-012); there is no gateway registration frame — stream presence IS
+// registration (GW-3.1), and on reconnect the gateway re-reports its
+// connection set as DeviceConnected frames.
 syntax = "proto3";
 
 package powermanage.v1;
 
+import "buf/validate/validate.proto";
+import "powermanage/v1/artifact.proto";
+import "powermanage/v1/common.proto";
+import "powermanage/v1/device_signed.proto";
+import "powermanage/v1/signed_command.proto";
+
 option go_package = "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1;powermanagev1";
 
-service InternalService {}
+// A device's mTLS stream to this gateway came up (GW-3.1).
+message DeviceConnected {
+  string device_id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+}
+
+// A device's stream went down (GW-3.1).
+message DeviceDisconnected {
+  string device_id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+}
+
+// Relays a device's signed report. NO device_id: the envelope's own
+// device_id is the sole addressing claim ([WIRE-9] anti-dual-field);
+// control runs the [WIRE-19] set check on the claimed ID, then verifies.
+message DeviceReport {
+  DeviceSigned report = 1 [(buf.validate.field).required = true];
+}
+
+enum TerminalDirection {
+  TERMINAL_DIRECTION_UNSPECIFIED = 0;
+  TERMINAL_DIRECTION_INPUT = 1;
+  TERMINAL_DIRECTION_OUTPUT = 2;
+}
+
+// One serialized slice of a recorded terminal session, both directions
+// (GW-7; operator decision 44). Ordering is stream order — no sequence
+// field until a spec demands reassembly.
+message TerminalRecordingChunk {
+  string session_id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  TerminalDirection direction = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  bytes data = 3 [(buf.validate.field).bytes.min_len = 1];
+}
+
+// Artifact frames carry no in-message device field ([WIRE-28]), so the
+// internal stream wraps them with the addressing ULID — composition, not
+// near-copies.
+message ArtifactFetchRelay {
+  string device_id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  ArtifactFetchRequest request = 2 [(buf.validate.field).required = true];
+}
+
+// Pushes a signed command toward a connected device. NO device_id: the
+// envelope's target_device_id is the addressing claim ([WIRE-9]).
+message PushCommand {
+  SignedCommand command = 1 [(buf.validate.field).required = true];
+}
+
+// A standard X.509 DER CRL. PKI-6's issued_at and monotonic sequence are
+// the DER thisUpdate field and crlNumber extension, both inside the CA
+// signature — a proto wrapper duplicating them would be a second
+// representation of signed content (the [WIRE-14] lesson). Verification is
+// gateway-side (GW-1.1).
+message CrlUpdate {
+  bytes crl = 1 [(buf.validate.field).bytes.min_len = 1];
+}
+
+message ArtifactChunkRelay {
+  string device_id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  ArtifactChunk chunk = 2 [(buf.validate.field).required = true];
+}
+
+message ArtifactErrorRelay {
+  string device_id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  ArtifactFetchError error = 2 [(buf.validate.field).required = true];
+}
+
+// Gateway→control multiplexing envelope (GW-3 table, SPEC-012).
+message GatewayFrame {
+  oneof frame {
+    option (buf.validate.oneof).required = true;
+
+    DeviceConnected device_connected = 1;
+    DeviceDisconnected device_disconnected = 2;
+    DeviceReport device_report = 3;
+    TerminalRecordingChunk terminal_recording_chunk = 4;
+    ArtifactFetchRelay artifact_fetch_relay = 5;
+  }
+}
+
+// Control→gateway multiplexing envelope (GW-3 table, SPEC-012).
+message ControlFrame {
+  oneof frame {
+    option (buf.validate.oneof).required = true;
+
+    PushCommand push_command = 1;
+    CrlUpdate crl_update = 2;
+    ArtifactChunkRelay artifact_chunk_relay = 3;
+    ArtifactErrorRelay artifact_error_relay = 4;
+  }
+}
+
+// Opaque token only — the caller is the gateway certificate ([WIRE-18]:
+// no self-asserted identity field rides the request).
+message ValidateTerminalTokenRequest {
+  string token = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 512
+  }];
+}
+
+// The binding the gateway needs to bridge a terminal session (GW-7).
+// Control enforces the [WIRE-19] connection-set check before answering.
+message ValidateTerminalTokenResponse {
+  string device_id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string session_id = 2 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string user_id = 3 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+}
+
+service InternalService {
+  rpc Stream(stream GatewayFrame) returns (stream ControlFrame);
+  rpc ValidateTerminalToken(ValidateTerminalTokenRequest) returns (ValidateTerminalTokenResponse);
+}

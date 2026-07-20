@@ -25,13 +25,14 @@ the sync-manifest message with `(epoch, generation)` monotonicity
    `"power-manage:result:" + type + ":v1"` derives from it — the framing
    mirror of SignedCommand's command_type. No expires_at: results are
    records, not commands; staleness policy is control-side (SPEC-005/007).
-3. **Result-type set is OPEN at M4 (recorded ceiling).** Unlike §3.4's
-   explicit 8-type command list, the spec names report families only in
-   prose; the closed set arrives with M5's stream frames. `ResultDomain`
-   accepts a grammar-checked token (`[a-z0-9-]+`, non-empty, fail-closed
-   otherwise); per-type `*SignatureDomain` result constants and their G-5
-   exact-set registration arm at M5. G-5's discovered set stays 8 until
-   then.
+3. **Result-type set is OPEN at M4 (recorded ceiling — retired at M5).**
+   Unlike §3.4's explicit 8-type command list, the spec named report
+   families only in prose at M4, so `ResultDomain` accepted any
+   grammar-checked token (`[a-z0-9-]+`, non-empty, fail-closed otherwise).
+   [WIRE-20a] (operator amendment resolving issue #18) closed the set to
+   exactly {execution, compliance, inventory, alert, osquery, logquery};
+   M5 lands the six `*SignatureDomain` result constants, membership
+   enforcement in `ResultDomain`, and the G-5 exact-set extension to 14.
 4. **Result helpers in `contract/sign`** (same §2 allocation as commands):
    `ResultDomain(resultType) (string, error)`,
    `ResultPreimage(env) ([]byte, error)` — framing mirrors plan-003-m3

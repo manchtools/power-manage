@@ -107,11 +107,8 @@ func oneofMemberTypes(oneof protoreflect.OneofDescriptor) map[string]string {
 	return out
 }
 
-// oneofRequired reports whether oneof carries (buf.validate.oneof).required.
-func oneofRequired(oneof protoreflect.OneofDescriptor) bool {
-	rules, _ := proto.GetExtension(oneof.Options(), validate.E_Oneof).(*validate.OneofRules)
-	return rules.GetRequired()
-}
+// oneofRequired lives in descwalk.go: untaggedFields needs it to credit
+// members of validate-required oneofs structurally (G-1).
 
 // allMessages returns every message declared in files, top-level and nested.
 func allMessages(files []protoreflect.FileDescriptor) []protoreflect.MessageDescriptor {
