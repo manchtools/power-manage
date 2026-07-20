@@ -1,0 +1,9 @@
+// ScimService (SPEC-003 §3.2): SCIM v2 users/groups/discovery for IdPs over
+// HTTPS + bearer (SPEC-007).
+syntax = "proto3";
+
+package powermanage.v1;
+
+option go_package = "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1;powermanagev1";
+
+service ScimService {}

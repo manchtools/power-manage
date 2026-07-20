@@ -72,14 +72,27 @@ if [ "${#MODULES[@]}" -gt 0 ]; then
   done
 fi
 
-# Proto lint + breaking (only once protos exist).
+# Proto lint + generated-code sync (only once protos exist). Deliberately
+# NO buf-breaking gate: proto evolution re-tags in place with no reserved
+# markers (AC-13, SPEC-003) — exactly what a breaking gate would reject.
 if [ -f contract/buf.yaml ] && find contract/proto -name '*.proto' 2>/dev/null | grep -q .; then
   require buf
   if command -v buf >/dev/null 2>&1; then
     run "contract: buf lint" env -C contract buf lint
-    if git -C . rev-parse --verify origin/main >/dev/null 2>&1; then
-      run "contract: buf breaking" env -C contract buf breaking --against "../.git#branch=origin/main,subdir=contract"
-    fi
+    # Regeneration must be a no-op against the working tree: a stale or
+    # hand-edited gen/ changes under buf generate and fails here; CI runs
+    # this against the committed state, so forgetting to commit gen/ fails
+    # there ([WIRE-2] machine-readable tags depend on gen matching source).
+    run "contract: generated code in sync" bash -c '
+      cd contract || exit 1
+      snapshot() { find gen -type f -print0 2>/dev/null | sort -z | xargs -0 -r sha256sum | sha256sum; }
+      before=$(snapshot)
+      buf generate || exit 1
+      after=$(snapshot)
+      if [ "$before" != "$after" ]; then
+        echo "contract/gen was out of sync with the proto sources — buf generate changed it; commit the regenerated output and never hand-edit it (AC-13, SPEC-003)"
+        exit 1
+      fi'
   fi
 fi
 

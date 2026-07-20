@@ -19,7 +19,7 @@ spec's own header, which is authoritative.
 | 000 | [development-process](000-development-process.md) | — | all | Implemented |
 | 001 | [architecture-and-trust-model](001-architecture-and-trust-model.md) | 000 (M2–M3) | all | Implemented |
 | 002 | [repo-module-and-config-contract](002-repo-module-and-config-contract.md) | 000 (M2) | all | Implemented |
-| 003 | [wire-contract](003-wire-contract.md) | 000–002 | contract | Spec ready |
+| 003 | [wire-contract](003-wire-contract.md) | 000–002 | contract | In progress (M1 done) |
 | 004 | [sdk-core](004-sdk-core.md) | 000–002 | sdk | Spec ready |
 | 005 | [event-store](005-event-store.md) | 000–003 | server | Spec ready |
 | 006 | [pki-and-identity](006-pki-and-identity.md) | 003, 005 | server | Spec ready |
@@ -57,6 +57,7 @@ SPEC-002 M2 — archtests G-002-1 (INV-19 directional imports, Guards-registered
 SPEC-002 M3 — sdk/config loader (strict INI subset, derived PM_* set, named boot failures) + G-002-4 env hygiene, G-002-5 round-trip/adoption, G-002-7 secret indirection (AC-4, AC-5, AC-7) — PR #11
 SPEC-002 M4 — config.Doc struct-derived reference (mandatory doc tag, golden staleness diff) + G-002-6 read-site scan and per-binary docs-test demand (AC-6) — PR #12
 SPEC-002 M5 — CI conventions lane G-002-8 (commit lint, vYYYY.MM.PP tags, attribution; fixture-tested script) + contract TS manifest MIT (AC-8, AC-9) — PR #13
+SPEC-003 M1 — contract scaffold: six services, protovalidate ULID rule, descriptor-walk harness (G-1, G-2a, exact-set surface), G-6 protojson ban, gen-sync verify stage — PR #14
 
 ## Rules
 

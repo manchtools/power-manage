@@ -1,0 +1,11 @@
+// InternalService (SPEC-003 §3.2): ONE persistent bidi stream per gateway
+// (registration-by-presence, device online/offline, command push, result
+// relay, CRL updates, artifact-chunk relay) plus unary ops — mTLS,
+// gateway-class certificates only [WIRE-18/19].
+syntax = "proto3";
+
+package powermanage.v1;
+
+option go_package = "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1;powermanagev1";
+
+service InternalService {}

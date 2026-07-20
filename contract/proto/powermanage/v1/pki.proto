@@ -1,0 +1,10 @@
+// PkiService (SPEC-003 §3.2): the single enrollment/renewal/revocation
+// surface on :8083 (server-auth TLS; authorization is per-operation, not
+// per-transport — PKI-1a, SPEC-006).
+syntax = "proto3";
+
+package powermanage.v1;
+
+option go_package = "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1;powermanagev1";
+
+service PkiService {}

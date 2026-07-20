@@ -1,0 +1,10 @@
+// AgentService (SPEC-003 §3.2): the ONE bidirectional agent stream — Hello/
+// Welcome, signed command delivery, signed sync manifest, result upload,
+// artifact fetch by digest [WIRE-28] — over mTLS via the gateway.
+syntax = "proto3";
+
+package powermanage.v1;
+
+option go_package = "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1;powermanagev1";
+
+service AgentService {}

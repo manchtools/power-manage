@@ -17,11 +17,13 @@ import (
 func guardInventory(root string) (all, bad []string, guardsByInv map[string][]string, err error) {
 	guardsByInv = map[string][]string{}
 	err = walkGoFiles(root, true, func(rel string, _ *token.FileSet, file *ast.File) error {
-		// The harness package's own files call the helpers unqualified;
-		// everywhere else the call must resolve through an import of the
-		// real harness path.
-		inHarnessPkg := file.Name.Name == "guardtest" &&
-			strings.HasPrefix(rel, "sdk/guardtest/")
+		// The harness packages' own files call the helpers unqualified;
+		// everywhere else the call must resolve through an import of a
+		// sanctioned harness path.
+		inHarnessPkg := (file.Name.Name == "guardtest" &&
+			strings.HasPrefix(rel, "sdk/guardtest/")) ||
+			(file.Name.Name == "archtest" &&
+				strings.HasPrefix(rel, "contract/archtest/"))
 		for _, decl := range file.Decls {
 			fn, ok := decl.(*ast.FuncDecl)
 			if !ok || fn.Recv != nil || !strings.HasPrefix(fn.Name.Name, "TestGuard_") {
@@ -47,7 +49,14 @@ func guardInventory(root string) (all, bad []string, guardsByInv map[string][]st
 	return all, bad, guardsByInv, nil
 }
 
-const guardtestImportPath = "github.com/manchtools/power-manage/sdk/guardtest"
+// The sanctioned guard harnesses. contract/archtest is a second, minimal
+// harness because the import direction is one-way both ways (INV-19):
+// contract cannot import sdk/guardtest, and sdk cannot link the generated
+// descriptors that contract's guards walk.
+var harnessImportPaths = []string{
+	"github.com/manchtools/power-manage/sdk/guardtest",
+	"github.com/manchtools/power-manage/contract/archtest",
+}
 
 var guardsLineRe = regexp.MustCompile(`^Guards: ((?:INV|TM)-\d+(?:, (?:INV|TM)-\d+)*)\.?$`)
 
@@ -76,7 +85,15 @@ func callsHarness(file *ast.File, fn *ast.FuncDecl, inHarnessPkg bool) bool {
 	if fn.Body == nil {
 		return false
 	}
-	names, dotImported := importAliases(file, guardtestImportPath)
+	names := map[string]bool{}
+	dotImported := false
+	for _, p := range harnessImportPaths {
+		n, d := importAliases(file, p)
+		for alias := range n {
+			names[alias] = true
+		}
+		dotImported = dotImported || d
+	}
 	found := false
 	ast.Inspect(fn.Body, func(n ast.Node) bool {
 		call, ok := n.(*ast.CallExpr)
@@ -141,8 +158,10 @@ func TestGuardAPIConformance_Liveness(t *testing.T) {
 			t.Errorf("planted non-conforming guard %s was not flagged (got %v) — G-000-3 can no longer go red against this bypass", planted, bad)
 		}
 	}
-	if flagged("TestGuard_Conforming") {
-		t.Errorf("the conforming fixture guard was flagged (got %v) — the checker went always-red", bad)
+	for _, conforming := range []string{"TestGuard_Conforming", "TestGuard_ViaArchtest"} {
+		if flagged(conforming) {
+			t.Errorf("the conforming fixture guard %s was flagged (got %v) — the checker went always-red", conforming, bad)
+		}
 	}
 }
 

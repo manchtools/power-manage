@@ -42,8 +42,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0 # buf breaking compares against origin/main
       - uses: actions/setup-go@v6
         with:
           go-version: "1.26"

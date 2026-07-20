@@ -1,9 +1,11 @@
 version: v2
 modules:
   - path: proto
+deps:
+  - buf.build/bufbuild/protovalidate
 lint:
   use:
     - STANDARD
-breaking:
-  use:
-    - WIRE_JSON
+# No breaking gate: proto evolution re-tags in place with no reserved
+# markers (AC-13, SPEC-003; recorded decision) — exactly what a
+# breaking-change gate would reject.

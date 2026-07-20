@@ -1,0 +1,10 @@
+// ControlService (SPEC-003 §3.2): full management API for the web UI and
+// CLI over HTTPS + JWT on :8081. RPCs land per milestone; an empty service
+// is the M1 scaffold, not surface.
+syntax = "proto3";
+
+package powermanage.v1;
+
+option go_package = "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1;powermanagev1";
+
+service ControlService {}
