@@ -111,16 +111,22 @@ Minimum prior knowledge, restated:
 
 ### 3.2 Services
 
-Six services, one proto file each:
+Six externally visible service surfaces. Four are proto-defined Connect
+services (one proto file each); `ScimService` and `ExportService` are
+NON-proto boundaries — SCIM v2 is `application/scim+json` by RFC (modeling
+it as proto would violate both the RFC's JSON semantics and [WIRE-10]) and
+the exporter speaks standard OTLP. No proto declaration is minted for
+either ([WIRE-4]: an RPC surface with no proto consumer is dead contract);
+their implementations live with their owning specs.
 
 | Service | Consumers | Transport | Purpose |
 |---|---|---|---|
 | `ControlService` | web UI, CLI | HTTPS + JWT (Bearer) | Full management API: users, RBAC, devices, actions, nestable sets, assignments, compliance, tokens, IdPs, search, audit, settings, terminal grants |
 | `AgentService` | agents | mTLS via gateway | ONE bidirectional stream: Hello/Welcome, signed command delivery, signed sync manifest, result upload, artifact fetch by digest (request + chunked response — [WIRE-28]) |
 | `PkiService` | agents (enroll via local socket relay + renewal), gateways (self-enroll) | `:8083` HTTPS server-auth TLS; authorization is per-operation, not per-transport (PKI-1a, SPEC-006) | The single enrollment/renewal/revocation surface. Lesson: three separate enrollment paths coexisted and drifted; one service replaces them all |
-| `InternalService` | gateways | mTLS (gateway-class certs only) | ONE persistent bidi stream per gateway (registration-by-presence, device online/offline, command push, result relay, CRL updates, artifact-chunk relay) + unary ops (terminal token validation, sealed credential proxying) (SPEC-012) |
-| `ScimService` | IdPs | HTTPS + bearer | SCIM v2 users/groups/discovery (SPEC-007) |
-| `ExportService` (optional binary) | SIEM | one-way | OTLP export, structurally PII-barriered (OPS-2, SPEC-016) |
+| `InternalService` | gateways | mTLS (gateway-class certs only) | ONE persistent bidi stream per gateway (registration-by-presence, device online/offline, command push, result relay, CRL updates, artifact-chunk relay) + ONE unary op: terminal token validation (SPEC-012). No sealed-credential unary op exists: every defined secret flow has other carriage (escrow → signed results [SEC-5, SPEC-015]; inline action-field secrets → sealed command payloads [SEC-11]; admin retrieval → B1 only [SEC-2]). Any future secret-bearing op carries sealed blobs only ([WIRE-24]) and requires its owning spec to define the flow first |
+| `ScimService` | IdPs | HTTPS + bearer | SCIM v2 users/groups/discovery — pure HTTP surface in the server, NOT a proto service (AUTH-7, SPEC-007) |
+| `ExportService` (optional binary) | SIEM | one-way | OTLP export, structurally PII-barriered — standard OTLP wire protocol, NOT a proto service (OPS-2, SPEC-016) |
 
 - **[WIRE-11]** ControlService RPCs keep the established domain layout (the ~20
   domains are product surface, not debt), but every RPC obeys the 3.1 conventions
@@ -211,6 +217,15 @@ crypto gap in the old system.
   `"power-manage:result:" + type + ":v1"`. Control verifies against the device's
   **DER-derived registered certificate** — never a projection copy (PKI-4,
   SPEC-006) — before recording.
+- **[WIRE-20a]** The result `<type>` token set is CLOSED, mirroring the
+  command-type set of §3.4: `execution`, `compliance`, `inventory`, `alert`,
+  `osquery`, `logquery`. Each has a named `*SignatureDomain` constant and a
+  registered verify site; an unknown token is a structured reject. Escrowed
+  device secrets (LPS, LUKS, USER temp passwords) mint NO result type: the
+  sealed blob rides the `execution` result of the rotation that produced it —
+  the result domain binds the report context, the blob's sealing info string
+  ([WIRE-23]) binds the secret. A new result type is a spec change here plus
+  its owning-spec flow, never an ad-hoc token.
 - **[WIRE-21]** Defense in depth retained: control additionally verifies the
   reported execution/query **resolves to the signing device** (device ID in the
   WHERE clause, drop+log on zero rows). Signature proves origin; resolution proves
