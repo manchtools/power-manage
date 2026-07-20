@@ -93,13 +93,25 @@ func TestGuard_RegexChokepoint_Liveness(t *testing.T) {
 		return v, err
 	}
 	RequireViolation(t, "regex chokepoint", scan, "testdata/sdkcore/regexploose")
-	v, err := scan("testdata/sdkcore/regexploose")
+	v, sites, err := regexChokepointViolations("testdata/sdkcore/regexploose", nil)
 	if err != nil {
 		t.Fatalf("scanning the regexploose fixture: %v", err)
 	}
 	requireFlagged(t, v,
-		[]string{"bad.go:7", "bad.go:10", "aliased_bad.go:7", "dot_bad.go:6"},
+		[]string{"bad.go:7", "bad.go:10", "aliased_bad.go:7", "dot_bad.go:6", "method_bad.go:11"},
 		[]string{"decoy.go", "redos/vetted.go"})
+	// The method site keys by receiver-qualified identity, so a same-named
+	// package var can never share (or steal) its allowlist exemption.
+	wantKey := "method_bad.go:probe.rx"
+	found := false
+	for _, s := range sites {
+		if s == wantKey {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("site keys %v lack %q — method sites must key by receiver-qualified decl identity", sites, wantKey)
+	}
 }
 
 // TestGuard_PreimageFraming is SPEC-004 G-5 ([SDK-13]) in its M1 form:
@@ -174,8 +186,8 @@ func TestGuard_SealAADSurface_Liveness(t *testing.T) {
 		t.Fatalf("scanning the aad fixture: %v", err)
 	}
 	requireFlagged(t, v,
-		[]string{"aad.go:5", "method_bad.go:7", "method_bad.go:11"},
-		[]string{"aad.go:8"})
+		[]string{"aad.go:5", "method_bad.go:7", "method_bad.go:11", "iface_bad.go:6"},
+		[]string{"aad.go:8", "iface_bad.go:11"})
 }
 
 // TestGuard_MutationChokepoint is SPEC-004 G-7 ([SDK-7]): path-based os

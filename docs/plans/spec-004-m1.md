@@ -33,7 +33,8 @@ no new sdk packages land here — capability packages arrive M2+.
 4. **G-4 regex chokepoint**: discover `regexp.Compile`/`MustCompile`
    call sites across sdk (floor ≥1 — two exist today); every site must be
    under the ReDoS-guard package path (`sdk/redos`, lands M2) or in the
-   function/decl-keyed allowlist. Allowlist at M1: exactly
+   decl-keyed allowlist (receiver-qualified for methods — a PR #20 review
+   finding closed the same-name collision). Allowlist at M1: exactly
    `secrets.go` vars `secretNameRe`, `secretPathSuffixRe` — compile-time
    literal patterns owned by the guard suite, never operator input; each
    entry carries that rationale inline.
@@ -52,7 +53,9 @@ no new sdk packages land here — capability packages arrive M2+.
    `sdk/crypto` path whose name contains `Seal` or `Open`: each must
    carry a parameter named `aad`. Same population, same demand,
    fixture-testable; fail-closed direction (a differently-named AAD
-   parameter is flagged, never silently passed). Dormant
+   parameter is flagged, never silently passed). The walk covers
+   functions, methods, and interface method declarations (the last added
+   red-first for a PR #20 review finding). Dormant
    (`t.Skipf`) until `sdk/crypto` exists — the GatewayPurity pattern —
    with fixture liveness meanwhile.
 7. **G-7 mutation chokepoint**: `BannedCalls` over sdk for the path-based
