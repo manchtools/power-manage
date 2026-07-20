@@ -43,10 +43,17 @@ var regexCompileFns = map[string]bool{
 	"MustCompilePOSIX": true,
 }
 
-// hashImportPaths is the SDK-13 hash/MAC construction surface confined to
-// the crypto package at M1 (import-level; per-construction framing arms
-// at M5).
-var hashImportPaths = []string{"crypto/sha256", "crypto/sha512", "crypto/hmac"}
+// hashImportPaths is the SDK-13 hash/MAC/KDF construction surface confined to
+// the crypto package (import-level; per-construction framing is the M5 walk in
+// hashFramingViolations). crypto/hkdf joined at M5 so an HKDF derivation
+// OUTSIDE sdk/crypto is caught by the import ban rather than escaping the
+// framing walk (which only visits sdk/crypto).
+// Recorded ceiling: this is a name-keyed threat model — a NEW hash family
+// (crypto/sha3, blake2, …) added inside sdk/crypto escapes both the ban and
+// hashConstructorCallees until its path/callees are added here. sha1/md5 are
+// deliberately absent (no legitimate use); adding a family means adding its
+// framing coverage in the same change.
+var hashImportPaths = []string{"crypto/sha256", "crypto/sha512", "crypto/hmac", "crypto/hkdf"}
 
 // hashImportAllow sanctions hash imports outside the crypto chokepoint,
 // keyed FIRST by import path and THEN per file — so the fetch exemption
@@ -63,6 +70,7 @@ var hashImportAllow = map[string][]string{
 	"crypto/sha256": {cryptoPkgDir, "fetch/fetch.go"},
 	"crypto/sha512": {cryptoPkgDir},
 	"crypto/hmac":   {cryptoPkgDir},
+	"crypto/hkdf":   {cryptoPkgDir},
 }
 
 // mutationBannedCalls is the SDK-7 path-based mutation set banned outside
@@ -439,6 +447,13 @@ func aadAPIViolations(cryptoRoot string) ([]string, []string, error) {
 }
 
 // sealOpenName reports whether name belongs to the seal/open surface.
+//
+// Recorded ceiling (the matcher's grammar is the threat model): this is a
+// case-sensitive Seal/Open substring test, matching the spec's wording
+// ("exported seal/open functions"). The SDK names its whole AEAD surface
+// Seal*/Open*, so a future export named Unseal/Encrypt/Decrypt without an aad
+// parameter would evade until added here — a conscious scoping, revisited when
+// such an export lands.
 func sealOpenName(name string) bool {
 	return strings.Contains(name, "Seal") || strings.Contains(name, "Open")
 }

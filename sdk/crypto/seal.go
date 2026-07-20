@@ -63,6 +63,10 @@ func ParseX25519PublicKey(raw []byte) (*ecdh.PublicKey, error) {
 // rejected. A fresh ephemeral keypair is drawn per call, so two seals of the
 // same plaintext differ. Fail closed: any RNG or ECDH failure returns no output.
 func SealToPublicKey(recipient *ecdh.PublicKey, plaintext, aad []byte, info string) (Sealed, error) {
+	// Fail closed on a nil key rather than panicking inside ECDH.
+	if recipient == nil {
+		return Sealed{}, fmt.Errorf("crypto: recipient public key is nil")
+	}
 	if info == "" {
 		return Sealed{}, ErrInfoRequired
 	}
@@ -98,6 +102,10 @@ func SealToPublicKey(recipient *ecdh.PublicKey, plaintext, aad []byte, info stri
 // key and delegates to OpenWithAAD, so a wrong key, AAD, info, or any tamper
 // fails authentication and returns no plaintext (fail closed).
 func OpenWithPrivateKey(priv *ecdh.PrivateKey, sealed Sealed, aad []byte, info string) ([]byte, error) {
+	// Fail closed on a nil key rather than panicking inside ECDH/PublicKey.
+	if priv == nil {
+		return nil, fmt.Errorf("crypto: recipient private key is nil")
+	}
 	if info == "" {
 		return nil, ErrInfoRequired
 	}

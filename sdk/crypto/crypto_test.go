@@ -52,6 +52,19 @@ func TestFramePreimage_DomainSeparates(t *testing.T) {
 	}
 }
 
+// AC-16 / [SDK-13]: the DOMAIN tag is length-prefixed too, so a part can never
+// be absorbed into the domain to forge a collision. framePreimage("a", {0})
+// must differ from the single-argument domain "a\x01\x00" — its naive
+// concatenation, which collides only if the domain is written unframed.
+// Regression for the CodeRabbit domain-framing finding.
+func TestFramePreimage_DomainBoundaryDisambiguates(t *testing.T) {
+	withPart := framePreimage("a", []byte{0})
+	domainOnly := framePreimage("a\x01\x00")
+	if bytes.Equal(withPart, domainOnly) {
+		t.Errorf("frame(\"a\",{0}) == frame(\"a\\x01\\x00\") = %x: the domain tag is not length-prefixed — a part can be absorbed into the domain", withPart)
+	}
+}
+
 // --- constantTimeEqual (AC-17) ---------------------------------------------
 
 // AC-17: the secret/MAC compare primitive matches subtle.ConstantTimeCompare

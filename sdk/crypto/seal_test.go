@@ -3,7 +3,9 @@ package crypto
 import (
 	"bytes"
 	"crypto/ecdh"
+	"crypto/hkdf"
 	"crypto/rand"
+	"crypto/sha256"
 	"errors"
 	"testing"
 )
@@ -143,8 +145,8 @@ func TestOpenWithPrivateKey_WrongPrivateKeyFails(t *testing.T) {
 		t.Fatalf("SealToPublicKey: %v", err)
 	}
 	other := genRecipient(t)
-	if pt, err := OpenWithPrivateKey(other, sealed, []byte("a"), testInfo); err == nil {
-		t.Fatalf("opened with the wrong private key, returned %q; want failure", pt)
+	if pt, err := OpenWithPrivateKey(other, sealed, []byte("a"), testInfo); err == nil || pt != nil {
+		t.Fatalf("opened with the wrong private key: pt=%q err=%v; want an error and no plaintext (fail closed)", pt, err)
 	}
 }
 
@@ -156,8 +158,8 @@ func TestOpenWithPrivateKey_WrongAADFails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SealToPublicKey: %v", err)
 	}
-	if pt, err := OpenWithPrivateKey(priv, sealed, []byte("device|action|OTHER"), testInfo); err == nil {
-		t.Fatalf("opened under the wrong AAD, returned %q; want failure", pt)
+	if pt, err := OpenWithPrivateKey(priv, sealed, []byte("device|action|OTHER"), testInfo); err == nil || pt != nil {
+		t.Fatalf("opened under the wrong AAD: pt=%q err=%v; want an error and no plaintext (fail closed)", pt, err)
 	}
 }
 
@@ -169,8 +171,8 @@ func TestOpenWithPrivateKey_WrongInfoFails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SealToPublicKey: %v", err)
 	}
-	if pt, err := OpenWithPrivateKey(priv, sealed, []byte("a"), "power-manage-other-domain:v1"); err == nil {
-		t.Fatalf("opened under the wrong info string, returned %q; want failure", pt)
+	if pt, err := OpenWithPrivateKey(priv, sealed, []byte("a"), "power-manage-other-domain:v1"); err == nil || pt != nil {
+		t.Fatalf("opened under the wrong info string: pt=%q err=%v; want an error and no plaintext (fail closed)", pt, err)
 	}
 }
 
@@ -190,8 +192,8 @@ func TestOpenWithPrivateKey_TamperedEphemeralPublicKeyFails(t *testing.T) {
 		Ciphertext:         bytes.Clone(sealed.Ciphertext),
 	}
 	tampered.EphemeralPublicKey[0] ^= 0x01
-	if pt, err := OpenWithPrivateKey(priv, tampered, []byte("a"), testInfo); err == nil {
-		t.Fatalf("opened a tampered ephemeral key, returned %q; want failure", pt)
+	if pt, err := OpenWithPrivateKey(priv, tampered, []byte("a"), testInfo); err == nil || pt != nil {
+		t.Fatalf("opened a tampered ephemeral key: pt=%q err=%v; want an error and no plaintext (fail closed)", pt, err)
 	}
 }
 
@@ -211,8 +213,8 @@ func TestOpenWithPrivateKey_TamperedCiphertextFails(t *testing.T) {
 		Ciphertext:         bytes.Clone(sealed.Ciphertext),
 	}
 	tampered.Ciphertext[len(tampered.Ciphertext)-1] ^= 0x01
-	if pt, err := OpenWithPrivateKey(priv, tampered, []byte("a"), testInfo); err == nil {
-		t.Fatalf("opened a tampered ciphertext, returned %q; want failure", pt)
+	if pt, err := OpenWithPrivateKey(priv, tampered, []byte("a"), testInfo); err == nil || pt != nil {
+		t.Fatalf("opened a tampered ciphertext: pt=%q err=%v; want an error and no plaintext (fail closed)", pt, err)
 	}
 }
 
@@ -223,8 +225,8 @@ func TestOpenWithPrivateKey_RejectsMalformedCiphertext(t *testing.T) {
 	priv := genRecipient(t)
 	for _, n := range []int{0, 4, gcmNonceLen, gcmNonceLen + gcmTagLen - 1} {
 		sealed := Sealed{EphemeralPublicKey: realEphemeralPub(t), Ciphertext: make([]byte, n)}
-		if _, err := OpenWithPrivateKey(priv, sealed, []byte("a"), testInfo); !errors.Is(err, ErrMalformedCiphertext) {
-			t.Errorf("OpenWithPrivateKey %d-byte ciphertext: err = %v, want ErrMalformedCiphertext", n, err)
+		if pt, err := OpenWithPrivateKey(priv, sealed, []byte("a"), testInfo); !errors.Is(err, ErrMalformedCiphertext) || pt != nil {
+			t.Errorf("OpenWithPrivateKey %d-byte ciphertext: pt=%q err=%v, want ErrMalformedCiphertext and no plaintext", n, pt, err)
 		}
 	}
 }
@@ -238,8 +240,8 @@ func TestOpenWithPrivateKey_RejectsBadEphemeralKeyLength(t *testing.T) {
 			EphemeralPublicKey: make([]byte, n),
 			Ciphertext:         make([]byte, gcmNonceLen+gcmTagLen+1),
 		}
-		if pt, err := OpenWithPrivateKey(priv, sealed, []byte("a"), testInfo); err == nil {
-			t.Errorf("OpenWithPrivateKey %d-byte ephemeral key: opened, returned %q; want error", n, pt)
+		if pt, err := OpenWithPrivateKey(priv, sealed, []byte("a"), testInfo); err == nil || pt != nil {
+			t.Errorf("OpenWithPrivateKey %d-byte ephemeral key: pt=%q err=%v; want an error and no plaintext", n, pt, err)
 		}
 	}
 }
@@ -334,5 +336,76 @@ func TestSealToPublicKey_RngFailurePropagates(t *testing.T) {
 	}
 	if sealed.EphemeralPublicKey != nil || sealed.Ciphertext != nil {
 		t.Errorf("SealToPublicKey emitted output under RNG failure: eph=%x ct=%x; must emit none", sealed.EphemeralPublicKey, sealed.Ciphertext)
+	}
+}
+
+// AC-16 (fail closed on a nil key): a nil recipient must be rejected with an
+// error, not a panic inside ECDH. Regression for the CodeRabbit/reviewer
+// nil-key finding — a caller-supplied nil (e.g. from a decode path) is a
+// malformed input the sealed surface fails closed on, never a crash.
+func TestSealToPublicKey_RejectsNilKey(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("SealToPublicKey(nil recipient) panicked (%v); want a fail-closed error", r)
+		}
+	}()
+	sealed, err := SealToPublicKey(nil, []byte("pt"), []byte("aad"), testInfo)
+	if err == nil {
+		t.Fatalf("SealToPublicKey(nil recipient) returned no error; want a fail-closed error")
+	}
+	if sealed.EphemeralPublicKey != nil || sealed.Ciphertext != nil {
+		t.Errorf("SealToPublicKey(nil recipient) emitted output eph=%x ct=%x; want none", sealed.EphemeralPublicKey, sealed.Ciphertext)
+	}
+}
+
+// AC-16 (fail closed on a nil key): a nil private key must be rejected with an
+// error and no plaintext, not a panic inside ECDH/PublicKey.
+func TestOpenWithPrivateKey_RejectsNilKey(t *testing.T) {
+	priv := genRecipient(t)
+	sealed, err := SealToPublicKey(priv.PublicKey(), []byte("pt"), []byte("aad"), testInfo)
+	if err != nil {
+		t.Fatalf("SealToPublicKey: %v", err)
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("OpenWithPrivateKey(nil priv) panicked (%v); want a fail-closed error", r)
+		}
+	}()
+	pt, err := OpenWithPrivateKey(nil, sealed, []byte("aad"), testInfo)
+	if err == nil || pt != nil {
+		t.Fatalf("OpenWithPrivateKey(nil priv): pt=%q err=%v; want an error and no plaintext", pt, err)
+	}
+}
+
+// AC-16 / [SDK-14] (rejection row "empty ... plaintext", sealed-transport open
+// side, DIRECT): a sealed blob whose ciphertext authenticates to an EMPTY
+// plaintext is rejected by OpenWithPrivateKey with ErrEmptyPlaintext — the
+// same value seal refuses, open refuses too, proven at the transport level and
+// not only transitively through OpenWithAAD. The blob is forged the way the
+// impl derives its key: ephemeral ECDH + framePreimage salt + HKDF, then a
+// stdlib GCM seal of an empty plaintext (which SealToPublicKey will not emit).
+func TestOpenWithPrivateKey_RejectsEmptyPlaintext(t *testing.T) {
+	priv := genRecipient(t)
+	aad := []byte("device|action|user")
+
+	eph, err := GenerateX25519()
+	if err != nil {
+		t.Fatalf("GenerateX25519: %v", err)
+	}
+	shared, err := eph.ECDH(priv.PublicKey())
+	if err != nil {
+		t.Fatalf("ECDH: %v", err)
+	}
+	salt := framePreimage(sealSaltDomain, eph.PublicKey().Bytes(), priv.PublicKey().Bytes())
+	key, err := hkdf.Key(sha256.New, shared, salt, testInfo, keyLen)
+	if err != nil {
+		t.Fatalf("hkdf: %v", err)
+	}
+	forged := Sealed{
+		EphemeralPublicKey: eph.PublicKey().Bytes(),
+		Ciphertext:         gcmSealRaw(t, key, []byte{}, aad), // valid AEAD of empty plaintext
+	}
+	if pt, err := OpenWithPrivateKey(priv, forged, aad, testInfo); !errors.Is(err, ErrEmptyPlaintext) || pt != nil {
+		t.Errorf("OpenWithPrivateKey of a forged empty-plaintext blob: pt=%q err=%v, want ErrEmptyPlaintext and no plaintext", pt, err)
 	}
 }
