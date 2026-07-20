@@ -1,0 +1,47 @@
+// The one signed envelope for everything control tells an agent (SPEC-003
+// §3.4, [WIRE-14..17]).
+//
+// One scheme replaces every hand-rolled signing variant: the predecessor ran
+// five one-directional schemes, each with its own framing bugs. The signing
+// input is length-prefixed and domain-separated
+// ("power-manage:cmd:" + command_type + ":v1"); the framing and verification
+// helpers live in contract/sign (stdlib crypto, §2 allocation) so signer and
+// verifier share one implementation, and the agent executes only the exact
+// verified payload bytes.
+syntax = "proto3";
+
+package powermanage.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+import "powermanage/v1/common.proto";
+
+option go_package = "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1;powermanagev1";
+
+message SignedCommand {
+  // Deterministic serialization of the typed command; never empty
+  // ([WIRE-25] — empty inputs are rejected symmetrically).
+  bytes payload = 1 [(buf.validate.field).bytes.min_len = 1];
+  // The closed §3.4 command-type set; the signature domain derives from it
+  // ([WIRE-14]), so an unknown type can never frame a preimage.
+  string command_type = 2 [(buf.validate.field).string = {
+    in: [
+      "action",
+      "osquery",
+      "logquery",
+      "inventory",
+      "luks-revoke",
+      "lps-pubkey",
+      "terminal-grant",
+      "sync-manifest"
+    ]
+  }];
+  // Addressing, not authentication ([WIRE-18]): the agent refuses the
+  // envelope if this is not its own ULID.
+  string target_device_id = 3 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  google.protobuf.Timestamp issued_at = 4 [(buf.validate.field).required = true];
+  google.protobuf.Timestamp expires_at = 5 [(buf.validate.field).required = true];
+  // Over the domain-framed covered fields (2, 3, 4, 5, payload) — see
+  // contract/sign's CommandPreimage.
+  bytes signature = 6 [(buf.validate.field).bytes.min_len = 1];
+}
