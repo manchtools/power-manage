@@ -332,6 +332,13 @@ func TestAction_Shape(t *testing.T) {
 			t.Fatalf("Action fields = %v, want exactly %v", names, want)
 		}
 	}
+	// Field numbers are wire contract: evolution re-tags in place (AC-13),
+	// so an accidental renumbering must be loud.
+	for name, tag := range map[string]protoreflect.FieldNumber{"id": 1, "name": 2, "params": 3} {
+		if got := fields.ByName(protoreflect.Name(name)).Number(); got != tag {
+			t.Errorf("Action.%s field number = %d, want %d", name, got, tag)
+		}
+	}
 	rulesOf := func(name protoreflect.Name) *validate.FieldRules {
 		f := fields.ByName(name)
 		rules, _ := proto.GetExtension(f.Options(), validate.E_Field).(*validate.FieldRules)
