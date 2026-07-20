@@ -1,15 +1,21 @@
 package archtest
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	powermanagev1 "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1"
+	"github.com/manchtools/power-manage/contract/sign"
 
 	// Register the fixture descriptors (test-only import — production
 	// archtest never links the planted violations).
@@ -51,7 +57,7 @@ func TestGuard_ServiceSurface(t *testing.T) {
 // rules. The population anchor is the file set — a walk that finds fewer
 // files than the contract has is broken, not clean.
 func TestGuard_ValidateTagCoverage(t *testing.T) {
-	files := Discover(t, "contract proto files", 8, func() ([]protoreflect.FileDescriptor, error) {
+	files := Discover(t, "contract proto files", 9, func() ([]protoreflect.FileDescriptor, error) {
 		return packageFiles(ContractPackage), nil
 	})
 	for _, v := range untaggedFields(files) {
@@ -63,7 +69,7 @@ func TestGuard_ValidateTagCoverage(t *testing.T) {
 // contract enum starts at *_UNSPECIFIED = 0. The erroring-default switch
 // half wires up with the first contract-enum switch (M3).
 func TestGuard_EnumHygiene(t *testing.T) {
-	files := Discover(t, "contract proto files", 8, func() ([]protoreflect.FileDescriptor, error) {
+	files := Discover(t, "contract proto files", 9, func() ([]protoreflect.FileDescriptor, error) {
 		return packageFiles(ContractPackage), nil
 	})
 	for _, v := range enumHygieneViolations(files) {
@@ -194,7 +200,7 @@ func TestGuard_ActionRegistry(t *testing.T) {
 // the predecessor duplicated this oneof across five messages and the
 // copies diverged.
 func TestGuard_ActionParamsAuthority(t *testing.T) {
-	files := Discover(t, "contract proto files", 8, func() ([]protoreflect.FileDescriptor, error) {
+	files := Discover(t, "contract proto files", 9, func() ([]protoreflect.FileDescriptor, error) {
 		return packageFiles(ContractPackage), nil
 	})
 	violations, err := registryViolations(files, "ActionParams")
@@ -240,7 +246,7 @@ func TestGuard_ActionParamsAuthority_Liveness(t *testing.T) {
 // TestGuard_ExplicitPresence is G-4 (SPEC-003, [WIRE-6]): no plain bool in
 // the registry subtree without a recorded two-value rationale.
 func TestGuard_ExplicitPresence(t *testing.T) {
-	files := Discover(t, "contract proto files", 8, func() ([]protoreflect.FileDescriptor, error) {
+	files := Discover(t, "contract proto files", 9, func() ([]protoreflect.FileDescriptor, error) {
 		return packageFiles(ContractPackage), nil
 	})
 	violations, err := plainBoolViolations(files, "ActionParams")
@@ -284,7 +290,7 @@ func TestGuard_ExplicitPresence_Liveness(t *testing.T) {
 // (recorded, docs/plans/spec-003-m2.md choice 4); the liveness row proves
 // the walk can go red.
 func TestGuard_EnumBounds(t *testing.T) {
-	files := Discover(t, "contract proto files", 8, func() ([]protoreflect.FileDescriptor, error) {
+	files := Discover(t, "contract proto files", 9, func() ([]protoreflect.FileDescriptor, error) {
 		return packageFiles(ContractPackage), nil
 	})
 	for _, v := range enumBoundViolations(files) {
@@ -353,6 +359,108 @@ func TestAction_Shape(t *testing.T) {
 	}
 	if !rulesOf("params").GetRequired() {
 		t.Errorf("Action.params must be required — an action without params is untyped surface")
+	}
+}
+
+// TestGuard_SignatureDomains is G-5 (SPEC-003 AC-5, plan choice 10): the
+// signature-domain constants are self-discovered from contract/sign source
+// (AST scan, never a hand list), pinned to exactly the 8 closed §3.4
+// command-type domains via the [WIRE-14] formula, then proven pairwise
+// isolated — a signature framed under one domain never verifies under another.
+//
+// INV-6 cross-repo-parity ceiling: this guard proves round-trip + isolation
+// for every domain, but INV-6 additionally requires >=1 sign site AND >=1
+// fail-closed verify site per domain OUTSIDE contract. At M3 both sites are
+// contract/sign itself; the cross-repo half arms with SPEC-013's agent
+// chokepoint (extend this guard there — never weaken it to backfill).
+func TestGuard_SignatureDomains(t *testing.T) {
+	consts := Discover(t, "contract/sign *SignatureDomain constants", 8, ScanSignatureDomains)
+
+	// Exact set, both directions, against the [WIRE-14] formula over the
+	// closed §3.4 catalog.
+	catalog := []string{
+		"action", "osquery", "logquery", "inventory",
+		"luks-revoke", "lps-pubkey", "terminal-grant", "sync-manifest",
+	}
+	wantValue := map[string]bool{}
+	for _, ct := range catalog {
+		wantValue["power-manage:cmd:"+ct+":v1"] = true
+	}
+	gotValue := map[string]bool{}
+	for _, c := range consts {
+		gotValue[c.Value] = true
+		if !wantValue[c.Value] {
+			t.Errorf("constant %s = %q is not a [WIRE-14] domain for any closed command type — a domain must equal \"power-manage:cmd:\"+type+\":v1\" for one of the 8 §3.4 types (G-5, AC-5, SPEC-003)", c.Name, c.Value)
+		}
+	}
+	for want := range wantValue {
+		if !gotValue[want] {
+			t.Errorf("no *SignatureDomain constant carries value %q — every closed command type needs its domain constant so the verifier can never frame an unregistered preimage (G-5, AC-5, SPEC-003)", want)
+		}
+	}
+
+	// Recover the command types from the DISCOVERED constants (still
+	// self-discovering — not the catalog list above) to drive the crypto
+	// matrix.
+	var types []string
+	for _, c := range consts {
+		types = append(types, strings.TrimSuffix(strings.TrimPrefix(c.Value, "power-manage:cmd:"), ":v1"))
+	}
+
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("generating ECDSA P-256 key: %v", err)
+	}
+	pub := &priv.PublicKey
+
+	const target = "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+	// A 30 s durable-class window satisfies every per-type bound (<= 60 s
+	// terminal-grant, and no instant cap when Instant=false), so a round-trip
+	// failure can only be about the domain, never freshness.
+	newCmd := func(ct string) *powermanagev1.SignedCommand {
+		return &powermanagev1.SignedCommand{
+			Payload:        []byte("g5-domain-payload"),
+			CommandType:    ct,
+			TargetDeviceId: target,
+			IssuedAt:       &timestamppb.Timestamp{Seconds: 1700000000},
+			ExpiresAt:      &timestamppb.Timestamp{Seconds: 1700000030},
+		}
+	}
+	opts := sign.VerifyOptions{DeviceID: target, Now: time.Unix(1700000005, 0).UTC(), Instant: false}
+
+	// Round-trip each domain under its own command type.
+	for _, ct := range types {
+		cmd := newCmd(ct)
+		if err := sign.SignCommand(priv, cmd); err != nil {
+			t.Errorf("SignCommand under domain %q: %v (G-5 round-trip)", ct, err)
+			continue
+		}
+		if _, err := sign.VerifyCommand(pub, cmd, opts); err != nil {
+			t.Errorf("VerifyCommand rejected a valid envelope under its own domain %q: %v (G-5 round-trip)", ct, err)
+		}
+	}
+
+	// Pairwise isolation: sign as A, flip command_type to B, verify must fail
+	// for every ordered pair A != B.
+	for _, a := range types {
+		for _, b := range types {
+			if a == b {
+				continue
+			}
+			cmd := newCmd(a)
+			if err := sign.SignCommand(priv, cmd); err != nil {
+				t.Errorf("SignCommand under domain %q: %v", a, err)
+				continue
+			}
+			cmd.CommandType = b // A's signature must not verify under B's domain
+			payload, err := sign.VerifyCommand(pub, cmd, opts)
+			if err == nil {
+				t.Errorf("a signature framed under domain %q verified after re-typing to %q — signature domains must be pairwise isolated (G-5, AC-5, SPEC-003)", a, b)
+			}
+			if payload != nil {
+				t.Errorf("cross-domain verification %q->%q returned a non-nil payload on failure (G-5)", a, b)
+			}
+		}
 	}
 }
 
