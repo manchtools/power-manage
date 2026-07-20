@@ -17,6 +17,10 @@ package sign_test
 // goldenResultEnvelope, newECDSAKey, goldenTarget, and assertRejected.
 
 import (
+	"bytes"
+	"crypto/ecdsa"
+	"crypto/rand"
+	"crypto/sha256"
 	"testing"
 
 	"github.com/manchtools/power-manage/contract/sign"
@@ -96,20 +100,29 @@ func TestSignResult_RejectsNonMemberType(t *testing.T) {
 }
 
 // TestVerifyResult_RejectsNonMemberType: VerifyResult fails closed on an
-// unregistered result_type, returning a nil payload. In the pre-M5 open world
-// SignResult produces a valid signature and VerifyResult must STILL reject the
-// non-member (this is the red state); in the closed world SignResult fails at
-// the mint seam and the signature stays empty — either way verify must reject.
+// unregistered result_type, returning a nil payload — independently of
+// SignResult's own mint gate. The envelope carries a cryptographically
+// VALID signature over exactly the preimage an open-world framing would
+// produce (hand-minted with the test-local lp/tsBytes replicas, never
+// SignResult), so the rejection can only come from the [WIRE-20a]
+// membership gate — never from a missing or invalid signature
+// (review finding, PR #19 round 2).
 func TestVerifyResult_RejectsNonMemberType(t *testing.T) {
 	priv := newECDSAKey(t)
 	env := goldenResultEnvelope()
 	env.ResultType = "diagnostics" // grammar-valid, not in the closed set
-	// Best-effort mint: a fail-closed error here is itself the correct closed
-	// behaviour (asserted in TestSignResult_RejectsNonMemberType), so it is
-	// logged, not fatal — verify must reject regardless of a signature.
-	if err := sign.SignResult(priv, env); err != nil {
-		t.Logf("SignResult fail-closed on non-member result_type (closed-set world): %v", err)
+	var pre bytes.Buffer
+	lp(&pre, []byte("power-manage:result:diagnostics:v1"))
+	lp(&pre, []byte(env.GetResultType()))
+	lp(&pre, []byte(env.GetDeviceId()))
+	lp(&pre, tsBytes(env.GetIssuedAt().GetSeconds(), env.GetIssuedAt().GetNanos()))
+	lp(&pre, env.GetPayload())
+	digest := sha256.Sum256(pre.Bytes())
+	sig, err := ecdsa.SignASN1(rand.Reader, priv, digest[:])
+	if err != nil {
+		t.Fatalf("hand-signing the open-world preimage: %v", err)
 	}
+	env.Signature = sig
 	got, err := sign.VerifyResult(&priv.PublicKey, env, sign.ResultVerifyOptions{DeviceID: goldenTarget})
 	assertRejected(t, got, err, "[WIRE-20a] non-member result_type must fail closed at verify")
 }
