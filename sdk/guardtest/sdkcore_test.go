@@ -119,7 +119,8 @@ func TestGuard_RegexChokepoint_Liveness(t *testing.T) {
 // the crypto package path, so no hash/MAC surface can grow outside the
 // package the M5 guard will walk. Per-construction lp/domain-helper
 // enforcement INSIDE sdk/crypto is the M5 extension — extend there, never
-// weaken this ban (plan choice 5).
+// weaken this ban (plan choice 5). The single file-keyed exception is
+// recorded with its rationale and M5 sunset at hashImportAllow.
 func TestGuard_PreimageFraming(t *testing.T) {
 	root := sdkRoot(t)
 	Discover(t, "sdk Go files", 1, func() ([]string, error) {

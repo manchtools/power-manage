@@ -64,6 +64,7 @@ SPEC-003 M4 — DeviceSigned results, SealedBlob + seal infos, SPIFFE identity c
 SPEC-003 M5 — stream protocols (Agent/Internal frames, artifact fetch, terminal token unary), scim/export deleted, [WIRE-20a] closed result set, G-5→14, G-7 deny-list, G-8 near-copy — PR #19
 SPEC-004 M1 — sdk-core guards: G-3 randomness (both math/rand generations), G-4 regex chokepoint (decl-keyed allowlist + orphan check), G-5 hash-import ban, G-6 AAD surface (dormant), G-7 mutation chokepoint, G-9 clock seam; G-1/G-2/G-8 mapped to the SPEC-002 estate — PR #20
 SPEC-004 M2 — Runner: sdk/exec on stdlib os/exec (Setpgid group, SIGTERM→grace→SIGKILL, D-state fallback), allowlist-baseline child env (curated PATH, forced C locale, hijack blocklist), argv-only + SeparatePositionals, escalation sudo/doas/direct, exectest.FakeRunner; sdk/narrow range-checked To; sdk/redos Vet/Compile/MustVet with parent-state propagation; sdk package floor 1→6 — PR #21
+SPEC-004 M3 — filesystem: sdk/fsafe fd-anchored no-follow primitives, streaming atomic replace (RENAME_NOREPLACE, raw renameat2/unlinkat wrappers, no x/sys), protected-prefix predicates (symmetric create/delete, symlink-resolving), Manager direct + escalated tiers (single-root-shell write, stdin content, C-locale ENOENT mapping); sdk/fetch HTTPS-only SSRF-guarded pinned download (AG-13a hops/pin/size); floor 6→8; G-5 file-keyed fetch exemption with M5 sunset (AC-9..13)
 
 ## Rules
 

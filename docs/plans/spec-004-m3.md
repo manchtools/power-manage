@@ -146,3 +146,14 @@ from the matrix below. Delta only; the spec is authoritative.
   any command.
 - **Guards**: suite green with floor 8; G-7 population includes fsafe
   internals only through its sanctioned prefix.
+
+## 8b. G-5 reconciliation (mechanical, discovered at implementation)
+
+The fetch pin check needs `crypto/sha256`; G-5 bans hash imports outside
+`sdk/crypto`, and G-6's population floor ("crypto exists" ⇒ "≥1 seal/open
+export") rules out landing a digest-only chokepoint before M5. Resolution:
+a FILE-keyed G-5 exemption (`hashImportAllow = {crypto, fetch/fetch.go}`)
+with rationale — the pin is digest VERIFICATION against a published value,
+not a domain-separated construction — and an M5 sunset: fold the digest
+into sdk/crypto and drop the key. Narrowness proven red: a second sha256
+import elsewhere in the fetch package trips the guard.
