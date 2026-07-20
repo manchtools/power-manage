@@ -57,73 +57,80 @@ func FlatpakRemoteName(name string) error {
 	return matchGrammar("flatpak remote name", reFlatpakRemoteName, name)
 }
 
-// GPGKeyRef validates a GPG key reference: an https URL (host required), a
-// file:// URL (empty host, absolute non-traversing path), or a bare absolute
-// path. http, rpm `ext::`, relative, and traversing refs are refused — the ref
-// becomes an argv operand to the package manager's key import.
+// GPGKeyRef validates a GPG key reference: an https URL (host required, no
+// credentials), a file:// URL (empty host, absolute non-traversing path), or a
+// bare absolute path. http, rpm `ext::`, relative, and traversing refs are
+// refused — the ref becomes an argv operand to the package manager's key
+// import. The ref is never echoed in errors: a URL form can embed a credential,
+// and a dnf/zypper gpgkey= field is a whitespace-separated key LIST, so an
+// embedded space would inject a second attacker-chosen signing key — hence
+// whitespace, not just control characters, is refused.
 func GPGKeyRef(ref string) error {
 	if ref == "" {
 		return invalidf("gpg key ref is empty")
 	}
 	if startsWithDash(ref) {
-		return invalidf("gpg key ref %q is flag-shaped", ref)
+		return invalidf("gpg key ref is flag-shaped")
 	}
-	if hasControlChar(ref) {
-		return invalidf("gpg key ref contains a control character")
+	if hasControlOrSpace(ref) {
+		return invalidf("gpg key ref contains whitespace or a control character")
 	}
 	switch {
 	case strings.HasPrefix(ref, "https://"):
 		u, err := url.Parse(ref)
-		if err != nil || u.Host == "" {
-			return invalidf("gpg key ref %q is not a valid https URL", ref)
+		if err != nil || u.Hostname() == "" || u.User != nil {
+			return invalidf("gpg key ref is not a valid https URL (host required, no credentials)")
 		}
 		return nil
 	case strings.HasPrefix(ref, "file://"):
 		u, err := url.Parse(ref)
 		if err != nil {
-			return invalidf("gpg key ref %q is not a valid file URL", ref)
+			return invalidf("gpg key ref is not a valid file URL")
 		}
 		if u.Host != "" {
-			return invalidf("gpg key ref %q: file:// host must be empty", ref)
+			return invalidf("gpg key ref: file:// host must be empty")
 		}
 		if !strings.HasPrefix(u.Path, "/") || containsDotDot(u.Path) {
-			return invalidf("gpg key ref %q: file path must be absolute and non-traversing", ref)
+			return invalidf("gpg key ref: file path must be absolute and non-traversing")
 		}
 		return nil
 	case strings.HasPrefix(ref, "/"):
 		if containsDotDot(ref) {
-			return invalidf("gpg key ref %q traverses with '..'", ref)
+			return invalidf("gpg key ref traverses with '..'")
 		}
 		return nil
 	default:
-		return invalidf("gpg key ref %q must be https://, file://, or an absolute path", ref)
+		return invalidf("gpg key ref must be https://, file://, or an absolute path")
 	}
 }
 
-// RepoBaseURL validates a repository base URL. https is required and a host is
-// mandatory, but the path is otherwise unconstrained: package-manager template
-// variables ($releasever, $arch, $basearch) survive url.Parse and are
-// intentionally accepted — a strict URL grammar there is a false rejection
-// ([SDK-10] over-constraint clause, AC-15).
+// RepoBaseURL validates a repository base URL. https is required, a real host is
+// mandatory (u.Hostname(), so "https://:443/x" is refused), and no credentials
+// may be embedded (the URL is written into a world-readable repo file). The
+// path is otherwise unconstrained: package-manager template variables
+// ($releasever, $arch, $basearch) survive url.Parse and are intentionally
+// accepted — a strict URL grammar there is a false rejection ([SDK-10]
+// over-constraint clause, AC-15). The URL is never echoed: it can carry a
+// user:pass@ credential.
 func RepoBaseURL(rawURL string) error {
 	if rawURL == "" {
 		return invalidf("repo base URL is empty")
 	}
 	if startsWithDash(rawURL) {
-		return invalidf("repo base URL %q is flag-shaped", rawURL)
+		return invalidf("repo base URL is flag-shaped")
 	}
 	if hasControlOrSpace(rawURL) {
 		return invalidf("repo base URL contains whitespace or a control character")
 	}
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		return invalidf("repo base URL %q is not parseable", rawURL)
+		return invalidf("repo base URL is not parseable")
 	}
 	if u.Scheme != "https" {
-		return invalidf("repo base URL %q must use https", rawURL)
+		return invalidf("repo base URL must use https")
 	}
-	if u.Host == "" {
-		return invalidf("repo base URL %q has no host", rawURL)
+	if u.Hostname() == "" || u.User != nil {
+		return invalidf("repo base URL has no host or embeds credentials")
 	}
 	return nil
 }
@@ -167,9 +174,9 @@ func SystemdUnitName(name string) error {
 
 // ULIDPathID validates that id is a 26-character Crockford-base32 string — the
 // charset restriction [SDK-10] requires for any ID embedded in a filesystem
-// path. Case-insensitive. It checks the charset and length, not full ULID
-// timestamp validity (the spec asks for charset restriction, not a monotonic
-// clock check).
+// path. Case-insensitive. It checks the charset, length, and 128-bit range, not
+// full ULID timestamp validity (the spec asks for charset restriction, not a
+// monotonic clock check).
 func ULIDPathID(id string) error {
 	if len(id) != ulidLen {
 		return invalidf("ULID must be %d characters, got %d", ulidLen, len(id))
@@ -182,6 +189,13 @@ func ULIDPathID(id string) error {
 		if strings.IndexByte(crockfordBase32, c) < 0 {
 			return invalidf("ULID contains a non-Crockford-base32 character")
 		}
+	}
+	// 26 Crockford symbols hold 130 bits, but a ULID is 128; the first symbol
+	// carries only the top 2 bits, so it must be 0–7. A first symbol of 8–Z
+	// (8ZZ…Z and up) decodes to >2^128-1 — not a representable ULID (max is
+	// 7ZZ…Z). First char is always a decimal digit here, so no case fold needed.
+	if id[0] < '0' || id[0] > '7' {
+		return invalidf("ULID overflows 128 bits (first character exceeds 7)")
 	}
 	return nil
 }

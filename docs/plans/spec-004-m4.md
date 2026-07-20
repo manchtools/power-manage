@@ -52,10 +52,9 @@ Sentinel `ErrInvalid` (`errors.Is`-matchable), wrapped `%w` with the field/reaso
 | Fn | Rejects | Notes |
 |---|---|---|
 | `GECOSField(s)` | control chars, `:` (record sep). `,` allowed (GECOS subfields) | port |
-| `PasswdField(s)` | control chars, `:` | port (home/shell shape share this) |
 | `GroupList(s)` | control chars, `:`, `,` | port (`,` is the `-G` separator) |
-| `Deb822URIField(s)` | control, **space (2nd-URI inject)**, non-http(s) scheme, empty host, embedded creds | port |
-| `SSHDConfigValue(s)` / `SudoersValue(s)` / `AuthorizedKeysValue(s)` / `NMConnectionValue(s)` | control chars `\n\r`+ each format's delimiter (`;`/`=`/`[`/`]` for INI; whitespace-splitting for the line-oriented ones) | port the control-char core; per-format delimiter sets documented at each fn |
+| `Deb822URIField(s)` | control, **space (2nd-URI inject)**, non-http(s) scheme, no hostname (`u.Hostname()`), embedded creds | port |
+| `SSHDConfigValue(s)` / `SudoersValue(s)` / `AuthorizedKeysValue(s)` / `NMConnectionValue(s)` | the record separator only (`\n`/`\r`/NUL — all control chars). The other format delimiters (`: = [ ] ;`, spaces) are legitimate mid-value content read to end-of-line and are NOT rejected (rejecting them is an AC-15 over-constraint). `SudoersValue` additionally rejects a **trailing `\`** (sudoers line continuation). | shared `rejectControl`; see the delta note below |
 | `Deb822Source(dist, comps)` | **cross-field**: empty dist + non-empty comps → reject | port [#302] |
 | `ToolErrorNamesFile(stderr, path)` | `bool` — stderr references the written path | **rollback trigger**; exact-path substring match, ceiling documented |
 
@@ -63,7 +62,7 @@ Sentinel `ErrInvalid` (`errors.Is`-matchable), wrapped `%w` with the field/reaso
 | Fn | Rule | Notes |
 |---|---|---|
 | `LUKSDevicePath(s)` | `^/dev/[a-zA-Z0-9/_.\-]+$` + no `..` | port |
-| `FlatpakAppID(s)` | reverse-DNS: ≥2 dot-separated segments, each `[A-Za-z_][A-Za-z0-9_]*`, total ≤255, no `/`/`..`/control | **NET-NEW** grammar (predecessor reused PackageName); the SDK-12 "before any path join" guard |
+| `FlatpakAppID(s)` | reverse-DNS: ≥2 dot-separated segments, each `[A-Za-z_][A-Za-z0-9_-]*` (hyphen admitted in non-leading positions — see delta), total ≤255, no `/`/`..`/control | **NET-NEW** grammar (predecessor reused PackageName); the SDK-12 "before any path join" guard |
 | `LoginShell(s)` | absolute + no control + **membership in `/etc/shells`** | **NET-NEW /etc/shells check** (predecessor only shape-checked). Host read behind `var readLoginShells = func() ([]string, error)` seam; **fail closed** (reject) if `/etc/shells` unreadable or shell absent from it |
 
 ## Scenario matrix (accept / reject rows → test names `Test<Fn>_<Case>`)

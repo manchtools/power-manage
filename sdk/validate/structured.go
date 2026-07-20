@@ -34,8 +34,19 @@ func SSHDConfigValue(v string) error { return rejectControl("sshd_config value",
 
 // SudoersValue validates a value written into a sudoers rule. Command specs
 // carry spaces, `=`, `:`, and `,` legitimately; a newline would append an
-// unauthorized rule, so the record separator is the sole rejection.
-func SudoersValue(v string) error { return rejectControl("sudoers value", v) }
+// unauthorized rule. A trailing backslash is also refused: sudoers(5) treats a
+// `\` as the last character of a line as a continuation, so a value ending in
+// `\` would splice the following record into this (attacker-influenced) rule
+// once the caller writes its line terminator.
+func SudoersValue(v string) error {
+	if err := rejectControl("sudoers value", v); err != nil {
+		return err
+	}
+	if strings.HasSuffix(v, `\`) {
+		return invalidf("sudoers value must not end with '\\' (line continuation)")
+	}
+	return nil
+}
 
 // AuthorizedKeysValue validates one authorized_keys line. The type, blob, and
 // comment are space-separated (all legitimate); an embedded newline would
@@ -82,29 +93,29 @@ func GroupList(v string) error {
 // starts a second URI on the line, embedded credentials leak into a
 // world-readable sources file, and control characters inject additional
 // deb822 fields. Template variables ($releasever) survive url.Parse and are
-// accepted.
+// accepted. The URI is never echoed in errors — it can embed a credential.
 func Deb822URIField(v string) error {
 	if v == "" {
 		return invalidf("deb822 URI is empty")
 	}
 	if startsWithDash(v) {
-		return invalidf("deb822 URI %q is flag-shaped", v)
+		return invalidf("deb822 URI is flag-shaped")
 	}
 	if hasControlOrSpace(v) {
 		return invalidf("deb822 URI contains whitespace or a control character")
 	}
 	u, err := url.Parse(v)
 	if err != nil {
-		return invalidf("deb822 URI %q is not parseable", v)
+		return invalidf("deb822 URI is not parseable")
 	}
 	if u.Scheme != "http" && u.Scheme != "https" {
-		return invalidf("deb822 URI %q must use http or https", v)
+		return invalidf("deb822 URI must use http or https")
 	}
-	if u.Host == "" {
-		return invalidf("deb822 URI %q has no host", v)
+	if u.Hostname() == "" {
+		return invalidf("deb822 URI has no host")
 	}
 	if u.User != nil {
-		return invalidf("deb822 URI %q must not embed credentials", v)
+		return invalidf("deb822 URI must not embed credentials")
 	}
 	return nil
 }
