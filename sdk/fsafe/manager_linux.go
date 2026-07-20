@@ -532,24 +532,17 @@ func (m Manager) Remove(ctx context.Context, path string) error {
 // Recorded ceiling (parity with Copy/CopyTree/SetOwnershipRecursive): the
 // escalated backend shells `rm -rf` rather than the fd-anchored removeDirSecure
 // walk — fds cannot be held across the sudo boundary without a privileged
-// helper binary, which is out of M3 scope. The residual TOCTOU-on-ancestor gap
-// versus the direct tier is bounded by three in-tier mitigations: the
-// symlink-resolving protected-prefix guard refuses protected trees BEFORE the
-// rm (fail closed), `rm -r` unlinks a symlink encountered during recursion
-// rather than following it, and the cleaned original spelling (no trailing
-// slash) plus argv `--` keep the target literal and injection-safe. Upgrade
-// path: embed removeDirSecure in a root helper when the escalated tier must
-// fd-anchor.
-//
-// Deliberately excluded from the round-5 parentDirSafe sweep that guards the
-// existing-target mutators (SetMode/SetOwnership/SetOwnershipRecursive/Remove/
-// Copy): unlike chmod/chown/cp, `rm -rf` unlinks a command-line symlink arg
-// rather than dereferencing it, and the symlink-resolving protected-prefix guard
-// already runs before the delete — the three mitigations above cover the
-// escalated tier, so an immediate-parent vet would add no protection `rm` does
-// not already have. A parent vet here would also refuse legitimate deletions of
-// trees under an app-owned (non-root) parent, a behavior change out of scope for
-// a review round.
+// helper binary, which is out of M3 scope. Two escalated-tier guards close the
+// gap versus the direct walk: a symlink-LEAF refusal (parity with the direct
+// no-follow probe — GNU `rm` would otherwise unlink a symlink arg and exit 0,
+// silently diverging from the direct contract), and parentDirSafe on the
+// immediate parent. The parent vet is load-bearing: `rm` re-resolves its path
+// argument at exec time, so a writable immediate parent swapped between the
+// protected-prefix check and the rm would redirect the delete (ancestor-swap
+// TOCTOU) — a root-owned, non-writable parent forecloses that, exactly as it
+// does for the other escalated mutators. The residual ceiling is the shared
+// single-level one (a higher ancestor swap) plus the non-fd-anchored rm; the
+// upgrade path is embedding removeDirSecure in a root helper.
 func (m Manager) RemoveDir(ctx context.Context, path string) error {
 	if err := ValidatePath(path); err != nil {
 		return err
@@ -567,6 +560,21 @@ func (m Manager) RemoveDir(ctx context.Context, path string) error {
 	}
 	if m.direct() {
 		return removeDirSecure(p)
+	}
+	// Parity with removeDirSecure's no-follow probe: refuse a symlink leaf rather
+	// than let `rm -rf` unlink it and exit 0. Safe before parentDirSafe — the rm
+	// still runs only after the parent is vetted below, so a leaf swapped under a
+	// writable parent is caught by that vet, and under a vetted (non-writable)
+	// parent the leaf cannot be swapped. An Lstat error other than "not found" is
+	// left to `rm` (a symlink under a would-be 0700 root parent could only have
+	// been placed by root anyway).
+	if fi, lerr := os.Lstat(p); lerr == nil && fi.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("remove %s: refusing a symlink leaf, use Remove", path)
+	}
+	// [SDK-7] parent-dir safety before the escalated rm — see the doc above:
+	// closes the ancestor-swap TOCTOU that `rm`'s exec-time path resolution opens.
+	if err := parentDirSafe(filepath.Dir(p)); err != nil {
+		return err
 	}
 	res, err := m.run(ctx, "rm", "-rf", "--", p)
 	if err != nil {

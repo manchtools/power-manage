@@ -367,11 +367,15 @@ func TestManager_Remove_Escalated(t *testing.T) {
 
 func TestManager_RemoveDir_Escalated(t *testing.T) {
 	fr, m := newEscalatedManager(t)
-	if err := m.RemoveDir(context.Background(), "/srv/app/data"); err != nil {
+	// Parent /var exists and is root-owned so the new [SDK-7] parentDirSafe check
+	// passes (the sibling Mkdir/WriteFile escalated tests target /var for the same
+	// reason); /var/pm-data is not under a protected prefix (/var/lib is, /var is
+	// not). This still pins the exact escalated rm argv.
+	if err := m.RemoveDir(context.Background(), "/var/pm-data"); err != nil {
 		t.Fatalf("RemoveDir: %v", err)
 	}
 	c := mustCalls(t, fr, 1)[0]
-	if c.Name != "rm" || !slices.Equal(c.Args, []string{"-rf", "--", "/srv/app/data"}) {
+	if c.Name != "rm" || !slices.Equal(c.Args, []string{"-rf", "--", "/var/pm-data"}) {
 		t.Errorf("argv = %s %q, want rm [-rf -- path]", c.Name, c.Args)
 	}
 }
@@ -547,8 +551,11 @@ func TestManager_CopyTree_Escalated_UnsafeDestParentRefusedBeforeSudo(t *testing
 // those mutators — a NEW escalated mutator that shells out MUST be added here
 // (and the empty-list tripwire guards against the list being gutted). The
 // create-mutations (Mkdir/CopyTree) are covered by their own anchor-safety
-// tests above; this pins the existing-target mutators. RemoveDir (rm -rf) is the
-// one deliberate exclusion — see its recorded-ceiling note in manager_linux.go.
+// tests above; this pins the existing-target mutators. RemoveDir (rm -rf) is
+// included: `rm` re-resolves its path argument at exec time, so a writable
+// immediate parent swapped between the protected-prefix check and the sudo `rm`
+// redirects the delete (ancestor-swap TOCTOU) — the parent vet closes exactly
+// that, in parity with the other escalated mutators.
 func TestManager_EscalatedMutators_UnsafeParentRefusedBeforeSudo(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.Chmod(dir, 0o777); err != nil {
@@ -565,6 +572,7 @@ func TestManager_EscalatedMutators_UnsafeParentRefusedBeforeSudo(t *testing.T) {
 		{"SetOwnershipRecursive", func(m Manager) error { return m.SetOwnershipRecursive(ctx, target, "root", "wheel") }},
 		{"Remove", func(m Manager) error { return m.Remove(ctx, target) }},
 		{"Copy", func(m Manager) error { return m.Copy(ctx, "/etc/app.conf", target) }},
+		{"RemoveDir", func(m Manager) error { return m.RemoveDir(ctx, target) }},
 	}
 	if len(ops) == 0 {
 		t.Fatal("no escalated mutators under test — the guard population went empty")
@@ -578,6 +586,34 @@ func TestManager_EscalatedMutators_UnsafeParentRefusedBeforeSudo(t *testing.T) {
 			t.Errorf("%s: issued %d escalated commands before refusing: %+v", op.name, len(calls), calls)
 		}
 	}
+}
+
+// Parity with the direct backend: RemoveDir refuses a symlink LEAF instead of
+// deleting through it. The direct removeDirSecure walk refuses it via a
+// no-follow open (TestManager_RemoveDir_Direct_RefusesSymlinkLeaf); the
+// escalated `rm -rf` would otherwise unlink the symlink and exit 0, a silent
+// divergence from the same public method. The leaf points at a NON-protected
+// target so the protected-prefix guard passes and the symlink check is what
+// refuses; the refusal must precede any command. Runs at any uid — the symlink
+// check fires before the parent vet.
+func TestManager_RemoveDir_Escalated_RefusesSymlinkLeaf(t *testing.T) {
+	fr, m := newEscalatedManager(t)
+	base := t.TempDir()
+	victim := filepath.Join(base, "victim")
+	if err := os.Mkdir(victim, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	leaf := filepath.Join(base, "managed")
+	if err := os.Symlink(victim, leaf); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.RemoveDir(context.Background(), leaf); err == nil {
+		t.Fatal("escalated RemoveDir followed a symlink leaf, want refusal (parity with the direct backend)")
+	}
+	if _, err := os.Stat(victim); err != nil {
+		t.Errorf("victim removed through the symlink leaf: %v", err)
+	}
+	mustCalls(t, fr, 0)
 }
 
 // WriteFileFrom on an escalated backend routes through the SAME single-root-
