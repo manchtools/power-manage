@@ -9,6 +9,7 @@ package sign_test
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/elliptic"
@@ -613,6 +614,34 @@ func TestSignCommand_RejectsMalformedTarget(t *testing.T) {
 	if err := sign.SignCommand(priv, cmd); err == nil {
 		t.Fatalf("SignCommand signed an envelope with a non-ULID target_device_id — the mint seam must fail closed ([WIRE-18])")
 	}
+}
+
+// TestValidateSigningKey_RejectsNil: nil key material — the untyped nil and
+// every typed-nil pointer shape — is rejected instead of passing the type
+// switch and panicking later in verification (fail closed; review finding).
+func TestValidateSigningKey_RejectsNil(t *testing.T) {
+	for name, key := range map[string]crypto.PublicKey{
+		"untyped nil":            nil,
+		"typed nil ecdsa pub":    (*ecdsa.PublicKey)(nil),
+		"typed nil rsa pub":      (*rsa.PublicKey)(nil),
+		"typed nil ecdsa signer": (*ecdsa.PrivateKey)(nil),
+		"typed nil rsa signer":   (*rsa.PrivateKey)(nil),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := sign.ValidateSigningKey(key); err == nil {
+				t.Errorf("ValidateSigningKey accepted %s — nil key material must fail closed, never panic downstream", name)
+			}
+		})
+	}
+}
+
+// TestVerifyCommand_TypedNilKeyRejected: a typed-nil verifying key is refused
+// up front — it must never reach the curve math and panic (a remote-triggered
+// panic at the verification boundary is denial of service).
+func TestVerifyCommand_TypedNilKeyRejected(t *testing.T) {
+	_, cmd := signedActionCmd(t)
+	got, err := sign.VerifyCommand((*ecdsa.PublicKey)(nil), cmd, withinOpts())
+	assertRejected(t, got, err, "typed-nil ECDSA verifying key (fail-closed)")
 }
 
 // TestCommandDomain_CatalogTypes: each of the 8 closed command types maps to
