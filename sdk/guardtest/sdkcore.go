@@ -47,6 +47,16 @@ var regexCompileFns = map[string]bool{
 // at M5).
 var hashImportPaths = []string{"crypto/sha256", "crypto/sha512", "crypto/hmac"}
 
+// hashImportAllow sanctions hash imports outside the crypto chokepoint,
+// keyed per FILE so a new import anywhere else — including elsewhere in the
+// same package — still trips. Single entry: fetch's artifact-pin check
+// VERIFIES a published SHA-256 digest (AG-13a, M3); it constructs no
+// domain-separated hash, so there is no lp/domain framing to get wrong.
+// G-6's floor couples "sdk/crypto exists" to "seal surface exists", which
+// rules out landing a digest-only chokepoint before M5. Revisit at M5: fold
+// the digest into sdk/crypto and drop this key.
+var hashImportAllow = []string{cryptoPkgDir, "fetch/fetch.go"}
+
 // mutationBannedCalls is the SDK-7 path-based mutation set banned outside
 // fsafe. Recorded ceiling: os.OpenFile stays legal — it is the fd-anchored
 // primitive itself; clobber-flag inspection anchors on the fsafe prefix at
@@ -89,11 +99,11 @@ func clockViolations(root string) ([]string, error) {
 }
 
 // hashImportViolations is G-5's M1 form: hash/MAC package imports outside
-// the crypto dir.
+// the crypto dir (plus the file-keyed hashImportAllow exceptions).
 func hashImportViolations(root string) ([]string, error) {
 	var out []string
 	for _, p := range hashImportPaths {
-		v, err := BannedImports(root, p, cryptoPkgDir)
+		v, err := BannedImports(root, p, hashImportAllow...)
 		if err != nil {
 			return nil, err
 		}

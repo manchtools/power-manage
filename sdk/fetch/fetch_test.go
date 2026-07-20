@@ -207,12 +207,14 @@ func TestFetch_RedirectToHTTPRefused(t *testing.T) {
 
 // A redirect landing on the metadata IP is refused AT DIAL by the same guard
 // as the initial request — the guard override admits loopback only, so this
-// proves redirect landings re-enter the guard.
+// proves redirect landings re-enter the guard. The pin is set deliberately:
+// it satisfies the cross-origin redirect POLICY layer, so the refusal below
+// can only come from the dial guard itself (defense in depth, not policy).
 func TestFetch_RedirectToLinkLocalRefusedAtDial(t *testing.T) {
 	allowLoopback(t)
 	srv, _ := newServer(t)
 	trustServers(t, srv)
-	err := Fetch(context.Background(), srv.URL+"/to-metadata", &bytes.Buffer{}, Options{MaxBytes: 1 << 20})
+	err := Fetch(context.Background(), srv.URL+"/to-metadata", &bytes.Buffer{}, Options{MaxBytes: 1 << 20, PinnedSHA256: bodyPin()})
 	if !errors.Is(err, ErrDisallowedAddress) {
 		t.Fatalf("err = %v, want ErrDisallowedAddress", err)
 	}
