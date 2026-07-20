@@ -295,7 +295,10 @@ func (m Manager) writeFileFromEscalated(ctx context.Context, resolved string, sr
 // entry; it does nothing to stop them creating a NEW name — a planted symlink —
 // at a target that does not exist yet, which the privileged cp/mv would then
 // act through ([SDK-7]: "Symlink TOCTOU"). Any writable parent fails closed.
-func parentDirSafe(dir string) error {
+//
+// Package-var seam (touches the host via syscall.Stat, per the SDK seam rule)
+// so a test can isolate a mutator's other pre-conditions from this vet.
+var parentDirSafe = func(dir string) error {
 	var st syscall.Stat_t
 	if err := syscall.Stat(dir, &st); err != nil {
 		return fmt.Errorf("stat parent %s: %w", dir, err)
