@@ -30,10 +30,10 @@ var importAllowlist = map[string][]string{
 
 // modulePackageFloors ratchets as specs land code: sdk carries config,
 // guardtest, exec, exec/exectest, narrow, and redos after SPEC-004 M2, +fetch
-// and fsafe after M3, +validate after M4 (9); contract/server/agent gain their
-// floors with SPEC-003/005/013.
+// and fsafe after M3, +validate after M4, +crypto after M5 (10);
+// contract/server/agent gain their floors with SPEC-003/005/013.
 // A code-bearing module can never silently drop to zero packages.
-var modulePackageFloors = map[string]int{"contract": 0, "sdk": 9, "server": 0, "agent": 0}
+var modulePackageFloors = map[string]int{"contract": 0, "sdk": 10, "server": 0, "agent": 0}
 
 // modulePaths returns each module dir's declared module path from its
 // go.mod module line.

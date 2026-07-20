@@ -168,6 +168,120 @@ func filesImporting(root, importPath string) (map[string]bool, error) {
 	return out, err
 }
 
+// hashConstructorCallees maps each hash/MAC/KDF import path to the callee
+// names that CONSTRUCT a digest/MAC/derived key over a caller-assembled
+// preimage (SDK-13). A name matches only as a call's Fun: sha256.New passed BY
+// VALUE to hkdf.Key/hmac.New is the algorithm selector, not a construction, so
+// it is not counted. hmac.Equal and subtle.ConstantTimeCompare are
+// constant-time COMPARES, not constructions, and are deliberately absent.
+var hashConstructorCallees = map[string][]string{
+	"crypto/hkdf":   {"Key", "Extract", "Expand"},
+	"crypto/sha256": {"New", "Sum256", "Sum224"},
+	"crypto/sha512": {"New", "Sum512", "Sum384", "Sum512_256", "Sum512_224"},
+	"crypto/hmac":   {"New"},
+}
+
+// framingHelper is the sole length-prefix/domain preimage constructor
+// (crypto.go framePreimage). Every hash/MAC construction routes its preimage
+// through it ([SDK-13]).
+const framingHelper = "framePreimage"
+
+// hashFramingViolations is G-5's M5 form ([SDK-13]): inside the crypto surface,
+// every function that constructs a hash/MAC/derived key must also assemble its
+// preimage through framePreimage — the length-prefix/domain chokepoint.
+// Returns the violations and the discovered hash-construction functions (the
+// population floor's subjects). Callee names resolve through each file's
+// imports (alias and dot handled), and a callee counts only when it is the
+// call's Fun, so a hash selector passed to hkdf/hmac by value is not miscounted.
+//
+// ponytail: function-scoped, not per-call — recorded ceiling: a SECOND unframed
+// construction added inside a function that already frames once is not caught.
+// One construction per function is the real shape here, and a per-call
+// salt-argument check would false-positive on the assign-then-pass form this
+// package uses (`salt := framePreimage(...); hkdf.Key(..., salt, ...)`). When a
+// second construction lands in a framing function, tighten to per-call.
+func hashFramingViolations(cryptoRoot string) ([]string, []string, error) {
+	var out, fns []string
+	err := walkGoFiles(cryptoRoot, false, func(rel string, fset *token.FileSet, file *ast.File) error {
+		type resolver struct {
+			names map[string]bool
+			dot   bool
+			sels  map[string]bool
+		}
+		var resolvers []resolver
+		for imp, callees := range hashConstructorCallees {
+			names, dot := importAliases(file, imp)
+			if len(names) == 0 && !dot {
+				continue
+			}
+			sels := map[string]bool{}
+			for _, c := range callees {
+				sels[c] = true
+			}
+			resolvers = append(resolvers, resolver{names, dot, sels})
+		}
+		if len(resolvers) == 0 {
+			return nil
+		}
+		isConstruction := func(call *ast.CallExpr) bool {
+			switch f := unwrapExpr(call.Fun).(type) {
+			case *ast.Ident:
+				for _, r := range resolvers {
+					if r.dot && r.sels[f.Name] {
+						return true
+					}
+				}
+			case *ast.SelectorExpr:
+				id, ok := f.X.(*ast.Ident)
+				if !ok {
+					return false
+				}
+				for _, r := range resolvers {
+					if r.names[id.Name] && r.sels[f.Sel.Name] {
+						return true
+					}
+				}
+			}
+			return false
+		}
+		isFraming := func(call *ast.CallExpr) bool {
+			id, ok := unwrapExpr(call.Fun).(*ast.Ident)
+			return ok && id.Name == framingHelper
+		}
+		for _, decl := range file.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok || fn.Body == nil {
+				continue
+			}
+			var constructs, frames int
+			ast.Inspect(fn.Body, func(n ast.Node) bool {
+				if call, ok := n.(*ast.CallExpr); ok {
+					if isConstruction(call) {
+						constructs++
+					}
+					if isFraming(call) {
+						frames++
+					}
+				}
+				return true
+			})
+			if constructs == 0 {
+				continue
+			}
+			name := fn.Name.Name
+			if fn.Recv != nil && len(fn.Recv.List) > 0 {
+				name = recvTypeName(fn.Recv.List[0].Type) + "." + name
+			}
+			fns = append(fns, rel+":"+name)
+			if frames == 0 {
+				out = append(out, fmt.Sprintf("%s:%d: %s constructs a hash/MAC/derived key without routing its preimage through %s — SDK-13: every hash/MAC preimage is length-prefixed and domain-separated", rel, fset.Position(fn.Pos()).Line, name, framingHelper))
+			}
+		}
+		return nil
+	})
+	return out, fns, err
+}
+
 // mutationChokepointViolations is G-7: the banned os mutation set outside
 // the fsafe prefix.
 func mutationChokepointViolations(root string) ([]string, error) {
