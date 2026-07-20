@@ -158,7 +158,13 @@ func regexChokepointViolations(root string, allow map[string]string) ([]string, 
 		for _, decl := range file.Decls {
 			switch d := decl.(type) {
 			case *ast.FuncDecl:
-				inspect(d, d.Name.Name)
+				// Methods key receiver-qualified (probe.rx) so a same-named
+				// package var can never share or steal their exemption.
+				name := d.Name.Name
+				if d.Recv != nil && len(d.Recv.List) > 0 {
+					name = recvTypeName(d.Recv.List[0].Type) + "." + name
+				}
+				inspect(d, name)
 			case *ast.GenDecl:
 				// Keyed per ValueSpec, not per block: one var's exemption
 				// must not cover its neighbors.
@@ -174,6 +180,27 @@ func regexChokepointViolations(root string, allow map[string]string) ([]string, 
 	return out, sites, err
 }
 
+// recvTypeName names a method receiver's base type, peeling pointers,
+// parens, and generic instantiation.
+func recvTypeName(e ast.Expr) string {
+	for {
+		switch t := e.(type) {
+		case *ast.StarExpr:
+			e = t.X
+		case *ast.ParenExpr:
+			e = t.X
+		case *ast.IndexExpr:
+			e = t.X
+		case *ast.IndexListExpr:
+			e = t.X
+		case *ast.Ident:
+			return t.Name
+		default:
+			return "?"
+		}
+	}
+}
+
 // aadAPIViolations is G-6: every exported function or method under
 // cryptoRoot whose name contains Seal or Open must carry a parameter named
 // aad. AST walk by design (plan choice 6): it covers violation fixtures a
@@ -184,30 +211,71 @@ func aadAPIViolations(cryptoRoot string) ([]string, []string, error) {
 	var out, fns []string
 	err := walkGoFiles(cryptoRoot, false, func(rel string, fset *token.FileSet, file *ast.File) error {
 		for _, decl := range file.Decls {
-			fd, ok := decl.(*ast.FuncDecl)
-			if !ok || !fd.Name.IsExported() {
-				continue
-			}
-			name := fd.Name.Name
-			if !strings.Contains(name, "Seal") && !strings.Contains(name, "Open") {
-				continue
-			}
-			fns = append(fns, rel+":"+name)
-			hasAAD := false
-			if fd.Type.Params != nil {
-				for _, field := range fd.Type.Params.List {
-					for _, id := range field.Names {
-						if id.Name == "aad" {
-							hasAAD = true
+			switch d := decl.(type) {
+			case *ast.FuncDecl:
+				name := d.Name.Name
+				if !d.Name.IsExported() || !sealOpenName(name) {
+					continue
+				}
+				fns = append(fns, rel+":"+name)
+				if !funcTypeHasAAD(d.Type) {
+					out = append(out, fmt.Sprintf("%s:%d: exported %s has no aad parameter — no nil-AAD API exists (SDK-13)", rel, fset.Position(d.Pos()).Line, name))
+				}
+			case *ast.GenDecl:
+				// Interface methods declare API surface too (review
+				// finding, PR #20). An embedded interface is decided at
+				// its own declaration; embedding one from another package
+				// would hide it — the proto-purity and hash-import bans
+				// keep foreign seal/open interfaces out of sdk/crypto.
+				for _, spec := range d.Specs {
+					ts, ok := spec.(*ast.TypeSpec)
+					if !ok {
+						continue
+					}
+					it, ok := ts.Type.(*ast.InterfaceType)
+					if !ok || it.Methods == nil {
+						continue
+					}
+					for _, m := range it.Methods.List {
+						ft, ok := m.Type.(*ast.FuncType)
+						if !ok || len(m.Names) == 0 {
+							continue
+						}
+						name := m.Names[0].Name
+						if !ast.IsExported(name) || !sealOpenName(name) {
+							continue
+						}
+						fns = append(fns, rel+":"+ts.Name.Name+"."+name)
+						if !funcTypeHasAAD(ft) {
+							out = append(out, fmt.Sprintf("%s:%d: interface method %s.%s has no aad parameter — no nil-AAD API exists (SDK-13)", rel, fset.Position(m.Pos()).Line, ts.Name.Name, name))
 						}
 					}
 				}
-			}
-			if !hasAAD {
-				out = append(out, fmt.Sprintf("%s:%d: exported %s has no aad parameter — no nil-AAD API exists (SDK-13)", rel, fset.Position(fd.Pos()).Line, name))
 			}
 		}
 		return nil
 	})
 	return out, fns, err
+}
+
+// sealOpenName reports whether name belongs to the seal/open surface.
+func sealOpenName(name string) bool {
+	return strings.Contains(name, "Seal") || strings.Contains(name, "Open")
+}
+
+// funcTypeHasAAD reports whether the signature carries a parameter named
+// aad — the surface contract; a renamed AAD parameter is a violation by
+// design (fail closed).
+func funcTypeHasAAD(ft *ast.FuncType) bool {
+	if ft.Params == nil {
+		return false
+	}
+	for _, field := range ft.Params.List {
+		for _, id := range field.Names {
+			if id.Name == "aad" {
+				return true
+			}
+		}
+	}
+	return false
 }
