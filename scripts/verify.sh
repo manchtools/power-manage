@@ -56,8 +56,14 @@ if [ "${#MODULES[@]}" -gt 0 ]; then
     # Modules with no Go sources yet (scaffold phase): reported, not hidden.
     # -print -quit, no pipe: `find | grep -q` dies of SIGPIPE under pipefail
     # once the file census outgrows what grep drains before exiting, and the
-    # "failed" pipeline silently skipped a populated module (fail-open).
-    if [ -z "$(find "$m" -name '*.go' -not -path '*/gen/*' -print -quit)" ]; then
+    # "failed" pipeline silently skipped a populated module (fail-open). A
+    # failing find (unreadable tree) must fail the gate for the same reason —
+    # an inspection error is not an empty module.
+    if ! GO_SRC="$(find "$m" -name '*.go' -not -path '*/gen/*' -print -quit)"; then
+      fail "$m: source discovery failed — refusing to treat an unreadable tree as empty"
+      continue
+    fi
+    if [ -z "$GO_SRC" ]; then
       say "$m: no Go sources yet — skipped (reported, not hidden)"
       continue
     fi
@@ -78,7 +84,16 @@ fi
 # Proto lint + generated-code sync (only once protos exist). Deliberately
 # NO buf-breaking gate: proto evolution re-tags in place with no reserved
 # markers (AC-13, SPEC-003) — exactly what a breaking gate would reject.
-if [ -f contract/buf.yaml ] && [ -n "$(find contract/proto -name '*.proto' -print -quit 2>/dev/null)" ]; then
+# With buf.yaml present the proto tree must be inspectable: a failing find
+# fails the gate rather than silently skipping the buf stages.
+PROTO_SRC=""
+if [ -f contract/buf.yaml ]; then
+  if ! PROTO_SRC="$(find contract/proto -name '*.proto' -print -quit)"; then
+    fail "contract: proto discovery failed — refusing to treat an unreadable tree as empty"
+    PROTO_SRC=""
+  fi
+fi
+if [ -n "$PROTO_SRC" ]; then
   require buf
   require sha256sum
   if command -v buf >/dev/null 2>&1 && command -v sha256sum >/dev/null 2>&1; then
