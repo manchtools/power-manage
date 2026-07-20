@@ -3,7 +3,9 @@ package guardtest
 import (
 	"go/ast"
 	"go/token"
+	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -165,6 +167,59 @@ func TestGuardAPIConformance_Liveness(t *testing.T) {
 		if flagged(conforming) {
 			t.Errorf("the conforming fixture guard %s was flagged (got %v) — the checker went always-red", conforming, bad)
 		}
+	}
+}
+
+// TestGuardAPIConformance_NestedPackageSpoof: a nested package reusing a
+// harness package name (contract/archtest/spoofdir declaring package
+// archtest with a local no-op Discover) must NOT inherit the
+// unqualified-call privilege — only files in the harness directory itself
+// do. Built on a temp tree because committing such a spoof would rightly
+// trip the real guard. Regression for the prefix-match bypass.
+func TestGuardAPIConformance_NestedPackageSpoof(t *testing.T) {
+	root := t.TempDir()
+	spoofBody := `func Discover[T any](t testing.TB, what string, floor int, fn func() ([]T, error)) []T {
+	t.Helper()
+	return nil
+}
+`
+	for relFile, src := range map[string]string{
+		// In-harness file at the exact directory: unqualified call accepted.
+		"sdk/guardtest/real_test.go": "package guardtest\n\nimport \"testing\"\n\nfunc TestGuard_Real(t *testing.T) {\n\tDiscover(t, \"x\", 1, func() ([]string, error) { return []string{\"s\"}, nil })\n}\n",
+		// Nested spoofs: same package name, one directory deeper.
+		"sdk/guardtest/nested/spoof_test.go":       "package guardtest\n\nimport \"testing\"\n\n" + spoofBody + "\nfunc TestGuard_Spoof(t *testing.T) {\n\tDiscover(t, \"x\", 1, func() ([]string, error) { return nil, nil })\n}\n",
+		"contract/archtest/spoofdir/spoof_test.go": "package archtest\n\nimport \"testing\"\n\n" + spoofBody + "\nfunc TestGuard_ArchSpoof(t *testing.T) {\n\tDiscover(t, \"x\", 1, func() ([]string, error) { return nil, nil })\n}\n",
+	} {
+		full := filepath.Join(root, filepath.FromSlash(relFile))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	all, bad, _, err := guardInventory(root)
+	if err != nil {
+		t.Fatalf("scanning the spoof tree failed: %v", err)
+	}
+	if len(all) != 3 {
+		t.Fatalf("inventory found %v, want the three planted guards", all)
+	}
+	flagged := func(name string) bool {
+		for _, g := range bad {
+			if strings.HasSuffix(g, ":"+name) {
+				return true
+			}
+		}
+		return false
+	}
+	for _, spoof := range []string{"TestGuard_Spoof", "TestGuard_ArchSpoof"} {
+		if !flagged(spoof) {
+			t.Errorf("nested-package spoof %s was accepted as conforming (bad=%v) — harness recognition regressed to a prefix match", spoof, bad)
+		}
+	}
+	if flagged("TestGuard_Real") {
+		t.Errorf("the exact-directory harness file was flagged (bad=%v) — the checker went always-red for the harness itself", bad)
 	}
 }
 

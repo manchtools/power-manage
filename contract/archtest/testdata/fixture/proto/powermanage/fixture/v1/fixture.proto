@@ -5,6 +5,7 @@ syntax = "proto3";
 package powermanage.fixture.v1;
 
 import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/manchtools/power-manage/contract/archtest/internal/fixturepb/powermanage/fixture/v1;fixturepb";
 
@@ -19,6 +20,10 @@ message FixtureRequest {
   string tagged_id = 2 [(buf.validate.field).string.len = 26];
   // Reachability hop: NestedParams joins the boundary through this field.
   NestedParams nested = 3 [(buf.validate.field).required = true];
+  // Foreign well-known type: reachable through this (tagged) field, but its
+  // internal fields are not contract surface — the closure must not walk
+  // into messages defined outside the audited files.
+  google.protobuf.Timestamp stamped_at = 4 [(buf.validate.field).required = true];
 }
 
 message NestedParams {
