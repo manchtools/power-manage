@@ -122,6 +122,9 @@ func CommandPreimage(cmd *powermanagev1.SignedCommand) ([]byte, error) {
 	if cmd.GetIssuedAt() == nil || cmd.GetExpiresAt() == nil {
 		return nil, fmt.Errorf("issued_at and expires_at are required covered fields")
 	}
+	if !isULID(cmd.GetTargetDeviceId()) {
+		return nil, fmt.Errorf("target_device_id is not a ULID: a malformed address is never framed, signed, or verified ([WIRE-18])")
+	}
 	var buf bytes.Buffer
 	lp(&buf, []byte(domain))
 	lp(&buf, []byte(cmd.GetCommandType()))
@@ -130,6 +133,28 @@ func CommandPreimage(cmd *powermanagev1.SignedCommand) ([]byte, error) {
 	lp(&buf, tsBytes(cmd.GetExpiresAt().GetSeconds(), cmd.GetExpiresAt().GetNanos()))
 	lp(&buf, cmd.GetPayload())
 	return buf.Bytes(), nil
+}
+
+// isULID reports whether s is a canonical 26-character Crockford-base32 ULID
+// (the contract's predefined ULID rule: first char 0-7, no I/L/O/U,
+// uppercase only) — defense in depth beneath the proto boundary's tag.
+func isULID(s string) bool {
+	if len(s) != 26 {
+		return false
+	}
+	if s[0] < '0' || s[0] > '7' {
+		return false
+	}
+	for i := 1; i < 26; i++ {
+		c := s[i]
+		switch {
+		case c >= '0' && c <= '9':
+		case c >= 'A' && c <= 'Z' && c != 'I' && c != 'L' && c != 'O' && c != 'U':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func lp(buf *bytes.Buffer, x []byte) {
@@ -173,6 +198,11 @@ func SignCommand(key crypto.Signer, cmd *powermanagev1.SignedCommand) error {
 // verified payload bytes. Any failure returns a nil payload; the caller
 // deserializes only what this returns.
 func VerifyCommand(pub crypto.PublicKey, cmd *powermanagev1.SignedCommand, opts VerifyOptions) ([]byte, error) {
+	if opts.Now.IsZero() {
+		// time.Time{} is year 1: every real expires_at would pass the expiry
+		// check, so a forgotten clock must fail closed, never open.
+		return nil, fmt.Errorf("VerifyOptions.Now is unset: a verification time is required ([WIRE-15])")
+	}
 	if err := ValidateSigningKey(pub); err != nil {
 		return nil, err
 	}

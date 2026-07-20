@@ -567,6 +567,54 @@ func TestVerifyCommand_RejectsEd25519(t *testing.T) {
 	}
 }
 
+// TestVerifyCommand_ZeroNowRejected: a zero opts.Now must be rejected before
+// any timestamp math — time.Time{} is year 1, so every expired envelope would
+// otherwise pass the expiry check (fail closed; review finding, AC-6).
+func TestVerifyCommand_ZeroNowRejected(t *testing.T) {
+	priv, cmd := signedActionCmd(t)
+	opts := sign.VerifyOptions{DeviceID: goldenTarget, Now: time.Time{}, Instant: true}
+	got, err := sign.VerifyCommand(&priv.PublicKey, cmd, opts)
+	assertRejected(t, got, err, "zero verification clock (fail-closed, AC-6)")
+}
+
+// TestCommandPreimage_RejectsMalformedTarget: the framing chokepoint refuses a
+// target_device_id that is not a ULID, so neither signing nor verification can
+// ever cover a malformed address — defense in depth beneath the proto
+// boundary's ULID tag (review finding, [WIRE-18]).
+func TestCommandPreimage_RejectsMalformedTarget(t *testing.T) {
+	for name, target := range map[string]string{
+		"empty":                     "",
+		"too short":                 "01ARZ3NDEKTSV4RRFFQ69G5FA",
+		"bad charset":               "01ARZ3NDEKTSV4RRFFQ69G5FIL", // I and L are outside Crockford base32
+		"lowercase":                 "01arz3ndektsv4rrffq69g5fav",
+		"uuid":                      "f81d4fae-7dec-11d0-a765-00a0c91e6bf6",
+		"high timestamp first char": "81ARZ3NDEKTSV4RRFFQ69G5FAV", // first char must be 0-7
+	} {
+		t.Run(name, func(t *testing.T) {
+			cmd := goldenEnvelope()
+			cmd.TargetDeviceId = target
+			got, err := sign.CommandPreimage(cmd)
+			if err == nil {
+				t.Errorf("CommandPreimage accepted target_device_id %q — a non-ULID target must never be framed ([WIRE-18], ULID rule)", target)
+			}
+			if got != nil {
+				t.Errorf("CommandPreimage returned bytes for target %q, want nil on error", target)
+			}
+		})
+	}
+}
+
+// TestSignCommand_RejectsMalformedTarget: the signing seam inherits the
+// chokepoint — a malformed target cannot be signed into existence.
+func TestSignCommand_RejectsMalformedTarget(t *testing.T) {
+	priv := newECDSAKey(t)
+	cmd := goldenEnvelope()
+	cmd.TargetDeviceId = "not-a-ulid"
+	if err := sign.SignCommand(priv, cmd); err == nil {
+		t.Fatalf("SignCommand signed an envelope with a non-ULID target_device_id — the mint seam must fail closed ([WIRE-18])")
+	}
+}
+
 // TestCommandDomain_CatalogTypes: each of the 8 closed command types maps to
 // its [WIRE-14] domain "power-manage:cmd:<type>:v1". (AC-5 / plan choice 4)
 func TestCommandDomain_CatalogTypes(t *testing.T) {
