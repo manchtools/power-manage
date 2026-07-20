@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"fmt"
 	"sort"
 	"strings"
 	"testing"
@@ -57,7 +58,7 @@ func TestGuard_ServiceSurface(t *testing.T) {
 // rules. The population anchor is the file set — a walk that finds fewer
 // files than the contract has is broken, not clean.
 func TestGuard_ValidateTagCoverage(t *testing.T) {
-	files := Discover(t, "contract proto files", 9, func() ([]protoreflect.FileDescriptor, error) {
+	files := Discover(t, "contract proto files", 12, func() ([]protoreflect.FileDescriptor, error) {
 		return packageFiles(ContractPackage), nil
 	})
 	for _, v := range untaggedFields(files) {
@@ -69,7 +70,7 @@ func TestGuard_ValidateTagCoverage(t *testing.T) {
 // contract enum starts at *_UNSPECIFIED = 0. The erroring-default switch
 // half wires up with the first contract-enum switch (M3).
 func TestGuard_EnumHygiene(t *testing.T) {
-	files := Discover(t, "contract proto files", 9, func() ([]protoreflect.FileDescriptor, error) {
+	files := Discover(t, "contract proto files", 12, func() ([]protoreflect.FileDescriptor, error) {
 		return packageFiles(ContractPackage), nil
 	})
 	for _, v := range enumHygieneViolations(files) {
@@ -200,7 +201,7 @@ func TestGuard_ActionRegistry(t *testing.T) {
 // the predecessor duplicated this oneof across five messages and the
 // copies diverged.
 func TestGuard_ActionParamsAuthority(t *testing.T) {
-	files := Discover(t, "contract proto files", 9, func() ([]protoreflect.FileDescriptor, error) {
+	files := Discover(t, "contract proto files", 12, func() ([]protoreflect.FileDescriptor, error) {
 		return packageFiles(ContractPackage), nil
 	})
 	violations, err := registryViolations(files, "ActionParams")
@@ -246,7 +247,7 @@ func TestGuard_ActionParamsAuthority_Liveness(t *testing.T) {
 // TestGuard_ExplicitPresence is G-4 (SPEC-003, [WIRE-6]): no plain bool in
 // the registry subtree without a recorded two-value rationale.
 func TestGuard_ExplicitPresence(t *testing.T) {
-	files := Discover(t, "contract proto files", 9, func() ([]protoreflect.FileDescriptor, error) {
+	files := Discover(t, "contract proto files", 12, func() ([]protoreflect.FileDescriptor, error) {
 		return packageFiles(ContractPackage), nil
 	})
 	violations, err := plainBoolViolations(files, "ActionParams")
@@ -290,7 +291,7 @@ func TestGuard_ExplicitPresence_Liveness(t *testing.T) {
 // (recorded, docs/plans/spec-003-m2.md choice 4); the liveness row proves
 // the walk can go red.
 func TestGuard_EnumBounds(t *testing.T) {
-	files := Discover(t, "contract proto files", 9, func() ([]protoreflect.FileDescriptor, error) {
+	files := Discover(t, "contract proto files", 12, func() ([]protoreflect.FileDescriptor, error) {
 		return packageFiles(ContractPackage), nil
 	})
 	for _, v := range enumBoundViolations(files) {
@@ -489,4 +490,132 @@ func contains(xs []string, want string) bool {
 		}
 	}
 	return false
+}
+
+// removalVerbs is the AC-9 / [WIRE-26] never-list: removal-by-omission is the
+// SOLE cleanup authority, so the sync-manifest surface carries no deletion
+// vocabulary. Matched as a case-insensitive substring of the snake_case field
+// name — "removed_ids" and "soft_delete_at" both flag.
+var removalVerbs = []string{"remove", "delete", "tombstone", "revoke"}
+
+// messageClosure returns the transitive downward closure of root within the
+// audited files: root plus every message reachable through its field message
+// types (and map values), stopping at messages defined outside files. A
+// foreign well-known type (google.protobuf.Timestamp) is referenced surface,
+// not manifest surface to audit — the closure must not walk into it.
+func messageClosure(files []protoreflect.FileDescriptor, root protoreflect.MessageDescriptor) []protoreflect.MessageDescriptor {
+	audited := make(map[string]bool, len(files))
+	for _, fd := range files {
+		audited[fd.Path()] = true
+	}
+	seen := map[protoreflect.FullName]protoreflect.MessageDescriptor{}
+	var visit func(md protoreflect.MessageDescriptor)
+	visit = func(md protoreflect.MessageDescriptor) {
+		if !audited[md.ParentFile().Path()] {
+			return
+		}
+		if _, ok := seen[md.FullName()]; ok {
+			return
+		}
+		seen[md.FullName()] = md
+		fields := md.Fields()
+		for i := 0; i < fields.Len(); i++ {
+			f := fields.Get(i)
+			if f.IsMap() {
+				if v := f.MapValue(); v.Message() != nil {
+					visit(v.Message())
+				}
+				continue
+			}
+			if m := f.Message(); m != nil {
+				visit(m)
+			}
+		}
+	}
+	visit(root)
+	var out []protoreflect.MessageDescriptor
+	for _, md := range seen {
+		out = append(out, md)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].FullName() < out[j].FullName() })
+	return out
+}
+
+// removalVerbViolations returns a violation per field across closure whose
+// snake_case name carries a removal verb.
+func removalVerbViolations(closure []protoreflect.MessageDescriptor) []string {
+	var out []string
+	for _, md := range closure {
+		fields := md.Fields()
+		for i := 0; i < fields.Len(); i++ {
+			f := fields.Get(i)
+			name := strings.ToLower(string(f.Name()))
+			for _, verb := range removalVerbs {
+				if strings.Contains(name, verb) {
+					out = append(out, fmt.Sprintf("%s: manifest field name carries removal verb %q — removal-by-omission is the SOLE cleanup authority; the sync-manifest surface has no delete/remove/tombstone/revoke vocabulary (AC-9, [WIRE-26])", f.FullName(), verb))
+				}
+			}
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// TestGuard_ManifestNoRemovalVerbs is the AC-9 schema never-check (plan
+// choice 8): removal-by-omission is the sole cleanup authority, so no field
+// anywhere in the SyncManifest closure carries deletion vocabulary. It is
+// self-discovering with matches-zero protection through the harness
+// (G-000-3): findRegistry demands exactly one SyncManifest, so the ABSENCE
+// of the manifest message FAILS the guard (the never-check has no subject)
+// rather than passing vacuously, and the Discover floor of 4 (manifest +
+// Occurrence + MaintenanceWindow + Intervals) fails if the closure walk
+// stops descending the manifest's message graph.
+func TestGuard_ManifestNoRemovalVerbs(t *testing.T) {
+	closure := Discover(t, "SyncManifest closure messages", 4, func() ([]protoreflect.MessageDescriptor, error) {
+		files := packageFiles(ContractPackage)
+		root, err := findRegistry(files, "SyncManifest")
+		if err != nil {
+			return nil, fmt.Errorf("SyncManifest lookup: %w — the manifest message must exist exactly once for the removal-verb never-check to have a subject (AC-9, [WIRE-26])", err)
+		}
+		return messageClosure(files, root), nil
+	})
+	for _, v := range removalVerbViolations(closure) {
+		t.Errorf("%s", v)
+	}
+}
+
+// TestGuard_ManifestNoRemovalVerbs_Liveness: the fixture plants a top-level
+// removal-verb field (FixtureManifest.removed_ids) and one a closure hop away
+// (FixtureManifestEntry.tombstone_key); the walk must flag exactly those two
+// and leave the clean sibling fields alone — proof the never-check can go red
+// and descends into the manifest closure, not just its top message.
+func TestGuard_ManifestNoRemovalVerbs_Liveness(t *testing.T) {
+	closure := Discover(t, "FixtureManifest closure messages", 2, func() ([]protoreflect.MessageDescriptor, error) {
+		files := packageFiles(fixturePackage)
+		root, err := findRegistry(files, "FixtureManifest")
+		if err != nil {
+			return nil, fmt.Errorf("FixtureManifest lookup: %w", err)
+		}
+		return messageClosure(files, root), nil
+	})
+	got := removalVerbViolations(closure)
+	want := []string{
+		"powermanage.fixture.v1.FixtureManifest.removed_ids",
+		"powermanage.fixture.v1.FixtureManifestEntry.tombstone_key",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("fixture removal-verb violations = %v, want exactly %v — the never-check can no longer go red for the planted shapes", got, want)
+	}
+	for i, w := range want {
+		if !strings.HasPrefix(got[i], w+":") {
+			t.Errorf("violation %d = %q, want it to flag %s", i, got[i], w)
+		}
+	}
+	for _, g := range got {
+		for _, clean := range []string{"occurrence_ids", "assignment_key", "entry"} {
+			if strings.Contains(g, clean) {
+				t.Errorf("guard flagged %q — that field is planted as clean manifest vocabulary", g)
+			}
+		}
+	}
 }

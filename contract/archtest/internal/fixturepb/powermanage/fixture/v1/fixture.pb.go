@@ -887,6 +887,126 @@ func (x *FixtureEnumCarrier) GetTaggedEnum() FixtureGoodEnum {
 	return FixtureGoodEnum_FIXTURE_GOOD_ENUM_UNSPECIFIED
 }
 
+// AC-9 removal-verb never-check liveness (TestGuard_ManifestNoRemovalVerbs):
+// FixtureManifest plants a top-level removal-verb field (removed_ids) beside a
+// clean sibling (occurrence_ids); the closure hop (entry) reaches
+// FixtureManifestEntry, which plants a removal verb one hop deep
+// (tombstone_key) beside a clean sibling (assignment_key). The message is
+// deliberately service-UNREACHABLE, so it never perturbs the G-1 / enum-bounds
+// / registry want-sets — the removal-verb walk finds it by name, not by
+// reachability.
+type FixtureManifest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RemovedIds    []string               `protobuf:"bytes,1,rep,name=removed_ids,json=removedIds,proto3" json:"removed_ids,omitempty"`
+	OccurrenceIds []string               `protobuf:"bytes,2,rep,name=occurrence_ids,json=occurrenceIds,proto3" json:"occurrence_ids,omitempty"`
+	Entry         *FixtureManifestEntry  `protobuf:"bytes,3,opt,name=entry,proto3" json:"entry,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FixtureManifest) Reset() {
+	*x = FixtureManifest{}
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FixtureManifest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FixtureManifest) ProtoMessage() {}
+
+func (x *FixtureManifest) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FixtureManifest.ProtoReflect.Descriptor instead.
+func (*FixtureManifest) Descriptor() ([]byte, []int) {
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *FixtureManifest) GetRemovedIds() []string {
+	if x != nil {
+		return x.RemovedIds
+	}
+	return nil
+}
+
+func (x *FixtureManifest) GetOccurrenceIds() []string {
+	if x != nil {
+		return x.OccurrenceIds
+	}
+	return nil
+}
+
+func (x *FixtureManifest) GetEntry() *FixtureManifestEntry {
+	if x != nil {
+		return x.Entry
+	}
+	return nil
+}
+
+type FixtureManifestEntry struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TombstoneKey  string                 `protobuf:"bytes,1,opt,name=tombstone_key,json=tombstoneKey,proto3" json:"tombstone_key,omitempty"`
+	AssignmentKey string                 `protobuf:"bytes,2,opt,name=assignment_key,json=assignmentKey,proto3" json:"assignment_key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FixtureManifestEntry) Reset() {
+	*x = FixtureManifestEntry{}
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FixtureManifestEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FixtureManifestEntry) ProtoMessage() {}
+
+func (x *FixtureManifestEntry) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FixtureManifestEntry.ProtoReflect.Descriptor instead.
+func (*FixtureManifestEntry) Descriptor() ([]byte, []int) {
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *FixtureManifestEntry) GetTombstoneKey() string {
+	if x != nil {
+		return x.TombstoneKey
+	}
+	return ""
+}
+
+func (x *FixtureManifestEntry) GetAssignmentKey() string {
+	if x != nil {
+		return x.AssignmentKey
+	}
+	return ""
+}
+
 var File_powermanage_fixture_v1_fixture_proto protoreflect.FileDescriptor
 
 const file_powermanage_fixture_v1_fixture_proto_rawDesc = "" +
@@ -936,7 +1056,15 @@ const file_powermanage_fixture_v1_fixture_proto_rawDesc = "" +
 	"\runtagged_enum\x18\x01 \x01(\x0e2'.powermanage.fixture.v1.FixtureGoodEnumB\x06\xbaH\x03\xc8\x01\x01R\funtaggedEnum\x12T\n" +
 	"\vtagged_enum\x18\x02 \x01(\x0e2'.powermanage.fixture.v1.FixtureGoodEnumB\n" +
 	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\n" +
-	"taggedEnum*I\n" +
+	"taggedEnum\"\xc1\x01\n" +
+	"\x0fFixtureManifest\x12-\n" +
+	"\vremoved_ids\x18\x01 \x03(\tB\f\xbaH\t\x92\x01\x06\"\x04r\x02\x10\x01R\n" +
+	"removedIds\x123\n" +
+	"\x0eoccurrence_ids\x18\x02 \x03(\tB\f\xbaH\t\x92\x01\x06\"\x04r\x02\x10\x01R\roccurrenceIds\x12J\n" +
+	"\x05entry\x18\x03 \x01(\v2,.powermanage.fixture.v1.FixtureManifestEntryB\x06\xbaH\x03\xc8\x01\x01R\x05entry\"t\n" +
+	"\x14FixtureManifestEntry\x12,\n" +
+	"\rtombstone_key\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\ftombstoneKey\x12.\n" +
+	"\x0eassignment_key\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\rassignmentKey*I\n" +
 	"\x0eFixtureBadEnum\x12\x1b\n" +
 	"\x17FIXTURE_BAD_ENUM_ACTIVE\x10\x00\x12\x1a\n" +
 	"\x16FIXTURE_BAD_ENUM_OTHER\x10\x01*N\n" +
@@ -959,7 +1087,7 @@ func file_powermanage_fixture_v1_fixture_proto_rawDescGZIP() []byte {
 }
 
 var file_powermanage_fixture_v1_fixture_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_powermanage_fixture_v1_fixture_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_powermanage_fixture_v1_fixture_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_powermanage_fixture_v1_fixture_proto_goTypes = []any{
 	(FixtureBadEnum)(0),            // 0: powermanage.fixture.v1.FixtureBadEnum
 	(FixtureGoodEnum)(0),           // 1: powermanage.fixture.v1.FixtureGoodEnum
@@ -976,31 +1104,34 @@ var file_powermanage_fixture_v1_fixture_proto_goTypes = []any{
 	(*FixtureSecondOneof)(nil),     // 12: powermanage.fixture.v1.FixtureSecondOneof
 	(*FixtureConformingEmbed)(nil), // 13: powermanage.fixture.v1.FixtureConformingEmbed
 	(*FixtureEnumCarrier)(nil),     // 14: powermanage.fixture.v1.FixtureEnumCarrier
-	(*timestamppb.Timestamp)(nil),  // 15: google.protobuf.Timestamp
-	(*wrapperspb.BoolValue)(nil),   // 16: google.protobuf.BoolValue
+	(*FixtureManifest)(nil),        // 15: powermanage.fixture.v1.FixtureManifest
+	(*FixtureManifestEntry)(nil),   // 16: powermanage.fixture.v1.FixtureManifestEntry
+	(*timestamppb.Timestamp)(nil),  // 17: google.protobuf.Timestamp
+	(*wrapperspb.BoolValue)(nil),   // 18: google.protobuf.BoolValue
 }
 var file_powermanage_fixture_v1_fixture_proto_depIdxs = []int32{
 	3,  // 0: powermanage.fixture.v1.FixtureRequest.nested:type_name -> powermanage.fixture.v1.NestedParams
-	15, // 1: powermanage.fixture.v1.FixtureRequest.stamped_at:type_name -> google.protobuf.Timestamp
+	17, // 1: powermanage.fixture.v1.FixtureRequest.stamped_at:type_name -> google.protobuf.Timestamp
 	14, // 2: powermanage.fixture.v1.FixtureRequest.enum_carrier:type_name -> powermanage.fixture.v1.FixtureEnumCarrier
 	7,  // 3: powermanage.fixture.v1.FixtureActionParams.a:type_name -> powermanage.fixture.v1.FixtureAParams
 	8,  // 4: powermanage.fixture.v1.FixtureActionParams.b:type_name -> powermanage.fixture.v1.FixtureBParams
 	9,  // 5: powermanage.fixture.v1.FixtureActionParams.c:type_name -> powermanage.fixture.v1.FixtureBoolParams
 	10, // 6: powermanage.fixture.v1.FixtureActionParams.d:type_name -> powermanage.fixture.v1.FixtureOptBoolParams
-	16, // 7: powermanage.fixture.v1.FixtureBParams.wrapped:type_name -> google.protobuf.BoolValue
+	18, // 7: powermanage.fixture.v1.FixtureBParams.wrapped:type_name -> google.protobuf.BoolValue
 	7,  // 8: powermanage.fixture.v1.FixtureDirectEmbed.direct:type_name -> powermanage.fixture.v1.FixtureAParams
 	7,  // 9: powermanage.fixture.v1.FixtureSecondOneof.a2:type_name -> powermanage.fixture.v1.FixtureAParams
 	8,  // 10: powermanage.fixture.v1.FixtureSecondOneof.b2:type_name -> powermanage.fixture.v1.FixtureBParams
 	6,  // 11: powermanage.fixture.v1.FixtureConformingEmbed.params:type_name -> powermanage.fixture.v1.FixtureActionParams
 	1,  // 12: powermanage.fixture.v1.FixtureEnumCarrier.untagged_enum:type_name -> powermanage.fixture.v1.FixtureGoodEnum
 	1,  // 13: powermanage.fixture.v1.FixtureEnumCarrier.tagged_enum:type_name -> powermanage.fixture.v1.FixtureGoodEnum
-	2,  // 14: powermanage.fixture.v1.FixtureService.Do:input_type -> powermanage.fixture.v1.FixtureRequest
-	4,  // 15: powermanage.fixture.v1.FixtureService.Do:output_type -> powermanage.fixture.v1.FixtureResponse
-	15, // [15:16] is the sub-list for method output_type
-	14, // [14:15] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	16, // 14: powermanage.fixture.v1.FixtureManifest.entry:type_name -> powermanage.fixture.v1.FixtureManifestEntry
+	2,  // 15: powermanage.fixture.v1.FixtureService.Do:input_type -> powermanage.fixture.v1.FixtureRequest
+	4,  // 16: powermanage.fixture.v1.FixtureService.Do:output_type -> powermanage.fixture.v1.FixtureResponse
+	16, // [16:17] is the sub-list for method output_type
+	15, // [15:16] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_powermanage_fixture_v1_fixture_proto_init() }
@@ -1027,7 +1158,7 @@ func file_powermanage_fixture_v1_fixture_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_powermanage_fixture_v1_fixture_proto_rawDesc), len(file_powermanage_fixture_v1_fixture_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   13,
+			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
