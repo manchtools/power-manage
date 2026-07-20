@@ -95,25 +95,40 @@ from the matrix below. Delta only; the spec is authoritative.
 
 ## Files
 
-- `sdk/fsafe/fsafe.go` — package doc, errors, WriteOptions/
-  MkdirOptions, Manager, New, runner plumbing, validateMode/modeArg,
-  ValidatePath, Ownership (choices 5, 6).
-- `sdk/fsafe/safe_fd_unix.go` — OpenRealDir, FchownNoFollow,
-  SetDirPermissionsNoFollow, ResolveOwnership (choice 4).
-- `sdk/fsafe/replace.go` — replaceFileFrom (streaming), backup-and-
-  replace, safeRename (renameat2 linux / fallback other) (choices 2, 4).
-- `sdk/fsafe/write.go` — WriteFile/WriteFileFrom direct + escalated
-  paths, escalated write script (choices 2, 5).
-- `sdk/fsafe/protected.go` — prefix roots, exact top-ups,
-  IsProtectedPath, IsUnderProtectedPrefix,
-  ResolvesUnderProtectedPrefix (choice 3).
-- `sdk/fsafe/resolve.go` — ResolveAndValidatePath port (choice 3).
-- `sdk/fsafe/dir.go`, `remove_dir_unix.go`, `escalated_parent_unix.go`,
-  `read.go`, `readdir.go`, `ownership_unix.go` — ports (choices 4–6).
-- `sdk/fetch/fetch.go` — guardAddr, client construction, redirect
-  policy, Fetch (choice 7).
+Actual shipped inventory (the layout below diverged from the pre-implementation
+sketch; it is the source of truth):
+
+- `sdk/fsafe/fsafe.go` — package doc, sentinels, WriteOptions/
+  MkdirOptions, DirEntry (choices 5, 6).
+- `sdk/fsafe/validate.go` — ValidatePath, validateMode, modeArg, Ownership,
+  ResolveAndValidatePath, ResolveOwnership (choices 3, 5, 6).
+- `sdk/fsafe/safefd_linux.go` — OpenRealDir, FchownNoFollow,
+  SetDirPermissionsNoFollow (choice 4).
+- `sdk/fsafe/syscall_linux.go` — renameat2 / unlinkatFlags raw wrappers +
+  AT_*/RENAME_NOREPLACE consts (choice 8a, no x/sys).
+- `sdk/fsafe/sysnum_amd64.go`, `sysnum_arm64.go` — per-arch sysRenameat2
+  number (choice 8a).
+- `sdk/fsafe/replace_linux.go` — replaceFileFrom (streaming), safeRename
+  (RENAME_NOREPLACE with ENOSYS/EINVAL Lstat fallback) (choices 2, 4).
+- `sdk/fsafe/removedir_linux.go` — openNoFollowChain, removeDirSecure,
+  removeAtRecursive (openat-as-type-probe) (choice 4).
+- `sdk/fsafe/protected.go` — protectedExact, protectedPrefixes,
+  IsProtectedPath, IsUnderProtectedPrefix, ResolvesUnderProtectedPrefix
+  (choice 3).
+- `sdk/fsafe/manager_linux.go` — Manager, New, WriteFile/WriteFileFrom,
+  ReadFile, Exists, ReadDir, Mkdir, RemoveDir, Remove, SetMode,
+  SetOwnership(Recursive), Copy, CopyTree, direct + escalated tiers,
+  escalated single-root-shell write script, escalatedParentSafe
+  (choices 2, 4, 5, 6).
+- `sdk/fetch/fetch.go` — checkAddr/guardAddr, client construction,
+  redirect policy, safeURL redaction, Fetch (choice 7).
 - `sdk/guardtest/imports.go` — sdk floor 6 → 8 (choice 8).
-- `docs/content/01-specs/00-index.md` — ledger line.
+- `sdk/guardtest/sdkcore.go` — G-5 file-keyed hashImportAllow map +
+  hashAllowOrphans orphan check (choice 8b).
+- `sdk/guardtest/sdkcore_test.go` (+ `testdata/sdkcore/hashfilekey`,
+  `hashorphan` fixtures) — file-key-narrowness and orphan-exemption
+  liveness rows (choice 8b).
+- `docs/content/01-specs/00-index.md` — ledger line + status row.
 
 ## Test matrix (red-first; port names where the estate ports)
 

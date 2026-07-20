@@ -106,10 +106,18 @@ func (m Manager) WriteFileFrom(ctx context.Context, path string, src io.Reader, 
 	}
 	var backup string
 	if opts.Backup != "" {
-		if backup, err = ResolveAndValidatePath(opts.Backup); err != nil {
+		// Deliberately NOT ResolveAndValidatePath: the backup is a create, and
+		// resolving would FOLLOW a planted final symlink (backup -> /etc/shadow)
+		// before the write ever ran. Keep the literal path — its parent safety
+		// (escalated) and no-follow atomic replace (direct) are what protect it.
+		if err := ValidatePath(opts.Backup); err != nil {
 			return err
 		}
-		if backup == resolved {
+		if !filepath.IsAbs(opts.Backup) {
+			return fmt.Errorf("%w: backup %q is not absolute", ErrInvalidPath, opts.Backup)
+		}
+		backup = filepath.Clean(opts.Backup)
+		if backup == resolved || backup == filepath.Clean(path) {
 			return fmt.Errorf("%w: backup path equals the target", ErrInvalidPath)
 		}
 	}
@@ -121,14 +129,20 @@ func (m Manager) WriteFileFrom(ctx context.Context, path string, src io.Reader, 
 
 func (m Manager) writeFileFromDirect(resolved string, src io.Reader, mode os.FileMode, opts WriteOptions, backup string) error {
 	if backup != "" {
-		prev, err := os.ReadFile(resolved)
+		// Stream the existing target fd->temp->backup (bounded memory, AC-12):
+		// open no-follow read-only, preserve its mode, and let replaceFileFrom's
+		// no-follow atomic swap write the backup — a planted symlink at the
+		// backup path is replaced, never followed.
+		f, err := os.OpenFile(resolved, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_CLOEXEC, 0)
 		switch {
 		case err == nil:
 			bmode := mode
-			if info, ierr := os.Stat(resolved); ierr == nil {
+			if info, ierr := f.Stat(); ierr == nil {
 				bmode = info.Mode().Perm()
 			}
-			if berr := replaceFileFrom(backup, bytes.NewReader(prev), bmode, true); berr != nil {
+			berr := replaceFileFrom(backup, f, bmode, true)
+			_ = f.Close() // read-only fd
+			if berr != nil {
 				return fmt.Errorf("backup %s: %w", resolved, berr)
 			}
 		case errors.Is(err, fs.ErrNotExist):
@@ -162,8 +176,16 @@ mode=$2
 owner=$3
 backup=$4
 dir=$(dirname -- "$target")
-if [ -n "$backup" ] && [ -e "$target" ]; then
-  cp -p -- "$target" "$backup"
+if [ -n "$backup" ]; then
+  # Defense in depth (the parent is already vetted root-owned in Go): never
+  # let cp follow a symlink planted at the backup path into a root file.
+  if [ -L "$backup" ]; then
+    echo "fsafe: backup path is a symlink, refusing" >&2
+    exit 1
+  fi
+  if [ -e "$target" ]; then
+    cp -p -- "$target" "$backup"
+  fi
 fi
 tmp=$(mktemp "$dir/.pm-XXXXXXXXXX")
 trap 'rm -f -- "$tmp"' EXIT
@@ -178,6 +200,15 @@ mv -T -- "$tmp" "$target"
 func (m Manager) writeFileFromEscalated(ctx context.Context, resolved string, src io.Reader, mode os.FileMode, opts WriteOptions, backup string) error {
 	if err := escalatedParentSafe(filepath.Dir(resolved)); err != nil {
 		return err
+	}
+	// [SDK-7]: parent-dir safety before EVERY mutation. The backup write is a
+	// mutation too — its parent must be root-owned and non-writable so an
+	// attacker cannot plant or swap a symlink there for the escalated cp to
+	// follow into an arbitrary root file.
+	if backup != "" {
+		if err := escalatedParentSafe(filepath.Dir(backup)); err != nil {
+			return err
+		}
 	}
 	res, err := m.r.Run(ctx, pmexec.Command{
 		Name:     "sh",
@@ -231,8 +262,11 @@ func (m Manager) ReadDir(ctx context.Context, path string) ([]DirEntry, error) {
 		return out, nil
 	}
 	// The trailing slash is load-bearing: it makes find fail on a
-	// non-directory instead of listing the file itself.
-	res, err := m.run(ctx, "find", resolved+"/", "-maxdepth", "1", "-mindepth", "1", "-printf", "%y/%f\n")
+	// non-directory instead of listing the file itself. Records are
+	// NUL-delimited (not newline): a basename can contain any byte except '/'
+	// and NUL, so a filename with an embedded newline cannot spoof a phantom
+	// entry.
+	res, err := m.run(ctx, "find", resolved+"/", "-maxdepth", "1", "-mindepth", "1", "-printf", "%y/%f\x00")
 	if err != nil {
 		return nil, err
 	}
@@ -243,16 +277,16 @@ func (m Manager) ReadDir(ctx context.Context, path string) ([]DirEntry, error) {
 		return nil, cmdErr("find", res)
 	}
 	var out []DirEntry
-	for _, line := range strings.Split(res.Stdout, "\n") {
-		if line == "" {
+	for _, rec := range strings.Split(res.Stdout, "\x00") {
+		if rec == "" {
 			continue
 		}
-		// %y/%f: one type character, '/', then the name (names may contain '/'
-		// never, but may contain anything else — split on the FIRST slash).
-		if len(line) < 2 || line[1] != '/' {
-			return nil, fmt.Errorf("read dir %s: unparseable find output line %q", path, line)
+		// %y/%f: one type character, '/', then the basename (which never
+		// contains '/') — split on the first slash.
+		if len(rec) < 2 || rec[1] != '/' {
+			return nil, fmt.Errorf("read dir %s: unparseable find output record %q", path, rec)
 		}
-		out = append(out, DirEntry{Name: line[2:], IsDir: line[0] == 'd'})
+		out = append(out, DirEntry{Name: rec[2:], IsDir: rec[0] == 'd'})
 	}
 	return out, nil
 }
@@ -303,7 +337,15 @@ func (m Manager) Mkdir(ctx context.Context, path string, opts MkdirOptions) erro
 	if IsUnderProtectedPrefix(resolved) {
 		return fmt.Errorf("%w: mkdir %s", ErrProtectedTarget, path)
 	}
+	// Fold the mode into the create (`mkdir -m`) so the new directory never
+	// exists with a laxer umask-derived mode in a window between two escalated
+	// calls. Ownership stays a following chown — the residual window has the
+	// dir owned by root (the escalated uid), which is more restrictive than
+	// the target owner, so it is fail-safe, not a downgrade.
 	args := []string{"--", resolved}
+	if opts.Mode != 0 {
+		args = append([]string{"-m", modeArg(opts.Mode)}, args...)
+	}
 	if opts.Recursive {
 		args = append([]string{"-p"}, args...)
 	}
@@ -313,11 +355,6 @@ func (m Manager) Mkdir(ctx context.Context, path string, opts MkdirOptions) erro
 	}
 	if res.ExitCode != 0 {
 		return cmdErr("mkdir", res)
-	}
-	if opts.Mode != 0 {
-		if err := m.SetMode(ctx, resolved, opts.Mode); err != nil {
-			return err
-		}
 	}
 	if opts.Owner != "" || opts.Group != "" {
 		return m.SetOwnership(ctx, resolved, opts.Owner, opts.Group)
@@ -403,15 +440,24 @@ func (m Manager) Copy(ctx context.Context, src, dst string) error {
 }
 
 // CopyTree copies a directory tree (cp -a -T: preserve, no nested-dir
-// surprise when dst exists). Same recorded ceiling as Copy.
+// surprise when dst exists). A tree copy CREATES a subtree at dst — the
+// create side of [SDK-8] — so a protected-prefix destination is refused, with
+// symlink resolution part of the check (like Mkdir). Single-file Copy is
+// deliberately NOT guarded: it is governed by higher-layer policy, in parity
+// with WriteFile whose purpose is writing single config files under /etc.
+// Recorded ceiling: shells cp on all backends.
 func (m Manager) CopyTree(ctx context.Context, src, dst string) error {
 	if err := ValidatePath(src); err != nil {
 		return err
 	}
-	if err := ValidatePath(dst); err != nil {
+	resolvedDst, err := ResolveAndValidatePath(dst)
+	if err != nil {
 		return err
 	}
-	res, err := m.run(ctx, "cp", "-a", "-T", "--", src, dst)
+	if IsUnderProtectedPrefix(resolvedDst) {
+		return fmt.Errorf("%w: copy tree to %s", ErrProtectedTarget, dst)
+	}
+	res, err := m.run(ctx, "cp", "-a", "-T", "--", src, resolvedDst)
 	if err != nil {
 		return err
 	}

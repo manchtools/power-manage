@@ -31,6 +31,18 @@ var (
 // maxRedirectHops is the AG-13a redirect ceiling.
 const maxRedirectHops = 10
 
+// safeURL strips the query, fragment, and userinfo from a URL so it can
+// appear in an error without leaking a presigned signature (`?X-Amz-Signature=…`,
+// `?token=…`) or embedded credential — the "no secrets in errors/URLs" rule.
+// An unparseable URL yields a constant, never the raw string.
+func safeURL(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "<unparseable url>"
+	}
+	return u.Scheme + "://" + u.Host + u.Path
+}
+
 // Options parameterises Fetch.
 type Options struct {
 	// MaxBytes bounds the response body. Mandatory — a zero or negative bound
@@ -79,11 +91,17 @@ var rootCAs *x509.CertPool
 // — the caller must treat dst as unverified until Fetch returns nil.
 func Fetch(ctx context.Context, rawURL string, dst io.Writer, opts Options) error {
 	if opts.MaxBytes <= 0 {
-		return fmt.Errorf("fetch %s: MaxBytes is required — an unbounded download is refused", rawURL)
+		return fmt.Errorf("fetch %s: MaxBytes is required — an unbounded download is refused", safeURL(rawURL))
 	}
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		return fmt.Errorf("fetch: parse URL: %w", err)
+		// A *url.Error embeds the raw URL (query and all); wrap only its
+		// underlying reason so a malformed secret-bearing URL doesn't leak.
+		var uerr *url.Error
+		if errors.As(err, &uerr) {
+			return fmt.Errorf("fetch: parse URL: %w", uerr.Err)
+		}
+		return fmt.Errorf("fetch: parse URL failed")
 	}
 	if u.Scheme != "https" {
 		return fmt.Errorf("%w: scheme %q", ErrInsecureScheme, u.Scheme)
@@ -119,11 +137,20 @@ func Fetch(ctx context.Context, rawURL string, dst io.Writer, opts Options) erro
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("fetch %s: %w", rawURL, err)
+		// client.Do returns a *url.Error carrying the request URL (query and
+		// all); wrap only its underlying cause so a presigned URL never lands
+		// in the error. errors.Is still traverses to the guard sentinels
+		// (ErrDisallowedAddress/ErrInsecureScheme/ErrTooManyRedirects), which
+		// carry no URL.
+		var uerr *url.Error
+		if errors.As(err, &uerr) {
+			return fmt.Errorf("fetch %s: %s: %w", safeURL(rawURL), uerr.Op, uerr.Err)
+		}
+		return fmt.Errorf("fetch %s: %w", safeURL(rawURL), err)
 	}
 	defer func() { _ = resp.Body.Close() }() // GET body close cannot lose data
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("fetch %s: unexpected status %s", rawURL, resp.Status)
+		return fmt.Errorf("fetch %s: unexpected status %s", safeURL(rawURL), resp.Status)
 	}
 
 	hasher := sha256.New()
@@ -135,7 +162,7 @@ func Fetch(ctx context.Context, rawURL string, dst io.Writer, opts Options) erro
 	// over-limit without ever buffering the body.
 	n, err := io.Copy(out, io.LimitReader(resp.Body, opts.MaxBytes+1))
 	if err != nil {
-		return fmt.Errorf("fetch %s: read body: %w", rawURL, err)
+		return fmt.Errorf("fetch %s: read body: %w", safeURL(rawURL), err)
 	}
 	if n > opts.MaxBytes {
 		return fmt.Errorf("%w: body exceeds %d bytes", ErrSizeExceeded, opts.MaxBytes)

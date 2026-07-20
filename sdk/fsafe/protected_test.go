@@ -107,3 +107,24 @@ func TestResolvesUnderProtectedPrefix_SymlinkIntoEtc(t *testing.T) {
 		t.Error("a plain temp path read as protected")
 	}
 }
+
+// [SDK-8] fail-closed: when the ancestor chain cannot be resolved (here a path
+// component is a regular file, so traversal hits ENOTDIR), the predicate
+// reports (true, err) — an unresolvable path is treated as protected, never
+// silently allowed through the deny-by-default subtree guard.
+func TestResolvesUnderProtectedPrefix_ResolutionFailureFailsClosed(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "notadir")
+	if err := os.WriteFile(file, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// A component of the queried path is a regular file, so resolving the
+	// ancestor chain fails with ENOTDIR rather than "does not exist".
+	under, err := ResolvesUnderProtectedPrefix(filepath.Join(file, "sub", "child"))
+	if err == nil {
+		t.Fatal("expected a resolution error for a path traversing a regular file")
+	}
+	if !under {
+		t.Error("resolution failure did not fail closed: want under=true")
+	}
+}

@@ -107,6 +107,23 @@ func TestManager_WriteFile_Escalated_UnsafeParentRefusedBeforeSudo(t *testing.T)
 	mustCalls(t, fr, 0)
 }
 
+// The backup destination is a mutation too ([SDK-7]: parent-dir safety
+// before EVERY mutation). If only the target's parent is vetted, an attacker
+// who controls the backup path's parent can plant a symlink at the backup so
+// the escalated `cp` overwrites an arbitrary root file. The backup's parent
+// must pass the same unprivileged root-owned check — before any sudo.
+func TestManager_WriteFile_Escalated_UnsafeBackupParentRefused(t *testing.T) {
+	fr, m := newEscalatedManager(t)
+	attackerDir := t.TempDir() // owned by the test user, not root
+	err := m.WriteFile(context.Background(), "/etc/pm-test.conf", []byte("x"), WriteOptions{
+		Backup: filepath.Join(attackerDir, "planted.bak"),
+	})
+	if !errors.Is(err, ErrUnsafeParentDir) {
+		t.Fatalf("err = %v, want ErrUnsafeParentDir for an attacker-controlled backup parent", err)
+	}
+	mustCalls(t, fr, 0)
+}
+
 func TestManager_WriteFile_Escalated_SetuidRefusedBeforeSudo(t *testing.T) {
 	fr, m := newEscalatedManager(t)
 	err := m.WriteFile(context.Background(), "/etc/pm-test.conf", []byte("x"), WriteOptions{Mode: 0o755 | os.ModeSetuid})
@@ -166,18 +183,20 @@ func TestManager_ReadFile_Escalated_EmptyIsNilNil(t *testing.T) {
 	}
 }
 
-// ReadDir shells `find <path>/ -maxdepth 1 -mindepth 1 -printf '%y/%f\n'`.
+// ReadDir shells `find <path>/ -maxdepth 1 -mindepth 1 -printf '%y/%f\0'`.
 // The trailing slash is load-bearing: it makes find fail on a non-directory
-// instead of listing the file itself.
+// instead of listing the file itself. The record delimiter is NUL, not
+// newline, so a filename containing a newline cannot spoof a phantom entry
+// (a basename can contain any byte except '/' and NUL).
 func TestManager_ReadDir_Escalated(t *testing.T) {
 	fr, m := newEscalatedManager(t)
-	fr.Push(pmexec.Result{ExitCode: 0, Stdout: "d/sub\nf/file.txt\nl/link\n"}, nil)
+	fr.Push(pmexec.Result{ExitCode: 0, Stdout: "d/sub\x00f/file.txt\x00l/link\x00"}, nil)
 	entries, err := m.ReadDir(context.Background(), "/etc/app.d")
 	if err != nil {
 		t.Fatalf("ReadDir: %v", err)
 	}
 	c := mustCalls(t, fr, 1)[0]
-	if c.Name != "find" || !slices.Equal(c.Args, []string{"/etc/app.d/", "-maxdepth", "1", "-mindepth", "1", "-printf", "%y/%f\n"}) {
+	if c.Name != "find" || !slices.Equal(c.Args, []string{"/etc/app.d/", "-maxdepth", "1", "-mindepth", "1", "-printf", "%y/%f\x00"}) {
 		t.Errorf("argv = %s %q", c.Name, c.Args)
 	}
 	byName := map[string]bool{}
@@ -189,6 +208,30 @@ func TestManager_ReadDir_Escalated(t *testing.T) {
 	}
 	if !byName["sub"] || byName["file.txt"] || byName["link"] {
 		t.Errorf("type parse wrong: %+v (want sub=dir, file.txt+link=non-dir)", entries)
+	}
+}
+
+// A filename containing a newline yields exactly one entry — no phantom
+// split — because records are NUL-delimited.
+func TestManager_ReadDir_Escalated_NewlineInNameNoSpoof(t *testing.T) {
+	fr, m := newEscalatedManager(t)
+	fr.Push(pmexec.Result{ExitCode: 0, Stdout: "f/weird\nd\x00d/real\x00"}, nil)
+	entries, err := m.ReadDir(context.Background(), "/etc/app.d")
+	if err != nil {
+		t.Fatalf("ReadDir: %v", err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("entries = %+v, want exactly 2 (no phantom from the embedded newline)", entries)
+	}
+	byName := map[string]bool{}
+	for _, e := range entries {
+		byName[e.Name] = e.IsDir
+	}
+	if byName["weird\nd"] {
+		t.Error("newline-bearing name misreported as a directory")
+	}
+	if !byName["real"] {
+		t.Error("the real directory entry was lost")
 	}
 }
 
@@ -229,21 +272,23 @@ func TestManager_Exists_Escalated(t *testing.T) {
 	}
 }
 
+// Mode is folded into the create (`mkdir -m`) so the directory never exists
+// with a laxer umask-derived mode between two escalated calls. Ownership
+// stays a following chown — the residual window has the dir owned by root
+// (the escalated uid), which is MORE restrictive than the target owner, so
+// it is fail-safe, not a downgrade.
 func TestManager_Mkdir_Escalated_ArgvSequence(t *testing.T) {
 	fr, m := newEscalatedManager(t)
 	err := m.Mkdir(context.Background(), "/srv/app/data", MkdirOptions{Recursive: true, Mode: 0o750, Owner: "root", Group: "root"})
 	if err != nil {
 		t.Fatalf("Mkdir: %v", err)
 	}
-	calls := mustCalls(t, fr, 3)
-	if calls[0].Name != "mkdir" || !slices.Equal(calls[0].Args, []string{"-p", "--", "/srv/app/data"}) {
-		t.Errorf("call 0 = %s %q, want mkdir [-p -- path]", calls[0].Name, calls[0].Args)
+	calls := mustCalls(t, fr, 2)
+	if calls[0].Name != "mkdir" || !slices.Equal(calls[0].Args, []string{"-p", "-m", "0750", "--", "/srv/app/data"}) {
+		t.Errorf("call 0 = %s %q, want mkdir [-p -m 0750 -- path] (mode set atomically at create)", calls[0].Name, calls[0].Args)
 	}
-	if calls[1].Name != "chmod" || !slices.Equal(calls[1].Args, []string{"0750", "--", "/srv/app/data"}) {
-		t.Errorf("call 1 = %s %q, want chmod [0750 -- path]", calls[1].Name, calls[1].Args)
-	}
-	if calls[2].Name != "chown" || !slices.Equal(calls[2].Args, []string{"root:root", "--", "/srv/app/data"}) {
-		t.Errorf("call 2 = %s %q, want chown [root:root -- path]", calls[2].Name, calls[2].Args)
+	if calls[1].Name != "chown" || !slices.Equal(calls[1].Args, []string{"root:root", "--", "/srv/app/data"}) {
+		t.Errorf("call 1 = %s %q, want chown [root:root -- path]", calls[1].Name, calls[1].Args)
 	}
 	for i, c := range calls {
 		if !c.Escalate {
@@ -364,6 +409,32 @@ func TestManager_CopyTree_Escalated(t *testing.T) {
 	if c.Name != "cp" || !slices.Equal(c.Args, []string{"-a", "-T", "--", "/srv/app", "/srv/app.bak"}) {
 		t.Errorf("argv = %s %q, want cp [-a -T -- src dst]", c.Name, c.Args)
 	}
+}
+
+// CopyTree CREATES a subtree at dst — the create side of [SDK-8]. A tree copy
+// into a protected prefix is refused before any command, exactly like Mkdir.
+// (Copy, a single-file op, stays unguarded — consistent with WriteFile, whose
+// whole purpose is writing single config files under /etc.)
+func TestManager_CopyTree_Escalated_RefusesProtectedDest(t *testing.T) {
+	fr, m := newEscalatedManager(t)
+	for _, dst := range []string{"/etc/cron.d/evil", "/usr/lib/pm-test", "/home/alice/pm-test", "/var/lib/pm-test"} {
+		if err := m.CopyTree(context.Background(), "/srv/src", dst); !errors.Is(err, ErrProtectedTarget) {
+			t.Errorf("CopyTree(dst=%q) = %v, want ErrProtectedTarget", dst, err)
+		}
+	}
+	mustCalls(t, fr, 0)
+}
+
+// Copy to a single file under /etc succeeds — the single-file path is
+// governed by higher-layer policy, not the subtree guard (parity with
+// WriteFile). This pins the deliberate asymmetry so a later change can't
+// silently start refusing legitimate config copies.
+func TestManager_Copy_Escalated_AllowsSingleFileUnderEtc(t *testing.T) {
+	fr, m := newEscalatedManager(t)
+	if err := m.Copy(context.Background(), "/etc/app.conf", "/etc/app.conf.new"); err != nil {
+		t.Fatalf("Copy under /etc refused, want allowed (parity with WriteFile): %v", err)
+	}
+	mustCalls(t, fr, 1)
 }
 
 // WriteFileFrom on an escalated backend still streams via stdin — the shape

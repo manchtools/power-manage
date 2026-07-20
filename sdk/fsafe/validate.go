@@ -107,6 +107,11 @@ func ResolveOwnership(owner, group string) (int, int, error) {
 				return -1, -1, fmt.Errorf("resolve owner %q: non-numeric uid %q", owner, u.Uid)
 			}
 		}
+		if n < 0 {
+			// Only an EMPTY owner means "leave unchanged"; a negative numeric
+			// id must not silently become the -1 no-op sentinel.
+			return -1, -1, fmt.Errorf("resolve owner %q: negative uid", owner)
+		}
 		uid = n
 	}
 	gid := -1
@@ -120,6 +125,9 @@ func ResolveOwnership(owner, group string) (int, int, error) {
 			if n, err = strconv.Atoi(g.Gid); err != nil {
 				return -1, -1, fmt.Errorf("resolve group %q: non-numeric gid %q", group, g.Gid)
 			}
+		}
+		if n < 0 {
+			return -1, -1, fmt.Errorf("resolve group %q: negative gid", group)
 		}
 		gid = n
 	}

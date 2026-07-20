@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -119,8 +120,9 @@ func TestGuard_RegexChokepoint_Liveness(t *testing.T) {
 // the crypto package path, so no hash/MAC surface can grow outside the
 // package the M5 guard will walk. Per-construction lp/domain-helper
 // enforcement INSIDE sdk/crypto is the M5 extension — extend there, never
-// weaken this ban (plan choice 5). The single file-keyed exception is
-// recorded with its rationale and M5 sunset at hashImportAllow.
+// weaken this ban. The one per-path file-keyed exception (crypto/sha256 in
+// fetch/fetch.go) and its M5 sunset are documented at hashImportAllow (plan
+// 8b); an orphaned exemption fails this guard.
 func TestGuard_PreimageFraming(t *testing.T) {
 	root := sdkRoot(t)
 	Discover(t, "sdk Go files", 1, func() ([]string, error) {
@@ -132,6 +134,13 @@ func TestGuard_PreimageFraming(t *testing.T) {
 	}
 	for _, s := range v {
 		t.Errorf("%s — SDK-13: hash/MAC constructions live in sdk/crypto behind the length-prefix/domain helper; move the construction there", s)
+	}
+	orphans, err := hashAllowOrphans(root)
+	if err != nil {
+		t.Fatalf("checking hashImportAllow for orphans: %v", err)
+	}
+	for _, s := range orphans {
+		t.Errorf("%s", s)
 	}
 }
 
@@ -147,6 +156,42 @@ func TestGuard_PreimageFraming_Liveness(t *testing.T) {
 	requireFlagged(t, v,
 		[]string{"bad.go:3", "mac_bad.go:4", "mac_bad.go:5"},
 		[]string{"clean.go", "crypto/inpkg.go"})
+}
+
+// TestGuard_PreimageFraming_FileKeyNarrowness: the per-path file-keyed
+// exemption (crypto/sha256 in fetch/fetch.go) does NOT leak to a same-package
+// sibling — a second hash import in fetch/sibling.go still trips. This is the
+// narrowness plan 8b claims; here it is pinned by a fixture, not a one-off
+// manual red-check.
+func TestGuard_PreimageFraming_FileKeyNarrowness(t *testing.T) {
+	RequireViolation(t, "file-keyed exemption leaks to sibling", hashImportViolations, "testdata/sdkcore/hashfilekey")
+	v, err := hashImportViolations("testdata/sdkcore/hashfilekey")
+	if err != nil {
+		t.Fatalf("scanning the hashfilekey fixture: %v", err)
+	}
+	requireFlagged(t, v,
+		[]string{"fetch/sibling.go:3"},
+		[]string{"fetch/fetch.go"})
+}
+
+// TestGuard_PreimageFraming_OrphanExemption: a file-keyed exemption whose
+// file no longer imports the exempted path is flagged — so the M5 sunset
+// cannot be forgotten into a silent hash-surface widening.
+func TestGuard_PreimageFraming_OrphanExemption(t *testing.T) {
+	RequireViolation(t, "orphaned hash exemption", hashAllowOrphans, "testdata/sdkcore/hashorphan")
+	v, err := hashAllowOrphans("testdata/sdkcore/hashorphan")
+	if err != nil {
+		t.Fatalf("scanning the hashorphan fixture: %v", err)
+	}
+	found := false
+	for _, s := range v {
+		if strings.Contains(s, "orphaned") && strings.Contains(s, "fetch/fetch.go") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("stale file-keyed exemption not flagged as orphaned: %v", v)
+	}
 }
 
 // TestGuard_SealAADSurface is SPEC-004 G-6 ([SDK-13]): every exported
