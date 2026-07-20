@@ -81,32 +81,36 @@ SPEC-003 to Implemented.
    binding the gateway needs to bridge (GW-7); control enforces the
    [WIRE-19] connection-set check before answering (rejection row:
    device-scoped unary not matching caller's set → denied).
-8. **No sealed-credential-proxying RPC is minted.** SPEC-015 allocates
-   every secret flow to existing carriage: escrow rides the signed result
-   path (SEC-5), inline action-field secrets ride `PushCommand`'s sealed
-   command payload (SEC-11), admin retrieval is B1-only (SEC-2). §3.2's
-   "sealed credential proxying" names the [WIRE-24] property of any
-   gateway-proxied secret op, not a defined RPC; minting one with no
-   spec'd consumer is dead contract surface (the [WIRE-4] principle).
-   Open question filed (see issue).
-9. **ScimService / ExportService surfaces = declarations + recorded
-   ownership.** Neither SPEC-007 (AUTH-7: SCIM v2 users/groups/discovery,
-   HTTPS + bearer, SCIM-JSON media type) nor SPEC-016 (OPS-2: the
-   exporter binary speaks standard OTLP) defines contract RPCs, exactly
-   as [WIRE-11] leaves ControlService's ~20 domains to SPEC-009. The M1
-   service declarations with their doc comments ARE the M5 surface; RPC
-   shapes land with the owning specs' implementation sessions. Open
-   question filed for the SCIM proto-vs-passthrough encoding (latent
-   [WIRE-10] tension) and the ExportService shape.
-10. **Result-type set stays grammar-open; G-5 stays command-only.** The
-    specs never enumerate the `power-manage:result:<type>:v1` token set
-    (unlike command_type, SPEC-003 §3.4) and the escrow-report domain
-    question is open — filed as a GitHub issue. The M4 ceiling
-    (docs/plans/spec-003-m4.md) is updated to cite the issue instead of
-    promising closure here. G-5 gains its `Guards: INV-5.` registration
-    line (owed since the conformance harness landed).
+8. **No sealed-credential-proxying RPC is minted** — confirmed by the
+   amended §3.2 (operator commit e9b8c29, resolving issue #18):
+   InternalService has exactly ONE unary op, terminal token validation.
+   Every defined secret flow has other carriage (escrow → signed results,
+   SEC-5; inline action-field secrets → sealed command payloads, SEC-11;
+   admin retrieval → B1 only, SEC-2); a future secret-bearing op needs
+   its owning spec first.
+9. **scim.proto and export.proto are DELETED** (amended §3.2, e9b8c29):
+   four proto services; SCIM v2 is `application/scim+json` by RFC and the
+   exporter speaks standard OTLP — both non-proto boundaries, and an
+   empty proto declaration is dead surface ([WIRE-4]). Service-surface
+   guard want-set 6 → 4; their generated Go/TS output is removed by
+   regeneration.
+10. **Result-type set is CLOSED ([WIRE-20a], e9b8c29)**: exactly
+    {execution, compliance, inventory, alert, osquery, logquery}. Six
+    `*SignatureDomain` constants land in contract/sign
+    (`ExecutionResultSignatureDomain` … `LogqueryResultSignatureDomain`,
+    values by the [WIRE-20a] formula); `ResultDomain` rejects non-member
+    tokens as structured errors (grammar gate stays as defense in depth);
+    escrow mints no tokens (the sealing info string binds the secret).
+    G-5 extends: ScanSignatureDomains floor 8 → 14, exact count 14,
+    catalog = both formula families, families disjoint, result-side
+    pairwise isolation via result_type flip mirroring the command matrix,
+    duplicate detection across both. The M4 ceiling in
+    docs/plans/spec-003-m4.md is resolved by [WIRE-20a] (note updated).
+    G-5 gains its `Guards: INV-5.` registration line (owed since the
+    conformance harness landed).
 11. **G-7 deny-list guard** (`TestGuard_DenyList`, archtest). Population:
-    every contract proto file (matches-zero: fails on zero files). Scans,
+    every contract proto file (matches-zero: fails on zero files; floor
+    11 after choice 9's deletions plus artifact.proto). Scans,
     exactly the spec's G-7 row: field names `auth_token` /
     `params_canonical` anywhere; an RPC named `TriggerAgentUpdate`; enum
     value names carrying the reserved-backend tokens (GELI, CGD, CONNMAN,
@@ -142,8 +146,13 @@ SPEC-003 to Implemented.
 - `contract/proto/powermanage/v1/artifact.proto` — ArtifactFetchRequest,
   ArtifactChunk, ArtifactFetchError + code enum (choice 4; shared by both
   streams, [WIRE-1] one-definition).
+- `contract/proto/powermanage/v1/{scim,export}.proto` — DELETED (choice
+  9); generated Go/TS output removed.
+- `contract/sign/result.go` — six result-domain constants; `ResultDomain`
+  closed over [WIRE-20a] (choice 10).
 - `contract/archtest/guards_test.go` — G-7 + G-8 + liveness (choices
-  11–12); file floors 12 → 13; `Guards: INV-5.` line on
+  11–12); proto file floors 12 → 11; service-surface want-set 6 → 4;
+  G-5 extension (choice 10); `Guards: INV-5.` line on
   TestGuard_SignatureDomains; ceiling-comment updates (choice 13).
 - `contract/archtest/testdata/fixture/...` — deny-list + near-copy
   fixture plants; fixturepb regenerated.
