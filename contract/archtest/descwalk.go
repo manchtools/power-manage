@@ -141,11 +141,13 @@ var untaggedExemptions = map[protoreflect.FullName]string{
 // (type/format/length/range per field class) tightens in M2 with the
 // first real fields.
 //
-// Members of a (buf.validate.oneof).required oneof are credited
-// structurally: buf lint rejects field-level `required` on oneof members,
-// so the oneof-level demand is the only expressible constraint — the frame
-// discriminant IS the validation ([WIRE-2]; the member types' own fields
-// stay in the walk).
+// MESSAGE-typed members of a (buf.validate.oneof).required oneof are
+// credited structurally: buf lint rejects field-level `required` on oneof
+// members, so for a message member the oneof-level demand is the only
+// expressible constraint — the frame discriminant IS the validation
+// ([WIRE-2]; the member types' own fields stay in the walk). A SCALAR
+// member is NOT credited: it can and must carry its own type/format rules,
+// and skipping it would fail open (PR #19 review).
 func untaggedFields(files []protoreflect.FileDescriptor) []string {
 	var out []string
 	for _, md := range reachableMessages(files) {
@@ -155,7 +157,7 @@ func untaggedFields(files []protoreflect.FileDescriptor) []string {
 			if _, exempt := untaggedExemptions[f.FullName()]; exempt {
 				continue
 			}
-			if oo := f.ContainingOneof(); oo != nil && !oo.IsSynthetic() && oneofRequired(oo) {
+			if oo := f.ContainingOneof(); oo != nil && !oo.IsSynthetic() && oneofRequired(oo) && f.Message() != nil {
 				continue
 			}
 			rules, _ := proto.GetExtension(f.Options(), validate.E_Field).(*validate.FieldRules)

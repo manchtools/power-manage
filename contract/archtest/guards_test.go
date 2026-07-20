@@ -94,14 +94,17 @@ func TestGuard_EnumHygiene(t *testing.T) {
 }
 
 // TestGuard_ValidateTagCoverage_Liveness: the fixture plants an untagged
-// reachable field, an untagged field one closure hop away, tagged fields,
-// and an unreachable message — exactly the two planted violations flag.
+// reachable field, an untagged field one closure hop away, an untagged
+// SCALAR member of a required oneof (the credit is message-typed-only —
+// PR #19 review), tagged fields, a credited message-typed oneof member,
+// and an unreachable message — exactly the three planted violations flag.
 func TestGuard_ValidateTagCoverage_Liveness(t *testing.T) {
 	files := Discover(t, "fixture proto files", 1, func() ([]protoreflect.FileDescriptor, error) {
 		return packageFiles(fixturePackage), nil
 	})
 	got := untaggedFields(files)
 	want := []string{
+		"powermanage.fixture.v1.FixtureFrameCarrier.untagged_scalar_choice",
 		"powermanage.fixture.v1.FixtureRequest.untagged_name",
 		"powermanage.fixture.v1.NestedParams.untagged_inner",
 	}
@@ -114,7 +117,7 @@ func TestGuard_ValidateTagCoverage_Liveness(t *testing.T) {
 		}
 	}
 	for _, g := range got {
-		for _, never := range []string{"tagged_id", "tagged_out", "never_flagged", "FixtureRequest.nested"} {
+		for _, never := range []string{"tagged_id", "tagged_out", "never_flagged", "FixtureRequest.nested", "credited_member"} {
 			if strings.Contains(g, never) {
 				t.Errorf("guard flagged %q — that shape is planted as conforming", g)
 			}

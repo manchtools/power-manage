@@ -32,13 +32,30 @@ message FixtureRequest {
   // into messages defined outside the audited files.
   google.protobuf.Timestamp stamped_at = 4 [(buf.validate.field).required = true];
   // Reachability hop for the enum-bounds liveness shapes (tagged so the
-  // G-1 want-set stays exactly two).
+  // G-1 want-set stays lean).
   FixtureEnumCarrier enum_carrier = 5 [(buf.validate.field).required = true];
+  // Reachability hop for the required-oneof credit shapes.
+  FixtureFrameCarrier frame_carrier = 6 [(buf.validate.field).required = true];
 }
 
 message NestedParams {
   // G-1 must flag THROUGH the closure — a nested message is boundary too.
   string untagged_inner = 1;
+}
+
+// G-1 required-oneof credit liveness (PR #19 review): the credit is
+// MESSAGE-typed-members-only. credited_member must stay clean (buf lint
+// rejects field-level required there; the oneof discriminant is the
+// validation, and the member type's own fields stay in the walk), but the
+// SCALAR member can and must carry its own rules — the untagged string
+// must flag, or the credit fails open for every future scalar frame.
+message FixtureFrameCarrier {
+  oneof frame {
+    option (buf.validate.oneof).required = true;
+
+    string untagged_scalar_choice = 1;
+    NestedParams credited_member = 2;
+  }
 }
 
 message FixtureResponse {

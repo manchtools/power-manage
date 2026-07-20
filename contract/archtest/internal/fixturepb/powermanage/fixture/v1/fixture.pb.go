@@ -142,8 +142,10 @@ type FixtureRequest struct {
 	// into messages defined outside the audited files.
 	StampedAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=stamped_at,json=stampedAt,proto3" json:"stamped_at,omitempty"`
 	// Reachability hop for the enum-bounds liveness shapes (tagged so the
-	// G-1 want-set stays exactly two).
-	EnumCarrier   *FixtureEnumCarrier `protobuf:"bytes,5,opt,name=enum_carrier,json=enumCarrier,proto3" json:"enum_carrier,omitempty"`
+	// G-1 want-set stays lean).
+	EnumCarrier *FixtureEnumCarrier `protobuf:"bytes,5,opt,name=enum_carrier,json=enumCarrier,proto3" json:"enum_carrier,omitempty"`
+	// Reachability hop for the required-oneof credit shapes.
+	FrameCarrier  *FixtureFrameCarrier `protobuf:"bytes,6,opt,name=frame_carrier,json=frameCarrier,proto3" json:"frame_carrier,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -213,6 +215,13 @@ func (x *FixtureRequest) GetEnumCarrier() *FixtureEnumCarrier {
 	return nil
 }
 
+func (x *FixtureRequest) GetFrameCarrier() *FixtureFrameCarrier {
+	if x != nil {
+		return x.FrameCarrier
+	}
+	return nil
+}
+
 type NestedParams struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// G-1 must flag THROUGH the closure — a nested message is boundary too.
@@ -258,6 +267,94 @@ func (x *NestedParams) GetUntaggedInner() string {
 	return ""
 }
 
+// G-1 required-oneof credit liveness (PR #19 review): the credit is
+// MESSAGE-typed-members-only. credited_member must stay clean (buf lint
+// rejects field-level required there; the oneof discriminant is the
+// validation, and the member type's own fields stay in the walk), but the
+// SCALAR member can and must carry its own rules — the untagged string
+// must flag, or the credit fails open for every future scalar frame.
+type FixtureFrameCarrier struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Frame:
+	//
+	//	*FixtureFrameCarrier_UntaggedScalarChoice
+	//	*FixtureFrameCarrier_CreditedMember
+	Frame         isFixtureFrameCarrier_Frame `protobuf_oneof:"frame"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FixtureFrameCarrier) Reset() {
+	*x = FixtureFrameCarrier{}
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FixtureFrameCarrier) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FixtureFrameCarrier) ProtoMessage() {}
+
+func (x *FixtureFrameCarrier) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FixtureFrameCarrier.ProtoReflect.Descriptor instead.
+func (*FixtureFrameCarrier) Descriptor() ([]byte, []int) {
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *FixtureFrameCarrier) GetFrame() isFixtureFrameCarrier_Frame {
+	if x != nil {
+		return x.Frame
+	}
+	return nil
+}
+
+func (x *FixtureFrameCarrier) GetUntaggedScalarChoice() string {
+	if x != nil {
+		if x, ok := x.Frame.(*FixtureFrameCarrier_UntaggedScalarChoice); ok {
+			return x.UntaggedScalarChoice
+		}
+	}
+	return ""
+}
+
+func (x *FixtureFrameCarrier) GetCreditedMember() *NestedParams {
+	if x != nil {
+		if x, ok := x.Frame.(*FixtureFrameCarrier_CreditedMember); ok {
+			return x.CreditedMember
+		}
+	}
+	return nil
+}
+
+type isFixtureFrameCarrier_Frame interface {
+	isFixtureFrameCarrier_Frame()
+}
+
+type FixtureFrameCarrier_UntaggedScalarChoice struct {
+	UntaggedScalarChoice string `protobuf:"bytes,1,opt,name=untagged_scalar_choice,json=untaggedScalarChoice,proto3,oneof"`
+}
+
+type FixtureFrameCarrier_CreditedMember struct {
+	CreditedMember *NestedParams `protobuf:"bytes,2,opt,name=credited_member,json=creditedMember,proto3,oneof"`
+}
+
+func (*FixtureFrameCarrier_UntaggedScalarChoice) isFixtureFrameCarrier_Frame() {}
+
+func (*FixtureFrameCarrier_CreditedMember) isFixtureFrameCarrier_Frame() {}
+
 type FixtureResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TaggedOut     string                 `protobuf:"bytes,1,opt,name=tagged_out,json=taggedOut,proto3" json:"tagged_out,omitempty"`
@@ -267,7 +364,7 @@ type FixtureResponse struct {
 
 func (x *FixtureResponse) Reset() {
 	*x = FixtureResponse{}
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[2]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -279,7 +376,7 @@ func (x *FixtureResponse) String() string {
 func (*FixtureResponse) ProtoMessage() {}
 
 func (x *FixtureResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[2]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -292,7 +389,7 @@ func (x *FixtureResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FixtureResponse.ProtoReflect.Descriptor instead.
 func (*FixtureResponse) Descriptor() ([]byte, []int) {
-	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{2}
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *FixtureResponse) GetTaggedOut() string {
@@ -312,7 +409,7 @@ type UnreachableLoose struct {
 
 func (x *UnreachableLoose) Reset() {
 	*x = UnreachableLoose{}
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[3]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -324,7 +421,7 @@ func (x *UnreachableLoose) String() string {
 func (*UnreachableLoose) ProtoMessage() {}
 
 func (x *UnreachableLoose) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[3]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -337,7 +434,7 @@ func (x *UnreachableLoose) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnreachableLoose.ProtoReflect.Descriptor instead.
 func (*UnreachableLoose) Descriptor() ([]byte, []int) {
-	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{3}
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *UnreachableLoose) GetNeverFlagged() string {
@@ -365,7 +462,7 @@ type FixtureActionParams struct {
 
 func (x *FixtureActionParams) Reset() {
 	*x = FixtureActionParams{}
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[4]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -377,7 +474,7 @@ func (x *FixtureActionParams) String() string {
 func (*FixtureActionParams) ProtoMessage() {}
 
 func (x *FixtureActionParams) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[4]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -390,7 +487,7 @@ func (x *FixtureActionParams) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FixtureActionParams.ProtoReflect.Descriptor instead.
 func (*FixtureActionParams) Descriptor() ([]byte, []int) {
-	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{4}
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *FixtureActionParams) GetParams() isFixtureActionParams_Params {
@@ -472,7 +569,7 @@ type FixtureAParams struct {
 
 func (x *FixtureAParams) Reset() {
 	*x = FixtureAParams{}
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[5]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -484,7 +581,7 @@ func (x *FixtureAParams) String() string {
 func (*FixtureAParams) ProtoMessage() {}
 
 func (x *FixtureAParams) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[5]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -497,7 +594,7 @@ func (x *FixtureAParams) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FixtureAParams.ProtoReflect.Descriptor instead.
 func (*FixtureAParams) Descriptor() ([]byte, []int) {
-	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{5}
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{6}
 }
 
 // G-4 must not walk into the foreign type: BoolValue carries a plain bool
@@ -512,7 +609,7 @@ type FixtureBParams struct {
 
 func (x *FixtureBParams) Reset() {
 	*x = FixtureBParams{}
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[6]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -524,7 +621,7 @@ func (x *FixtureBParams) String() string {
 func (*FixtureBParams) ProtoMessage() {}
 
 func (x *FixtureBParams) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[6]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -537,7 +634,7 @@ func (x *FixtureBParams) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FixtureBParams.ProtoReflect.Descriptor instead.
 func (*FixtureBParams) Descriptor() ([]byte, []int) {
-	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{6}
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *FixtureBParams) GetWrapped() *wrapperspb.BoolValue {
@@ -557,7 +654,7 @@ type FixtureBoolParams struct {
 
 func (x *FixtureBoolParams) Reset() {
 	*x = FixtureBoolParams{}
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[7]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -569,7 +666,7 @@ func (x *FixtureBoolParams) String() string {
 func (*FixtureBoolParams) ProtoMessage() {}
 
 func (x *FixtureBoolParams) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[7]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -582,7 +679,7 @@ func (x *FixtureBoolParams) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FixtureBoolParams.ProtoReflect.Descriptor instead.
 func (*FixtureBoolParams) Descriptor() ([]byte, []int) {
-	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{7}
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *FixtureBoolParams) GetPlainFlag() bool {
@@ -607,7 +704,7 @@ type FixtureOptBoolParams struct {
 
 func (x *FixtureOptBoolParams) Reset() {
 	*x = FixtureOptBoolParams{}
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[8]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -619,7 +716,7 @@ func (x *FixtureOptBoolParams) String() string {
 func (*FixtureOptBoolParams) ProtoMessage() {}
 
 func (x *FixtureOptBoolParams) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[8]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -632,7 +729,7 @@ func (x *FixtureOptBoolParams) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FixtureOptBoolParams.ProtoReflect.Descriptor instead.
 func (*FixtureOptBoolParams) Descriptor() ([]byte, []int) {
-	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{8}
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *FixtureOptBoolParams) GetOptFlag() bool {
@@ -679,7 +776,7 @@ type FixtureDirectEmbed struct {
 
 func (x *FixtureDirectEmbed) Reset() {
 	*x = FixtureDirectEmbed{}
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[9]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -691,7 +788,7 @@ func (x *FixtureDirectEmbed) String() string {
 func (*FixtureDirectEmbed) ProtoMessage() {}
 
 func (x *FixtureDirectEmbed) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[9]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -704,7 +801,7 @@ func (x *FixtureDirectEmbed) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FixtureDirectEmbed.ProtoReflect.Descriptor instead.
 func (*FixtureDirectEmbed) Descriptor() ([]byte, []int) {
-	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{9}
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *FixtureDirectEmbed) GetDirect() *FixtureAParams {
@@ -728,7 +825,7 @@ type FixtureSecondOneof struct {
 
 func (x *FixtureSecondOneof) Reset() {
 	*x = FixtureSecondOneof{}
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[10]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -740,7 +837,7 @@ func (x *FixtureSecondOneof) String() string {
 func (*FixtureSecondOneof) ProtoMessage() {}
 
 func (x *FixtureSecondOneof) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[10]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -753,7 +850,7 @@ func (x *FixtureSecondOneof) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FixtureSecondOneof.ProtoReflect.Descriptor instead.
 func (*FixtureSecondOneof) Descriptor() ([]byte, []int) {
-	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{10}
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *FixtureSecondOneof) GetDup() isFixtureSecondOneof_Dup {
@@ -807,7 +904,7 @@ type FixtureConformingEmbed struct {
 
 func (x *FixtureConformingEmbed) Reset() {
 	*x = FixtureConformingEmbed{}
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[11]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -819,7 +916,7 @@ func (x *FixtureConformingEmbed) String() string {
 func (*FixtureConformingEmbed) ProtoMessage() {}
 
 func (x *FixtureConformingEmbed) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[11]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -832,7 +929,7 @@ func (x *FixtureConformingEmbed) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FixtureConformingEmbed.ProtoReflect.Descriptor instead.
 func (*FixtureConformingEmbed) Descriptor() ([]byte, []int) {
-	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{11}
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *FixtureConformingEmbed) GetParams() *FixtureActionParams {
@@ -854,7 +951,7 @@ type FixtureEnumCarrier struct {
 
 func (x *FixtureEnumCarrier) Reset() {
 	*x = FixtureEnumCarrier{}
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[12]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -866,7 +963,7 @@ func (x *FixtureEnumCarrier) String() string {
 func (*FixtureEnumCarrier) ProtoMessage() {}
 
 func (x *FixtureEnumCarrier) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[12]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -879,7 +976,7 @@ func (x *FixtureEnumCarrier) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FixtureEnumCarrier.ProtoReflect.Descriptor instead.
 func (*FixtureEnumCarrier) Descriptor() ([]byte, []int) {
-	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{12}
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *FixtureEnumCarrier) GetUntaggedEnum() FixtureGoodEnum {
@@ -915,7 +1012,7 @@ type FixtureManifest struct {
 
 func (x *FixtureManifest) Reset() {
 	*x = FixtureManifest{}
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[13]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -927,7 +1024,7 @@ func (x *FixtureManifest) String() string {
 func (*FixtureManifest) ProtoMessage() {}
 
 func (x *FixtureManifest) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[13]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -940,7 +1037,7 @@ func (x *FixtureManifest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FixtureManifest.ProtoReflect.Descriptor instead.
 func (*FixtureManifest) Descriptor() ([]byte, []int) {
-	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{13}
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *FixtureManifest) GetRemovedIds() []string {
@@ -974,7 +1071,7 @@ type FixtureManifestEntry struct {
 
 func (x *FixtureManifestEntry) Reset() {
 	*x = FixtureManifestEntry{}
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[14]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -986,7 +1083,7 @@ func (x *FixtureManifestEntry) String() string {
 func (*FixtureManifestEntry) ProtoMessage() {}
 
 func (x *FixtureManifestEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[14]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -999,7 +1096,7 @@ func (x *FixtureManifestEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FixtureManifestEntry.ProtoReflect.Descriptor instead.
 func (*FixtureManifestEntry) Descriptor() ([]byte, []int) {
-	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{14}
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *FixtureManifestEntry) GetTombstoneKey() string {
@@ -1034,7 +1131,7 @@ type FixtureDenyFields struct {
 
 func (x *FixtureDenyFields) Reset() {
 	*x = FixtureDenyFields{}
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[15]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1046,7 +1143,7 @@ func (x *FixtureDenyFields) String() string {
 func (*FixtureDenyFields) ProtoMessage() {}
 
 func (x *FixtureDenyFields) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[15]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1059,7 +1156,7 @@ func (x *FixtureDenyFields) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FixtureDenyFields.ProtoReflect.Descriptor instead.
 func (*FixtureDenyFields) Descriptor() ([]byte, []int) {
-	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{15}
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *FixtureDenyFields) GetAuthToken() string {
@@ -1098,7 +1195,7 @@ type FixtureDenyCamel struct {
 
 func (x *FixtureDenyCamel) Reset() {
 	*x = FixtureDenyCamel{}
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[16]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1110,7 +1207,7 @@ func (x *FixtureDenyCamel) String() string {
 func (*FixtureDenyCamel) ProtoMessage() {}
 
 func (x *FixtureDenyCamel) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[16]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1123,7 +1220,7 @@ func (x *FixtureDenyCamel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FixtureDenyCamel.ProtoReflect.Descriptor instead.
 func (*FixtureDenyCamel) Descriptor() ([]byte, []int) {
-	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{16}
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *FixtureDenyCamel) GetAuthToken() string {
@@ -1147,7 +1244,7 @@ type FixtureTwinA struct {
 
 func (x *FixtureTwinA) Reset() {
 	*x = FixtureTwinA{}
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[17]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1159,7 +1256,7 @@ func (x *FixtureTwinA) String() string {
 func (*FixtureTwinA) ProtoMessage() {}
 
 func (x *FixtureTwinA) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[17]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1172,7 +1269,7 @@ func (x *FixtureTwinA) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FixtureTwinA.ProtoReflect.Descriptor instead.
 func (*FixtureTwinA) Descriptor() ([]byte, []int) {
-	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{17}
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *FixtureTwinA) GetTwinId() string {
@@ -1191,7 +1288,7 @@ type FixtureTwinB struct {
 
 func (x *FixtureTwinB) Reset() {
 	*x = FixtureTwinB{}
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[18]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1203,7 +1300,7 @@ func (x *FixtureTwinB) String() string {
 func (*FixtureTwinB) ProtoMessage() {}
 
 func (x *FixtureTwinB) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[18]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1216,7 +1313,7 @@ func (x *FixtureTwinB) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FixtureTwinB.ProtoReflect.Descriptor instead.
 func (*FixtureTwinB) Descriptor() ([]byte, []int) {
-	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{18}
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *FixtureTwinB) GetTwinId() string {
@@ -1230,16 +1327,21 @@ var File_powermanage_fixture_v1_fixture_proto protoreflect.FileDescriptor
 
 const file_powermanage_fixture_v1_fixture_proto_rawDesc = "" +
 	"\n" +
-	"$powermanage/fixture/v1/fixture.proto\x12\x16powermanage.fixture.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1egoogle/protobuf/wrappers.proto\"\xbc\x02\n" +
+	"$powermanage/fixture/v1/fixture.proto\x12\x16powermanage.fixture.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1egoogle/protobuf/wrappers.proto\"\x96\x03\n" +
 	"\x0eFixtureRequest\x12#\n" +
 	"\runtagged_name\x18\x01 \x01(\tR\funtaggedName\x12%\n" +
 	"\ttagged_id\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x98\x01\x1aR\btaggedId\x12D\n" +
 	"\x06nested\x18\x03 \x01(\v2$.powermanage.fixture.v1.NestedParamsB\x06\xbaH\x03\xc8\x01\x01R\x06nested\x12A\n" +
 	"\n" +
 	"stamped_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\tstampedAt\x12U\n" +
-	"\fenum_carrier\x18\x05 \x01(\v2*.powermanage.fixture.v1.FixtureEnumCarrierB\x06\xbaH\x03\xc8\x01\x01R\venumCarrier\"5\n" +
+	"\fenum_carrier\x18\x05 \x01(\v2*.powermanage.fixture.v1.FixtureEnumCarrierB\x06\xbaH\x03\xc8\x01\x01R\venumCarrier\x12X\n" +
+	"\rframe_carrier\x18\x06 \x01(\v2+.powermanage.fixture.v1.FixtureFrameCarrierB\x06\xbaH\x03\xc8\x01\x01R\fframeCarrier\"5\n" +
 	"\fNestedParams\x12%\n" +
-	"\x0euntagged_inner\x18\x01 \x01(\tR\runtaggedInner\"9\n" +
+	"\x0euntagged_inner\x18\x01 \x01(\tR\runtaggedInner\"\xae\x01\n" +
+	"\x13FixtureFrameCarrier\x126\n" +
+	"\x16untagged_scalar_choice\x18\x01 \x01(\tH\x00R\x14untaggedScalarChoice\x12O\n" +
+	"\x0fcredited_member\x18\x02 \x01(\v2$.powermanage.fixture.v1.NestedParamsH\x00R\x0ecreditedMemberB\x0e\n" +
+	"\x05frame\x12\x05\xbaH\x02\b\x01\"9\n" +
 	"\x0fFixtureResponse\x12&\n" +
 	"\n" +
 	"tagged_out\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\ttaggedOut\"7\n" +
@@ -1320,57 +1422,60 @@ func file_powermanage_fixture_v1_fixture_proto_rawDescGZIP() []byte {
 }
 
 var file_powermanage_fixture_v1_fixture_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_powermanage_fixture_v1_fixture_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
+var file_powermanage_fixture_v1_fixture_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
 var file_powermanage_fixture_v1_fixture_proto_goTypes = []any{
 	(FixtureBadEnum)(0),            // 0: powermanage.fixture.v1.FixtureBadEnum
 	(FixtureGoodEnum)(0),           // 1: powermanage.fixture.v1.FixtureGoodEnum
 	(*FixtureRequest)(nil),         // 2: powermanage.fixture.v1.FixtureRequest
 	(*NestedParams)(nil),           // 3: powermanage.fixture.v1.NestedParams
-	(*FixtureResponse)(nil),        // 4: powermanage.fixture.v1.FixtureResponse
-	(*UnreachableLoose)(nil),       // 5: powermanage.fixture.v1.UnreachableLoose
-	(*FixtureActionParams)(nil),    // 6: powermanage.fixture.v1.FixtureActionParams
-	(*FixtureAParams)(nil),         // 7: powermanage.fixture.v1.FixtureAParams
-	(*FixtureBParams)(nil),         // 8: powermanage.fixture.v1.FixtureBParams
-	(*FixtureBoolParams)(nil),      // 9: powermanage.fixture.v1.FixtureBoolParams
-	(*FixtureOptBoolParams)(nil),   // 10: powermanage.fixture.v1.FixtureOptBoolParams
-	(*FixtureDirectEmbed)(nil),     // 11: powermanage.fixture.v1.FixtureDirectEmbed
-	(*FixtureSecondOneof)(nil),     // 12: powermanage.fixture.v1.FixtureSecondOneof
-	(*FixtureConformingEmbed)(nil), // 13: powermanage.fixture.v1.FixtureConformingEmbed
-	(*FixtureEnumCarrier)(nil),     // 14: powermanage.fixture.v1.FixtureEnumCarrier
-	(*FixtureManifest)(nil),        // 15: powermanage.fixture.v1.FixtureManifest
-	(*FixtureManifestEntry)(nil),   // 16: powermanage.fixture.v1.FixtureManifestEntry
-	(*FixtureDenyFields)(nil),      // 17: powermanage.fixture.v1.FixtureDenyFields
-	(*FixtureDenyCamel)(nil),       // 18: powermanage.fixture.v1.FixtureDenyCamel
-	(*FixtureTwinA)(nil),           // 19: powermanage.fixture.v1.FixtureTwinA
-	(*FixtureTwinB)(nil),           // 20: powermanage.fixture.v1.FixtureTwinB
-	(*timestamppb.Timestamp)(nil),  // 21: google.protobuf.Timestamp
-	(*wrapperspb.BoolValue)(nil),   // 22: google.protobuf.BoolValue
+	(*FixtureFrameCarrier)(nil),    // 4: powermanage.fixture.v1.FixtureFrameCarrier
+	(*FixtureResponse)(nil),        // 5: powermanage.fixture.v1.FixtureResponse
+	(*UnreachableLoose)(nil),       // 6: powermanage.fixture.v1.UnreachableLoose
+	(*FixtureActionParams)(nil),    // 7: powermanage.fixture.v1.FixtureActionParams
+	(*FixtureAParams)(nil),         // 8: powermanage.fixture.v1.FixtureAParams
+	(*FixtureBParams)(nil),         // 9: powermanage.fixture.v1.FixtureBParams
+	(*FixtureBoolParams)(nil),      // 10: powermanage.fixture.v1.FixtureBoolParams
+	(*FixtureOptBoolParams)(nil),   // 11: powermanage.fixture.v1.FixtureOptBoolParams
+	(*FixtureDirectEmbed)(nil),     // 12: powermanage.fixture.v1.FixtureDirectEmbed
+	(*FixtureSecondOneof)(nil),     // 13: powermanage.fixture.v1.FixtureSecondOneof
+	(*FixtureConformingEmbed)(nil), // 14: powermanage.fixture.v1.FixtureConformingEmbed
+	(*FixtureEnumCarrier)(nil),     // 15: powermanage.fixture.v1.FixtureEnumCarrier
+	(*FixtureManifest)(nil),        // 16: powermanage.fixture.v1.FixtureManifest
+	(*FixtureManifestEntry)(nil),   // 17: powermanage.fixture.v1.FixtureManifestEntry
+	(*FixtureDenyFields)(nil),      // 18: powermanage.fixture.v1.FixtureDenyFields
+	(*FixtureDenyCamel)(nil),       // 19: powermanage.fixture.v1.FixtureDenyCamel
+	(*FixtureTwinA)(nil),           // 20: powermanage.fixture.v1.FixtureTwinA
+	(*FixtureTwinB)(nil),           // 21: powermanage.fixture.v1.FixtureTwinB
+	(*timestamppb.Timestamp)(nil),  // 22: google.protobuf.Timestamp
+	(*wrapperspb.BoolValue)(nil),   // 23: google.protobuf.BoolValue
 }
 var file_powermanage_fixture_v1_fixture_proto_depIdxs = []int32{
 	3,  // 0: powermanage.fixture.v1.FixtureRequest.nested:type_name -> powermanage.fixture.v1.NestedParams
-	21, // 1: powermanage.fixture.v1.FixtureRequest.stamped_at:type_name -> google.protobuf.Timestamp
-	14, // 2: powermanage.fixture.v1.FixtureRequest.enum_carrier:type_name -> powermanage.fixture.v1.FixtureEnumCarrier
-	7,  // 3: powermanage.fixture.v1.FixtureActionParams.a:type_name -> powermanage.fixture.v1.FixtureAParams
-	8,  // 4: powermanage.fixture.v1.FixtureActionParams.b:type_name -> powermanage.fixture.v1.FixtureBParams
-	9,  // 5: powermanage.fixture.v1.FixtureActionParams.c:type_name -> powermanage.fixture.v1.FixtureBoolParams
-	10, // 6: powermanage.fixture.v1.FixtureActionParams.d:type_name -> powermanage.fixture.v1.FixtureOptBoolParams
-	22, // 7: powermanage.fixture.v1.FixtureBParams.wrapped:type_name -> google.protobuf.BoolValue
-	7,  // 8: powermanage.fixture.v1.FixtureDirectEmbed.direct:type_name -> powermanage.fixture.v1.FixtureAParams
-	7,  // 9: powermanage.fixture.v1.FixtureSecondOneof.a2:type_name -> powermanage.fixture.v1.FixtureAParams
-	8,  // 10: powermanage.fixture.v1.FixtureSecondOneof.b2:type_name -> powermanage.fixture.v1.FixtureBParams
-	6,  // 11: powermanage.fixture.v1.FixtureConformingEmbed.params:type_name -> powermanage.fixture.v1.FixtureActionParams
-	1,  // 12: powermanage.fixture.v1.FixtureEnumCarrier.untagged_enum:type_name -> powermanage.fixture.v1.FixtureGoodEnum
-	1,  // 13: powermanage.fixture.v1.FixtureEnumCarrier.tagged_enum:type_name -> powermanage.fixture.v1.FixtureGoodEnum
-	16, // 14: powermanage.fixture.v1.FixtureManifest.entry:type_name -> powermanage.fixture.v1.FixtureManifestEntry
-	2,  // 15: powermanage.fixture.v1.FixtureService.Do:input_type -> powermanage.fixture.v1.FixtureRequest
-	2,  // 16: powermanage.fixture.v1.FixtureService.TriggerAgentUpdate:input_type -> powermanage.fixture.v1.FixtureRequest
-	4,  // 17: powermanage.fixture.v1.FixtureService.Do:output_type -> powermanage.fixture.v1.FixtureResponse
-	4,  // 18: powermanage.fixture.v1.FixtureService.TriggerAgentUpdate:output_type -> powermanage.fixture.v1.FixtureResponse
-	17, // [17:19] is the sub-list for method output_type
-	15, // [15:17] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	22, // 1: powermanage.fixture.v1.FixtureRequest.stamped_at:type_name -> google.protobuf.Timestamp
+	15, // 2: powermanage.fixture.v1.FixtureRequest.enum_carrier:type_name -> powermanage.fixture.v1.FixtureEnumCarrier
+	4,  // 3: powermanage.fixture.v1.FixtureRequest.frame_carrier:type_name -> powermanage.fixture.v1.FixtureFrameCarrier
+	3,  // 4: powermanage.fixture.v1.FixtureFrameCarrier.credited_member:type_name -> powermanage.fixture.v1.NestedParams
+	8,  // 5: powermanage.fixture.v1.FixtureActionParams.a:type_name -> powermanage.fixture.v1.FixtureAParams
+	9,  // 6: powermanage.fixture.v1.FixtureActionParams.b:type_name -> powermanage.fixture.v1.FixtureBParams
+	10, // 7: powermanage.fixture.v1.FixtureActionParams.c:type_name -> powermanage.fixture.v1.FixtureBoolParams
+	11, // 8: powermanage.fixture.v1.FixtureActionParams.d:type_name -> powermanage.fixture.v1.FixtureOptBoolParams
+	23, // 9: powermanage.fixture.v1.FixtureBParams.wrapped:type_name -> google.protobuf.BoolValue
+	8,  // 10: powermanage.fixture.v1.FixtureDirectEmbed.direct:type_name -> powermanage.fixture.v1.FixtureAParams
+	8,  // 11: powermanage.fixture.v1.FixtureSecondOneof.a2:type_name -> powermanage.fixture.v1.FixtureAParams
+	9,  // 12: powermanage.fixture.v1.FixtureSecondOneof.b2:type_name -> powermanage.fixture.v1.FixtureBParams
+	7,  // 13: powermanage.fixture.v1.FixtureConformingEmbed.params:type_name -> powermanage.fixture.v1.FixtureActionParams
+	1,  // 14: powermanage.fixture.v1.FixtureEnumCarrier.untagged_enum:type_name -> powermanage.fixture.v1.FixtureGoodEnum
+	1,  // 15: powermanage.fixture.v1.FixtureEnumCarrier.tagged_enum:type_name -> powermanage.fixture.v1.FixtureGoodEnum
+	17, // 16: powermanage.fixture.v1.FixtureManifest.entry:type_name -> powermanage.fixture.v1.FixtureManifestEntry
+	2,  // 17: powermanage.fixture.v1.FixtureService.Do:input_type -> powermanage.fixture.v1.FixtureRequest
+	2,  // 18: powermanage.fixture.v1.FixtureService.TriggerAgentUpdate:input_type -> powermanage.fixture.v1.FixtureRequest
+	5,  // 19: powermanage.fixture.v1.FixtureService.Do:output_type -> powermanage.fixture.v1.FixtureResponse
+	5,  // 20: powermanage.fixture.v1.FixtureService.TriggerAgentUpdate:output_type -> powermanage.fixture.v1.FixtureResponse
+	19, // [19:21] is the sub-list for method output_type
+	17, // [17:19] is the sub-list for method input_type
+	17, // [17:17] is the sub-list for extension type_name
+	17, // [17:17] is the sub-list for extension extendee
+	0,  // [0:17] is the sub-list for field type_name
 }
 
 func init() { file_powermanage_fixture_v1_fixture_proto_init() }
@@ -1378,16 +1483,20 @@ func file_powermanage_fixture_v1_fixture_proto_init() {
 	if File_powermanage_fixture_v1_fixture_proto != nil {
 		return
 	}
-	file_powermanage_fixture_v1_fixture_proto_msgTypes[4].OneofWrappers = []any{
+	file_powermanage_fixture_v1_fixture_proto_msgTypes[2].OneofWrappers = []any{
+		(*FixtureFrameCarrier_UntaggedScalarChoice)(nil),
+		(*FixtureFrameCarrier_CreditedMember)(nil),
+	}
+	file_powermanage_fixture_v1_fixture_proto_msgTypes[5].OneofWrappers = []any{
 		(*FixtureActionParams_A)(nil),
 		(*FixtureActionParams_B)(nil),
 		(*FixtureActionParams_C)(nil),
 		(*FixtureActionParams_D)(nil),
 	}
-	file_powermanage_fixture_v1_fixture_proto_msgTypes[8].OneofWrappers = []any{
+	file_powermanage_fixture_v1_fixture_proto_msgTypes[9].OneofWrappers = []any{
 		(*FixtureOptBoolParams_OneofFlag)(nil),
 	}
-	file_powermanage_fixture_v1_fixture_proto_msgTypes[10].OneofWrappers = []any{
+	file_powermanage_fixture_v1_fixture_proto_msgTypes[11].OneofWrappers = []any{
 		(*FixtureSecondOneof_A2)(nil),
 		(*FixtureSecondOneof_B2)(nil),
 	}
@@ -1397,7 +1506,7 @@ func file_powermanage_fixture_v1_fixture_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_powermanage_fixture_v1_fixture_proto_rawDesc), len(file_powermanage_fixture_v1_fixture_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   19,
+			NumMessages:   20,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
