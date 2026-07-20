@@ -63,6 +63,13 @@ func removeAtRecursive(dirfd int, name string) error {
 		return fmt.Errorf("open %s as a real directory: %w", name, err)
 	}
 	d := os.NewFile(uintptr(fd), name)
+	// ponytail: read ALL names for this ONE level, then delete — a per-level
+	// bound (not cumulative across the tree). Deliberately not batched on this
+	// fd: interleaving getdents with unlink on the SAME cursor can SKIP entries
+	// on htree directories (ext4), leaving the tree non-empty so the final rmdir
+	// fails ENOTEMPTY. Upgrade path if one directory can hold tens of millions
+	// of entries: bound memory by RE-OPENING the dir per fixed-size batch
+	// (os.RemoveAll's strategy) — never by batching reads on this same cursor.
 	names, err := d.Readdirnames(-1)
 	if err != nil {
 		_ = d.Close() // read-only dir fd

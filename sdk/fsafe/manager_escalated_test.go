@@ -269,6 +269,11 @@ func TestManager_ReadDir_Escalated_ErrorRows(t *testing.T) {
 	}
 }
 
+// Exists shells `sh -c '[ -e "$1" ] || [ -L "$1" ]' sh <path>`, NOT bare
+// `test -e`: the `|| -L` arm keeps a dangling symlink reporting present, in
+// parity with the direct backend's os.Lstat (see
+// TestExistsPredicate_DanglingSymlinkReportsExists for the semantics). The path
+// travels as positional $1, never interpolated into the script body.
 func TestManager_Exists_Escalated(t *testing.T) {
 	fr, m := newEscalatedManager(t)
 	fr.Push(pmexec.Result{ExitCode: 0}, nil)
@@ -277,8 +282,15 @@ func TestManager_Exists_Escalated(t *testing.T) {
 		t.Errorf("exit 0: (%v, %v), want (true, nil)", ok, err)
 	}
 	c := mustCalls(t, fr, 1)[0]
-	if c.Name != "test" || !slices.Equal(c.Args, []string{"-e", "/etc/pm-test.conf"}) {
-		t.Errorf("argv = %s %q, want test [-e path]", c.Name, c.Args)
+	wantPred := `[ -e "$1" ] || [ -L "$1" ]`
+	if c.Name != "sh" || !slices.Equal(c.Args, []string{"-c", wantPred, "sh", "/etc/pm-test.conf"}) {
+		t.Errorf("argv = %s %q, want sh [-c <exists-or-symlink pred> sh path]", c.Name, c.Args)
+	}
+	// The path must not be interpolated into the predicate body — a value
+	// spliced into Args[1] would be a shell-injection vector an exact-element
+	// check on Args[3] alone would miss.
+	if strings.Contains(c.Args[1], "/etc/pm-test.conf") {
+		t.Errorf("path leaked into the predicate body %q — it must travel only as positional $1", c.Args[1])
 	}
 
 	fr.Push(pmexec.Result{ExitCode: 1}, nil)
@@ -456,6 +468,59 @@ func TestManager_Copy_Escalated_AllowsSingleFileUnderEtc(t *testing.T) {
 		t.Fatalf("Copy under /etc refused, want allowed (parity with WriteFile): %v", err)
 	}
 	mustCalls(t, fr, 1)
+}
+
+// The sticky bit is NOT a parent-safety exemption. /tmp is root-owned mode
+// 01777 on every Linux host — world-writable WITH the sticky bit. Sticky stops
+// an unprivileged co-tenant unlinking another user's EXISTING entry, but does
+// nothing to stop them planting a NEW symlink at a not-yet-existing target
+// name, which the escalated cp/mv would act through. So a writable parent must
+// fail closed regardless of sticky. This asserts on the primitive directly
+// (root-owned /tmp) so the red→green flip is independent of the test runner's
+// own uid — an ownership-based check on a t.TempDir() would already refuse for
+// the wrong reason under a non-root runner.
+func TestEscalatedParentSafe_StickyWorldWritableRefused(t *testing.T) {
+	if err := escalatedParentSafe("/tmp"); !errors.Is(err, ErrUnsafeParentDir) {
+		t.Fatalf("escalatedParentSafe(/tmp) = %v, want ErrUnsafeParentDir (sticky is not an exemption)", err)
+	}
+	// Sanity: a genuinely safe root-owned non-writable dir still passes, so the
+	// fix did not simply start refusing everything.
+	if err := escalatedParentSafe("/"); err != nil {
+		t.Fatalf("escalatedParentSafe(/) = %v, want nil (root-owned, non-writable)", err)
+	}
+}
+
+// Mkdir is an escalated create-mutation, so it MUST vet the parent before sudo
+// ([SDK-7]) — a writable parent lets an attacker redirect the resolved path
+// between the unprivileged protected-prefix check and the privileged mkdir.
+// The whole operation is refused with zero commands issued.
+func TestManager_Mkdir_Escalated_UnsafeParentRefusedBeforeSudo(t *testing.T) {
+	fr, m := newEscalatedManager(t)
+	dir := t.TempDir()
+	if err := os.Chmod(dir, 0o777); err != nil {
+		t.Fatal(err)
+	}
+	err := m.Mkdir(context.Background(), filepath.Join(dir, "newdir"), MkdirOptions{})
+	if !errors.Is(err, ErrUnsafeParentDir) {
+		t.Fatalf("err = %v, want ErrUnsafeParentDir (escalated create must vet the parent)", err)
+	}
+	mustCalls(t, fr, 0)
+}
+
+// CopyTree CREATES a subtree at dst — an escalated create-mutation with the
+// same TOCTOU exposure as Mkdir. An attacker-controlled destination parent is
+// refused before any cp.
+func TestManager_CopyTree_Escalated_UnsafeDestParentRefusedBeforeSudo(t *testing.T) {
+	fr, m := newEscalatedManager(t)
+	dir := t.TempDir()
+	if err := os.Chmod(dir, 0o777); err != nil {
+		t.Fatal(err)
+	}
+	err := m.CopyTree(context.Background(), "/srv/src", filepath.Join(dir, "dst"))
+	if !errors.Is(err, ErrUnsafeParentDir) {
+		t.Fatalf("err = %v, want ErrUnsafeParentDir (escalated tree-copy must vet the dest parent)", err)
+	}
+	mustCalls(t, fr, 0)
 }
 
 // WriteFileFrom on an escalated backend routes through the SAME single-root-
