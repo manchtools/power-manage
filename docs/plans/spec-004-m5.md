@@ -57,7 +57,7 @@ Floor: `sdk/guardtest/imports.go` `modulePackageFloors["sdk"]` **9 → 10**.
 | `GenerateX25519` | `() (*ecdh.PrivateKey, error)` | X25519 keypair via `randReader`. |
 | `ParseX25519PublicKey` | `(raw []byte) (*ecdh.PublicKey, error)` | exactly 32 bytes. |
 | `SealToPublicKey` | `(recipient *ecdh.PublicKey, plaintext, aad []byte, info string) (Sealed, error)` | reject empty `info` (`ErrInfoRequired`), empty `aad`, empty `plaintext`. Ephemeral keygen; `shared = ECDH(eph.priv, recipient)`; `salt = framePreimage("pm-seal-salt:v1", eph.pub, recipient.bytes)`; `key = hkdf.Key(sha256.New, shared, salt, info, 32)`; `SealWithAAD(key, plaintext, aad)`. Returns `Sealed{EphemeralPublicKey(32), Ciphertext(nonce‖ct‖tag)}` — the two byte fields of contract `SealedBlob`. |
-| `OpenWithPrivateKey` | `(priv *ecdh.PrivateKey, sealed Sealed, aad []byte, info string) ([]byte, error)` | reject empty `info`/`aad`; parse `EphemeralPublicKey` (32); recompute `shared = ECDH(priv, ephPub)`, identical salt+HKDF; `OpenWithAAD`. Fail closed (error, no plaintext) on AAD/info/context mismatch or malformed input. |
+| `OpenWithPrivateKey` | `(priv *ecdh.PrivateKey, sealed Sealed, aad []byte, info string) ([]byte, error)` | reject nil `priv` and empty `info`/`aad`; parse `EphemeralPublicKey` (32); recompute `shared = ECDH(priv, ephPub)` and the **identical** salt `framePreimage("pm-seal-salt:v1", ephPub, priv.PublicKey().Bytes())` — the recipient bytes are the private key's own public key, so seal and open derive the same key — then identical HKDF; `OpenWithAAD`. Fail closed (error, no plaintext) on AAD/info/context mismatch or malformed input. |
 
 `Sealed` maps 1:1 to `contract.SealedBlob{ephemeral_public_key, ciphertext}`; the
 caller (server/agent, out of scope) reads the info/context constants from
@@ -66,9 +66,11 @@ caller (server/agent, out of scope) reads the info/context constants from
 ### `crypto.go` — helpers
 - `var ErrInvalidKey, ErrAADRequired, ErrEmptyPlaintext, ErrInfoRequired, ErrMalformedCiphertext error`.
 - `func framePreimage(domain string, parts ...[]byte) []byte` — writes the domain
-  tag then each part as `uvarint(len)‖bytes`, so no two distinct part-lists collide
-  ([SDK-13] "every hash/MAC preimage is length-prefixed and domain-separated,
-  always"). This is the salt constructor for HKDF and the one framing chokepoint.
+  tag **and** each part as `uvarint(len)‖bytes` (the domain is length-prefixed too,
+  so a part can never be absorbed into the domain), so no two distinct
+  `(domain, parts)` inputs collide ([SDK-13] "every hash/MAC preimage is
+  length-prefixed and domain-separated, always"). This is the salt constructor for
+  HKDF and the one framing chokepoint.
 - `func constantTimeEqual(a, b []byte) bool` — `subtle.ConstantTimeCompare`==1;
   the only secret/MAC compare primitive (AC-17). (GCM tag verification is already
   constant-time inside `cipher.AEAD.Open`.)

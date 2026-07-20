@@ -226,9 +226,10 @@ func TestGuard_PreimageFraming_OrphanExemption(t *testing.T) {
 }
 
 // TestGuard_PreimageFraming_M5Liveness: inside a crypto surface, a plain HKDF
-// derivation, a raw digest, and an aliased-import KDF that each skip the
-// framing helper are flagged; the framed derivation, the helper itself, and a
-// constant-time compare stay clean.
+// derivation, a raw digest, an aliased-import KDF, and a dot-imported KDF that
+// each skip the framing helper are flagged; the framed derivation, the helper
+// itself, and a constant-time compare stay clean. The dot-import row keeps the
+// isConstruction dot branch honest (mirrors the regex/clock guards' dot_bad).
 func TestGuard_PreimageFraming_M5Liveness(t *testing.T) {
 	scan := func(root string) ([]string, error) {
 		v, _, err := hashFramingViolations(root)
@@ -240,12 +241,12 @@ func TestGuard_PreimageFraming_M5Liveness(t *testing.T) {
 		t.Fatalf("scanning the hashframe fixture: %v", err)
 	}
 	requireFlagged(t, v,
-		[]string{"bad.go:9", "raw_bad.go:6", "aliased_bad.go:6"},
+		[]string{"bad.go:9", "raw_bad.go:6", "aliased_bad.go:6", "dot_bad.go:6"},
 		[]string{"clean.go", "decoy.go"})
 	// The framed derivation is still discovered as a construction (population),
 	// it simply does not violate — so the floor counts it.
-	if len(fns) < 4 {
-		t.Errorf("discovered %d hash-construction functions, want >= 4 (bad, raw_bad, aliased_bad, clean): %v", len(fns), fns)
+	if len(fns) < 5 {
+		t.Errorf("discovered %d hash-construction functions, want >= 5 (bad, raw_bad, aliased_bad, dot_bad, clean): %v", len(fns), fns)
 	}
 }
 
