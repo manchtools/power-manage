@@ -33,6 +33,13 @@ const (
 	// G-2 must flag: zero value is not *_UNSPECIFIED.
 	FixtureBadEnum_FIXTURE_BAD_ENUM_ACTIVE FixtureBadEnum = 0
 	FixtureBadEnum_FIXTURE_BAD_ENUM_OTHER  FixtureBadEnum = 1
+	// G-7 deny-list liveness (enum-value family): a reserved-backend token
+	// ([WIRE-30] — OpenRC is one of the banned init backends; a value with no
+	// implementation behind it is dead contract surface). The deny-list enum
+	// scan flags exactly this value; ACTIVE/OTHER/UNSPECIFIED/ON stay clean.
+	// Added here (not a third fixture enum) so TestDescwalk_FixtureShapes' enum
+	// count stays 2 and the hygiene liveness stays a single flag.
+	FixtureBadEnum_FIXTURE_BAD_ENUM_BACKEND_OPENRC FixtureBadEnum = 2
 )
 
 // Enum value maps for FixtureBadEnum.
@@ -40,10 +47,12 @@ var (
 	FixtureBadEnum_name = map[int32]string{
 		0: "FIXTURE_BAD_ENUM_ACTIVE",
 		1: "FIXTURE_BAD_ENUM_OTHER",
+		2: "FIXTURE_BAD_ENUM_BACKEND_OPENRC",
 	}
 	FixtureBadEnum_value = map[string]int32{
-		"FIXTURE_BAD_ENUM_ACTIVE": 0,
-		"FIXTURE_BAD_ENUM_OTHER":  1,
+		"FIXTURE_BAD_ENUM_ACTIVE":         0,
+		"FIXTURE_BAD_ENUM_OTHER":          1,
+		"FIXTURE_BAD_ENUM_BACKEND_OPENRC": 2,
 	}
 )
 
@@ -1007,6 +1016,166 @@ func (x *FixtureManifestEntry) GetAssignmentKey() string {
 	return ""
 }
 
+// G-7 deny-list liveness (field-name family): auth_token and params_canonical
+// are the two [WIRE-30] banned field names (self-asserted identity token; the
+// JSON second-representation of signed content). Planted beside a clean
+// sibling. Deliberately service-UNREACHABLE so it never perturbs the G-1 /
+// enum-bounds / registry want-sets — the deny-list field scan finds banned
+// names by name, across every message, not by reachability. Tagged so a stray
+// future reachability change would not add a G-1 violation either.
+type FixtureDenyFields struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	AuthToken       string                 `protobuf:"bytes,1,opt,name=auth_token,json=authToken,proto3" json:"auth_token,omitempty"`
+	ParamsCanonical string                 `protobuf:"bytes,2,opt,name=params_canonical,json=paramsCanonical,proto3" json:"params_canonical,omitempty"`
+	CleanToken      string                 `protobuf:"bytes,3,opt,name=clean_token,json=cleanToken,proto3" json:"clean_token,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *FixtureDenyFields) Reset() {
+	*x = FixtureDenyFields{}
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FixtureDenyFields) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FixtureDenyFields) ProtoMessage() {}
+
+func (x *FixtureDenyFields) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FixtureDenyFields.ProtoReflect.Descriptor instead.
+func (*FixtureDenyFields) Descriptor() ([]byte, []int) {
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *FixtureDenyFields) GetAuthToken() string {
+	if x != nil {
+		return x.AuthToken
+	}
+	return ""
+}
+
+func (x *FixtureDenyFields) GetParamsCanonical() string {
+	if x != nil {
+		return x.ParamsCanonical
+	}
+	return ""
+}
+
+func (x *FixtureDenyFields) GetCleanToken() string {
+	if x != nil {
+		return x.CleanToken
+	}
+	return ""
+}
+
+// G-8 near-copy liveness: an exact structural twin pair — identical
+// field-name+type multiset {twin_id: string}. The near-copy walk must flag
+// exactly this pair. Service-UNREACHABLE (does not perturb other want-sets);
+// the field name (twin_id) is distinct from every other fixture single-field
+// message, so no OTHER pair collides.
+type FixtureTwinA struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TwinId        string                 `protobuf:"bytes,1,opt,name=twin_id,json=twinId,proto3" json:"twin_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FixtureTwinA) Reset() {
+	*x = FixtureTwinA{}
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FixtureTwinA) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FixtureTwinA) ProtoMessage() {}
+
+func (x *FixtureTwinA) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FixtureTwinA.ProtoReflect.Descriptor instead.
+func (*FixtureTwinA) Descriptor() ([]byte, []int) {
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *FixtureTwinA) GetTwinId() string {
+	if x != nil {
+		return x.TwinId
+	}
+	return ""
+}
+
+type FixtureTwinB struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TwinId        string                 `protobuf:"bytes,1,opt,name=twin_id,json=twinId,proto3" json:"twin_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FixtureTwinB) Reset() {
+	*x = FixtureTwinB{}
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FixtureTwinB) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FixtureTwinB) ProtoMessage() {}
+
+func (x *FixtureTwinB) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FixtureTwinB.ProtoReflect.Descriptor instead.
+func (*FixtureTwinB) Descriptor() ([]byte, []int) {
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *FixtureTwinB) GetTwinId() string {
+	if x != nil {
+		return x.TwinId
+	}
+	return ""
+}
+
 var File_powermanage_fixture_v1_fixture_proto protoreflect.FileDescriptor
 
 const file_powermanage_fixture_v1_fixture_proto_rawDesc = "" +
@@ -1064,15 +1233,27 @@ const file_powermanage_fixture_v1_fixture_proto_rawDesc = "" +
 	"\x05entry\x18\x03 \x01(\v2,.powermanage.fixture.v1.FixtureManifestEntryB\x06\xbaH\x03\xc8\x01\x01R\x05entry\"t\n" +
 	"\x14FixtureManifestEntry\x12,\n" +
 	"\rtombstone_key\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\ftombstoneKey\x12.\n" +
-	"\x0eassignment_key\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\rassignmentKey*I\n" +
+	"\x0eassignment_key\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\rassignmentKey\"\x99\x01\n" +
+	"\x11FixtureDenyFields\x12&\n" +
+	"\n" +
+	"auth_token\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\tauthToken\x122\n" +
+	"\x10params_canonical\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x0fparamsCanonical\x12(\n" +
+	"\vclean_token\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\n" +
+	"cleanToken\"0\n" +
+	"\fFixtureTwinA\x12 \n" +
+	"\atwin_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x06twinId\"0\n" +
+	"\fFixtureTwinB\x12 \n" +
+	"\atwin_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x06twinId*n\n" +
 	"\x0eFixtureBadEnum\x12\x1b\n" +
 	"\x17FIXTURE_BAD_ENUM_ACTIVE\x10\x00\x12\x1a\n" +
-	"\x16FIXTURE_BAD_ENUM_OTHER\x10\x01*N\n" +
+	"\x16FIXTURE_BAD_ENUM_OTHER\x10\x01\x12#\n" +
+	"\x1fFIXTURE_BAD_ENUM_BACKEND_OPENRC\x10\x02*N\n" +
 	"\x0fFixtureGoodEnum\x12!\n" +
 	"\x1dFIXTURE_GOOD_ENUM_UNSPECIFIED\x10\x00\x12\x18\n" +
-	"\x14FIXTURE_GOOD_ENUM_ON\x10\x012g\n" +
+	"\x14FIXTURE_GOOD_ENUM_ON\x10\x012\xce\x01\n" +
 	"\x0eFixtureService\x12U\n" +
-	"\x02Do\x12&.powermanage.fixture.v1.FixtureRequest\x1a'.powermanage.fixture.v1.FixtureResponseBjZhgithub.com/manchtools/power-manage/contract/archtest/internal/fixturepb/powermanage/fixture/v1;fixturepbb\x06proto3"
+	"\x02Do\x12&.powermanage.fixture.v1.FixtureRequest\x1a'.powermanage.fixture.v1.FixtureResponse\x12e\n" +
+	"\x12TriggerAgentUpdate\x12&.powermanage.fixture.v1.FixtureRequest\x1a'.powermanage.fixture.v1.FixtureResponseBjZhgithub.com/manchtools/power-manage/contract/archtest/internal/fixturepb/powermanage/fixture/v1;fixturepbb\x06proto3"
 
 var (
 	file_powermanage_fixture_v1_fixture_proto_rawDescOnce sync.Once
@@ -1087,7 +1268,7 @@ func file_powermanage_fixture_v1_fixture_proto_rawDescGZIP() []byte {
 }
 
 var file_powermanage_fixture_v1_fixture_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_powermanage_fixture_v1_fixture_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_powermanage_fixture_v1_fixture_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_powermanage_fixture_v1_fixture_proto_goTypes = []any{
 	(FixtureBadEnum)(0),            // 0: powermanage.fixture.v1.FixtureBadEnum
 	(FixtureGoodEnum)(0),           // 1: powermanage.fixture.v1.FixtureGoodEnum
@@ -1106,18 +1287,21 @@ var file_powermanage_fixture_v1_fixture_proto_goTypes = []any{
 	(*FixtureEnumCarrier)(nil),     // 14: powermanage.fixture.v1.FixtureEnumCarrier
 	(*FixtureManifest)(nil),        // 15: powermanage.fixture.v1.FixtureManifest
 	(*FixtureManifestEntry)(nil),   // 16: powermanage.fixture.v1.FixtureManifestEntry
-	(*timestamppb.Timestamp)(nil),  // 17: google.protobuf.Timestamp
-	(*wrapperspb.BoolValue)(nil),   // 18: google.protobuf.BoolValue
+	(*FixtureDenyFields)(nil),      // 17: powermanage.fixture.v1.FixtureDenyFields
+	(*FixtureTwinA)(nil),           // 18: powermanage.fixture.v1.FixtureTwinA
+	(*FixtureTwinB)(nil),           // 19: powermanage.fixture.v1.FixtureTwinB
+	(*timestamppb.Timestamp)(nil),  // 20: google.protobuf.Timestamp
+	(*wrapperspb.BoolValue)(nil),   // 21: google.protobuf.BoolValue
 }
 var file_powermanage_fixture_v1_fixture_proto_depIdxs = []int32{
 	3,  // 0: powermanage.fixture.v1.FixtureRequest.nested:type_name -> powermanage.fixture.v1.NestedParams
-	17, // 1: powermanage.fixture.v1.FixtureRequest.stamped_at:type_name -> google.protobuf.Timestamp
+	20, // 1: powermanage.fixture.v1.FixtureRequest.stamped_at:type_name -> google.protobuf.Timestamp
 	14, // 2: powermanage.fixture.v1.FixtureRequest.enum_carrier:type_name -> powermanage.fixture.v1.FixtureEnumCarrier
 	7,  // 3: powermanage.fixture.v1.FixtureActionParams.a:type_name -> powermanage.fixture.v1.FixtureAParams
 	8,  // 4: powermanage.fixture.v1.FixtureActionParams.b:type_name -> powermanage.fixture.v1.FixtureBParams
 	9,  // 5: powermanage.fixture.v1.FixtureActionParams.c:type_name -> powermanage.fixture.v1.FixtureBoolParams
 	10, // 6: powermanage.fixture.v1.FixtureActionParams.d:type_name -> powermanage.fixture.v1.FixtureOptBoolParams
-	18, // 7: powermanage.fixture.v1.FixtureBParams.wrapped:type_name -> google.protobuf.BoolValue
+	21, // 7: powermanage.fixture.v1.FixtureBParams.wrapped:type_name -> google.protobuf.BoolValue
 	7,  // 8: powermanage.fixture.v1.FixtureDirectEmbed.direct:type_name -> powermanage.fixture.v1.FixtureAParams
 	7,  // 9: powermanage.fixture.v1.FixtureSecondOneof.a2:type_name -> powermanage.fixture.v1.FixtureAParams
 	8,  // 10: powermanage.fixture.v1.FixtureSecondOneof.b2:type_name -> powermanage.fixture.v1.FixtureBParams
@@ -1126,9 +1310,11 @@ var file_powermanage_fixture_v1_fixture_proto_depIdxs = []int32{
 	1,  // 13: powermanage.fixture.v1.FixtureEnumCarrier.tagged_enum:type_name -> powermanage.fixture.v1.FixtureGoodEnum
 	16, // 14: powermanage.fixture.v1.FixtureManifest.entry:type_name -> powermanage.fixture.v1.FixtureManifestEntry
 	2,  // 15: powermanage.fixture.v1.FixtureService.Do:input_type -> powermanage.fixture.v1.FixtureRequest
-	4,  // 16: powermanage.fixture.v1.FixtureService.Do:output_type -> powermanage.fixture.v1.FixtureResponse
-	16, // [16:17] is the sub-list for method output_type
-	15, // [15:16] is the sub-list for method input_type
+	2,  // 16: powermanage.fixture.v1.FixtureService.TriggerAgentUpdate:input_type -> powermanage.fixture.v1.FixtureRequest
+	4,  // 17: powermanage.fixture.v1.FixtureService.Do:output_type -> powermanage.fixture.v1.FixtureResponse
+	4,  // 18: powermanage.fixture.v1.FixtureService.TriggerAgentUpdate:output_type -> powermanage.fixture.v1.FixtureResponse
+	17, // [17:19] is the sub-list for method output_type
+	15, // [15:17] is the sub-list for method input_type
 	15, // [15:15] is the sub-list for extension type_name
 	15, // [15:15] is the sub-list for extension extendee
 	0,  // [0:15] is the sub-list for field type_name
@@ -1158,7 +1344,7 @@ func file_powermanage_fixture_v1_fixture_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_powermanage_fixture_v1_fixture_proto_rawDesc), len(file_powermanage_fixture_v1_fixture_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   15,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

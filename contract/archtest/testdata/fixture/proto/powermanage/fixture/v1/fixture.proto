@@ -12,6 +12,12 @@ option go_package = "github.com/manchtools/power-manage/contract/archtest/intern
 
 service FixtureService {
   rpc Do(FixtureRequest) returns (FixtureResponse);
+  // G-7 deny-list liveness: a banned RPC name ([WIRE-30] — the sole
+  // agent-upgrade path is the signed AGENT_UPDATE action, never a dedicated
+  // trigger RPC). Reuses FixtureRequest/FixtureResponse so no NEW message
+  // joins the service-reachable set — the G-1/enum-bounds want-sets are
+  // untouched; the deny-list RPC scan finds this by name.
+  rpc TriggerAgentUpdate(FixtureRequest) returns (FixtureResponse);
 }
 
 message FixtureRequest {
@@ -127,10 +133,43 @@ message FixtureManifestEntry {
   string assignment_key = 2 [(buf.validate.field).string.min_len = 1];
 }
 
+// G-7 deny-list liveness (field-name family): auth_token and params_canonical
+// are the two [WIRE-30] banned field names (self-asserted identity token; the
+// JSON second-representation of signed content). Planted beside a clean
+// sibling. Deliberately service-UNREACHABLE so it never perturbs the G-1 /
+// enum-bounds / registry want-sets — the deny-list field scan finds banned
+// names by name, across every message, not by reachability. Tagged so a stray
+// future reachability change would not add a G-1 violation either.
+message FixtureDenyFields {
+  string auth_token = 1 [(buf.validate.field).string.min_len = 1];
+  string params_canonical = 2 [(buf.validate.field).string.min_len = 1];
+  string clean_token = 3 [(buf.validate.field).string.min_len = 1];
+}
+
+// G-8 near-copy liveness: an exact structural twin pair — identical
+// field-name+type multiset {twin_id: string}. The near-copy walk must flag
+// exactly this pair. Service-UNREACHABLE (does not perturb other want-sets);
+// the field name (twin_id) is distinct from every other fixture single-field
+// message, so no OTHER pair collides.
+message FixtureTwinA {
+  string twin_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message FixtureTwinB {
+  string twin_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
 enum FixtureBadEnum {
   // G-2 must flag: zero value is not *_UNSPECIFIED.
   FIXTURE_BAD_ENUM_ACTIVE = 0;
   FIXTURE_BAD_ENUM_OTHER = 1;
+  // G-7 deny-list liveness (enum-value family): a reserved-backend token
+  // ([WIRE-30] — OpenRC is one of the banned init backends; a value with no
+  // implementation behind it is dead contract surface). The deny-list enum
+  // scan flags exactly this value; ACTIVE/OTHER/UNSPECIFIED/ON stay clean.
+  // Added here (not a third fixture enum) so TestDescwalk_FixtureShapes' enum
+  // count stays 2 and the hygiene liveness stays a single flag.
+  FIXTURE_BAD_ENUM_BACKEND_OPENRC = 2;
 }
 
 enum FixtureGoodEnum {
