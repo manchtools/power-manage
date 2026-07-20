@@ -10,7 +10,9 @@ lint:
   # AgentFrame/ServerFrame (§3.2, SPEC-003) and GatewayFrame/ControlFrame
   # (GW-3 table, SPEC-012) — not the Buf <Rpc>Request/<Rpc>Response
   # convention. Scoped to the two stream services; every unary RPC keeps
-  # the standard names.
+  # the standard names. ignore_only is file-granular, so internal.proto's
+  # conforming unary is also exempted — backstopped by the exact-set RPC
+  # guard (TestGuard_InternalServiceRPCs pins every RPC's input/output).
   ignore_only:
     RPC_REQUEST_STANDARD_NAME:
       - proto/powermanage/v1/agent.proto
