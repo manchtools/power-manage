@@ -373,6 +373,11 @@ func TestAction_Shape(t *testing.T) {
 // fail-closed verify site per domain OUTSIDE contract. At M3 both sites are
 // contract/sign itself; the cross-repo half arms with SPEC-013's agent
 // chokepoint (extend this guard there — never weaken it to backfill).
+//
+// The pairwise matrix flips command_type, which is itself a covered field, so
+// alone it proves type isolation; that the domain string is IN the preimage
+// is pinned separately by TestCommandPreimage_GoldenFraming. AC-5 holds
+// through the composition (domains are 1:1 with types).
 func TestGuard_SignatureDomains(t *testing.T) {
 	consts := Discover(t, "contract/sign *SignatureDomain constants", 8, ScanSignatureDomains)
 

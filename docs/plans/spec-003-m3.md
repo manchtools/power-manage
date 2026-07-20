@@ -74,8 +74,10 @@ preimage + tamper matrix (AC-4/AC-6) + G-5 (AC-5) green.
     domain OUTSIDE contract) arms when SPEC-013's chokepoint lands; at M3
     both sites are `contract/sign` itself.
 11. **Golden values.** Preimage bytes/digest are pinned for a fixed envelope;
-    the RSA PKCS#1 v1.5 signature (deterministic) is also pinned; ECDSA
-    signatures are randomized and only round-trip-verified.
+    the RSA PKCS#1 v1.5 signature is verified deterministic (two signings of
+    an identical envelope yield identical bytes — a byte-level pin would need
+    an embedded fixed key to guard only stdlib padding; recorded in review);
+    ECDSA signatures are randomized and only round-trip-verified.
 
 ## Files
 
