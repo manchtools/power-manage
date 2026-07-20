@@ -25,20 +25,24 @@ import (
 
 const fixturePackage = "powermanage.fixture.v1"
 
-// TestGuard_ServiceSurface pins the §3.2 service set (SPEC-003): exactly
-// the six normative services exist — a missing service is unimplemented
-// surface, an extra one is surface the spec never approved.
+// TestGuard_ServiceSurface pins the §3.2 service set (SPEC-003): exactly the
+// FOUR proto-defined services exist. The amended §3.2 (operator commit
+// e9b8c29, resolving issue #18) demotes ScimService (SCIM v2 is
+// application/scim+json by RFC — proto would violate [WIRE-10]) and
+// ExportService (standard OTLP) to NON-proto boundaries: no proto declaration
+// is minted for either ([WIRE-4] — an RPC surface with no proto consumer is
+// dead contract). A missing service is unimplemented surface; an extra one —
+// including a re-added ScimService/ExportService proto — is surface the spec
+// never approved.
 func TestGuard_ServiceSurface(t *testing.T) {
-	got := Discover(t, "contract services", 6, func() ([]string, error) {
+	got := Discover(t, "contract services", 4, func() ([]string, error) {
 		return services(packageFiles(ContractPackage)), nil
 	})
 	want := []string{
 		"powermanage.v1.AgentService",
 		"powermanage.v1.ControlService",
-		"powermanage.v1.ExportService",
 		"powermanage.v1.InternalService",
 		"powermanage.v1.PkiService",
-		"powermanage.v1.ScimService",
 	}
 	sort.Strings(want)
 	for _, w := range want {
@@ -48,7 +52,7 @@ func TestGuard_ServiceSurface(t *testing.T) {
 	}
 	for _, g := range got {
 		if !contains(want, g) {
-			t.Errorf("service %s is not in the §3.2 set — new services need a spec change first (SPEC-003)", g)
+			t.Errorf("service %s is not in the amended §3.2 four-proto-service set — ScimService/ExportService are non-proto boundaries ([WIRE-4], operator commit e9b8c29); new services need a spec change first (SPEC-003)", g)
 		}
 	}
 }
@@ -58,7 +62,7 @@ func TestGuard_ServiceSurface(t *testing.T) {
 // rules. The population anchor is the file set — a walk that finds fewer
 // files than the contract has is broken, not clean.
 func TestGuard_ValidateTagCoverage(t *testing.T) {
-	files := Discover(t, "contract proto files", 12, func() ([]protoreflect.FileDescriptor, error) {
+	files := Discover(t, "contract proto files", 11, func() ([]protoreflect.FileDescriptor, error) {
 		return packageFiles(ContractPackage), nil
 	})
 	for _, v := range untaggedFields(files) {
@@ -70,7 +74,7 @@ func TestGuard_ValidateTagCoverage(t *testing.T) {
 // contract enum starts at *_UNSPECIFIED = 0. The erroring-default switch
 // half wires up with the first contract-enum switch (M3).
 func TestGuard_EnumHygiene(t *testing.T) {
-	files := Discover(t, "contract proto files", 12, func() ([]protoreflect.FileDescriptor, error) {
+	files := Discover(t, "contract proto files", 11, func() ([]protoreflect.FileDescriptor, error) {
 		return packageFiles(ContractPackage), nil
 	})
 	for _, v := range enumHygieneViolations(files) {
@@ -201,7 +205,7 @@ func TestGuard_ActionRegistry(t *testing.T) {
 // the predecessor duplicated this oneof across five messages and the
 // copies diverged.
 func TestGuard_ActionParamsAuthority(t *testing.T) {
-	files := Discover(t, "contract proto files", 12, func() ([]protoreflect.FileDescriptor, error) {
+	files := Discover(t, "contract proto files", 11, func() ([]protoreflect.FileDescriptor, error) {
 		return packageFiles(ContractPackage), nil
 	})
 	violations, err := registryViolations(files, "ActionParams")
@@ -247,7 +251,7 @@ func TestGuard_ActionParamsAuthority_Liveness(t *testing.T) {
 // TestGuard_ExplicitPresence is G-4 (SPEC-003, [WIRE-6]): no plain bool in
 // the registry subtree without a recorded two-value rationale.
 func TestGuard_ExplicitPresence(t *testing.T) {
-	files := Discover(t, "contract proto files", 12, func() ([]protoreflect.FileDescriptor, error) {
+	files := Discover(t, "contract proto files", 11, func() ([]protoreflect.FileDescriptor, error) {
 		return packageFiles(ContractPackage), nil
 	})
 	violations, err := plainBoolViolations(files, "ActionParams")
@@ -286,12 +290,14 @@ func TestGuard_ExplicitPresence_Liveness(t *testing.T) {
 }
 
 // TestGuard_EnumBounds enforces the descriptor-derived bound pair on every
-// enum field of every service-reachable message ([WIRE-2], AC-2).
-// Vacuously green until the first service-reachable enum field lands
-// (recorded, docs/plans/spec-003-m2.md choice 4); the liveness row proves
-// the walk can go red.
+// enum field of every service-reachable message ([WIRE-2], AC-2). No longer
+// vacuous as of M5: ArtifactFetchError.code (ArtifactFetchErrorCode) and
+// TerminalRecordingChunk.direction (TerminalDirection) are the first
+// service-reachable enum fields (docs/plans/spec-003-m5.md choice 13, which
+// retires the M2 vacuity ceiling of docs/plans/spec-003-m2.md choice 4); the
+// liveness row still proves the walk can go red.
 func TestGuard_EnumBounds(t *testing.T) {
-	files := Discover(t, "contract proto files", 12, func() ([]protoreflect.FileDescriptor, error) {
+	files := Discover(t, "contract proto files", 11, func() ([]protoreflect.FileDescriptor, error) {
 		return packageFiles(ContractPackage), nil
 	})
 	for _, v := range enumBoundViolations(files) {
@@ -363,67 +369,99 @@ func TestAction_Shape(t *testing.T) {
 	}
 }
 
-// TestGuard_SignatureDomains is G-5 (SPEC-003 AC-5, plan choice 10): the
-// signature-domain constants are self-discovered from contract/sign source
-// (AST scan, never a hand list), pinned to exactly the 8 closed §3.4
-// command-type domains via the [WIRE-14] formula, then proven pairwise
-// isolated — a signature framed under one domain never verifies under another.
+// TestGuard_SignatureDomains is G-5 (SPEC-003 AC-5, AC-7, plan choice 10 +
+// operator commit e9b8c29 closing [WIRE-20a]): the signature-domain constants
+// are self-discovered from contract/sign source (AST scan, never a hand list)
+// and pinned, exact-set both directions, to the closed catalogs of §3.4
+// command types (the [WIRE-14] formula "power-manage:cmd:"+type+":v1") AND the
+// amended §3.6 result types (the [WIRE-20a] formula
+// "power-manage:result:"+type+":v1"). The two families are disjoint, every
+// constant binds a unique domain, and EACH family is proven pairwise isolated —
+// a signature framed under one domain never verifies under another, across the
+// command framing (SignCommand/VerifyCommand) AND the result framing
+// (SignResult/VerifyResult).
 //
-// INV-6 cross-repo-parity ceiling: this guard proves round-trip + isolation
-// for every domain, but INV-6 additionally requires >=1 sign site AND >=1
-// fail-closed verify site per domain OUTSIDE contract. At M3 both sites are
-// contract/sign itself; the cross-repo half arms with SPEC-013's agent
-// chokepoint (extend this guard there — never weaken it to backfill).
+// INV-6 cross-repo-parity ceiling: this guard proves round-trip + isolation for
+// every domain, but INV-6 additionally requires >=1 sign site AND >=1
+// fail-closed verify site per domain OUTSIDE contract. At M3/M5 both sites are
+// contract/sign itself; the cross-repo half arms with the SPEC-013 agent
+// chokepoint (commands) and the SPEC-005/007 control result path (results) —
+// extend this guard there, never weaken it to backfill.
 //
-// The pairwise matrix flips command_type, which is itself a covered field, so
-// alone it proves type isolation; that the domain string is IN the preimage
-// is pinned separately by TestCommandPreimage_GoldenFraming. AC-5 holds
+// The pairwise matrices flip command_type / result_type, themselves covered
+// fields, so alone they prove type isolation; that the domain string is IN the
+// preimage is pinned separately by the golden-framing tests. AC-5/AC-7 hold
 // through the composition (domains are 1:1 with types).
+//
+// Guards: INV-5.
 func TestGuard_SignatureDomains(t *testing.T) {
-	consts := Discover(t, "contract/sign *SignatureDomain constants", 8, ScanSignatureDomains)
+	consts := Discover(t, "contract/sign *SignatureDomain constants", 14, ScanSignatureDomains)
 
-	// Exact set, both directions, against the [WIRE-14] formula over the
-	// closed §3.4 catalog.
-	catalog := []string{
+	// Exact set, both directions, against the two formulas over the closed
+	// §3.4 command catalog ([WIRE-14]) and §3.6 result catalog ([WIRE-20a]).
+	commandCatalog := []string{
 		"action", "osquery", "logquery", "inventory",
 		"luks-revoke", "lps-pubkey", "terminal-grant", "sync-manifest",
 	}
-	wantValue := map[string]bool{}
-	for _, ct := range catalog {
-		wantValue["power-manage:cmd:"+ct+":v1"] = true
+	resultCatalog := []string{
+		"execution", "compliance", "inventory", "alert", "osquery", "logquery",
 	}
+	const cmdPrefix = "power-manage:cmd:"
+	const resultPrefix = "power-manage:result:"
+	wantCount := len(commandCatalog) + len(resultCatalog)
+
+	wantValue := map[string]bool{}
+	for _, ct := range commandCatalog {
+		wantValue[cmdPrefix+ct+":v1"] = true
+	}
+	for _, rt := range resultCatalog {
+		wantValue[resultPrefix+rt+":v1"] = true
+	}
+	// Disjoint families: the [WIRE-14] and [WIRE-20a] formulas must never
+	// collapse to the same domain string, or a command signature and a result
+	// signature could share a domain. Distinct-value count proves it.
+	if len(wantValue) != wantCount {
+		t.Fatalf("the command and result domain formulas collide — the two families must be disjoint ([WIRE-14] vs [WIRE-20a]); got %d distinct expected domains, want %d", len(wantValue), wantCount)
+	}
+
 	gotValue := map[string]bool{}
+	valueOwner := map[string]string{}
 	for _, c := range consts {
 		gotValue[c.Value] = true
 		if !wantValue[c.Value] {
-			t.Errorf("constant %s = %q is not a [WIRE-14] domain for any closed command type — a domain must equal \"power-manage:cmd:\"+type+\":v1\" for one of the 8 §3.4 types (G-5, AC-5, SPEC-003)", c.Name, c.Value)
+			t.Errorf("constant %s = %q is not a domain for any closed §3.4 command type ([WIRE-14]) or §3.6 result type ([WIRE-20a]) — a domain must equal \"power-manage:cmd:\"+type+\":v1\" for one of the 8 command types or \"power-manage:result:\"+type+\":v1\" for one of the 6 result types (G-5, AC-5/AC-7, SPEC-003)", c.Name, c.Value)
 		}
-	}
-	for want := range wantValue {
-		if !gotValue[want] {
-			t.Errorf("no *SignatureDomain constant carries value %q — every closed command type needs its domain constant so the verifier can never frame an unregistered preimage (G-5, AC-5, SPEC-003)", want)
-		}
-	}
-	// Exact-set means exact COUNT too: a duplicate constant bound to an
-	// already-valid domain passes both membership loops above, but two names
-	// for one domain is a second registry that can drift (review finding).
-	if len(consts) != len(catalog) {
-		t.Errorf("discovered %d *SignatureDomain constants, want exactly %d — remove duplicate or extra domain constants; domains are 1:1 with the closed command types (G-5 exact-set)", len(consts), len(catalog))
-	}
-	valueOwner := map[string]string{}
-	for _, c := range consts {
+		// Duplicate-value detection spans BOTH families: two names for one
+		// domain is a second registry that can drift (review finding).
 		if prev, dup := valueOwner[c.Value]; dup {
 			t.Errorf("constants %s and %s both bind domain %q — each domain has exactly one constant (G-5 exact-set)", prev, c.Name, c.Value)
 		}
 		valueOwner[c.Value] = c.Name
 	}
+	for want := range wantValue {
+		if !gotValue[want] {
+			t.Errorf("no *SignatureDomain constant carries value %q — every closed command AND result type needs its domain constant so no unregistered preimage is ever framed (G-5, AC-5/AC-7, SPEC-003)", want)
+		}
+	}
+	// Exact-set means exact COUNT: 8 §3.4 command domains + 6 §3.6 result
+	// domains = 14.
+	if len(consts) != wantCount {
+		t.Errorf("discovered %d *SignatureDomain constants, want exactly %d — 8 command domains + 6 result domains; remove duplicate or extra domain constants (G-5 exact-set)", len(consts), wantCount)
+	}
 
-	// Recover the command types from the DISCOVERED constants (still
-	// self-discovering — not the catalog list above) to drive the crypto
-	// matrix.
-	var types []string
+	// Partition the DISCOVERED constants into the two families by formula
+	// (still self-discovering — not the catalog lists above) to drive the two
+	// crypto matrices. A value matching neither prefix is a malformed domain.
+	var commandTypes, resultTypes []string
 	for _, c := range consts {
-		types = append(types, strings.TrimSuffix(strings.TrimPrefix(c.Value, "power-manage:cmd:"), ":v1"))
+		switch {
+		case strings.HasPrefix(c.Value, cmdPrefix):
+			commandTypes = append(commandTypes, strings.TrimSuffix(strings.TrimPrefix(c.Value, cmdPrefix), ":v1"))
+		case strings.HasPrefix(c.Value, resultPrefix):
+			resultTypes = append(resultTypes, strings.TrimSuffix(strings.TrimPrefix(c.Value, resultPrefix), ":v1"))
+		default:
+			t.Errorf("constant %s = %q matches neither the command nor the result domain formula (G-5)", c.Name, c.Value)
+		}
 	}
 
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -431,8 +469,9 @@ func TestGuard_SignatureDomains(t *testing.T) {
 		t.Fatalf("generating ECDSA P-256 key: %v", err)
 	}
 	pub := &priv.PublicKey
-
 	const target = "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+
+	// --- command family: round-trip + pairwise isolation (SignCommand) ---
 	// A 30 s durable-class window satisfies every per-type bound (<= 60 s
 	// terminal-grant, and no instant cap when Instant=false), so a round-trip
 	// failure can only be about the domain, never freshness.
@@ -445,24 +484,19 @@ func TestGuard_SignatureDomains(t *testing.T) {
 			ExpiresAt:      &timestamppb.Timestamp{Seconds: 1700000030},
 		}
 	}
-	opts := sign.VerifyOptions{DeviceID: target, Now: time.Unix(1700000005, 0).UTC(), Instant: false}
-
-	// Round-trip each domain under its own command type.
-	for _, ct := range types {
+	cmdOpts := sign.VerifyOptions{DeviceID: target, Now: time.Unix(1700000005, 0).UTC(), Instant: false}
+	for _, ct := range commandTypes {
 		cmd := newCmd(ct)
 		if err := sign.SignCommand(priv, cmd); err != nil {
 			t.Errorf("SignCommand under domain %q: %v (G-5 round-trip)", ct, err)
 			continue
 		}
-		if _, err := sign.VerifyCommand(pub, cmd, opts); err != nil {
+		if _, err := sign.VerifyCommand(pub, cmd, cmdOpts); err != nil {
 			t.Errorf("VerifyCommand rejected a valid envelope under its own domain %q: %v (G-5 round-trip)", ct, err)
 		}
 	}
-
-	// Pairwise isolation: sign as A, flip command_type to B, verify must fail
-	// for every ordered pair A != B.
-	for _, a := range types {
-		for _, b := range types {
+	for _, a := range commandTypes {
+		for _, b := range commandTypes {
 			if a == b {
 				continue
 			}
@@ -472,12 +506,56 @@ func TestGuard_SignatureDomains(t *testing.T) {
 				continue
 			}
 			cmd.CommandType = b // A's signature must not verify under B's domain
-			payload, err := sign.VerifyCommand(pub, cmd, opts)
+			payload, err := sign.VerifyCommand(pub, cmd, cmdOpts)
 			if err == nil {
-				t.Errorf("a signature framed under domain %q verified after re-typing to %q — signature domains must be pairwise isolated (G-5, AC-5, SPEC-003)", a, b)
+				t.Errorf("a command signature framed under domain %q verified after re-typing to %q — signature domains must be pairwise isolated (G-5, AC-5, SPEC-003)", a, b)
 			}
 			if payload != nil {
-				t.Errorf("cross-domain verification %q->%q returned a non-nil payload on failure (G-5)", a, b)
+				t.Errorf("cross-domain command verification %q->%q returned a non-nil payload on failure (G-5)", a, b)
+			}
+		}
+	}
+
+	// --- result family: round-trip + pairwise isolation (SignResult) ---
+	// Results carry no expires_at (records, not commands, plan-003-m4 choice 2);
+	// the domain string is the only per-type discriminant, so isolation mirrors
+	// the command matrix exactly ([WIRE-20a], AC-7).
+	newResult := func(rt string) *powermanagev1.DeviceSigned {
+		return &powermanagev1.DeviceSigned{
+			Payload:    []byte("g5-result-domain-payload"),
+			ResultType: rt,
+			DeviceId:   target,
+			IssuedAt:   &timestamppb.Timestamp{Seconds: 1700000000},
+		}
+	}
+	resultOpts := sign.ResultVerifyOptions{DeviceID: target}
+	for _, rt := range resultTypes {
+		env := newResult(rt)
+		if err := sign.SignResult(priv, env); err != nil {
+			t.Errorf("SignResult under domain %q: %v (G-5 result round-trip)", rt, err)
+			continue
+		}
+		if _, err := sign.VerifyResult(pub, env, resultOpts); err != nil {
+			t.Errorf("VerifyResult rejected a valid envelope under its own domain %q: %v (G-5 result round-trip)", rt, err)
+		}
+	}
+	for _, a := range resultTypes {
+		for _, b := range resultTypes {
+			if a == b {
+				continue
+			}
+			env := newResult(a)
+			if err := sign.SignResult(priv, env); err != nil {
+				t.Errorf("SignResult under domain %q: %v", a, err)
+				continue
+			}
+			env.ResultType = b // A's result signature must not verify under B's domain
+			payload, err := sign.VerifyResult(pub, env, resultOpts)
+			if err == nil {
+				t.Errorf("a result signature framed under domain %q verified after re-typing to %q — result signature domains must be pairwise isolated (G-5, AC-7, [WIRE-20a])", a, b)
+			}
+			if payload != nil {
+				t.Errorf("cross-domain result verification %q->%q returned a non-nil payload on failure (G-5)", a, b)
 			}
 		}
 	}
