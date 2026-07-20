@@ -6,6 +6,7 @@ package powermanage.fixture.v1;
 
 import "buf/validate/validate.proto";
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
 
 option go_package = "github.com/manchtools/power-manage/contract/archtest/internal/fixturepb/powermanage/fixture/v1;fixturepb";
 
@@ -57,7 +58,12 @@ message FixtureActionParams {
 
 message FixtureAParams {}
 
-message FixtureBParams {}
+// G-4 must not walk into the foreign type: BoolValue carries a plain bool
+// internally, but imported messages are referenced surface, not ours to
+// audit — the subtree closure stops at them.
+message FixtureBParams {
+  google.protobuf.BoolValue wrapped = 1;
+}
 
 // G-4 must flag: plain bool in the registry subtree.
 message FixtureBoolParams {

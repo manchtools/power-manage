@@ -257,6 +257,9 @@ func TestGuard_ExplicitPresence_Liveness(t *testing.T) {
 		if strings.Contains(g, "opt_flag") {
 			t.Errorf("guard flagged %q — optional bool is the conforming form", g)
 		}
+		if strings.Contains(g, "google.protobuf.BoolValue") {
+			t.Errorf("guard flagged %q — foreign well-known types are referenced surface; the subtree closure must stop at them", g)
+		}
 	}
 }
 
