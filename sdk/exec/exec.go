@@ -93,6 +93,9 @@ func runStreamingWithStdin(ctx context.Context, name string, args []string, stdi
 	}
 	stderrPipe, err := c.StderrPipe()
 	if err != nil {
+		// Start/Wait are never reached on this path, so the stdout pipe's two
+		// descriptors would otherwise leak — exactly when fds are scarce.
+		_ = stdoutPipe.Close()
 		return nil, fmt.Errorf("exec %s: stderr pipe: %w", name, err)
 	}
 

@@ -44,9 +44,11 @@ Delta only; the spec is authoritative.
    `Compile(pattern) (*regexp.Regexp, error)` = Vet → compile;
    `MustVet(pattern) *regexp.Regexp` for compile-time literals. The
    Runner's `ValidEnvVarName` literal routes through `MustVet`, so the
-   exec package carries zero direct `regexp.Compile` sites and the G-4
-   guard arms with a real population. The predecessor's agent-side
-   duplicate is out of scope here (self-contained repo).
+   exec package carries zero direct `regexp.Compile` sites — G-4's
+   discovered population is unchanged (the redos dir itself is excluded
+   by prefix from the scan); the win is that every new regex is routed,
+   none allowlisted. The predecessor's agent-side duplicate is out of
+   scope here (self-contained repo).
 6. **`sdk/narrow` package** ([SDK-6], AC-7 — new code, no porting
    source): one generic `To[D, S integer](v S) (D, error)` with the exact
    round-trip check (`S(D(v)) != v` or sign flip ⇒ error, never
