@@ -403,6 +403,19 @@ func TestGuard_SignatureDomains(t *testing.T) {
 			t.Errorf("no *SignatureDomain constant carries value %q — every closed command type needs its domain constant so the verifier can never frame an unregistered preimage (G-5, AC-5, SPEC-003)", want)
 		}
 	}
+	// Exact-set means exact COUNT too: a duplicate constant bound to an
+	// already-valid domain passes both membership loops above, but two names
+	// for one domain is a second registry that can drift (review finding).
+	if len(consts) != len(catalog) {
+		t.Errorf("discovered %d *SignatureDomain constants, want exactly %d — remove duplicate or extra domain constants; domains are 1:1 with the closed command types (G-5 exact-set)", len(consts), len(catalog))
+	}
+	valueOwner := map[string]string{}
+	for _, c := range consts {
+		if prev, dup := valueOwner[c.Value]; dup {
+			t.Errorf("constants %s and %s both bind domain %q — each domain has exactly one constant (G-5 exact-set)", prev, c.Name, c.Value)
+		}
+		valueOwner[c.Value] = c.Name
+	}
 
 	// Recover the command types from the DISCOVERED constants (still
 	// self-discovering — not the catalog list above) to drive the crypto

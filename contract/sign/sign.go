@@ -19,6 +19,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
+	"reflect"
 	"time"
 
 	powermanagev1 "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1"
@@ -92,12 +93,28 @@ func CommandDomain(commandType string) (string, error) {
 // path, SignCommand, and VerifyCommand all route through it, so an Ed25519
 // key can never sign or verify a command.
 func ValidateSigningKey(key crypto.PublicKey) error {
+	if key == nil {
+		return fmt.Errorf("nil command-signing key: a key must be wired before boot ([TM-5])")
+	}
 	switch k := key.(type) {
-	case *ecdsa.PublicKey, *rsa.PublicKey:
+	case *ecdsa.PublicKey:
+		if k == nil {
+			return fmt.Errorf("nil ECDSA public key: typed-nil key material must never reach verification ([TM-5])")
+		}
+		return nil
+	case *rsa.PublicKey:
+		if k == nil {
+			return fmt.Errorf("nil RSA public key: typed-nil key material must never reach verification ([TM-5])")
+		}
 		return nil
 	case ed25519.PublicKey, ed25519.PrivateKey:
 		return fmt.Errorf("ed25519 keys are refused for command signing ([WIRE-14], AC-14): use ECDSA or RSA")
 	case crypto.Signer:
+		// A typed-nil signer would panic inside Public(); refuse it here so
+		// the boot path fails closed instead of crashing.
+		if v := reflect.ValueOf(k); v.Kind() == reflect.Pointer && v.IsNil() {
+			return fmt.Errorf("nil signing key of type %T ([TM-5])", k)
+		}
 		return ValidateSigningKey(k.Public())
 	default:
 		return fmt.Errorf("unsupported command-signing key type %T: use ECDSA or RSA", key)
