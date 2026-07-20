@@ -25,6 +25,7 @@ func TestVet_RejectsNestedQuantifiers(t *testing.T) {
 		{"a*b+c*d+e*f+", "more than 5 unbounded quantifiers"},
 		{"([)]+)+", "CHARACTER CLASS: the ')' inside [)] is a literal — the real group close is the second ')', and the shape is (x+)+"},
 		{"([(]|a+)+", "CHARACTER CLASS: literal '(' inside a class must not open a phantom group that desyncs the walk"},
+		{"(x[[:alpha:])]y+)+", "POSIX SUB-EXPRESSION: the ':]' of [:alpha:] must not close the outer class — the ')' after it is still a class literal, and the shape is (...y+)+"},
 	}
 	for _, tc := range bad {
 		err := Vet(tc.pattern)
@@ -56,6 +57,8 @@ func TestVet_AcceptsVettedGrammars(t *testing.T) {
 		`(a[|]b)+`,                   // '|' inside a class is a literal, not an alternation
 		`([]+])+`,                    // leading ']' after '[' is a literal member; the '+' is inside the class
 		`[(]state[)]`,                // paren literals in classes open no group
+		`[[:alpha:]]+`,               // the common POSIX class form
+		`a[[:alpha:]+]b[[:alpha:]+]c[[:alpha:]+]d[[:alpha:]+]e[[:alpha:]+]f[[:alpha:]+]g`, // '+' after a POSIX sub-expression is still a class literal, not budget
 	}
 	for _, p := range good {
 		if err := Vet(p); err != nil {

@@ -23,7 +23,7 @@ func TestCommandError_CarriesExitCodeAndStderr(t *testing.T) {
 	if !strings.Contains(msg, "already exists") {
 		t.Errorf("Error() = %q, want it to include stderr", msg)
 	}
-	if strings.Contains(msg, "\n") {
+	if strings.HasSuffix(msg, "\n") {
 		t.Errorf("Error() = %q, want trailing stderr newline trimmed", msg)
 	}
 }
