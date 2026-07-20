@@ -65,7 +65,13 @@ the sync-manifest message with `(epoch, generation)` monotonicity
 7. **SyncManifest shape.** `{ uint64 epoch = 1; uint64 generation = 2;
    Timestamp issued_at = 3 (required); Timestamp expires_at = 4
    (required); repeated Occurrence occurrences = 5; repeated
-   MaintenanceWindow maintenance_windows = 6; Intervals intervals = 7 }`;
+   MaintenanceWindow maintenance_windows = 6; Intervals intervals = 7
+   (required — [WIRE-26]: every manifest carries server-set intervals, and
+   an absent message field is not an empty one; review finding, PR #17) }`;
+   epoch/generation and the repeated fields stay deliberately untagged:
+   their validity is relational (`manifest.Newer` against agent state) or
+   legitimately empty (removal-by-omission) — M5 resolves their tagging
+   when the manifest becomes G-1-reachable.
    `Occurrence { string assignment_id = 1 (ULID); string action_id = 2
    (ULID); string cron_schedule = 3 (max_len 100); uint64
    interval_seconds = 4 }` (ASG-1: optional cron OR interval; both-empty =

@@ -55,7 +55,9 @@ message MaintenanceWindow {
 }
 
 // Server-set intervals ([WIRE-17]): server-authoritative configuration
-// arrives only inside signed material.
+// arrives only inside signed material. Every manifest carries them —
+// required on the SyncManifest field, since an absent message is not an
+// empty one ([WIRE-26]).
 message Intervals {
   uint64 sync_seconds = 1 [(buf.validate.field).uint64.gte = 1];
   uint64 inventory_seconds = 2 [(buf.validate.field).uint64.gte = 1];
@@ -68,5 +70,5 @@ message SyncManifest {
   google.protobuf.Timestamp expires_at = 4 [(buf.validate.field).required = true];
   repeated Occurrence occurrences = 5;
   repeated MaintenanceWindow maintenance_windows = 6;
-  Intervals intervals = 7;
+  Intervals intervals = 7 [(buf.validate.field).required = true];
 }

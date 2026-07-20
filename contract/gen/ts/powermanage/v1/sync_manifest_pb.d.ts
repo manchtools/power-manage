@@ -90,7 +90,9 @@ export declare const MaintenanceWindowSchema: GenMessage<MaintenanceWindow>;
 
 /**
  * Server-set intervals ([WIRE-17]): server-authoritative configuration
- * arrives only inside signed material.
+ * arrives only inside signed material. Every manifest carries them —
+ * required on the SyncManifest field, since an absent message is not an
+ * empty one ([WIRE-26]).
  *
  * @generated from message powermanage.v1.Intervals
  */
