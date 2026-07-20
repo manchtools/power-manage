@@ -619,3 +619,28 @@ func TestGuard_ManifestNoRemovalVerbs_Liveness(t *testing.T) {
 		}
 	}
 }
+
+// TestSyncManifest_IntervalsRequired pins the [WIRE-26] presence demand:
+// every sync response carries server-set intervals, and for a message field
+// absence is not emptiness, so the schema requires it. Regression for the
+// PR #17 review finding on untagged SyncManifest fields. The remaining
+// untagged fields are deliberate, not gaps: epoch/generation validity is
+// relational (manifest.Newer against agent state — inexpressible as a field
+// rule; a vacuous bound would satisfy G-1's letter while validating
+// nothing) and empty occurrences/maintenance_windows are load-bearing
+// removal-by-omission. M5 must resolve their tagging when the manifest
+// becomes reachable from a service method (G-1 scope).
+func TestSyncManifest_IntervalsRequired(t *testing.T) {
+	md, err := findRegistry(packageFiles(ContractPackage), "SyncManifest")
+	if err != nil {
+		t.Fatalf("SyncManifest lookup: %v", err)
+	}
+	f := md.Fields().ByName("intervals")
+	if f == nil {
+		t.Fatal("SyncManifest has no intervals field — [WIRE-26] mandates server-set intervals in every manifest")
+	}
+	rules, _ := proto.GetExtension(f.Options(), validate.E_Field).(*validate.FieldRules)
+	if !rules.GetRequired() {
+		t.Errorf("SyncManifest.intervals must carry (buf.validate.field).required = true — every sync response carries server-set intervals, and an absent message field is not an empty one ([WIRE-26])")
+	}
+}

@@ -236,7 +236,9 @@ func (x *MaintenanceWindow) GetEndMinute() uint32 {
 }
 
 // Server-set intervals ([WIRE-17]): server-authoritative configuration
-// arrives only inside signed material.
+// arrives only inside signed material. Every manifest carries them —
+// required on the SyncManifest field, since an absent message is not an
+// empty one ([WIRE-26]).
 type Intervals struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	SyncSeconds      uint64                 `protobuf:"varint,1,opt,name=sync_seconds,json=syncSeconds,proto3" json:"sync_seconds,omitempty"`
@@ -399,7 +401,7 @@ const file_powermanage_v1_sync_manifest_proto_rawDesc = "" +
 	"end_minute\x18\x03 \x01(\rB\b\xbaH\x05*\x03\x18\x9f\vR\tendMinute\"m\n" +
 	"\tIntervals\x12*\n" +
 	"\fsync_seconds\x18\x01 \x01(\x04B\a\xbaH\x042\x02(\x01R\vsyncSeconds\x124\n" +
-	"\x11inventory_seconds\x18\x02 \x01(\x04B\a\xbaH\x042\x02(\x01R\x10inventorySeconds\"\x93\x03\n" +
+	"\x11inventory_seconds\x18\x02 \x01(\x04B\a\xbaH\x042\x02(\x01R\x10inventorySeconds\"\x9b\x03\n" +
 	"\fSyncManifest\x12\x14\n" +
 	"\x05epoch\x18\x01 \x01(\x04R\x05epoch\x12\x1e\n" +
 	"\n" +
@@ -409,8 +411,8 @@ const file_powermanage_v1_sync_manifest_proto_rawDesc = "" +
 	"\n" +
 	"expires_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\texpiresAt\x12<\n" +
 	"\voccurrences\x18\x05 \x03(\v2\x1a.powermanage.v1.OccurrenceR\voccurrences\x12R\n" +
-	"\x13maintenance_windows\x18\x06 \x03(\v2!.powermanage.v1.MaintenanceWindowR\x12maintenanceWindows\x127\n" +
-	"\tintervals\x18\a \x01(\v2\x19.powermanage.v1.IntervalsR\tintervals*\xd8\x01\n" +
+	"\x13maintenance_windows\x18\x06 \x03(\v2!.powermanage.v1.MaintenanceWindowR\x12maintenanceWindows\x12?\n" +
+	"\tintervals\x18\a \x01(\v2\x19.powermanage.v1.IntervalsB\x06\xbaH\x03\xc8\x01\x01R\tintervals*\xd8\x01\n" +
 	"\tDayOfWeek\x12\x1b\n" +
 	"\x17DAY_OF_WEEK_UNSPECIFIED\x10\x00\x12\x16\n" +
 	"\x12DAY_OF_WEEK_MONDAY\x10\x01\x12\x17\n" +
