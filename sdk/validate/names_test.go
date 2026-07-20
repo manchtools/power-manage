@@ -105,6 +105,9 @@ func TestGPGKeyRef_Rejects(t *testing.T) {
 		"", "-", "--import=/etc/shadow", "http://evil/key", "ext::sh -c id",
 		"relative/key", "file://../../etc/passwd", "file:///etc/../shadow",
 		"/etc/../etc/shadow", "https:///RPM-GPG-KEY", "https://a\nhttps://b",
+		"https://legit/KEY https://evil/EVILKEY", // space → dnf gpgkey= list injection
+		"https://user:pass@host/KEY",             // embedded credentials
+		"https://:443/KEY",                       // port but no hostname
 	} {
 		assertReject(t, GPGKeyRef, in)
 	}
@@ -128,6 +131,8 @@ func TestRepoBaseURL_Rejects(t *testing.T) {
 	for _, in := range []string{
 		"", "http://insecure.example.com/repo", "ftp://example.com/repo",
 		"file:///etc", "-o/tmp/x", "https://a\nb", "https://", "https://[::1", "not-a-url",
+		"https://user:pass@dnf.example.com/repo", // embedded credentials
+		"https://:443/repo",                      // port but no hostname
 	} {
 		assertReject(t, RepoBaseURL, in)
 	}
@@ -183,6 +188,7 @@ func TestULIDPathID_Rejects(t *testing.T) {
 		"01ARZ3NDEKTSV4RRFFQ69G5FAU",  // U
 		"01ARZ3NDEKTSV4RRFFQ69G5F/V",  // path separator
 		"01ARZ3NDEKTSV4RRFFQ69G5FA!",
+		"8" + strings.Repeat("Z", 25), // 26 Crockford chars but decodes to >128 bits
 	} {
 		assertReject(t, ULIDPathID, in)
 	}

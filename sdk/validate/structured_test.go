@@ -34,7 +34,10 @@ func TestSudoersValue_Accepts(t *testing.T) {
 }
 
 func TestSudoersValue_Rejects(t *testing.T) {
-	for _, in := range []string{"ALL\nattacker ALL=(ALL) NOPASSWD: ALL", "x\ry", "z\x00"} {
+	for _, in := range []string{
+		"ALL\nattacker ALL=(ALL) NOPASSWD: ALL", "x\ry", "z\x00",
+		`ALL=(ALL) NOPASSWD: /usr/bin/id\`, // trailing '\' → sudoers line continuation
+	} {
 		assertReject(t, SudoersValue, in)
 	}
 }
@@ -112,6 +115,7 @@ func TestDeb822URIField_Rejects(t *testing.T) {
 		"https://h/a https://evil/", // space starts a 2nd URI
 		"https://user:pass@h/a",     // embedded credentials
 		"https://",                  // no host
+		"https://:443/a",            // port but no hostname
 		"ftp://h/a", "file:///etc",  // non-http(s) scheme
 		"https://h/a\nDeb-Src: evil", // newline injects a field
 		"https://h/\ttab",
