@@ -42,8 +42,8 @@ Sentinel `ErrInvalid` (`errors.Is`-matchable), wrapped `%w` with the field/reaso
 | `RpmPackageName(s)` | `^[a-zA-Z0-9][a-zA-Z0-9._+-]{0,255}$` | port |
 | `RepoName(s)` | `^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$` | port (max 128) |
 | `FlatpakRemoteName(s)` | `^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$` | port |
-| `GPGKeyRef(s)` | prefix switch https/file/abs, no `..` | port |
-| `RepoBaseURL(s)` | `url.Parse`+https+host; **$releasever/$arch/$basearch survive** | port; AC-15 over-constraint accept |
+| `GPGKeyRef(s)` | prefix switch https/file/abs, no `..`, reject whitespace/control (gpgkey= is a key LIST), https branch requires a hostname and rejects credentials | port + hardening |
+| `RepoBaseURL(s)` | `url.Parse`+https+`u.Hostname()`; reject embedded credentials; **$releasever/$arch/$basearch survive** | port; AC-15 over-constraint accept |
 | `Username(s)` | len 1..32, `[a-z][a-z0-9_-]*` | port (byte loop) |
 | `SystemdUnitName(s)` | `^[a-zA-Z0-9][a-zA-Z0-9:_.@-]{0,254}\.(service\|socket\|device\|mount\|automount\|swap\|target\|path\|timer\|slice\|scope)$` | **NET-NEW** — no predecessor; leading alnum kills flag shape, `@` instance ok, known suffix set |
 | `ULIDPathID(s)` | 26 chars, Crockford base32 `0123456789ABCDEFGHJKMNPQRSTVWXYZ` (no I/L/O/U), case-insensitive | **NET-NEW** — hand-rolled (oklog/ulid is a banned dep) |
@@ -76,7 +76,7 @@ grammar-specific rows below. Reject cases must violate the *actual* constraint (
 - `GPGKeyRef`: accept `https://h/KEY`,`file:///etc/pki/KEY`,`/etc/pki/rpm-gpg/KEY`; reject `-`,`--import=/etc/shadow`,`http://evil/key`,`ext::sh -c id`,`relative/key`,`file://../../etc/passwd`,`/etc/../etc/shadow`,`https:///KEY`,`https://a\nhttps://b`.
 - `Username`: accept `deploy`,`user_1`,`svc-acct`,32-char; reject ``,`Deploy`,`1user`,`-rf`,`_priv`,`user name`,`user:x`,`user\nroot`,33-char.
 - `SystemdUnitName`: accept `nginx.service`,`sshd@1.socket`,`foo-bar.timer`; reject `nginx`(no type),`nginx.bogus`,`-x.service`,`a/b.service`,`unit\n.service`,`.service`,257-char.
-- `ULIDPathID`: accept `01ARZ3NDEKTSV4RRFFQ69G5FAV` (and lowercase form); reject 25/27-char, `01ARZ3NDEKTSV4RRFFQ69G5FAI` (I), `…O`,`…L`,`…U`, `01arz…!`, embedded `/`.
+- `ULIDPathID`: accept `01ARZ3NDEKTSV4RRFFQ69G5FAV` (and lowercase form); reject 25/27-char, `01ARZ3NDEKTSV4RRFFQ69G5FAI` (I), `…O`,`…L`,`…U`, `01arz…!`, embedded `/`, and the 128-bit-overflow case `8`+25×`Z` (first char `8`–`Z` decodes to >2^128-1).
 - `GECOSField`: accept `Real Name`,`Real, Name, Room 5` (comma ok); reject `Real\nroot:x:0`,`a:b`,`x\x00y`,tab.
 - `GroupList`: accept `wheel`,`wheel adm` (space-joined arg is caller's; value itself); reject `wheel,root`,`a:b`,control.
 - `Deb822URIField`: accept `https://deb.example.com/ubuntu`,`http://…` (apt signed); reject `https://h/a https://evil/`(space),`https://user:pass@h/a`,`https://`,`ftp://…`,`a\nDeb-Src: x`,tab.
