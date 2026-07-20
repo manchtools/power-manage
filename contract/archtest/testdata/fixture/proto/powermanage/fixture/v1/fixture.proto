@@ -24,6 +24,9 @@ message FixtureRequest {
   // internal fields are not contract surface — the closure must not walk
   // into messages defined outside the audited files.
   google.protobuf.Timestamp stamped_at = 4 [(buf.validate.field).required = true];
+  // Reachability hop for the enum-bounds liveness shapes (tagged so the
+  // G-1 want-set stays exactly two).
+  FixtureEnumCarrier enum_carrier = 5 [(buf.validate.field).required = true];
 }
 
 message NestedParams {
@@ -38,6 +41,61 @@ message FixtureResponse {
 message UnreachableLoose {
   // Declared but not service-reachable: G-1 must NOT flag it.
   string never_flagged = 1;
+}
+
+// G-3 liveness: a fixture-local registry analog. Members double as G-4
+// shapes: FixtureBoolParams plants the plain state-changing bool, its
+// optional sibling plants the conforming form.
+message FixtureActionParams {
+  oneof params {
+    FixtureAParams a = 1;
+    FixtureBParams b = 2;
+    FixtureBoolParams c = 3;
+    FixtureOptBoolParams d = 4;
+  }
+}
+
+message FixtureAParams {}
+
+message FixtureBParams {}
+
+// G-4 must flag: plain bool in the registry subtree.
+message FixtureBoolParams {
+  bool plain_flag = 1;
+}
+
+// G-4 must not flag: explicit presence.
+message FixtureOptBoolParams {
+  optional bool opt_flag = 1;
+}
+
+// G-3 must flag: embeds a registry member type directly, bypassing the
+// registry — the predecessor's five-copy drift in miniature.
+message FixtureDirectEmbed {
+  FixtureAParams direct = 1;
+}
+
+// G-3 must flag: a second oneof over the registry's member types.
+message FixtureSecondOneof {
+  oneof dup {
+    FixtureAParams a2 = 1;
+    FixtureBParams b2 = 2;
+  }
+}
+
+// G-3 must not flag: embedding the registry itself is the conforming form.
+message FixtureConformingEmbed {
+  FixtureActionParams params = 1 [(buf.validate.field).required = true];
+}
+
+// Enum-bounds liveness: both fields carry SOME rule (so the G-1 want-set
+// is untouched); only the first violates the enum-bounds pair.
+message FixtureEnumCarrier {
+  FixtureGoodEnum untagged_enum = 1 [(buf.validate.field).required = true];
+  FixtureGoodEnum tagged_enum = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
 }
 
 enum FixtureBadEnum {
