@@ -111,6 +111,7 @@ func runStreamingWithStdin(ctx context.Context, name string, args []string, stdi
 		bufs     [2]strings.Builder
 		rawBytes [2]int64
 		seqs     [2]int64
+		cbErr    error
 	)
 	streamIdx := func(s StreamType) int {
 		if s == StreamStdout {
@@ -130,8 +131,19 @@ func runStreamingWithStdin(ctx context.Context, name string, args []string, stdi
 		if rawBytes[i] <= int64(MaxOutputBytes) {
 			bufs[i].WriteString(line + "\n")
 		}
-		if callback != nil {
-			callback(stream, line+"\n", seqs[i])
+		if callback != nil && cbErr == nil {
+			// A panicking callback is a caller bug, but it must not unwind a
+			// reader goroutine and kill the whole process — the blast radius
+			// stays one Run/Stream call. Contained, not swallowed: delivery
+			// stops and the panic surfaces as the run's returned error.
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						cbErr = fmt.Errorf("exec %s: output callback panicked: %v", name, r)
+					}
+				}()
+				callback(stream, line+"\n", seqs[i])
+			}()
 		}
 		seqs[i]++
 	}
@@ -220,7 +232,12 @@ func runStreamingWithStdin(ctx context.Context, name string, args []string, stdi
 	if rawBytes[1] > int64(MaxOutputBytes) {
 		stderr += truncationMarker
 	}
+	callbackErr := cbErr
 	mu.Unlock()
+
+	if runErr == nil {
+		runErr = callbackErr
+	}
 
 	return &Result{
 		ExitCode: status.exit,

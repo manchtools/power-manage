@@ -40,6 +40,11 @@ var ErrPathological = errors.New("pathological regex pattern")
 //     the upper bound drives the worst case, flagged when it is >= 2.
 //   - more than 5 unbounded quantifiers (`*`, `+`, `{n,}`) total — catches
 //     staircase patterns that compound without nesting.
+//
+// Bracket expressions `[...]` are opaque to every rule: metacharacters inside
+// a class are literals, so `[)]` closes no group and `[+]` is no quantifier —
+// in BOTH directions, `([)]+)+` is still caught as `(x+)+` and `a[+]b` costs
+// no quantifier budget.
 func Vet(pattern string) error {
 	if reason := pathologicalReason(pattern); reason != "" {
 		return fmt.Errorf("%w: %s", ErrPathological, reason)
@@ -80,6 +85,8 @@ func pathologicalReason(p string) string {
 			continue
 		}
 		switch c {
+		case '[':
+			i = skipClass(p, i)
 		case '*', '+':
 			unbounded++
 		case '{':
@@ -109,6 +116,8 @@ func pathologicalReason(p string) string {
 			continue
 		}
 		switch c {
+		case '[':
+			i = skipClass(p, i)
 		case '(':
 			stack = append(stack, groupState{start: i})
 			depth++
@@ -173,6 +182,34 @@ func pathologicalReason(p string) string {
 		}
 	}
 	return ""
+}
+
+// skipClass returns the index of the ']' closing the bracket expression that
+// opens at p[i] — the scanners route every '[' through here so class content
+// never reaches their metachar switches (a ')' inside `[)]` is a literal, not
+// the group close; a '+' inside `[+]` is no quantifier). Honors the class
+// grammar: optional leading '^', a ']' immediately after `[` or `[^` is a
+// literal member (`[]]`, `[^]]`), and `\]` does not terminate. An unterminated
+// class consumes the rest of the pattern — it cannot compile anyway, so no
+// pathological shape is lost.
+func skipClass(p string, i int) int {
+	j := i + 1
+	if j < len(p) && p[j] == '^' {
+		j++
+	}
+	if j < len(p) && p[j] == ']' {
+		j++
+	}
+	for ; j < len(p); j++ {
+		if p[j] == '\\' && j+1 < len(p) {
+			j++
+			continue
+		}
+		if p[j] == ']' {
+			return j
+		}
+	}
+	return len(p) - 1
 }
 
 // boundedRepeatBounds parses a BOUNDED `{n}` or `{n,m}` token starting at p[0]

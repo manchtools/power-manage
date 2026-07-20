@@ -23,6 +23,8 @@ func TestVet_RejectsNestedQuantifiers(t *testing.T) {
 		{"(.*a){1,11}", "upper bound drives the worst case"},
 		{"((.*a)){2}", "propagated inner quantifier under bounded repeat"},
 		{"a*b+c*d+e*f+", "more than 5 unbounded quantifiers"},
+		{"([)]+)+", "CHARACTER CLASS: the ')' inside [)] is a literal — the real group close is the second ')', and the shape is (x+)+"},
+		{"([(]|a+)+", "CHARACTER CLASS: literal '(' inside a class must not open a phantom group that desyncs the walk"},
 	}
 	for _, tc := range bad {
 		err := Vet(tc.pattern)
@@ -40,7 +42,7 @@ func TestVet_RejectsNestedQuantifiers(t *testing.T) {
 // routes through this chokepoint — passes.
 func TestVet_AcceptsVettedGrammars(t *testing.T) {
 	good := []string{
-		`^[a-zA-Z_][a-zA-Z0-9_]*$`, // exec.ValidEnvVarName
+		`^[a-zA-Z_][a-zA-Z0-9_]*$`, // the exec env-name grammar
 		`^\d{1,3}$`,
 		`foo.*bar`,
 		`(abc)+`,                     // quantified group without inner quantifier or alternation
@@ -50,6 +52,10 @@ func TestVet_AcceptsVettedGrammars(t *testing.T) {
 		`(ab){3}`,                    // bounded repeat of a clean group
 		`\(a+\)+`,                    // escaped parens are literals, not a group
 		`^[a-z]+@[a-z]+\.[a-z]{2,}$`, // three unbounded quantifiers, under the limit
+		`a[+]b[+]c[+]d[+]e[+]f[+]g`,  // '+' inside a class is a literal, not an unbounded quantifier
+		`(a[|]b)+`,                   // '|' inside a class is a literal, not an alternation
+		`([]+])+`,                    // leading ']' after '[' is a literal member; the '+' is inside the class
+		`[(]state[)]`,                // paren literals in classes open no group
 	}
 	for _, p := range good {
 		if err := Vet(p); err != nil {

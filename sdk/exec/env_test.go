@@ -2,6 +2,7 @@ package exec
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -74,9 +75,12 @@ func TestIsAllowedEnvVar_Blocked(t *testing.T) {
 		"GETCONF_DIR",
 		"NODE_OPTIONS",
 		"PYTHONPATH",
+		"PYTHONHOME",
+		"PYTHONSTARTUP",
 		"PERL5OPT",
 		"PERL5LIB",
 		"RUBYLIB",
+		"RUBYOPT",
 	}
 
 	for _, name := range blocked {
@@ -151,10 +155,23 @@ func TestValidEnvVarName_Regex(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := ValidEnvVarName.MatchString(tt.name)
+		got := validEnvVarName.MatchString(tt.name)
 		if got != tt.valid {
-			t.Errorf("ValidEnvVarName.MatchString(%q) = %v, want %v", tt.name, got, tt.valid)
+			t.Errorf("validEnvVarName.MatchString(%q) = %v, want %v", tt.name, got, tt.valid)
 		}
+	}
+}
+
+// A malformed entry may itself carry a secret (a value pasted where a
+// KEY=VALUE belonged) — the rejection must not echo it into the error
+// message, where it would reach logs.
+func TestValidateCommandEnv_MalformedEntryNotEchoed(t *testing.T) {
+	err := ValidateCommandEnv([]string{"hunter2-super-secret-blob"})
+	if !errors.Is(err, ErrInvalidEnvVar) {
+		t.Fatalf("err = %v, want ErrInvalidEnvVar", err)
+	}
+	if strings.Contains(err.Error(), "hunter2") {
+		t.Errorf("malformed env entry echoed into the error: %v", err)
 	}
 }
 

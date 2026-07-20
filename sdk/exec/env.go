@@ -38,20 +38,22 @@ func isReservedEnvVar(name string) bool {
 	return strings.HasPrefix(upper, "LC_")
 }
 
-// ValidEnvVarName matches safe environment variable names (letters, digits,
+// validEnvVarName matches safe environment variable names (letters, digits,
 // underscore). Routed through the redos chokepoint like every SDK regex
-// ([SDK-6]).
-var ValidEnvVarName = redos.MustVet(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+// ([SDK-6]). Unexported — like blockedEnvVars, the policy must be immutable
+// from outside; IsAllowedEnvVar is the query API.
+var validEnvVarName = redos.MustVet(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 
-// BlockedEnvVars are environment variable names that must never be overridden
+// blockedEnvVars are environment variable names that must never be overridden
 // because they can hijack process execution (library injection, path manipulation).
 //
 // The whole LD_*, BASH_FUNC_*, and DYLD_* families are blocked unconditionally by
 // the prefix check in IsAllowedEnvVar, so individual LD_* keys (LD_PRELOAD,
 // LD_LIBRARY_PATH, LD_AUDIT, LD_DEBUG, LD_PROFILE) and the BASH_FUNC_ prefix are
 // not enumerated here — listing them would only duplicate the prefix rule. This
-// map carries the names that have no covering prefix.
-var BlockedEnvVars = map[string]bool{
+// map carries the names that have no covering prefix. Unexported so no importer
+// can mutate the policy; IsAllowedEnvVar is the only way to query it.
+var blockedEnvVars = map[string]bool{
 	// glibc iconv module loading (the pkexec CVE-2021-4034 injection vector)
 	"GCONV_PATH": true,
 	// DNS/resolver manipulation
@@ -59,12 +61,15 @@ var BlockedEnvVars = map[string]bool{
 	"RESOLV_HOST_CONF": true,
 	// System utility redirection
 	"GETCONF_DIR": true,
-	// Interpreter library injection
-	"NODE_OPTIONS": true,
-	"PYTHONPATH":   true,
-	"PERL5OPT":     true,
-	"PERL5LIB":     true,
-	"RUBYLIB":      true,
+	// Interpreter library/startup injection
+	"NODE_OPTIONS":  true,
+	"PYTHONPATH":    true,
+	"PYTHONHOME":    true,
+	"PYTHONSTARTUP": true,
+	"PERL5OPT":      true,
+	"PERL5LIB":      true,
+	"RUBYLIB":       true,
+	"RUBYOPT":       true,
 	// Shell/path manipulation
 	"PATH":       true,
 	"IFS":        true,
@@ -76,11 +81,11 @@ var BlockedEnvVars = map[string]bool{
 
 // IsAllowedEnvVar returns true if the environment variable name is safe to set.
 func IsAllowedEnvVar(name string) bool {
-	if !ValidEnvVarName.MatchString(name) {
+	if !validEnvVarName.MatchString(name) {
 		return false
 	}
 	upper := strings.ToUpper(name)
-	if BlockedEnvVars[upper] {
+	if blockedEnvVars[upper] {
 		return false
 	}
 	// Block LD_*, BASH_FUNC_*, and DYLD_* (macOS) prefixes
@@ -91,7 +96,7 @@ func IsAllowedEnvVar(name string) bool {
 }
 
 // validateEnvVars enforces the SDK env boundary: every entry must be
-// KEY=VALUE and the key must not be on the BlockedEnvVars list (PATH,
+// KEY=VALUE and the key must not be on the blockedEnvVars list (PATH,
 // LD_PRELOAD, BASH_ENV, GCONV_PATH, LD_LIBRARY_PATH, …). This is the one
 // place the hijack check lives; the Runner runs it (via buildChildEnv)
 // before composing the child env.
@@ -99,7 +104,10 @@ func validateEnvVars(envVars []string) error {
 	for _, e := range envVars {
 		key, _, ok := strings.Cut(e, "=")
 		if !ok {
-			return fmt.Errorf("%w: env entry must be KEY=VALUE, got %q", ErrInvalidEnvVar, e)
+			// The entry is NOT echoed: a malformed entry may itself be a secret
+			// (a value pasted where KEY=VALUE belonged), and this error reaches
+			// logs.
+			return fmt.Errorf("%w: env entry must be KEY=VALUE", ErrInvalidEnvVar)
 		}
 		if !IsAllowedEnvVar(key) {
 			return fmt.Errorf("%w: refusing to forward env var %q to child (hijack-prone names like LD_PRELOAD, PATH, BASH_ENV are refused at this boundary)", ErrBlockedEnvVar, key)
