@@ -75,6 +75,13 @@ from the matrix below. Delta only; the spec is authoritative.
 8. **Guards**: G-7 arms — `fsafe` is the sanctioned home of the banned
    path-mutation calls; no allowlist entries added.
    `modulePackageFloors["sdk"]` 6 → 8 (adds fsafe, fetch).
+8a. **No `golang.org/x/sys` dependency.** The predecessor's fd-walk
+   uses x/sys/unix; the sdk module is dependency-free and a new dep
+   needs operator sign-off. Stdlib `syscall` carries Openat/Fstatat
+   and the flag constants on linux; the two gaps — unlinkat WITH
+   flags (AT_REMOVEDIR) and renameat2 (RENAME_NOREPLACE) — are two
+   small raw-syscall wrappers with locally defined constants
+   (linux-ABI-stable). The affected files build `//go:build linux`.
 9. **Self-contained rework**: predecessor comments citing WS6/F022/
    F023 inline their rationale; no foreign ticket IDs survive the
    port.
