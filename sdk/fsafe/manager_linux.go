@@ -125,8 +125,9 @@ func (m Manager) WriteFileFrom(ctx context.Context, path string, src io.Reader, 
 	if opts.Backup != "" {
 		// Deliberately NOT ResolveAndValidatePath: the backup is a create, and
 		// resolving would FOLLOW a planted final symlink (backup -> /etc/shadow)
-		// before the write ever ran. Keep the literal path — its parent safety
-		// (escalated) and no-follow atomic replace (direct) are what protect it.
+		// before the write ever ran. Keep the literal path — its parent-dir safety
+		// (vetted root-owned on BOTH backends) plus the atomic replace are what
+		// protect it.
 		if err := ValidatePath(opts.Backup); err != nil {
 			return err
 		}
@@ -145,11 +146,29 @@ func (m Manager) WriteFileFrom(ctx context.Context, path string, src io.Reader, 
 }
 
 func (m Manager) writeFileFromDirect(resolved string, src io.Reader, mode os.FileMode, opts WriteOptions, backup string) error {
+	// [SDK-7]: parent-dir safety before EVERY mutation, on BOTH backends. The
+	// direct backend is already root (see exec.Direct), so replaceFileFrom's
+	// random O_EXCL temp + rename races the same TOCTOU the escalated write vets:
+	// an attacker who can write the target directory can unlink our temp and
+	// replant that name as a symlink between CreateTemp and the rename, so the
+	// rename publishes the attacker-controlled entry. A root-owned,
+	// non-group/other-writable parent forecloses that — the attacker cannot touch
+	// entries in a directory they cannot write. The backup is a mutation too, so
+	// its parent is vetted before the backup replace below.
+	if err := parentDirSafe(filepath.Dir(resolved)); err != nil {
+		return err
+	}
+	if backup != "" {
+		if err := parentDirSafe(filepath.Dir(backup)); err != nil {
+			return err
+		}
+	}
 	if backup != "" {
 		// Stream the existing target fd->temp->backup (bounded memory, AC-12):
 		// open no-follow read-only, preserve its mode, and let replaceFileFrom's
-		// no-follow atomic swap write the backup — a planted symlink at the
-		// backup path is replaced, never followed.
+		// random-temp atomic replace write the backup — its now-vetted root-owned
+		// parent blocks the temp-republish race, and the rename replaces any
+		// planted symlink ENTRY at the backup path rather than following it.
 		// O_NONBLOCK so a FIFO planted at the target path returns immediately
 		// instead of hanging the open until a writer appears (matching
 		// FchownNoFollow/SetMode); a non-regular target is then refused before
