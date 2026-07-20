@@ -52,3 +52,20 @@ jobs:
         run: go install github.com/bufbuild/buf/cmd/buf@latest
       - name: Verify
         run: ./scripts/verify.sh
+
+  # The direct fsafe backend IS root in production; its positive create paths
+  # (e.g. Mkdir producing a 0750 dir under a root-owned parent) require a
+  # root-owned parent, so they t.Skip on the non-root `verify` lane above — a
+  # non-root runner cannot own that parent. Run the fsafe suite as root here so
+  # that positive coverage is exercised. Refusal tests use world-writable
+  # parents, so they still refuse at uid 0 (the write bits, not just ownership).
+  fsafe-root:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26"
+          cache: true
+      - name: Direct-backend fsafe tests as root
+        run: sudo -E env "PATH=$PATH" go test -C sdk ./fsafe/ -count=1

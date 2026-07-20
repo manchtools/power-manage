@@ -16,8 +16,9 @@ const (
 
 // renameat2 wraps SYS_RENAMEAT2 (absent from the stdlib syscall surface; the
 // syscall number itself is per-arch, see sysnum_*.go). The flags argument is
-// what makes an atomic no-clobber rename possible.
-func renameat2(oldPath, newPath string, flags uint) error {
+// what makes an atomic no-clobber rename possible. A package-var seam so a test
+// can force the pre-RENAME_NOREPLACE fallback (ENOSYS) without an old kernel.
+var renameat2 = func(oldPath, newPath string, flags uint) error {
 	oldp, err := syscall.BytePtrFromString(oldPath)
 	if err != nil {
 		return err

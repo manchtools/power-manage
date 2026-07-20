@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 )
 
@@ -131,6 +132,42 @@ func TestReplaceFileFrom_NoClobberRefusesExisting(t *testing.T) {
 	}
 	if string(got) != "keep\n" {
 		t.Errorf("existing file changed by refused replace: %q", got)
+	}
+}
+
+// The pre-RENAME_NOREPLACE fallback (old kernel / FS without the flag) must
+// still enforce no-clobber atomically. Forcing renameat2 to ENOSYS drives the
+// fallback; os.Link fails EEXIST on an existing target and never renames over
+// it — closing the check-then-rename TOCTOU the old Lstat-then-rename fallback
+// carried (CR round 6). Red-first: replacing the link with a plain os.Rename
+// clobbers "keep" with "new" and this test fails.
+func TestSafeRename_NoReplaceFallbackDoesNotClobber(t *testing.T) {
+	orig := renameat2
+	renameat2 = func(_, _ string, _ uint) error { return syscall.ENOSYS }
+	t.Cleanup(func() { renameat2 = orig })
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "present")
+	if err := os.WriteFile(path, []byte("keep\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	err := replaceFileFrom(path, strings.NewReader("new\n"), 0o644, false)
+	if err == nil {
+		t.Fatal("no-clobber fallback overwrote an existing target, want EEXIST")
+	}
+	if !errors.Is(err, syscall.EEXIST) {
+		t.Errorf("err = %v, want EEXIST from the atomic os.Link fallback", err)
+	}
+	if got, _ := os.ReadFile(path); string(got) != "keep\n" {
+		t.Errorf("existing file changed by the no-clobber fallback: %q", got)
+	}
+	// No temp litter left behind on the refusal.
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 || entries[0].Name() != "present" {
+		t.Errorf("directory left with unexpected entries after refusal: %v", entries)
 	}
 }
 
