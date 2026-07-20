@@ -44,7 +44,7 @@ func TestGuard_EnvHygiene(t *testing.T) {
 	for _, s := range sites {
 		seen[s.Key] = true
 		if _, sanctioned := envReadAllowlist[s.Key]; !sanctioned {
-			t.Errorf("%s: os.%s read in %s — INV-18/CFG-2: only the config loader (and the SPEC-004 child-env builder, when it lands) read the environment; route the knob through the config struct", s.Pos, s.Func, s.Key)
+			t.Errorf("%s: os.%s read in %s — INV-18/CFG-2: only the config loader reads the environment; route the knob through the config struct. (The SPEC-004 child-env builder deliberately holds no slot here: it composes the child env from constants, [SDK-4].)", s.Pos, s.Func, s.Key)
 		}
 	}
 	for key, why := range envReadAllowlist {

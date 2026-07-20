@@ -43,12 +43,12 @@ func TestVet_AcceptsVettedGrammars(t *testing.T) {
 		`^[a-zA-Z_][a-zA-Z0-9_]*$`, // exec.ValidEnvVarName
 		`^\d{1,3}$`,
 		`foo.*bar`,
-		`(abc)+`,     // quantified group without inner quantifier or alternation
-		`(a+)`,       // inner quantifier, group itself unquantified
-		`(a|b)c`,     // alternation, not under a quantifier
-		`(a|b){3}`,   // alternation under BOUNDED repeat: bounded branching
-		`(ab){3}`,    // bounded repeat of a clean group
-		`\(a+\)+`,    // escaped parens are literals, not a group
+		`(abc)+`,                     // quantified group without inner quantifier or alternation
+		`(a+)`,                       // inner quantifier, group itself unquantified
+		`(a|b)c`,                     // alternation, not under a quantifier
+		`(a|b){3}`,                   // alternation under BOUNDED repeat: bounded branching
+		`(ab){3}`,                    // bounded repeat of a clean group
+		`\(a+\)+`,                    // escaped parens are literals, not a group
 		`^[a-z]+@[a-z]+\.[a-z]{2,}$`, // three unbounded quantifiers, under the limit
 	}
 	for _, p := range good {

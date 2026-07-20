@@ -20,7 +20,7 @@ spec's own header, which is authoritative.
 | 001 | [architecture-and-trust-model](001-architecture-and-trust-model.md) | 000 (M2–M3) | all | Implemented |
 | 002 | [repo-module-and-config-contract](002-repo-module-and-config-contract.md) | 000 (M2) | all | Implemented |
 | 003 | [wire-contract](003-wire-contract.md) | 000–002 | contract | Implemented |
-| 004 | [sdk-core](004-sdk-core.md) | 000–002 | sdk | In progress (M1 done) |
+| 004 | [sdk-core](004-sdk-core.md) | 000–002 | sdk | In progress (M2 done) |
 | 005 | [event-store](005-event-store.md) | 000–003 | server | Spec ready |
 | 006 | [pki-and-identity](006-pki-and-identity.md) | 003, 005 | server | Spec ready |
 | 007 | [authentication](007-authentication.md) | 003, 005 | server | Spec ready |
@@ -63,6 +63,7 @@ SPEC-003 M3 — SignedCommand envelope: golden-pinned domain framing, contract/s
 SPEC-003 M4 — DeviceSigned results, SealedBlob + seal infos, SPIFFE identity constants, SyncManifest + monotonicity, no-removal-verbs guard — PR #17
 SPEC-003 M5 — stream protocols (Agent/Internal frames, artifact fetch, terminal token unary), scim/export deleted, [WIRE-20a] closed result set, G-5→14, G-7 deny-list, G-8 near-copy — PR #19
 SPEC-004 M1 — sdk-core guards: G-3 randomness (both math/rand generations), G-4 regex chokepoint (decl-keyed allowlist + orphan check), G-5 hash-import ban, G-6 AAD surface (dormant), G-7 mutation chokepoint, G-9 clock seam; G-1/G-2/G-8 mapped to the SPEC-002 estate — PR #20
+SPEC-004 M2 — Runner: sdk/exec on stdlib os/exec (Setpgid group, SIGTERM→grace→SIGKILL, D-state fallback), allowlist-baseline child env (curated PATH, forced C locale, hijack blocklist), argv-only + SeparatePositionals, escalation sudo/doas/direct, exectest.FakeRunner; sdk/narrow range-checked To; sdk/redos Vet/Compile/MustVet with parent-state propagation; sdk package floor 1→6 — PR #21
 
 ## Rules
 
