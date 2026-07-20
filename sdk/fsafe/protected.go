@@ -43,7 +43,15 @@ var protectedPrefixes = []string{
 // IsProtectedPath reports whether the cleaned path IS a protected directory
 // itself (exact match only — children are governed by the prefix rules).
 func IsProtectedPath(path string) bool {
-	return protectedExact[filepath.Clean(path)]
+	p := filepath.Clean(path)
+	if !filepath.IsAbs(p) {
+		// A relative path cannot be matched against the absolute exact-match set;
+		// a deny predicate fails closed rather than reading it as unprotected (in
+		// parity with IsUnderProtectedPrefix). filepath.Clean preserves relative
+		// paths, so a bare `etc` would otherwise miss the `/etc` key.
+		return true
+	}
+	return protectedExact[p]
 }
 
 // IsUnderProtectedPrefix reports whether the cleaned path is a protected

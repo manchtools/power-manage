@@ -92,6 +92,19 @@ func TestIsProtectedPath_ExactMatches(t *testing.T) {
 	}
 }
 
+// A non-absolute path cannot be classified against the absolute exact-match
+// set, so IsProtectedPath — a deny predicate — must fail CLOSED (report
+// protected) rather than read a relative input as unprotected, in parity with
+// IsUnderProtectedPrefix. `filepath.Clean` preserves relative paths, so a bare
+// `etc` would otherwise miss the `/etc` key and read as safe.
+func TestIsProtectedPath_RelativeFailsClosed(t *testing.T) {
+	for _, p := range []string{"etc", "etc/shadow", "./etc", "var", "home/alice"} {
+		if !IsProtectedPath(p) {
+			t.Errorf("IsProtectedPath(%q) = false, want true (relative → fail closed)", p)
+		}
+	}
+}
+
 // [SDK-8]: a path that RESOLVES into a protected subtree is refused
 // regardless of how it was spelled — symlink resolution is part of the check.
 func TestResolvesUnderProtectedPrefix_SymlinkIntoEtc(t *testing.T) {

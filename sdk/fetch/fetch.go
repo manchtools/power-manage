@@ -113,11 +113,17 @@ func Fetch(ctx context.Context, rawURL string, dst io.Writer, opts Options) erro
 			return guardAddr(address)
 		},
 	}
+	// One transport per call, torn down on return: a manually-built Transport has
+	// IdleConnTimeout 0 (idle keep-alive conns never expire client-side), so
+	// without CloseIdleConnections each Fetch would leak the pooled socket and its
+	// read/write goroutines until the server's keep-alive lapses.
+	transport := &http.Transport{
+		DialContext:     dialer.DialContext,
+		TLSClientConfig: &tls.Config{RootCAs: rootCAs},
+	}
+	defer transport.CloseIdleConnections()
 	client := &http.Client{
-		Transport: &http.Transport{
-			DialContext:     dialer.DialContext,
-			TLSClientConfig: &tls.Config{RootCAs: rootCAs},
-		},
+		Transport: transport,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) > maxRedirectHops {
 				return ErrTooManyRedirects
