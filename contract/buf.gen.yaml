@@ -1,9 +1,13 @@
 version: v2
 clean: true
+# Plugin versions are pinned: the verify gate diffs committed gen/ against
+# a fresh generate, and an unpinned plugin update would fail it spuriously.
 plugins:
-  - remote: buf.build/protocolbuffers/go
+  - remote: buf.build/protocolbuffers/go:v1.36.11
     out: gen/go
     opt: paths=source_relative
-  - remote: buf.build/connectrpc/go
+  - remote: buf.build/connectrpc/go:v1.20.0
     out: gen/go
     opt: paths=source_relative
+  - remote: buf.build/bufbuild/es:v2.12.1
+    out: gen/ts

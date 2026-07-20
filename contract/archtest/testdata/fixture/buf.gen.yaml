@@ -1,0 +1,6 @@
+version: v2
+clean: true
+plugins:
+  - remote: buf.build/protocolbuffers/go:v1.36.11
+    out: ../../internal/fixturepb
+    opt: paths=source_relative

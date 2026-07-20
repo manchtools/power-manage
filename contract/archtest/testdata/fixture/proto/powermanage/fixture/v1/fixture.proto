@@ -1,0 +1,47 @@
+// Liveness fixtures for the descriptor-walk guards: every shape here is a
+// planted violation or a planted non-violation the guards_test rows pin.
+syntax = "proto3";
+
+package powermanage.fixture.v1;
+
+import "buf/validate/validate.proto";
+
+option go_package = "github.com/manchtools/power-manage/contract/archtest/internal/fixturepb/powermanage/fixture/v1;fixturepb";
+
+service FixtureService {
+  rpc Do(FixtureRequest) returns (FixtureResponse);
+}
+
+message FixtureRequest {
+  // G-1 must flag: reachable boundary field with no validate rules.
+  string untagged_name = 1;
+  // G-1 must not flag.
+  string tagged_id = 2 [(buf.validate.field).string.len = 26];
+  // Reachability hop: NestedParams joins the boundary through this field.
+  NestedParams nested = 3 [(buf.validate.field).required = true];
+}
+
+message NestedParams {
+  // G-1 must flag THROUGH the closure — a nested message is boundary too.
+  string untagged_inner = 1;
+}
+
+message FixtureResponse {
+  string tagged_out = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message UnreachableLoose {
+  // Declared but not service-reachable: G-1 must NOT flag it.
+  string never_flagged = 1;
+}
+
+enum FixtureBadEnum {
+  // G-2 must flag: zero value is not *_UNSPECIFIED.
+  FIXTURE_BAD_ENUM_ACTIVE = 0;
+  FIXTURE_BAD_ENUM_OTHER = 1;
+}
+
+enum FixtureGoodEnum {
+  FIXTURE_GOOD_ENUM_UNSPECIFIED = 0;
+  FIXTURE_GOOD_ENUM_ON = 1;
+}

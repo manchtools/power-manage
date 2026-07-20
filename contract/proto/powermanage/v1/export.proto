@@ -1,0 +1,9 @@
+// ExportService (SPEC-003 §3.2): one-way OTLP export to SIEMs, structurally
+// PII-barriered (OPS-2, SPEC-016). Optional binary.
+syntax = "proto3";
+
+package powermanage.v1;
+
+option go_package = "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1;powermanagev1";
+
+service ExportService {}

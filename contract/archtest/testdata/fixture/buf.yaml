@@ -1,0 +1,8 @@
+version: v2
+modules:
+  - path: proto
+deps:
+  - buf.build/bufbuild/protovalidate
+# No lint config: this module exists to be non-conforming — it plants the
+# shapes the descriptor guards must flag (untagged boundary field, enum
+# whose zero value is not *_UNSPECIFIED). Never lint it, never ship it.
