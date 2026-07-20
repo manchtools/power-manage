@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
+	"strconv"
 	"strings"
 )
 
@@ -48,14 +49,21 @@ var regexCompileFns = map[string]bool{
 var hashImportPaths = []string{"crypto/sha256", "crypto/sha512", "crypto/hmac"}
 
 // hashImportAllow sanctions hash imports outside the crypto chokepoint,
-// keyed per FILE so a new import anywhere else — including elsewhere in the
-// same package — still trips. Single entry: fetch's artifact-pin check
+// keyed FIRST by import path and THEN per file — so the fetch exemption
+// admits crypto/sha256 ONLY, never crypto/sha512 or crypto/hmac (a future
+// HMAC/SHA-512 construction in fetch still trips), and only in the one named
+// file (a same-package sibling still trips). fetch's artifact-pin check
 // VERIFIES a published SHA-256 digest (AG-13a, M3); it constructs no
 // domain-separated hash, so there is no lp/domain framing to get wrong.
 // G-6's floor couples "sdk/crypto exists" to "seal surface exists", which
-// rules out landing a digest-only chokepoint before M5. Revisit at M5: fold
-// the digest into sdk/crypto and drop this key.
-var hashImportAllow = []string{cryptoPkgDir, "fetch/fetch.go"}
+// rules out landing a digest-only chokepoint before M5. Sunset at M5: fold
+// the digest into sdk/crypto and drop the fetch/fetch.go entry — the orphan
+// check below fails the guard if the exemption outlives its import.
+var hashImportAllow = map[string][]string{
+	"crypto/sha256": {cryptoPkgDir, "fetch/fetch.go"},
+	"crypto/sha512": {cryptoPkgDir},
+	"crypto/hmac":   {cryptoPkgDir},
+}
 
 // mutationBannedCalls is the SDK-7 path-based mutation set banned outside
 // fsafe. Recorded ceiling: os.OpenFile stays legal — it is the fd-anchored
@@ -99,17 +107,65 @@ func clockViolations(root string) ([]string, error) {
 }
 
 // hashImportViolations is G-5's M1 form: hash/MAC package imports outside
-// the crypto dir (plus the file-keyed hashImportAllow exceptions).
+// the crypto dir (plus the per-path hashImportAllow exceptions). Imports-only
+// — the orphaned-exemption check is hashAllowOrphans, kept separate so it
+// runs against the real sdk root, not the reusable liveness fixtures.
 func hashImportViolations(root string) ([]string, error) {
 	var out []string
 	for _, p := range hashImportPaths {
-		v, err := BannedImports(root, p, hashImportAllow...)
+		v, err := BannedImports(root, p, hashImportAllow[p]...)
 		if err != nil {
 			return nil, err
 		}
 		out = append(out, v...)
 	}
 	return out, nil
+}
+
+// hashAllowOrphans flags file-keyed exemptions whose file no longer imports
+// the path it is exempted for — so a stale exemption cannot silently widen
+// the hash surface after its import is gone (mirrors G-4's orphan rule and
+// the guards-skill exact-set discipline). Directory-prefix exemptions (the
+// crypto chokepoint) are not orphan-checked.
+func hashAllowOrphans(root string) ([]string, error) {
+	var out []string
+	for p, allows := range hashImportAllow {
+		var fileKeys []string
+		for _, a := range allows {
+			if strings.HasSuffix(a, ".go") {
+				fileKeys = append(fileKeys, a)
+			}
+		}
+		if len(fileKeys) == 0 {
+			continue
+		}
+		importers, err := filesImporting(root, p)
+		if err != nil {
+			return nil, err
+		}
+		for _, a := range fileKeys {
+			if !importers[a] {
+				out = append(out, fmt.Sprintf("orphaned hashImportAllow[%q] entry %q: file no longer imports %s — drop the stale exemption", p, a, p))
+			}
+		}
+	}
+	return out, nil
+}
+
+// filesImporting returns the set of slash-relative non-test files under root
+// that import importPath (alias, dot, and blank imports all counted — any
+// import binds the package into the file's import set).
+func filesImporting(root, importPath string) (map[string]bool, error) {
+	out := map[string]bool{}
+	err := walkGoFiles(root, false, func(rel string, _ *token.FileSet, file *ast.File) error {
+		for _, imp := range file.Imports {
+			if p, uerr := strconv.Unquote(imp.Path.Value); uerr == nil && p == importPath {
+				out[rel] = true
+			}
+		}
+		return nil
+	})
+	return out, err
 }
 
 // mutationChokepointViolations is G-7: the banned os mutation set outside

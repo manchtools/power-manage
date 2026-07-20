@@ -175,3 +175,15 @@ func TestResolveOwnership(t *testing.T) {
 		t.Errorf("error %v does not name the unresolvable owner", err)
 	}
 }
+
+// A negative numeric owner/group is refused: only an EMPTY value means
+// "leave unchanged" (-1 sentinel). "-1" as an explicit input is malformed
+// and must not silently become the no-op sentinel (fail closed).
+func TestResolveOwnership_RejectsNegative(t *testing.T) {
+	if _, _, err := ResolveOwnership("-1", ""); err == nil {
+		t.Error("negative owner accepted, want error (would silently no-op the chown)")
+	}
+	if _, _, err := ResolveOwnership("", "-5"); err == nil {
+		t.Error("negative group accepted, want error")
+	}
+}

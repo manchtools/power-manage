@@ -20,7 +20,7 @@ spec's own header, which is authoritative.
 | 001 | [architecture-and-trust-model](001-architecture-and-trust-model.md) | 000 (M2–M3) | all | Implemented |
 | 002 | [repo-module-and-config-contract](002-repo-module-and-config-contract.md) | 000 (M2) | all | Implemented |
 | 003 | [wire-contract](003-wire-contract.md) | 000–002 | contract | Implemented |
-| 004 | [sdk-core](004-sdk-core.md) | 000–002 | sdk | In progress (M2 done) |
+| 004 | [sdk-core](004-sdk-core.md) | 000–002 | sdk | In progress (M3 done) |
 | 005 | [event-store](005-event-store.md) | 000–003 | server | Spec ready |
 | 006 | [pki-and-identity](006-pki-and-identity.md) | 003, 005 | server | Spec ready |
 | 007 | [authentication](007-authentication.md) | 003, 005 | server | Spec ready |

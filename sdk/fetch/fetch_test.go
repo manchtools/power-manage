@@ -134,6 +134,22 @@ func TestFetch_RefusesNonHTTPSWithoutDialing(t *testing.T) {
 	}
 }
 
+// A fetch URL can carry a presigned signature or userinfo credential in its
+// query/userinfo — those must never appear in a returned error (which a
+// caller may log). The MaxBytes=0 path errors before any request and is the
+// earliest URL-bearing error site.
+func TestFetch_URLCredentialsNotInError(t *testing.T) {
+	const secret = "X-Amz-Signature=DEADBEEFSIGNATURE"
+	rawURL := "https://artifacts.example.com/app.tar.gz?token=SUPERSECRET&" + secret
+	err := Fetch(context.Background(), rawURL, &bytes.Buffer{}, Options{MaxBytes: 0})
+	if err == nil {
+		t.Fatal("zero MaxBytes accepted")
+	}
+	if strings.Contains(err.Error(), "SUPERSECRET") || strings.Contains(err.Error(), "DEADBEEFSIGNATURE") {
+		t.Errorf("credential leaked in error: %v", err)
+	}
+}
+
 // MaxBytes is mandatory: an unbounded fetch is refused before any request.
 func TestFetch_RequiresMaxBytes(t *testing.T) {
 	allowLoopback(t)
