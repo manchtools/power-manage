@@ -55,11 +55,21 @@ func services(files []protoreflect.FileDescriptor) []string {
 // services' method inputs and outputs: field message types, map value
 // types, and their closures. Messages outside the boundary (declared but
 // unreferenced) are deliberately not included — G-1 covers what crosses
-// the wire.
+// the wire. Messages defined outside the audited files (imported
+// well-known types like google.protobuf.Timestamp) are referenced surface,
+// not defined surface: their internal fields are not ours to tag, so the
+// closure stops at them.
 func reachableMessages(files []protoreflect.FileDescriptor) map[protoreflect.FullName]protoreflect.MessageDescriptor {
+	audited := make(map[string]bool, len(files))
+	for _, fd := range files {
+		audited[fd.Path()] = true
+	}
 	seen := make(map[protoreflect.FullName]protoreflect.MessageDescriptor)
 	var visit func(md protoreflect.MessageDescriptor)
 	visit = func(md protoreflect.MessageDescriptor) {
+		if !audited[md.ParentFile().Path()] {
+			return
+		}
 		if _, ok := seen[md.FullName()]; ok {
 			return
 		}

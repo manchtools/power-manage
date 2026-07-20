@@ -125,6 +125,9 @@ func TestDescwalk_FixtureShapes(t *testing.T) {
 	if _, ok := reach[protoreflect.FullName(fixturePackage+".UnreachableLoose")]; ok {
 		t.Errorf("UnreachableLoose is not service-reachable but the closure included it")
 	}
+	if _, ok := reach[protoreflect.FullName("google.protobuf.Timestamp")]; ok {
+		t.Errorf("google.protobuf.Timestamp is referenced but defined outside the audited files — the closure must stop at foreign messages, not audit their internals")
+	}
 	es := enums(files)
 	if len(es) != 2 {
 		t.Fatalf("enums = %d, want the two fixture enums", len(es))

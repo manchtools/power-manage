@@ -13,6 +13,7 @@ import (
 	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -125,7 +126,11 @@ type FixtureRequest struct {
 	// G-1 must not flag.
 	TaggedId string `protobuf:"bytes,2,opt,name=tagged_id,json=taggedId,proto3" json:"tagged_id,omitempty"`
 	// Reachability hop: NestedParams joins the boundary through this field.
-	Nested        *NestedParams `protobuf:"bytes,3,opt,name=nested,proto3" json:"nested,omitempty"`
+	Nested *NestedParams `protobuf:"bytes,3,opt,name=nested,proto3" json:"nested,omitempty"`
+	// Foreign well-known type: reachable through this (tagged) field, but its
+	// internal fields are not contract surface — the closure must not walk
+	// into messages defined outside the audited files.
+	StampedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=stamped_at,json=stampedAt,proto3" json:"stamped_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -177,6 +182,13 @@ func (x *FixtureRequest) GetTaggedId() string {
 func (x *FixtureRequest) GetNested() *NestedParams {
 	if x != nil {
 		return x.Nested
+	}
+	return nil
+}
+
+func (x *FixtureRequest) GetStampedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StampedAt
 	}
 	return nil
 }
@@ -319,11 +331,13 @@ var File_powermanage_fixture_v1_fixture_proto protoreflect.FileDescriptor
 
 const file_powermanage_fixture_v1_fixture_proto_rawDesc = "" +
 	"\n" +
-	"$powermanage/fixture/v1/fixture.proto\x12\x16powermanage.fixture.v1\x1a\x1bbuf/validate/validate.proto\"\xa2\x01\n" +
+	"$powermanage/fixture/v1/fixture.proto\x12\x16powermanage.fixture.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe5\x01\n" +
 	"\x0eFixtureRequest\x12#\n" +
 	"\runtagged_name\x18\x01 \x01(\tR\funtaggedName\x12%\n" +
 	"\ttagged_id\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x98\x01\x1aR\btaggedId\x12D\n" +
-	"\x06nested\x18\x03 \x01(\v2$.powermanage.fixture.v1.NestedParamsB\x06\xbaH\x03\xc8\x01\x01R\x06nested\"5\n" +
+	"\x06nested\x18\x03 \x01(\v2$.powermanage.fixture.v1.NestedParamsB\x06\xbaH\x03\xc8\x01\x01R\x06nested\x12A\n" +
+	"\n" +
+	"stamped_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\tstampedAt\"5\n" +
 	"\fNestedParams\x12%\n" +
 	"\x0euntagged_inner\x18\x01 \x01(\tR\runtaggedInner\"9\n" +
 	"\x0fFixtureResponse\x12&\n" +
@@ -355,22 +369,24 @@ func file_powermanage_fixture_v1_fixture_proto_rawDescGZIP() []byte {
 var file_powermanage_fixture_v1_fixture_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_powermanage_fixture_v1_fixture_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_powermanage_fixture_v1_fixture_proto_goTypes = []any{
-	(FixtureBadEnum)(0),      // 0: powermanage.fixture.v1.FixtureBadEnum
-	(FixtureGoodEnum)(0),     // 1: powermanage.fixture.v1.FixtureGoodEnum
-	(*FixtureRequest)(nil),   // 2: powermanage.fixture.v1.FixtureRequest
-	(*NestedParams)(nil),     // 3: powermanage.fixture.v1.NestedParams
-	(*FixtureResponse)(nil),  // 4: powermanage.fixture.v1.FixtureResponse
-	(*UnreachableLoose)(nil), // 5: powermanage.fixture.v1.UnreachableLoose
+	(FixtureBadEnum)(0),           // 0: powermanage.fixture.v1.FixtureBadEnum
+	(FixtureGoodEnum)(0),          // 1: powermanage.fixture.v1.FixtureGoodEnum
+	(*FixtureRequest)(nil),        // 2: powermanage.fixture.v1.FixtureRequest
+	(*NestedParams)(nil),          // 3: powermanage.fixture.v1.NestedParams
+	(*FixtureResponse)(nil),       // 4: powermanage.fixture.v1.FixtureResponse
+	(*UnreachableLoose)(nil),      // 5: powermanage.fixture.v1.UnreachableLoose
+	(*timestamppb.Timestamp)(nil), // 6: google.protobuf.Timestamp
 }
 var file_powermanage_fixture_v1_fixture_proto_depIdxs = []int32{
 	3, // 0: powermanage.fixture.v1.FixtureRequest.nested:type_name -> powermanage.fixture.v1.NestedParams
-	2, // 1: powermanage.fixture.v1.FixtureService.Do:input_type -> powermanage.fixture.v1.FixtureRequest
-	4, // 2: powermanage.fixture.v1.FixtureService.Do:output_type -> powermanage.fixture.v1.FixtureResponse
-	2, // [2:3] is the sub-list for method output_type
-	1, // [1:2] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	6, // 1: powermanage.fixture.v1.FixtureRequest.stamped_at:type_name -> google.protobuf.Timestamp
+	2, // 2: powermanage.fixture.v1.FixtureService.Do:input_type -> powermanage.fixture.v1.FixtureRequest
+	4, // 3: powermanage.fixture.v1.FixtureService.Do:output_type -> powermanage.fixture.v1.FixtureResponse
+	3, // [3:4] is the sub-list for method output_type
+	2, // [2:3] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_powermanage_fixture_v1_fixture_proto_init() }
