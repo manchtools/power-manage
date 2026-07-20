@@ -171,6 +171,38 @@ func TestSafeRename_NoReplaceFallbackDoesNotClobber(t *testing.T) {
 	}
 }
 
+// The os.Link no-clobber fallback must still COMPLETE a write when the target is
+// absent — the two tests above only prove it REFUSES an existing target/symlink.
+// Forces renameat2 to ENOSYS to drive the fallback, then writes to a
+// not-yet-existing name: the link commits the content and the temp name is
+// dropped, leaving exactly the target. Guards the fallback's success path
+// (link + best-effort temp remove) against a regression that breaks the happy
+// path. (The narrow misreport branch — Remove failing after a successful Link —
+// is not deterministically reachable without an os.Remove seam, unwarranted for
+// a fallback that never runs on fsafe's RENAME_NOREPLACE-capable /etc targets.)
+func TestSafeRename_NoReplaceFallbackCommitsWhenAbsent(t *testing.T) {
+	orig := renameat2
+	renameat2 = func(_, _ string, _ uint) error { return syscall.ENOSYS }
+	t.Cleanup(func() { renameat2 = orig })
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "fresh")
+	if err := replaceFileFrom(path, strings.NewReader("new\n"), 0o644, false); err != nil {
+		t.Fatalf("no-replace fallback failed to commit to an absent target: %v", err)
+	}
+	if got, _ := os.ReadFile(path); string(got) != "new\n" {
+		t.Errorf("target content = %q, want %q", got, "new\n")
+	}
+	// The temp name was dropped after the link; only the target remains.
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 || entries[0].Name() != "fresh" {
+		t.Errorf("directory left with unexpected entries after commit: %v", entries)
+	}
+}
+
 // patternReader yields n bytes of a repeating pattern without materializing
 // them — the AC-12 streaming source.
 type patternReader struct {

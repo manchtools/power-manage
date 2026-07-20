@@ -83,9 +83,14 @@ func safeRename(oldPath, newPath string, removeExisting bool) error {
 		if lerr := os.Link(oldPath, newPath); lerr != nil {
 			return fmt.Errorf("rename %s -> %s (no-replace link): %w", oldPath, newPath, lerr)
 		}
-		if rerr := os.Remove(oldPath); rerr != nil {
-			return fmt.Errorf("remove linked temp %s: %w", oldPath, rerr)
-		}
+		// The link IS the atomic commit — newPath now holds the content, so the
+		// replace has already succeeded. Dropping the temp name is best-effort: a
+		// Remove failure here (e.g. the temp was concurrently unlinked) must not
+		// report a completed replace as failed and drive the caller to retry into
+		// an EEXIST. Worst case a redundant hardlink to the same inode lingers in
+		// the dir; it never touches newPath. Mirrors the best-effort temp cleanup
+		// in replaceFileFrom's defer and the dir-fsync above.
+		_ = os.Remove(oldPath)
 		return nil
 	}
 	return fmt.Errorf("rename %s -> %s (no-replace): %w", oldPath, newPath, err)

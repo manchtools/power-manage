@@ -66,6 +66,12 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version: "1.26"
-          cache: true
+          # No caching: this monorepo has no root go.mod, so setup-go cannot key
+          # the cache (it warns "Dependencies file is not found" and saves
+          # nothing). Leaving it on would also risk a post-job "permission denied"
+          # the moment keying ever succeeds, since `sudo -E` runs go test as root
+          # and the caches ($HOME/.cache/go-build, $HOME/go/pkg/mod) would fill
+          # with root-owned files the runner-user save step cannot archive.
+          cache: false
       - name: Direct-backend fsafe tests as root
         run: sudo -E env "PATH=$PATH" go test -C sdk ./fsafe/ -count=1
