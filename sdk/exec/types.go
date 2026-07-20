@@ -40,5 +40,7 @@ const (
 // mean every comparison needed an explicit cast). line is the output
 // line including its trailing newline. seq is a stream-local
 // monotonic ordering counter. Calls are serialized — the callback is
-// never invoked concurrently.
+// never invoked concurrently. A panic in the callback is contained:
+// delivery stops and the panic is reported as the run's returned error
+// instead of crashing the process.
 type OutputCallback func(streamType StreamType, line string, seq int64)

@@ -465,6 +465,21 @@ func TestRunner_StderrOutputCapped(t *testing.T) {
 	}
 }
 
+// A panicking OutputCallback is a caller bug, but it must not take down the
+// whole process from an SDK-internal goroutine: delivery stops, the child is
+// still reaped, and the panic surfaces as the returned error.
+func TestRunner_CallbackPanicContainedAndSurfaced(t *testing.T) {
+	res, err := directRunner(t).Stream(context.Background(),
+		Command{Name: "sh", Args: []string{"-c", `printf 'a\nb\n'`}},
+		func(StreamType, string, int64) { panic("callback bug") })
+	if err == nil || !strings.Contains(err.Error(), "callback panicked") {
+		t.Fatalf("err = %v, want the callback panic contained and surfaced as an error", err)
+	}
+	if res.ExitCode != 0 {
+		t.Errorf("ExitCode = %d, want 0 (the child itself completed cleanly)", res.ExitCode)
+	}
+}
+
 // A final line without a trailing newline is still delivered — newline-
 // terminated, matching what exectest.FakeRunner's replay documents.
 func TestRunner_UnterminatedFinalLineDelivered(t *testing.T) {
