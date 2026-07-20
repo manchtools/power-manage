@@ -81,8 +81,9 @@ func TestExistsPredicate_DanglingSymlinkReportsExists(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// The predicate Exists actually invokes (kept identical here on purpose).
-	pred := exec.Command("sh", "-c", `[ -e "$1" ] || [ -L "$1" ]`, "sh", link)
+	// The predicate Exists actually invokes — reference the production const so
+	// a change to it (e.g. back to bare `test -e`) trips this behavioral guard.
+	pred := exec.Command("sh", "-c", existsPredicate, "sh", link)
 	if err := pred.Run(); err != nil {
 		t.Fatalf("exists predicate reported a dangling symlink as absent: %v", err)
 	}

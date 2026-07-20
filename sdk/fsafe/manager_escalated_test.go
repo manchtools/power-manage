@@ -282,8 +282,7 @@ func TestManager_Exists_Escalated(t *testing.T) {
 		t.Errorf("exit 0: (%v, %v), want (true, nil)", ok, err)
 	}
 	c := mustCalls(t, fr, 1)[0]
-	wantPred := `[ -e "$1" ] || [ -L "$1" ]`
-	if c.Name != "sh" || !slices.Equal(c.Args, []string{"-c", wantPred, "sh", "/etc/pm-test.conf"}) {
+	if c.Name != "sh" || !slices.Equal(c.Args, []string{"-c", existsPredicate, "sh", "/etc/pm-test.conf"}) {
 		t.Errorf("argv = %s %q, want sh [-c <exists-or-symlink pred> sh path]", c.Name, c.Args)
 	}
 	// The path must not be interpolated into the predicate body — a value
@@ -312,15 +311,20 @@ func TestManager_Exists_Escalated(t *testing.T) {
 // it is fail-safe, not a downgrade.
 func TestManager_Mkdir_Escalated_ArgvSequence(t *testing.T) {
 	fr, m := newEscalatedManager(t)
-	err := m.Mkdir(context.Background(), "/srv/app/data", MkdirOptions{Recursive: true, Mode: 0o750, Owner: "root", Group: "root"})
+	// Target sits directly under /var (a real root-owned dir): Mkdir's follow-up
+	// SetOwnership now vets the target's parent root-owned ([SDK-7]), and the
+	// FakeRunner never actually creates the mkdir path, so a deeper target whose
+	// immediate parent does not exist on the host would fail that stat. In
+	// production the real `mkdir -p` creates that parent root-owned first.
+	err := m.Mkdir(context.Background(), "/var/pm-data", MkdirOptions{Recursive: true, Mode: 0o750, Owner: "root", Group: "root"})
 	if err != nil {
 		t.Fatalf("Mkdir: %v", err)
 	}
 	calls := mustCalls(t, fr, 2)
-	if calls[0].Name != "mkdir" || !slices.Equal(calls[0].Args, []string{"-p", "-m", "0750", "--", "/srv/app/data"}) {
+	if calls[0].Name != "mkdir" || !slices.Equal(calls[0].Args, []string{"-p", "-m", "0750", "--", "/var/pm-data"}) {
 		t.Errorf("call 0 = %s %q, want mkdir [-p -m 0750 -- path] (mode set atomically at create)", calls[0].Name, calls[0].Args)
 	}
-	if calls[1].Name != "chown" || !slices.Equal(calls[1].Args, []string{"root:root", "--", "/srv/app/data"}) {
+	if calls[1].Name != "chown" || !slices.Equal(calls[1].Args, []string{"root:root", "--", "/var/pm-data"}) {
 		t.Errorf("call 1 = %s %q, want chown [root:root -- path]", calls[1].Name, calls[1].Args)
 	}
 	for i, c := range calls {
@@ -428,8 +432,10 @@ func TestManager_Copy_Escalated(t *testing.T) {
 		t.Fatalf("Copy: %v", err)
 	}
 	c := mustCalls(t, fr, 1)[0]
-	if c.Name != "cp" || !slices.Equal(c.Args, []string{"--", "/etc/app.conf", "/etc/app.conf.new"}) {
-		t.Errorf("argv = %s %q, want cp [-- src dst]", c.Name, c.Args)
+	// --remove-destination unlinks a symlink planted at dst BEFORE copying, so
+	// GNU cp cannot follow it into an arbitrary root file ([SDK-7], CR round 5).
+	if c.Name != "cp" || !slices.Equal(c.Args, []string{"--remove-destination", "--", "/etc/app.conf", "/etc/app.conf.new"}) {
+		t.Errorf("argv = %s %q, want cp [--remove-destination -- src dst]", c.Name, c.Args)
 	}
 }
 
@@ -479,14 +485,14 @@ func TestManager_Copy_Escalated_AllowsSingleFileUnderEtc(t *testing.T) {
 // (root-owned /tmp) so the red→green flip is independent of the test runner's
 // own uid — an ownership-based check on a t.TempDir() would already refuse for
 // the wrong reason under a non-root runner.
-func TestEscalatedParentSafe_StickyWorldWritableRefused(t *testing.T) {
-	if err := escalatedParentSafe("/tmp"); !errors.Is(err, ErrUnsafeParentDir) {
-		t.Fatalf("escalatedParentSafe(/tmp) = %v, want ErrUnsafeParentDir (sticky is not an exemption)", err)
+func TestParentDirSafe_StickyWorldWritableRefused(t *testing.T) {
+	if err := parentDirSafe("/tmp"); !errors.Is(err, ErrUnsafeParentDir) {
+		t.Fatalf("parentDirSafe(/tmp) = %v, want ErrUnsafeParentDir (sticky is not an exemption)", err)
 	}
 	// Sanity: a genuinely safe root-owned non-writable dir still passes, so the
 	// fix did not simply start refusing everything.
-	if err := escalatedParentSafe("/"); err != nil {
-		t.Fatalf("escalatedParentSafe(/) = %v, want nil (root-owned, non-writable)", err)
+	if err := parentDirSafe("/"); err != nil {
+		t.Fatalf("parentDirSafe(/) = %v, want nil (root-owned, non-writable)", err)
 	}
 }
 
@@ -521,6 +527,45 @@ func TestManager_CopyTree_Escalated_UnsafeDestParentRefusedBeforeSudo(t *testing
 		t.Fatalf("err = %v, want ErrUnsafeParentDir (escalated tree-copy must vet the dest parent)", err)
 	}
 	mustCalls(t, fr, 0)
+}
+
+// [SDK-7] "parent-dir safety before EVERY mutation" — every escalated shell-out
+// mutator that dereferences its target (chmod/chown/chown -R/rm/cp all follow a
+// symlink at the target by default) must refuse a group/other-writable parent
+// BEFORE sudo, issuing zero commands. The list is a hand-maintained enumeration
+// of those mutators — a NEW escalated mutator that shells out MUST be added here
+// (and the empty-list tripwire guards against the list being gutted). The
+// create-mutations (Mkdir/CopyTree) are covered by their own anchor-safety
+// tests above; this pins the existing-target mutators.
+func TestManager_EscalatedMutators_UnsafeParentRefusedBeforeSudo(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.Chmod(dir, 0o777); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(dir, "target")
+	ctx := context.Background()
+	ops := []struct {
+		name string
+		call func(m Manager) error
+	}{
+		{"SetMode", func(m Manager) error { return m.SetMode(ctx, target, 0o640) }},
+		{"SetOwnership", func(m Manager) error { return m.SetOwnership(ctx, target, "root", "wheel") }},
+		{"SetOwnershipRecursive", func(m Manager) error { return m.SetOwnershipRecursive(ctx, target, "root", "wheel") }},
+		{"Remove", func(m Manager) error { return m.Remove(ctx, target) }},
+		{"Copy", func(m Manager) error { return m.Copy(ctx, "/etc/app.conf", target) }},
+	}
+	if len(ops) == 0 {
+		t.Fatal("no escalated mutators under test — the guard population went empty")
+	}
+	for _, op := range ops {
+		fr, m := newEscalatedManager(t)
+		if err := op.call(m); !errors.Is(err, ErrUnsafeParentDir) {
+			t.Errorf("%s: err = %v, want ErrUnsafeParentDir (parent must be vetted before sudo)", op.name, err)
+		}
+		if calls := fr.Calls(); len(calls) != 0 {
+			t.Errorf("%s: issued %d escalated commands before refusing: %+v", op.name, len(calls), calls)
+		}
+	}
 }
 
 // WriteFileFrom on an escalated backend routes through the SAME single-root-

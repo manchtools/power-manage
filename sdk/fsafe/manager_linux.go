@@ -232,7 +232,7 @@ mv -T -- "$tmp" "$target"
 `
 
 func (m Manager) writeFileFromEscalated(ctx context.Context, resolved string, src io.Reader, mode os.FileMode, opts WriteOptions, backup string) error {
-	if err := escalatedParentSafe(filepath.Dir(resolved)); err != nil {
+	if err := parentDirSafe(filepath.Dir(resolved)); err != nil {
 		return err
 	}
 	// [SDK-7]: parent-dir safety before EVERY mutation. The backup write is a
@@ -240,7 +240,7 @@ func (m Manager) writeFileFromEscalated(ctx context.Context, resolved string, sr
 	// attacker cannot plant or swap a symlink there for the escalated cp to
 	// follow into an arbitrary root file.
 	if backup != "" {
-		if err := escalatedParentSafe(filepath.Dir(backup)); err != nil {
+		if err := parentDirSafe(filepath.Dir(backup)); err != nil {
 			return err
 		}
 	}
@@ -259,17 +259,22 @@ func (m Manager) writeFileFromEscalated(ctx context.Context, resolved string, sr
 	return nil
 }
 
-// escalatedParentSafe refuses an escalated mutation whose parent directory an
-// unprivileged user could manipulate between check and effect: the parent must
-// be root-owned and not group/other-writable. Checked UNPRIVILEGED, before
-// sudo ever runs.
+// parentDirSafe refuses a privileged mutation whose parent directory a
+// less-privileged actor could manipulate between check and effect ([SDK-7]:
+// parent-dir safety before EVERY mutation): the parent must be root-owned and
+// not group/other-writable. Applied to every shell-out mutator on BOTH
+// backends — the escalated tier runs the mutation as root via sudo (this check
+// is unprivileged, before sudo), and the Direct tier IS already root (see
+// exec.Direct), so a writable parent races a root create/chmod/chown/cp on
+// both. The fd-anchored Direct mutators (WriteFile/SetMode/SetOwnership/Remove
+// no-follow) close the same race by construction and skip this check.
 //
 // The sticky bit is NOT an exemption. Sticky (e.g. /tmp's 1777) only stops an
 // unprivileged co-tenant from unlinking or renaming ANOTHER user's EXISTING
 // entry; it does nothing to stop them creating a NEW name — a planted symlink —
-// at a target that does not exist yet, which the escalated cp/mv would then act
-// through ([SDK-7]: "Symlink TOCTOU"). Any writable parent fails closed.
-func escalatedParentSafe(dir string) error {
+// at a target that does not exist yet, which the privileged cp/mv would then
+// act through ([SDK-7]: "Symlink TOCTOU"). Any writable parent fails closed.
+func parentDirSafe(dir string) error {
 	var st syscall.Stat_t
 	if err := syscall.Stat(dir, &st); err != nil {
 		return fmt.Errorf("stat parent %s: %w", dir, err)
@@ -280,20 +285,21 @@ func escalatedParentSafe(dir string) error {
 	return nil
 }
 
-// escalatedCreateAnchorSafe verifies the deepest EXISTING ancestor of an
-// escalated create (mkdir, mkdir -p, cp -a subtree) is root-owned and
-// non-writable, so an attacker cannot redirect the resolved path — by swapping
-// an existing component or planting a symlink at the first not-yet-existing
-// name — between this unprivileged check and the privileged create ([SDK-7]:
-// parent-dir safety before EVERY mutation). For a non-recursive create the
-// anchor is the immediate parent; for `mkdir -p` it is wherever the new chain
-// attaches to the existing tree. A safe anchor is non-writable, so the attacker
-// cannot inject anything beneath it — every component the privileged create
-// then makes is root-owned by construction.
-func escalatedCreateAnchorSafe(path string) error {
+// createAnchorSafe verifies the deepest EXISTING ancestor of a privileged
+// create (mkdir, mkdir -p, cp -a subtree, cp to a new file) is root-owned and
+// non-writable, so an attacker cannot redirect the resolved path by planting a
+// symlink at the first not-yet-existing name between this check and the
+// privileged create. For a non-recursive create the anchor is the immediate
+// parent; for `mkdir -p` it is wherever the new chain attaches to the existing
+// tree. A safe anchor is non-writable, so the attacker cannot inject anything
+// BENEATH it — every component the privileged create then makes is root-owned
+// by construction. (Its guarantee is exactly "no injection beneath the deepest
+// existing ancestor"; an existing ancestor ABOVE the anchor is not re-checked,
+// the same single-level ceiling parentDirSafe has on the write path.)
+func createAnchorSafe(path string) error {
 	dir := filepath.Dir(path)
 	for {
-		err := escalatedParentSafe(dir)
+		err := parentDirSafe(dir)
 		if err == nil {
 			return nil
 		}
@@ -372,6 +378,12 @@ func (m Manager) ReadDir(ctx context.Context, path string) ([]DirEntry, error) {
 	return out, nil
 }
 
+// existsPredicate is the escalated no-follow existence test. Bare `test -e`
+// dereferences a symlink and would report a dangling symlink absent, diverging
+// from the direct backend's os.Lstat — the `|| -L` arm restores parity. $1 is
+// positional (never interpolated) so the path stays injection-safe.
+const existsPredicate = `[ -e "$1" ] || [ -L "$1" ]`
+
 // Exists reports whether an entry is present at path WITHOUT following a
 // symlink leaf, so a dangling symlink counts as existing on both backends: the
 // direct backend uses os.Lstat, and the escalated backend uses
@@ -394,7 +406,7 @@ func (m Manager) Exists(ctx context.Context, path string) (bool, error) {
 	}
 	// Positional $1 (not interpolated) keeps the path injection-safe; the `|| -L`
 	// arm restores Lstat parity for a dangling symlink.
-	res, err := m.run(ctx, "sh", "-c", `[ -e "$1" ] || [ -L "$1" ]`, "sh", resolved)
+	res, err := m.run(ctx, "sh", "-c", existsPredicate, "sh", resolved)
 	if err != nil {
 		return false, err
 	}
@@ -409,14 +421,14 @@ func (m Manager) Exists(ctx context.Context, path string) (bool, error) {
 }
 
 // Mkdir creates a directory. Creation under a protected prefix is refused —
-// the create side of [SDK-8] — with symlink resolution part of the check. On
-// the escalated backend the parent is vetted root-owned first ([SDK-7]) so a
-// writable parent cannot redirect the resolved path between check and the
-// privileged create. Recorded ceiling (parity with Copy/CopyTree/
-// SetOwnershipRecursive): always shells `mkdir` — there is no fd-anchored
-// mkdirat primitive in M3, so the create is not fd-anchored on either backend;
-// the escalated TOCTOU is closed by the unprivileged anchor-safety check, not
-// by an fd handle across the sudo boundary.
+// the create side of [SDK-8] — with symlink resolution part of the check. The
+// parent is vetted root-owned before the create ([SDK-7]) so a writable parent
+// cannot redirect the resolved path between check and the privileged create.
+// Recorded ceiling (parity with Copy/CopyTree/SetOwnershipRecursive): always
+// shells `mkdir` — there is no fd-anchored mkdirat primitive in M3, so the
+// create is not fd-anchored on EITHER backend (both run as root: escalated via
+// sudo, Direct is already root), which is exactly why the anchor-safety check
+// applies to both rather than an fd handle.
 func (m Manager) Mkdir(ctx context.Context, path string, opts MkdirOptions) error {
 	if opts.Mode != 0 {
 		if err := validateMode(opts.Mode); err != nil {
@@ -430,12 +442,8 @@ func (m Manager) Mkdir(ctx context.Context, path string, opts MkdirOptions) erro
 	if IsUnderProtectedPrefix(resolved) {
 		return fmt.Errorf("%w: mkdir %s", ErrProtectedTarget, path)
 	}
-	if !m.direct() {
-		// Escalated create-mutation: on the Direct backend there is no privilege
-		// boundary to race across, so the anchor check applies only here.
-		if err := escalatedCreateAnchorSafe(resolved); err != nil {
-			return err
-		}
+	if err := createAnchorSafe(resolved); err != nil {
+		return err
 	}
 	// Fold the mode into the create (`mkdir -m`) so the new directory never
 	// exists with a laxer umask-derived mode in a window between two escalated
@@ -477,6 +485,13 @@ func (m Manager) Remove(ctx context.Context, path string) error {
 			return err
 		}
 		return nil
+	}
+	// [SDK-7] parent-dir safety before the escalated rm. rm unlinks a symlink
+	// at the target rather than following it, but a writable parent still lets
+	// a swapped non-final path component redirect the delete — vet the parent
+	// root-owned so the entry cannot be swapped between check and effect.
+	if err := parentDirSafe(filepath.Dir(resolved)); err != nil {
+		return err
 	}
 	res, err := m.run(ctx, "rm", "-f", "--", resolved)
 	if err != nil {
@@ -532,8 +547,16 @@ func (m Manager) RemoveDir(ctx context.Context, path string) error {
 	return nil
 }
 
-// Copy copies one file. Recorded ceiling: shells cp on every backend — there
-// is no fd-anchored copy primitive, and the paths are validated argv.
+// Copy copies one file. Like WriteFile's target, the destination is deliberately
+// NOT protected-prefix guarded (single-file config writes under /etc are the
+// point) and NOT symlink-resolved (resolving would FOLLOW a planted dst symlink
+// before the copy) — but it still gets [SDK-7] parent-dir safety on BOTH
+// backends and a no-follow write. `cp --remove-destination` unlinks dst before
+// copying, so a symlink planted at dst is removed rather than followed into an
+// arbitrary root file (GNU cp otherwise follows a dst symlink to an existing
+// regular file); with the parent vetted root-owned, an attacker cannot plant
+// that symlink in the first place. Recorded ceiling: shells cp on every backend
+// — there is no fd-anchored copy primitive.
 func (m Manager) Copy(ctx context.Context, src, dst string) error {
 	if err := ValidatePath(src); err != nil {
 		return err
@@ -541,7 +564,14 @@ func (m Manager) Copy(ctx context.Context, src, dst string) error {
 	if err := ValidatePath(dst); err != nil {
 		return err
 	}
-	res, err := m.run(ctx, "cp", "--", src, dst)
+	cleanDst := filepath.Clean(dst)
+	if !filepath.IsAbs(cleanDst) {
+		return fmt.Errorf("%w: dst %q is not absolute", ErrInvalidPath, dst)
+	}
+	if err := parentDirSafe(filepath.Dir(cleanDst)); err != nil {
+		return err
+	}
+	res, err := m.run(ctx, "cp", "--remove-destination", "--", src, cleanDst)
 	if err != nil {
 		return err
 	}
@@ -569,13 +599,11 @@ func (m Manager) CopyTree(ctx context.Context, src, dst string) error {
 	if IsUnderProtectedPrefix(resolvedDst) {
 		return fmt.Errorf("%w: copy tree to %s", ErrProtectedTarget, dst)
 	}
-	if !m.direct() {
-		// Escalated create-mutation ([SDK-7]): vet the destination parent so a
-		// writable parent cannot redirect the resolved dst between check and the
-		// privileged cp. Direct has no privilege boundary to race across.
-		if err := escalatedCreateAnchorSafe(resolvedDst); err != nil {
-			return err
-		}
+	// Create-mutation ([SDK-7]): vet the destination parent on BOTH backends so
+	// a writable parent cannot redirect the resolved dst between check and the
+	// privileged cp — Direct is already root, so it races the same as escalated.
+	if err := createAnchorSafe(resolvedDst); err != nil {
+		return err
 	}
 	res, err := m.run(ctx, "cp", "-a", "-T", "--", src, resolvedDst)
 	if err != nil {
@@ -607,6 +635,12 @@ func (m Manager) SetMode(ctx context.Context, path string, mode os.FileMode) err
 			return fmt.Errorf("chmod %s: %w", resolved, err)
 		}
 		return nil
+	}
+	// Escalated chmod follows a symlink at the target (there is no no-follow
+	// chmod) — vet the parent root-owned so it cannot be swapped for a link to
+	// an arbitrary root file between check and effect ([SDK-7]).
+	if err := parentDirSafe(filepath.Dir(resolved)); err != nil {
+		return err
 	}
 	res, err := m.run(ctx, "chmod", modeArg(mode), "--", resolved)
 	if err != nil {
@@ -649,6 +683,11 @@ func (m Manager) SetOwnership(ctx context.Context, path, owner, group string) er
 		}
 		return FchownNoFollow(resolved, uid, gid)
 	}
+	// Escalated chown dereferences a symlink at the target — vet the parent
+	// root-owned so it cannot be swapped between check and effect ([SDK-7]).
+	if err := parentDirSafe(filepath.Dir(resolved)); err != nil {
+		return err
+	}
 	res, err := m.run(ctx, "chown", Ownership(owner, group), "--", resolved)
 	if err != nil {
 		return err
@@ -672,6 +711,13 @@ func (m Manager) SetOwnershipRecursive(ctx context.Context, path, owner, group s
 	}
 	if IsUnderProtectedPrefix(resolved) {
 		return fmt.Errorf("%w: recursive chown %s", ErrProtectedTarget, path)
+	}
+	// chown -R dereferences its top-level target argument on every backend
+	// (Direct is already root, so it races the same as escalated) — vet the
+	// parent root-owned so the tree root cannot be swapped for a symlink
+	// between check and the privileged recursive chown ([SDK-7]).
+	if err := parentDirSafe(filepath.Dir(resolved)); err != nil {
+		return err
 	}
 	res, err := m.run(ctx, "chown", "-R", Ownership(owner, group), "--", resolved)
 	if err != nil {
