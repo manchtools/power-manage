@@ -59,13 +59,23 @@ func TestIsUnderProtectedPrefix_ExactTopUps(t *testing.T) {
 	}
 }
 
-// A relative path (or one whose resolution fails) errs on the side of caution.
-func TestIsUnderProtectedPrefix_RelativeErsOnCaution(t *testing.T) {
-	// A relative path is resolved against the cwd; from anywhere it must not
-	// silently read as safe when resolution cannot be pinned. The predicate
-	// resolves to absolute first — assert the etc spelling is still caught.
+// A traversal spelling that CLEANS to a protected path is still caught — the
+// predicate cleans before matching prefixes.
+func TestIsUnderProtectedPrefix_TraversalSpelling(t *testing.T) {
 	if !IsUnderProtectedPrefix("/etc/./sudoers.d/../sudoers.d") {
 		t.Error("cleaned traversal spelling dodged the prefix check")
+	}
+}
+
+// A non-absolute path cannot be classified against absolute prefixes, so the
+// deny predicate fails CLOSED (reports protected) rather than reading a
+// relative input as safe. The Manager always resolves to absolute before
+// calling this; the predicate must not depend on that to avoid a fail-open.
+func TestIsUnderProtectedPrefix_RelativeFailsClosed(t *testing.T) {
+	for _, p := range []string{"etc/shadow", "etc/../etc/sudoers.d", "./var/lib/x", "relative"} {
+		if !IsUnderProtectedPrefix(p) {
+			t.Errorf("IsUnderProtectedPrefix(%q) = false, want true (relative → fail closed)", p)
+		}
 	}
 }
 

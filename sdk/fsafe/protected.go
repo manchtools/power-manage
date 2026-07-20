@@ -51,6 +51,13 @@ func IsProtectedPath(path string) bool {
 // lexical — see ResolvesUnderProtectedPrefix for the symlink-aware form.
 func IsUnderProtectedPrefix(path string) bool {
 	p := filepath.Clean(path)
+	if !filepath.IsAbs(p) {
+		// A relative path cannot be classified against absolute prefixes; a
+		// deny predicate must fail closed rather than read it as safe. The
+		// Manager always resolves to absolute first, but the predicate must
+		// not depend on that.
+		return true
+	}
 	if protectedExact[p] {
 		return true
 	}

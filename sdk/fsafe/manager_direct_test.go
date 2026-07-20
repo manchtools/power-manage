@@ -9,7 +9,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
+	"time"
 
 	pmexec "github.com/manchtools/power-manage/sdk/exec"
 )
@@ -84,6 +86,33 @@ func TestManager_WriteFile_RefusesSetuid(t *testing.T) {
 	}
 	if _, statErr := os.Lstat(path); !os.IsNotExist(statErr) {
 		t.Error("refused setuid write still created the file")
+	}
+}
+
+// A FIFO planted at the target must not hang the backup open. Without
+// O_NONBLOCK a read-only open of a FIFO blocks until a writer appears — here,
+// forever; the open must return promptly and the non-regular target be refused
+// before any streaming. The timeout turns a regression into a fast failure
+// instead of a whole-suite hang.
+func TestManager_WriteFileFrom_Direct_FifoTargetRefusedNoHang(t *testing.T) {
+	m := newDirectManager(t)
+	dir := t.TempDir()
+	target := filepath.Join(dir, "fifo")
+	if err := syscall.Mkfifo(target, 0o644); err != nil {
+		t.Fatalf("mkfifo: %v", err)
+	}
+	done := make(chan error, 1)
+	go func() {
+		done <- m.WriteFile(context.Background(), target, []byte("x"),
+			WriteOptions{Backup: filepath.Join(dir, "target.bak")})
+	}()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("WriteFile to a FIFO target succeeded, want a non-regular-file error")
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("WriteFile hung on a FIFO target — the backup open lacks O_NONBLOCK")
 	}
 }
 
