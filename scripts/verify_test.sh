@@ -131,6 +131,28 @@ else
   dump_on_flunk "$WORK/s5.out"
 fi
 
+# Scenario 6: module discovery must survive a large file census. The skip
+# predicate once piped find into `grep -q`, which exits at its first match;
+# under pipefail the SIGPIPE that kills find made the whole pipeline "fail",
+# and a module with a hundred sources was silently skipped as "no Go sources
+# yet" — a fail-open gate (this repo's own sdk module hit exactly this). The
+# census is sized past the pipe capacity plus grep's first read, so the old
+# predicate lost the race deterministically, not flakily.
+FIX6="$WORK/fix6"
+for m in m1 m2 m3 m4; do write_module "$FIX6" "$m" ok; done
+PAD="$(printf 'a%.0s' $(seq 1 220))"
+for i in $(seq 1 700); do
+  printf 'package m1\n' > "$FIX6/m1/census_${PAD}_${i}.go"
+done
+run_verify "$FIX6" "$WORK/s6.out"
+if [ "$RC" -eq 0 ] && grep -q 'm1: go test' "$WORK/s6.out" \
+   && ! grep -q 'm1: no Go sources' "$WORK/s6.out"; then
+  pass "large-census module is still discovered and tested (no SIGPIPE skip)"
+else
+  flunk "large census: want exit 0 + 'm1: go test', got exit $RC"
+  dump_on_flunk "$WORK/s6.out"
+fi
+
 echo
 if [ "$FAILURES" -ne 0 ]; then
   echo "verify_test: FAILED"
