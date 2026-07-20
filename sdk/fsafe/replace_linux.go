@@ -73,16 +73,18 @@ func safeRename(oldPath, newPath string, removeExisting bool) error {
 		return nil
 	}
 	if errors.Is(err, syscall.ENOSYS) || errors.Is(err, syscall.EINVAL) {
-		// Filesystem/kernel without RENAME_NOREPLACE: check-then-rename.
-		// ponytail: inherently racy fallback; modern kernels take the atomic
-		// path above, and the racy window only widens to plain rename(2).
-		if _, lerr := os.Lstat(newPath); lerr == nil {
-			return fmt.Errorf("rename %s -> %s: %w", oldPath, newPath, syscall.EEXIST)
-		} else if !os.IsNotExist(lerr) {
-			return fmt.Errorf("rename %s -> %s: %w", oldPath, newPath, lerr)
+		// Filesystem/kernel without RENAME_NOREPLACE. os.Link is the atomic
+		// no-clobber primitive: link(2) creates newPath as a second name for the
+		// temp's inode and fails EEXIST if newPath already exists — including a
+		// planted symlink ENTRY, which it neither follows nor clobbers — so a
+		// concurrent creator cannot be silently overwritten the way the old
+		// check-then-rename fallback (Lstat then rename) could between its two
+		// syscalls. Then drop the temp name; the inode now lives at newPath.
+		if lerr := os.Link(oldPath, newPath); lerr != nil {
+			return fmt.Errorf("rename %s -> %s (no-replace link): %w", oldPath, newPath, lerr)
 		}
-		if rerr := os.Rename(oldPath, newPath); rerr != nil {
-			return fmt.Errorf("rename %s -> %s: %w", oldPath, newPath, rerr)
+		if rerr := os.Remove(oldPath); rerr != nil {
+			return fmt.Errorf("remove linked temp %s: %w", oldPath, rerr)
 		}
 		return nil
 	}

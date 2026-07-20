@@ -38,6 +38,15 @@ func mustCalls(t *testing.T, fr *exectest.FakeRunner, want int) []pmexec.Command
 	if len(calls) != want {
 		t.Fatalf("runner received %d calls, want %d: %+v", len(calls), want, calls)
 	}
+	// Every command the escalated backend issues MUST carry Escalate: the runner
+	// turns it into sudo/doas argv, so an un-escalated privileged command is a
+	// silent privilege regression the argv assertions alone would miss. Checked
+	// centrally so each command-construction test enforces it without repetition.
+	for i, c := range calls {
+		if !c.Escalate {
+			t.Errorf("call %d (%s %q) not escalated — the escalated backend must run every command through sudo/doas", i, c.Name, c.Args)
+		}
+	}
 	return calls
 }
 
@@ -530,13 +539,16 @@ func TestManager_CopyTree_Escalated_UnsafeDestParentRefusedBeforeSudo(t *testing
 }
 
 // [SDK-7] "parent-dir safety before EVERY mutation" — every escalated shell-out
-// mutator that dereferences its target (chmod/chown/chown -R/rm/cp all follow a
-// symlink at the target by default) must refuse a group/other-writable parent
-// BEFORE sudo, issuing zero commands. The list is a hand-maintained enumeration
-// of those mutators — a NEW escalated mutator that shells out MUST be added here
+// mutator that acts on its target must refuse a group/other-writable parent
+// BEFORE sudo, issuing zero commands. chmod/chown/chown -R/cp dereference a
+// symlink at the target by default; rm unlinks the target symlink rather than
+// following it, but a writable parent could still swap the target between check
+// and effect, so it is vetted too. The list is a hand-maintained enumeration of
+// those mutators — a NEW escalated mutator that shells out MUST be added here
 // (and the empty-list tripwire guards against the list being gutted). The
 // create-mutations (Mkdir/CopyTree) are covered by their own anchor-safety
-// tests above; this pins the existing-target mutators.
+// tests above; this pins the existing-target mutators. RemoveDir (rm -rf) is the
+// one deliberate exclusion — see its recorded-ceiling note in manager_linux.go.
 func TestManager_EscalatedMutators_UnsafeParentRefusedBeforeSudo(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.Chmod(dir, 0o777); err != nil {

@@ -519,6 +519,16 @@ func (m Manager) Remove(ctx context.Context, path string) error {
 // slash) plus argv `--` keep the target literal and injection-safe. Upgrade
 // path: embed removeDirSecure in a root helper when the escalated tier must
 // fd-anchor.
+//
+// Deliberately excluded from the round-5 parentDirSafe sweep that guards the
+// existing-target mutators (SetMode/SetOwnership/SetOwnershipRecursive/Remove/
+// Copy): unlike chmod/chown/cp, `rm -rf` unlinks a command-line symlink arg
+// rather than dereferencing it, and the symlink-resolving protected-prefix guard
+// already runs before the delete — the three mitigations above cover the
+// escalated tier, so an immediate-parent vet would add no protection `rm` does
+// not already have. A parent vet here would also refuse legitimate deletions of
+// trees under an app-owned (non-root) parent, a behavior change out of scope for
+// a review round.
 func (m Manager) RemoveDir(ctx context.Context, path string) error {
 	if err := ValidatePath(path); err != nil {
 		return err
@@ -551,12 +561,12 @@ func (m Manager) RemoveDir(ctx context.Context, path string) error {
 // NOT protected-prefix guarded (single-file config writes under /etc are the
 // point) and NOT symlink-resolved (resolving would FOLLOW a planted dst symlink
 // before the copy) — but it still gets [SDK-7] parent-dir safety on BOTH
-// backends and a no-follow write. `cp --remove-destination` unlinks dst before
-// copying, so a symlink planted at dst is removed rather than followed into an
-// arbitrary root file (GNU cp otherwise follows a dst symlink to an existing
-// regular file); with the parent vetted root-owned, an attacker cannot plant
-// that symlink in the first place. Recorded ceiling: shells cp on every backend
-// — there is no fd-anchored copy primitive.
+// backends. `cp --remove-destination` unlinks dst before copying, so a symlink
+// planted at dst is removed rather than followed into an arbitrary root file
+// (GNU cp otherwise follows a dst symlink to an existing regular file); with the
+// parent vetted root-owned, an attacker cannot plant that symlink in the first
+// place. Recorded ceiling: shells cp on every backend — there is no fd-anchored
+// copy primitive.
 func (m Manager) Copy(ctx context.Context, src, dst string) error {
 	if err := ValidatePath(src); err != nil {
 		return err
