@@ -41,6 +41,9 @@ func TestNew_NilRunnerRejected(t *testing.T) {
 }
 
 func TestManager_WriteFile_Direct(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("direct WriteFile now vets a root-owned parent ([SDK-7]); positive path only exercisable as root")
+	}
 	m := newDirectManager(t)
 	path := filepath.Join(t.TempDir(), "app.conf")
 	if err := m.WriteFile(context.Background(), path, []byte("k=v\n"), WriteOptions{Mode: 0o600}); err != nil {
@@ -63,6 +66,9 @@ func TestManager_WriteFile_Direct(t *testing.T) {
 }
 
 func TestManager_WriteFile_DefaultsModeTo0644(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("direct WriteFile now vets a root-owned parent ([SDK-7]); positive path only exercisable as root")
+	}
 	m := newDirectManager(t)
 	path := filepath.Join(t.TempDir(), "app.conf")
 	if err := m.WriteFile(context.Background(), path, []byte("x"), WriteOptions{}); err != nil {
@@ -95,6 +101,9 @@ func TestManager_WriteFile_RefusesSetuid(t *testing.T) {
 // before any streaming. The timeout turns a regression into a fast failure
 // instead of a whole-suite hang.
 func TestManager_WriteFileFrom_Direct_FifoTargetRefusedNoHang(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("direct WriteFile now vets a root-owned parent ([SDK-7]) before the FIFO check; only exercisable as root")
+	}
 	m := newDirectManager(t)
 	dir := t.TempDir()
 	target := filepath.Join(dir, "fifo")
@@ -117,6 +126,9 @@ func TestManager_WriteFileFrom_Direct_FifoTargetRefusedNoHang(t *testing.T) {
 }
 
 func TestManager_WriteFileFrom_MidStreamErrorLeavesOriginal(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("direct WriteFile now vets a root-owned parent ([SDK-7]) before streaming; only exercisable as root")
+	}
 	m := newDirectManager(t)
 	path := filepath.Join(t.TempDir(), "app.conf")
 	if err := os.WriteFile(path, []byte("original\n"), 0o644); err != nil {
@@ -137,6 +149,9 @@ func TestManager_WriteFileFrom_MidStreamErrorLeavesOriginal(t *testing.T) {
 }
 
 func TestManager_WriteFile_BackupTaken(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("direct WriteFile now vets a root-owned parent ([SDK-7]); positive path only exercisable as root")
+	}
 	m := newDirectManager(t)
 	dir := t.TempDir()
 	path := filepath.Join(dir, "app.conf")
@@ -442,6 +457,40 @@ func TestManager_CopyTree_Direct_UnsafeParentRefused(t *testing.T) {
 	}
 	if _, err := os.Lstat(dst); !errors.Is(err, fs.ErrNotExist) {
 		t.Errorf("tree was copied despite the unsafe destination parent: %v", err)
+	}
+}
+
+// WriteFile atomically replaces the target via a random O_EXCL temp in the
+// target directory, then renames it into place ([SDK-9]). The direct backend is
+// already root (see exec.Direct), so that temp+rename races the SAME parent-dir
+// TOCTOU the escalated write vets against: an attacker who can write the target
+// directory can unlink our temp and replant that name as a symlink between
+// CreateTemp and the rename, so the rename publishes the attacker-controlled
+// entry — defeating the no-follow guarantee. [SDK-7] mandates a parent-dir
+// safety check before EVERY mutation, on BOTH backends; a world-writable parent
+// must be refused before any temp is created, with nothing written and no temp
+// litter. Runs at any uid — the parent is world-writable, so parentDirSafe
+// refuses on the 0o022 bit whether or not it is root-owned.
+func TestManager_WriteFileFrom_Direct_UnsafeParentRefused(t *testing.T) {
+	m := newDirectManager(t)
+	dir := t.TempDir()
+	if err := os.Chmod(dir, 0o777); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(dir, "app.conf")
+	if err := m.WriteFile(context.Background(), target, []byte("k=v\n"), WriteOptions{Mode: 0o600}); !errors.Is(err, ErrUnsafeParentDir) {
+		t.Fatalf("err = %v, want ErrUnsafeParentDir (direct write must vet the parent — Direct is root)", err)
+	}
+	if _, err := os.Lstat(target); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("file was written despite the unsafe parent: %v", err)
+	}
+	// No O_EXCL temp left behind by the refused write.
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("refused write left entries in the directory: %v", entries)
 	}
 }
 
