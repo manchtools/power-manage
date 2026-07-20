@@ -190,6 +190,31 @@ func TestManager_ReadFile_AbsentVsEmpty(t *testing.T) {
 	}
 }
 
+// A privileged ReadFile must not follow a swapped-in non-regular target: a
+// FIFO at the path is refused (O_NONBLOCK so the open returns instead of
+// hanging, IsRegular so a non-file is never read as content). The timeout
+// turns a regression into a fast failure instead of a whole-suite hang.
+func TestManager_ReadFile_Direct_FifoRefusedNoHang(t *testing.T) {
+	m := newDirectManager(t)
+	target := filepath.Join(t.TempDir(), "fifo")
+	if err := syscall.Mkfifo(target, 0o644); err != nil {
+		t.Fatalf("mkfifo: %v", err)
+	}
+	done := make(chan error, 1)
+	go func() {
+		_, err := m.ReadFile(context.Background(), target)
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("ReadFile of a FIFO succeeded, want a non-regular-file error")
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("ReadFile hung on a FIFO — the read open lacks O_NONBLOCK")
+	}
+}
+
 func TestManager_Exists_Direct(t *testing.T) {
 	m := newDirectManager(t)
 	dir := t.TempDir()
