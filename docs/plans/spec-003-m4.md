@@ -29,11 +29,9 @@ the sync-manifest message with `(epoch, generation)` monotonicity
    Unlike §3.4's explicit 8-type command list, the spec named report
    families only in prose at M4, so the M4-shipped `ResultDomain` accepted
    any grammar-checked token (`[a-z0-9-]+`, non-empty, fail-closed
-   otherwise). Timeline: the [WIRE-20a] operator amendment (resolving
-   issue #18, after M4 merged) changed the SPEC only; the implementation
-   ships in M5 — six `*SignatureDomain` result constants, membership
-   enforcement in `ResultDomain`, G-5 exact-set extension to 14
-   (docs/plans/spec-003-m5.md choice 10).
+   otherwise). The [WIRE-20a] operator amendment (resolving issue #18,
+   after M4 merged) changed the spec only; the closing implementation is
+   M5's (docs/plans/spec-003-m5.md choice 10).
 4. **Result helpers in `contract/sign`** (same §2 allocation as commands):
    `ResultDomain(resultType) (string, error)`,
    `ResultPreimage(env) ([]byte, error)` — framing mirrors plan-003-m3
