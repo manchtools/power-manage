@@ -133,14 +133,23 @@ func (m Manager) writeFileFromDirect(resolved string, src io.Reader, mode os.Fil
 		// open no-follow read-only, preserve its mode, and let replaceFileFrom's
 		// no-follow atomic swap write the backup — a planted symlink at the
 		// backup path is replaced, never followed.
-		f, err := os.OpenFile(resolved, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_CLOEXEC, 0)
+		// O_NONBLOCK so a FIFO planted at the target path returns immediately
+		// instead of hanging the open until a writer appears (matching
+		// FchownNoFollow/SetMode); a non-regular target is then refused before
+		// streaming so we only ever copy real file bytes into the backup.
+		f, err := os.OpenFile(resolved, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK|syscall.O_CLOEXEC, 0)
 		switch {
 		case err == nil:
-			bmode := mode
-			if info, ierr := f.Stat(); ierr == nil {
-				bmode = info.Mode().Perm()
+			info, ierr := f.Stat()
+			if ierr != nil {
+				_ = f.Close()
+				return fmt.Errorf("backup %s: %w", resolved, ierr)
 			}
-			berr := replaceFileFrom(backup, f, bmode, true)
+			if !info.Mode().IsRegular() {
+				_ = f.Close()
+				return fmt.Errorf("backup %s: target is not a regular file", resolved)
+			}
+			berr := replaceFileFrom(backup, f, info.Mode().Perm(), true)
 			_ = f.Close() // read-only fd
 			if berr != nil {
 				return fmt.Errorf("backup %s: %w", resolved, berr)
@@ -263,10 +272,14 @@ func (m Manager) ReadDir(ctx context.Context, path string) ([]DirEntry, error) {
 	}
 	// The trailing slash is load-bearing: it makes find fail on a
 	// non-directory instead of listing the file itself. Records are
-	// NUL-delimited (not newline): a basename can contain any byte except '/'
-	// and NUL, so a filename with an embedded newline cannot spoof a phantom
-	// entry.
-	res, err := m.run(ctx, "find", resolved+"/", "-maxdepth", "1", "-mindepth", "1", "-printf", "%y/%f\x00")
+	// newline-delimited — a NUL delimiter cannot be used: a literal NUL in the
+	// argv makes Go's exec reject the command (EINVAL), and the runner's
+	// stdout capture is line-oriented. A newline embedded in a filename cannot
+	// forge a phantom entry: every record must be `<type>/<basename>` and a
+	// basename never contains '/', so any post-newline segment fails the
+	// rec[1] != '/' check below and the whole listing fails closed rather than
+	// yielding a spoofed entry.
+	res, err := m.run(ctx, "find", resolved+"/", "-maxdepth", "1", "-mindepth", "1", "-printf", "%y/%f\n")
 	if err != nil {
 		return nil, err
 	}
@@ -277,7 +290,7 @@ func (m Manager) ReadDir(ctx context.Context, path string) ([]DirEntry, error) {
 		return nil, cmdErr("find", res)
 	}
 	var out []DirEntry
-	for _, rec := range strings.Split(res.Stdout, "\x00") {
+	for _, rec := range strings.Split(res.Stdout, "\n") {
 		if rec == "" {
 			continue
 		}
@@ -392,6 +405,18 @@ func (m Manager) Remove(ctx context.Context, path string) error {
 // symlink resolution part of the check ([SDK-8]); the operation itself uses
 // the ORIGINAL spelling, so on the direct backend the fd-anchored walk
 // refuses a symlink leaf instead of deleting whatever it points at.
+//
+// Recorded ceiling (parity with Copy/CopyTree/SetOwnershipRecursive): the
+// escalated backend shells `rm -rf` rather than the fd-anchored removeDirSecure
+// walk — fds cannot be held across the sudo boundary without a privileged
+// helper binary, which is out of M3 scope. The residual TOCTOU-on-ancestor gap
+// versus the direct tier is bounded by three in-tier mitigations: the
+// symlink-resolving protected-prefix guard refuses protected trees BEFORE the
+// rm (fail closed), `rm -r` unlinks a symlink encountered during recursion
+// rather than following it, and the cleaned original spelling (no trailing
+// slash) plus argv `--` keep the target literal and injection-safe. Upgrade
+// path: embed removeDirSecure in a root helper when the escalated tier must
+// fd-anchor.
 func (m Manager) RemoveDir(ctx context.Context, path string) error {
 	if err := ValidatePath(path); err != nil {
 		return err

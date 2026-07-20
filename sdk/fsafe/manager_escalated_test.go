@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	pmexec "github.com/manchtools/power-manage/sdk/exec"
@@ -114,7 +115,13 @@ func TestManager_WriteFile_Escalated_UnsafeParentRefusedBeforeSudo(t *testing.T)
 // must pass the same unprivileged root-owned check — before any sudo.
 func TestManager_WriteFile_Escalated_UnsafeBackupParentRefused(t *testing.T) {
 	fr, m := newEscalatedManager(t)
-	attackerDir := t.TempDir() // owned by the test user, not root
+	attackerDir := t.TempDir()
+	// World-writable so the parent reads as attacker-controlled regardless of
+	// who runs the test: under root-run CI t.TempDir() is root-owned 0700 and
+	// would otherwise pass the root-owned-non-writable check.
+	if err := os.Chmod(attackerDir, 0o777); err != nil {
+		t.Fatal(err)
+	}
 	err := m.WriteFile(context.Background(), "/etc/pm-test.conf", []byte("x"), WriteOptions{
 		Backup: filepath.Join(attackerDir, "planted.bak"),
 	})
@@ -183,21 +190,30 @@ func TestManager_ReadFile_Escalated_EmptyIsNilNil(t *testing.T) {
 	}
 }
 
-// ReadDir shells `find <path>/ -maxdepth 1 -mindepth 1 -printf '%y/%f\0'`.
+// ReadDir shells `find <path>/ -maxdepth 1 -mindepth 1 -printf '%y/%f\n'`.
 // The trailing slash is load-bearing: it makes find fail on a non-directory
-// instead of listing the file itself. The record delimiter is NUL, not
-// newline, so a filename containing a newline cannot spoof a phantom entry
-// (a basename can contain any byte except '/' and NUL).
+// instead of listing the file itself. The record delimiter is a newline, not
+// NUL: a literal NUL in the argv makes Go's exec reject the command with
+// EINVAL, so the FakeRunner argv is scanned for a NUL to prove the real
+// invocation would start.
 func TestManager_ReadDir_Escalated(t *testing.T) {
 	fr, m := newEscalatedManager(t)
-	fr.Push(pmexec.Result{ExitCode: 0, Stdout: "d/sub\x00f/file.txt\x00l/link\x00"}, nil)
+	fr.Push(pmexec.Result{ExitCode: 0, Stdout: "d/sub\nf/file.txt\nl/link\n"}, nil)
 	entries, err := m.ReadDir(context.Background(), "/etc/app.d")
 	if err != nil {
 		t.Fatalf("ReadDir: %v", err)
 	}
 	c := mustCalls(t, fr, 1)[0]
-	if c.Name != "find" || !slices.Equal(c.Args, []string{"/etc/app.d/", "-maxdepth", "1", "-mindepth", "1", "-printf", "%y/%f\x00"}) {
+	if c.Name != "find" || !slices.Equal(c.Args, []string{"/etc/app.d/", "-maxdepth", "1", "-mindepth", "1", "-printf", "%y/%f\n"}) {
 		t.Errorf("argv = %s %q", c.Name, c.Args)
+	}
+	// A literal NUL anywhere in the argv makes exec.Command fail (EINVAL) on a
+	// real backend; the FakeRunner never execs, so scan the recorded argv to
+	// catch an exec-invalid command that a stubbed runner would otherwise mask.
+	for _, a := range c.Args {
+		if strings.ContainsRune(a, 0) {
+			t.Errorf("argv element %q contains a NUL byte — Go exec rejects it (EINVAL) on real backends", a)
+		}
 	}
 	byName := map[string]bool{}
 	for _, e := range entries {
@@ -206,32 +222,31 @@ func TestManager_ReadDir_Escalated(t *testing.T) {
 	if len(byName) != 3 {
 		t.Fatalf("entries = %+v, want 3", entries)
 	}
-	if !byName["sub"] || byName["file.txt"] || byName["link"] {
-		t.Errorf("type parse wrong: %+v (want sub=dir, file.txt+link=non-dir)", entries)
+	// Assert each expected name is PRESENT with the right type — a missing key
+	// reads as false, so a bare `byName["file.txt"]` check passes even after
+	// file.txt is dropped and replaced by an unexpected non-directory entry.
+	if got, ok := byName["sub"]; !ok || !got {
+		t.Errorf("missing or non-dir 'sub': %+v", entries)
+	}
+	if got, ok := byName["file.txt"]; !ok || got {
+		t.Errorf("missing 'file.txt' or misreported as dir: %+v", entries)
+	}
+	if got, ok := byName["link"]; !ok || got {
+		t.Errorf("missing 'link' or misreported as dir: %+v", entries)
 	}
 }
 
-// A filename containing a newline yields exactly one entry — no phantom
-// split — because records are NUL-delimited.
-func TestManager_ReadDir_Escalated_NewlineInNameNoSpoof(t *testing.T) {
+// A filename containing a newline cannot forge a phantom entry: the newline
+// record delimiter derails parsing into the fail-closed error at the next
+// record. A basename never contains '/', so the post-newline segment can never
+// look like a valid `<type>/<name>` record — the whole listing errors rather
+// than returning a trusted phantom.
+func TestManager_ReadDir_Escalated_NewlineInNameFailsClosed(t *testing.T) {
 	fr, m := newEscalatedManager(t)
-	fr.Push(pmexec.Result{ExitCode: 0, Stdout: "f/weird\nd\x00d/real\x00"}, nil)
-	entries, err := m.ReadDir(context.Background(), "/etc/app.d")
-	if err != nil {
-		t.Fatalf("ReadDir: %v", err)
-	}
-	if len(entries) != 2 {
-		t.Fatalf("entries = %+v, want exactly 2 (no phantom from the embedded newline)", entries)
-	}
-	byName := map[string]bool{}
-	for _, e := range entries {
-		byName[e.Name] = e.IsDir
-	}
-	if byName["weird\nd"] {
-		t.Error("newline-bearing name misreported as a directory")
-	}
-	if !byName["real"] {
-		t.Error("the real directory entry was lost")
+	// Simulates a file literally named "weird\nd" alongside a real dir "real".
+	fr.Push(pmexec.Result{ExitCode: 0, Stdout: "f/weird\nd\nd/real\n"}, nil)
+	if _, err := m.ReadDir(context.Background(), "/etc/app.d"); err == nil {
+		t.Fatal("a newline-bearing filename did not fail closed: want an unparseable-record error")
 	}
 }
 
