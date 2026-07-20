@@ -47,12 +47,14 @@ is already satisfied (M1: verify.sh proto stage runs inside CI's verify job).
    second-oneof duplication); embedding `ActionParams` itself is the
    conforming form. Runs against the real package and, with a
    fixture-local registry analog, against the fixture package for liveness.
-6. **G-4 mechanism.** Descriptor walk over the registry subtree plus every
-   action-bearing message: a plain (non-`optional`) `bool` is a violation
-   unless allowlisted with a recorded two-value rationale (allowlist starts
-   empty). Population anchor is the walked message set (floor ≥ 1 — the
-   registry exists), not the bool count, so zero bools stays green while
-   zero messages fails.
+6. **G-4 mechanism.** Descriptor walk over the registry subtree — the
+   registry, its member closure, and every registry-embedding message: a
+   `bool` without explicit presence (`optional` or oneof membership) is a
+   violation unless allowlisted with a recorded two-value rationale
+   (allowlist starts empty). Population anchor is the walked message set
+   with floor `1 + len(registryMembers)` — registry plus all members —
+   not the bool count, so zero bools stays green while a walk that loses
+   the member closure fails.
 7. **File layout.** New `contract/proto/powermanage/v1/action.proto`
    (shared types, not a service file). The M1 file-count floor rises 7 → 8
    in the existing G-1/G-2 anchors (test-file change: strengthening only).
@@ -87,8 +89,8 @@ is already satisfied (M1: verify.sh proto stage runs inside CI's verify job).
 | 1 | `TestGuard_ActionRegistry` | oneof ≡ the 21 catalog members, both directions, floor 21 | fails pre-implementation (no ActionParams → Discover floor) |
 | 2 | `TestGuard_ActionParamsAuthority` (G-3) | exactly one ActionParams; zero out-of-registry references to member types in the real contract | fails pre-implementation (registry absent) |
 | 3 | `TestGuard_ActionParamsAuthority_Liveness` | fixture direct-embed AND second-oneof both flagged; conforming embed clean | planted fixture shapes |
-| 4 | `TestGuard_ExplicitPresence` (G-4) | zero plain bools in registry subtree + action-bearing messages; message-set floor | fails pre-implementation (registry absent) |
-| 5 | `TestGuard_ExplicitPresence_Liveness` | fixture plain bool flagged; `optional bool` clean | planted fixture shapes |
+| 4 | `TestGuard_ExplicitPresence` (G-4) | zero no-presence bools in the registry subtree (registry + members + embedders); floor `1 + len(registryMembers)` | fails pre-implementation (registry absent) |
+| 5 | `TestGuard_ExplicitPresence_Liveness` | fixture plain bool flagged; `optional`/oneof bools and foreign BoolValue clean | planted fixture shapes |
 | 6 | `TestGuard_EnumBounds` | every enum-typed reachable field carries defined_only + not_in 0 | vacuously green on real contract (recorded; first real enum field arms it) |
 | 7 | `TestGuard_EnumBounds_Liveness` | fixture enum field without the tag pair flagged; tagged one clean | planted fixture shapes |
 | 8 | `TestAction_Shape` | Action has exactly {id, name, params} with the choice-3 tags | fails pre-implementation |
