@@ -146,6 +146,16 @@ message FixtureDenyFields {
   string clean_token = 3 [(buf.validate.field).string.min_len = 1];
 }
 
+// G-7 evasion fixture (matcher-grammar family): the camelCase spelling of a
+// banned field name. proto3 accepts non-snake field names (this module is
+// never linted), so the deny-list matcher must canonicalize case AND
+// underscores — a name-only lowercase compare accepts authToken while
+// banning auth_token. In its own message: a same-message plant would
+// collide with auth_token's JSON name.
+message FixtureDenyCamel {
+  string authToken = 1 [(buf.validate.field).string.min_len = 1];
+}
+
 // G-8 near-copy liveness: an exact structural twin pair — identical
 // field-name+type multiset {twin_id: string}. The near-copy walk must flag
 // exactly this pair. Service-UNREACHABLE (does not perturb other want-sets);
