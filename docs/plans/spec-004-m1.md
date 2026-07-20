@@ -58,7 +58,9 @@ no new sdk packages land here — capability packages arrive M2+.
 7. **G-7 mutation chokepoint**: `BannedCalls` over sdk for the path-based
    mutation set — `os.` {`Chmod`, `Chown`, `Lchown`, `Rename`, `Remove`,
    `RemoveAll`, `Truncate`, `WriteFile`, `Symlink`, `Link`, `Mkdir`,
-   `MkdirAll`, `Create`} — allowed only under the future fd-anchored
+   `MkdirAll`, `Create`, `CreateTemp`, `MkdirTemp`, `Chtimes` (the last
+   three added red-first for a PR #20 review finding)} — allowed only
+   under the future fd-anchored
    helpers path (`sdk/fsafe`, lands M3; allow-prefix recorded now, empty
    population until then). Recorded ceiling: `os.OpenFile` stays legal
    everywhere — it is the fd-anchored primitive itself; a non-helper

@@ -54,7 +54,7 @@ var hashImportPaths = []string{"crypto/sha256", "crypto/sha512", "crypto/hmac"}
 var mutationBannedCalls = []string{
 	"Chmod", "Chown", "Lchown", "Rename", "Remove", "RemoveAll",
 	"Truncate", "WriteFile", "Symlink", "Link", "Mkdir", "MkdirAll",
-	"Create",
+	"Create", "CreateTemp", "MkdirTemp", "Chtimes",
 }
 
 // sdkGoFiles lists the non-test Go files under root — the scanned-file

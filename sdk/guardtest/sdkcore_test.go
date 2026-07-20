@@ -210,7 +210,7 @@ func TestGuard_MutationChokepoint_Liveness(t *testing.T) {
 		t.Fatalf("scanning the mutation fixture: %v", err)
 	}
 	requireFlagged(t, v,
-		[]string{"bad.go:8", "bad.go:11", "aliased_bad.go:6"},
+		[]string{"bad.go:8", "bad.go:11", "aliased_bad.go:6", "temp_bad.go:12", "temp_bad.go:15", "temp_bad.go:18"},
 		[]string{"decoy.go", "fsafe/anchored.go"})
 }
 
