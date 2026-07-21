@@ -48,7 +48,7 @@ func (s *Store) RebuildAll(ctx context.Context, targetName string) (retErr error
 	if err := validateRebuildClosure(targetName, target.Tables, closure); err != nil {
 		return err
 	}
-	if err := target.Reset(ctx, projectionTx{DBTX: tx}); err != nil {
+	if err := target.Reset(ctx, projectionTx{DBTX: tx, skipWork: true}); err != nil {
 		return fmt.Errorf("store: reset rebuild target %q: %w", targetName, err)
 	}
 
@@ -72,7 +72,7 @@ func (s *Store) RebuildAll(ctx context.Context, targetName string) (retErr error
 		for _, row := range events {
 			if err := s.replayEvent(
 				ctx,
-				projectionTx{DBTX: tx},
+				projectionTx{DBTX: tx, skipWork: true},
 				targetName,
 				target,
 				replayed,

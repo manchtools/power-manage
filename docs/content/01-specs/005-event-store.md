@@ -162,8 +162,12 @@ Projectors are Go functions that run INSIDE the append transaction:
 - **[ES-11]** Work tables are enumerated, bounded, and derived: each row's
   *intent* is derivable from an event (e.g. `DispatchScheduled`), while runtime
   columns (`attempts`, `next_attempt_at`) sit explicitly outside the replay
-  guarantee, like `user_encryption_keys`. Workers run projector-grade discipline:
-  `context.WithoutCancel` + timeout + `recover()`.
+  guarantee, like `user_encryption_keys`. Work kinds are at most 128 UTF-8 bytes
+  and serialized work payloads are at most 2 MiB; larger content uses artifact
+  references. Workers run projector-grade discipline:
+  `context.WithoutCancel` + timeout + `recover()`. Projection replay invokes the
+  same projector functions with work enqueueing suppressed: rebuilding a read
+  model must neither duplicate pending work nor resurrect completed work.
 
 - **[ES-12] Operational-telemetry tier.** Execution output bodies and terminal
   recordings are operational data, NOT events. Lifecycle facts (created,
@@ -214,7 +218,8 @@ Projectors are Go functions that run INSIDE the append transaction:
   if the transaction aborts, neither exists. Workers drain with
   `FOR UPDATE SKIP LOCKED`; two workers never process the same row; `run_at` is
   honored; failures increment `attempts` and set `next_attempt_at`; exhausted rows
-  remain queryable and appear in the doctor output.
+  remain queryable and appear in the doctor output. Projection rebuild leaves
+  work state unchanged.
 - **AC-13** The golden corpus contains a pinned serialized form for every
   registered event type; adding an event type without a corpus entry fails the
   guard; changing a payload's serialized form fails the corpus test.
@@ -254,12 +259,14 @@ edit (comment the guard, flip one branch), never a revert.
 Write in this order:
 
 1. **Schema + key tests**: unique-key conflict under concurrent same-stream
-   appends (AC-1).
+   appends (AC-1, SPEC-005).
 2. **Registry tests**: unregistered event type → hard error, nothing persisted
-   (AC-2); projector error → full abort (AC-3); read-after-write (AC-4).
+   (AC-2, SPEC-005); projector error → full abort (AC-3, SPEC-005);
+   read-after-write (AC-4, SPEC-005).
 3. **Append API tests**: CAS race with N goroutines on a bounded-use consume
-   (AC-8); `AppendEvents` atomicity (AC-9). Append-failure-fails-RPC (AC-10)
-   activates with the first real state-changing handler.
+   (AC-8, SPEC-005); `AppendEvents` atomicity (AC-9, SPEC-005).
+   Append-failure-fails-RPC (AC-10, SPEC-005) activates with the first real
+   state-changing handler.
 4. **Replay tests**: 1:1 rebuild equality per projection (AC-6, SPEC-005);
    FK-closure refuse/include (AC-7, SPEC-005). The `projection_version` out-of-order guard
    (AC-11, SPEC-005) activates with the first production projection in (M5,
@@ -267,9 +274,9 @@ Write in this order:
    earlier subject.
 5. **Work-table tests**: same-tx outbox atomicity, SKIP LOCKED exclusivity,
    `run_at`/`attempts`/`next_attempt_at` semantics, exhausted-row visibility
-   (AC-12).
-6. **Corpus + tier tests**: golden corpus (AC-13), inventory snapshot (AC-14),
-   telemetry-tier exclusion (AC-15).
+   (AC-12, SPEC-005).
+6. **Corpus + tier tests**: golden corpus (AC-13, SPEC-005), inventory snapshot
+   (AC-14, SPEC-005), telemetry-tier exclusion (AC-15, SPEC-005).
 
 ## 7. Guards
 
@@ -339,7 +346,7 @@ Each milestone is one implementation session ending green (full suite passing).
    its activation floor.
 3. **M3 — Replay + rebuild**: replay runner over the same projector functions;
    `RebuildAll` with FK-closure computation and exact projector/rebuild-target
-   registry parity. Tests: (AC-6, SPEC-005), (AC-7, SPEC-005).
+   registry parity (ES-2, SPEC-005). Tests: (AC-6, SPEC-005), (AC-7, SPEC-005).
 4. **M4 — Work tables**: outbox write in the append transaction; advisory-lock
    worker harness (`WithoutCancel` + timeout + `recover()`); SKIP LOCKED drain;
    attempts/backoff columns; doctor queries. Tests: (AC-12, SPEC-005).
