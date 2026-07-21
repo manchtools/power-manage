@@ -209,9 +209,8 @@ routing. Linux endpoints only. Full operations surface: SPEC-016.
 - **AC-5** A singleton-work guard proves every background loop in `server/`
   runs under the shared advisory-lock helper [TM-3] (lands with SPEC-016;
   registered against this spec in the invariant ledger).
-- **AC-6** Every security-relevant spec section in SPEC-003..016 names the
-  actor(s) it defends against (review-auditable; the spec template's §5
-  rejection table is checked for actor references).
+- **AC-6** Every security-relevant spec in SPEC-003..016 names the actor(s) it
+  defends against before its §5 rejection table.
 
 ## 5. Rejection paths
 
