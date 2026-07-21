@@ -21,7 +21,7 @@ func newTestManager(t *testing.T, backend Backend) (Manager, *exectest.FakeRunne
 }
 
 func TestQueries_BackendUnavailable(t *testing.T) {
-	for _, backend := range []Backend{Apt, Dnf, Pacman, Zypper, Flatpak} {
+	for _, backend := range allBackends {
 		t.Run(backend.String(), func(t *testing.T) {
 			m, r := newTestManager(t, backend)
 			r.Push(pmexec.Result{}, pmexec.ErrBackendUnavailable)
@@ -33,7 +33,7 @@ func TestQueries_BackendUnavailable(t *testing.T) {
 }
 
 func TestQueries_AbsentVsFailure(t *testing.T) {
-	for _, backend := range []Backend{Apt, Dnf, Pacman, Zypper, Flatpak} {
+	for _, backend := range allBackends {
 		t.Run(backend.String()+"/absent", func(t *testing.T) {
 			m, r := newTestManager(t, backend)
 			r.Push(pmexec.Result{ExitCode: 1}, nil)
@@ -62,7 +62,7 @@ func TestQueries_NeverNilSuccess(t *testing.T) {
 		{"ListUpgradable", func(m Manager) (any, error) { return m.ListUpgradable(context.Background()) }},
 		{"ListPinned", func(m Manager) (any, error) { return m.ListPinned(context.Background()) }},
 	}
-	for _, backend := range []Backend{Apt, Dnf, Pacman, Zypper, Flatpak} {
+	for _, backend := range allBackends {
 		for _, tc := range tests {
 			t.Run(backend.String()+"/"+tc.name, func(t *testing.T) {
 				m, _ := newTestManager(t, backend)

@@ -306,7 +306,7 @@ func TestInstallLocal_RejectsUnsafePathBeforeRunner(t *testing.T) {
 		{"newline", "/opt/a\nb.deb"},
 		{"nul", "/opt/a\x00b.deb"},
 	}
-	backends := []Backend{Apt, Dnf, Pacman, Zypper, Flatpak}
+	backends := allBackends
 
 	for _, b := range backends {
 		for _, tc := range bad {
