@@ -1,0 +1,49 @@
+# SPEC-005 M1 — Core append and in-transaction projection
+
+Milestone: SPEC-005 §9 M1, AC-1..4.
+
+## Delta
+
+<!-- docref: begin src=server/go.mod:b0a272bb -->
+- `server/go.mod`, `server/go.sum`: pinned pgx, goose, and Postgres
+  testcontainers dependencies required by SPEC-005.
+<!-- docref: end -->
+<!-- docref: begin src=server/internal/store/migrations/001_events.sql#@events-schema:902b4a87,server/internal/store/generated/events.sql.go#CurrentStreamVersion:1af6ae91,server/internal/store/generated/events.sql.go#InsertEvent:eaad48fb,server/internal/store/store.go#AppendEvent:798bff78,server/internal/store/store.go#ProjectionTx:00db46f5,server/internal/store/store.go#Projector:77e93082 -->
+- `server/internal/store/migrations/001_events.sql`,
+  `server/internal/store/migrations/embed.go`: `events` schema and embedded goose
+  migration.
+- `server/internal/store/queries/events.sql`,
+  `server/internal/store/sqlc.yaml`, `server/internal/store/generated/*`,
+  `server/Makefile`: generated event queries and reproducible sqlc drift check.
+- `server/internal/store/store.go`: `Event`, `PersistedEvent`, `ProjectionTx`,
+  `Projector`, `Store`, `New`, `Migrate`, and `AppendEvent`.
+<!-- docref: end -->
+<!-- docref: begin src=server/internal/store/postgres_test.go#testPostgres:b0de0c7c -->
+- `server/internal/store/postgres_test.go`, `server/internal/store/store_test.go`:
+  one shared Postgres testcontainer, template-cloned databases, and the M1
+  acceptance tests below.
+<!-- docref: end -->
+<!-- docref: begin src=server/Makefile#@sqlc-check:cbafa3bc,scripts/verify.sh#@sqlc-generated-gate:4b342fe3 -->
+- `scripts/verify.sh`, `scripts/verify_test.sh`: non-mutating sqlc generated-code
+  gate and failure fixture.
+<!-- docref: end -->
+- `docs/content/01-specs/00-index.md`: SPEC-005 M1 status and ledger row.
+
+## Acceptance tests
+
+<!-- docref: begin src=server/internal/store/store_test.go#TestEventsUniqueStreamVersion_ConcurrentConflict:440295cb,server/internal/store/store_test.go#TestAppendEvent_AutoVersionsConcurrentFacts:00a73860,server/internal/store/store_test.go#TestAppendEvent_UnregisteredTypeWritesNothing:1cb8f72c,server/internal/store/store_test.go#TestAppendEvent_ProjectorFailureRollsBack:5a022898,server/internal/store/store_test.go#TestAppendEvent_ReadAfterWriteProjection:68ed69e7 -->
+- `TestEventsUniqueStreamVersion_ConcurrentConflict`
+- `TestAppendEvent_AutoVersionsConcurrentFacts`
+- `TestAppendEvent_UnregisteredTypeWritesNothing`
+- `TestAppendEvent_ProjectorFailureRollsBack`
+- `TestAppendEvent_ReadAfterWriteProjection`
+<!-- docref: end -->
+
+## Review regressions
+
+<!-- docref: begin src=server/internal/store/store_test.go#TestAppendEvent_ProjectorTransactionIsCapabilityLimited:043576b2,server/internal/store/store_test.go#TestAppendEvent_LowercaseULIDPersistsCanonicalID:cc698cf1,server/internal/store/store_test.go#TestIsStreamVersionConflict_ExactPostgresError:8b19850d,server/internal/store/store_test.go#TestWaitAppendRetry_CancelledContext:dc1fba4d -->
+- `TestAppendEvent_ProjectorTransactionIsCapabilityLimited`
+- `TestAppendEvent_LowercaseULIDPersistsCanonicalID`
+- `TestIsStreamVersionConflict_ExactPostgresError`
+- `TestWaitAppendRetry_CancelledContext`
+<!-- docref: end -->

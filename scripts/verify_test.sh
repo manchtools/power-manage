@@ -229,6 +229,42 @@ else
   dump_on_flunk "$WORK/s9.out"
 fi
 
+# Scenario 10: sqlc drift verification runs its generator in a temporary copy.
+# A generator that deletes its output and fails must leave the committed query
+# layer untouched while still making the gate fail.
+FIX10="$WORK/fix10"
+for m in agent contract sdk server; do write_empty_module "$FIX10" "$m"; done
+mkdir -p "$FIX10/server/internal/store/migrations" \
+  "$FIX10/server/internal/store/queries" \
+  "$FIX10/server/internal/store/generated" \
+  "$FIX10/.test-bin"
+cp "$SCRIPT_DIR/../server/Makefile" "$FIX10/server/Makefile"
+printf 'version: "2"\n' > "$FIX10/server/internal/store/sqlc.yaml"
+printf '%s\n' '-- schema fixture' > "$FIX10/server/internal/store/migrations/001.sql"
+printf '%s\n' '-- query fixture' > "$FIX10/server/internal/store/queries/query.sql"
+printf 'committed\n' > "$FIX10/server/internal/store/generated/stable.txt"
+cat > "$FIX10/.test-bin/docker" <<'EOF'
+#!/usr/bin/env bash
+mount=''
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = -v ]; then mount="$2"; shift 2; continue; fi
+  shift
+done
+host="${mount%%:*}"
+if [ -n "$host" ]; then rm -rf "$host/generated"; fi
+exit 42
+EOF
+chmod +x "$FIX10/.test-bin/docker"
+run_verify "$FIX10" "$WORK/s10.out"
+if [ "$RC" -ne 0 ] \
+   && grep -q 'FAIL: server: generated SQL in sync' "$WORK/s10.out" \
+   && [ "$(cat "$FIX10/server/internal/store/generated/stable.txt" 2>/dev/null)" = committed ]; then
+  pass "failed sqlc generation leaves committed output unchanged"
+else
+  flunk "failed sqlc generation: want nonzero exit and intact generated output, got exit $RC"
+  dump_on_flunk "$WORK/s10.out"
+fi
+
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 if grep -q '@latest' "$ROOT/.github/workflows/ci.yml"; then
   flunk "CI verification tools float on @latest"

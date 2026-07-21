@@ -81,6 +81,21 @@ if [ "${#MODULES[@]}" -gt 0 ]; then
   done
 fi
 
+# docref: begin sqlc-generated-gate
+# sqlc generation is checked outside the working tree. A failing generator must
+# not delete or partially rewrite the committed query layer.
+if [ -f server/internal/store/sqlc.yaml ]; then
+  require docker
+  require diff
+  require make
+  if command -v docker >/dev/null 2>&1 \
+     && command -v diff >/dev/null 2>&1 \
+     && command -v make >/dev/null 2>&1; then
+    run "server: generated SQL in sync" make -C server sqlc-check
+  fi
+fi
+# docref: end sqlc-generated-gate
+
 # Proto lint + generated-code sync (only once protos exist). Deliberately
 # NO buf-breaking gate: proto evolution re-tags in place with no reserved
 # markers (AC-13, SPEC-003) — exactly what a breaking gate would reject.
