@@ -92,6 +92,18 @@ jobs:
       - name: Direct-backend fsafe tests as root
         run: sudo -E env "PATH=$PATH" go test -C sdk ./fsafe/ -count=1
 
+  policy-files:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Build real sshd and visudo lane
+        run: docker build -f sdk/fsafe/test/Dockerfile -t pm-sdk-policy .
+      - name: Test candidate validation and rollback
+        run: docker run --rm pm-sdk-policy
+
   package-managers:
     runs-on: ubuntu-latest
     timeout-minutes: 20
