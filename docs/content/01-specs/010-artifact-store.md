@@ -3,7 +3,7 @@ title: "SPEC-010 — Artifact Store"
 ---
 # SPEC-010 — Artifact Store
 
-Status: READY FOR IMPLEMENTATION
+Status: See `00-index.md` (single status ledger)
 Builds on: SPEC-003 (wire-contract), SPEC-005 (event-store)
 Enables: SPEC-011 (audit-and-retention: terminal recordings, encrypted audit archives), SPEC-012 (gateway: stateless chunk relay), SPEC-013 (agent-core: fetch, cache, digest chokepoint), SPEC-014 (action-catalog: PACKAGE_FILE)
 Module(s): `server` (store, upload RPC, GC); frames and ref message in `contract` (SPEC-003); consumers in agent and gateway per SPEC-012/013
@@ -60,6 +60,9 @@ Minimum prior knowledge, restated:
 - **Seams, not optionality** (SPEC-000): flexibility is an interface at a
   boundary with exactly one implementation behind it — no fallback backends, no
   config-switched alternatives.
+
+- **Defended actors:** low-privilege users and compromised relays must not
+  substitute, expose, or fetch artifact bytes outside signed authorization.
 
 ## 3. Requirements
 

@@ -27,12 +27,9 @@ var notInRepo = map[string]string{
 }
 
 // ownerlessPending records in-repo invariants whose §3.4 entry cites no
-// owning spec yet — keyed by identity with the open question. An entry here
-// is a loud hole: G-000-1 can never demand a guard for the invariant until
-// the catalog gains the ref and the entry is removed.
-var ownerlessPending = map[string]string{
-	"INV-3": "boot-fail-closed is specified verbatim in both SPEC-003 and SPEC-006; operator to pick the §3.4 ref(s)",
-}
+// owning spec yet. It is intentionally empty: an entry is a temporary, loud
+// hole that must disappear once ownership is resolved.
+var ownerlessPending = map[string]string{}
 
 var (
 	invEntryRe = regexp.MustCompile(`(?m)^- \*\*\[INV-(\d+)\]\*\*`)
@@ -293,6 +290,12 @@ func TestInvariantRegistry_DerivedOwners(t *testing.T) {
 	}
 	if !owns("INV-5", "SPEC-003") {
 		t.Errorf("INV-5 owners = %v, want SPEC-003 among them (signed-bytes/preimage requirements live there)", byID["INV-5"].OwningSpecs)
+	}
+	if !owns("INV-3", "SPEC-006") {
+		t.Errorf("INV-3 owners = %v, want SPEC-006 (the PKI boot path owns fail-closed signer/verifier wiring)", byID["INV-3"].OwningSpecs)
+	}
+	if _, ok := ownerlessPending["INV-3"]; ok {
+		t.Error("INV-3 remains exempted in ownerlessPending after assigning SPEC-006 ownership")
 	}
 	if !owns("INV-11", "SPEC-008") {
 		t.Errorf("INV-11 owners = %v, want SPEC-008 among them (AUTHZ-2 last-admin protection)", byID["INV-11"].OwningSpecs)

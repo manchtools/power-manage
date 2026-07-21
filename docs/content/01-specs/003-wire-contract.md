@@ -3,7 +3,7 @@ title: "SPEC-003 — Wire Contract"
 ---
 # SPEC-003 — Wire Contract
 
-Status: READY FOR IMPLEMENTATION
+Status: See `00-index.md` (single status ledger)
 Builds on: SPEC-000 (development-process), SPEC-001 (architecture-and-trust-model), SPEC-002 (repo-module-and-config-contract)
 Enables: SPEC-004 through SPEC-017 — every component consumes this contract; SPEC-006 issues the identities it requires, SPEC-009 generates boundary tests from its validate tags, SPEC-010 uses its artifact-fetch frames, SPEC-012/013 implement its stream protocols
 Module(s): `contract` (proto sources, buf config, generated Go + TS, envelope framing and verification helpers); guard hooks in `server` and `agent`
@@ -55,6 +55,9 @@ Minimum prior knowledge, restated:
 - **Guard doctrine** (SPEC-000): every invariant ships a self-discovering fitness
   test (descriptor walk, AST scan, registry walk) with matches-zero protection.
   Hand-maintained lists of files/handlers/fields are forbidden.
+
+- **Defended actors:** the compromised relay and on-path network attacker must
+  not forge, replay, substitute, or learn authority from relayed wire content.
 
 ## 3. Requirements
 
@@ -164,13 +167,16 @@ message SignedCommand {
 
 - **[WIRE-14]** Signing input is length-prefixed and domain-separated:
   `"power-manage:cmd:" + command_type + ":v1"` framed with every covered field.
-  ECDSA/RSA + SHA-256; Ed25519 CA keys are refused at boot. Sign-then-deliver at
+  ECDSA P-256/P-384/P-521 or RSA ≥2048 bits + SHA-256; other curves, weak RSA,
+  and all Ed25519 keys are refused at boot. Sign-then-deliver at
   ONE seam; the agent verifies then executes **the exact verified bytes** — it
   deserializes `payload` after verification and never consults a second
   representation.
   Lesson: verifying one representation of a command while executing another let
   the executed content differ from what was signed.
 - **[WIRE-15]** Freshness is mandatory and closes the replay hole:
+  - An envelope whose `issued_at` is more than 5 minutes ahead of the verifier's
+    injected clock is rejected; the bound is inclusive to tolerate clock skew.
   - *Instant* commands (SYNC, REBOOT, osquery, log query, terminal grant, LUKS
     revoke, inventory request): `expires_at − issued_at ≤ 15 min`; the agent
     rejects expired commands and persists nothing past expiry.
@@ -344,10 +350,13 @@ SPEC-010), the relay in (GW-3, SPEC-012), and the verification chokepoint in
 - **AC-5** Signature domains are pairwise isolated: a valid signature under
   domain A never verifies under domain B, proven over the self-discovered set of
   `*SignatureDomain` constants (G-5).
+<!-- docref: begin src=contract/sign/sign.go#VerifyCommand:6c2d09d2 -->
 - **AC-6** The verifier rejects: expired instant envelopes; instant envelopes
   whose `expires_at − issued_at` exceeds 15 min; envelopes whose
   `target_device_id` differs from the verifying agent's own ULID; and any
-  envelope whose signature does not verify. Nothing is persisted past expiry.
+  envelope whose signature does not verify or whose `issued_at` is more than 5
+  minutes in the future. Nothing is persisted past expiry.
+<!-- docref: end -->
 - **AC-7** A `DeviceSigned` envelope verifies against the DER-derived registered
   certificate; a forged signature, a signature by a different enrolled device, or
   a report resolving to a different device's work is rejected before recording
@@ -373,8 +382,11 @@ SPEC-010), the relay in (GW-3, SPEC-012), and the verification chokepoint in
   passes. `buf breaking` is deliberately NOT a gate: proto evolution re-tags in
   place with no `reserved` markers (recorded decision), which is exactly what a
   breaking-change gate would reject.
-- **AC-14** Ed25519 command-signing or CA keys are refused at boot by the
-  verification helper's key-load path.
+<!-- docref: begin src=contract/sign/sign.go#ValidateSigningKey:831dab75 -->
+- **AC-14** The verification helper's key-load path accepts only ECDSA
+  P-256/P-384/P-521 or RSA ≥2048 bits; Ed25519, other curves, malformed keys,
+  and weaker RSA keys are refused at boot.
+<!-- docref: end -->
 
 ## 5. Rejection paths
 
@@ -387,6 +399,7 @@ SPEC-010), the relay in (GW-3, SPEC-012), and the verification chokepoint in
 | SignedCommand: signature invalid or wrong domain | Reject; nothing executed, nothing persisted |
 | SignedCommand: `expires_at` in the past (instant) | Reject; never persisted past expiry |
 | SignedCommand: instant window > 15 min | Reject at verification |
+| SignedCommand: `issued_at` > verifier clock + 5 min | Reject at verification |
 | SignedCommand: `target_device_id` ≠ agent's own ULID | Refuse |
 | Terminal grant older than 60 s | Reject; no PTY |
 | Sync manifest `(epoch, generation)` ≤ last accepted | Reject manifest; keep prior verified state |
@@ -398,7 +411,7 @@ SPEC-010), the relay in (GW-3, SPEC-012), and the verification chokepoint in
 | Agent-class cert presented on InternalService | Connection rejected (SPIFFE class mismatch) |
 | Device-scoped InternalService message for a device the calling gateway has not reported connected | Reject, fail-closed ([WIRE-19]) |
 | `ArtifactFetchRequest` for an unknown or garbage-collected digest | Structured `ArtifactFetchError` frame, static message |
-| Ed25519 key material for signing/verification | Boot refusal |
+| Ed25519, unsupported-curve, malformed, or RSA <2048 key material | Boot refusal |
 | stdlib `encoding/json` applied to a proto message | Build failure (G-6) |
 | Any [WIRE-30] banned shape in a proto file | Build failure (G-7) |
 
@@ -444,6 +457,11 @@ the codebase is clean).
 | G-6 protojson only | AST scan banning `encoding/json` (un)marshal of proto message types across all modules |
 | G-7 deny-list | Descriptor + AST scan for [WIRE-30] shapes (field names `auth_token`/`params_canonical`, banned enum values, banned RPC names, banned dependency imports); the scan fails if it processes zero proto files |
 | G-8 near-copy detection | Descriptor walk flagging two messages with identical field-name/type sets outside an allowlisted equivalence (guards [WIRE-1]) |
+
+At SPEC-003 module completion, G-5 proves the contract-owned domain registry,
+round trips, and pairwise isolation. Its cross-repository sign-site + fail-closed
+verify-site floor activates as SPEC-005/007/013 add those downstream sites; the
+status ledger reports that deferred obligation explicitly.
 
 ## 8. Historical lessons
 

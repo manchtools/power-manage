@@ -18,6 +18,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"math/big"
 	"strings"
 	"testing"
 	"time"
@@ -642,6 +643,73 @@ func TestVerifyCommand_TypedNilKeyRejected(t *testing.T) {
 	_, cmd := signedActionCmd(t)
 	got, err := sign.VerifyCommand((*ecdsa.PublicKey)(nil), cmd, withinOpts())
 	assertRejected(t, got, err, "typed-nil ECDSA verifying key (fail-closed)")
+}
+
+func TestValidateSigningKey_AcceptsApprovedProfiles(t *testing.T) {
+	for _, curve := range []elliptic.Curve{elliptic.P256(), elliptic.P384(), elliptic.P521()} {
+		priv, err := ecdsa.GenerateKey(curve, rand.Reader)
+		if err != nil {
+			t.Fatalf("generating %s key: %v", curve.Params().Name, err)
+		}
+		if err := sign.ValidateSigningKey(&priv.PublicKey); err != nil {
+			t.Errorf("ValidateSigningKey rejected approved curve %s: %v", curve.Params().Name, err)
+		}
+	}
+	if err := sign.ValidateSigningKey(&newRSAKey(t).PublicKey); err != nil {
+		t.Errorf("ValidateSigningKey rejected approved RSA-2048 key: %v", err)
+	}
+}
+
+func TestValidateSigningKey_RejectsWeakOrMalformedProfiles(t *testing.T) {
+	p224, err := ecdsa.GenerateKey(elliptic.P224(), rand.Reader)
+	if err != nil {
+		t.Fatalf("generating P-224 rejection key: %v", err)
+	}
+	rsa1024, err := rsa.GenerateKey(rand.Reader, 1024)
+	if err != nil {
+		t.Fatalf("generating RSA-1024 rejection key: %v", err)
+	}
+	evenModulus := new(big.Int).Lsh(big.NewInt(1), 2047)
+	invalidExponent := newRSAKey(t).PublicKey
+	invalidExponent.E = 2
+	for name, tc := range map[string]struct {
+		key  crypto.PublicKey
+		want string
+	}{
+		"P-224":            {&p224.PublicKey, "unsupported ECDSA curve"},
+		"RSA-1024":         {&rsa1024.PublicKey, "invalid RSA public key"},
+		"RSA even modulus": {&rsa.PublicKey{N: evenModulus, E: 65537}, "invalid RSA public key"},
+		"missing ECDSA XY": {&ecdsa.PublicKey{Curve: elliptic.P256()}, "invalid ECDSA public key"},
+		"off-curve ECDSA":  {&ecdsa.PublicKey{Curve: elliptic.P256(), X: big.NewInt(1), Y: big.NewInt(1)}, "invalid ECDSA public key"},
+		"invalid RSA E":    {&invalidExponent, "invalid RSA public key"},
+		"empty RSA":        {&rsa.PublicKey{}, "invalid RSA public key"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			err := sign.ValidateSigningKey(tc.key)
+			if err == nil {
+				t.Errorf("ValidateSigningKey accepted %s key material", name)
+			} else if !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("ValidateSigningKey(%s) error = %q, want category %q", name, err, tc.want)
+			}
+		})
+	}
+}
+
+func TestVerifyCommand_FutureIssuedAtSkew(t *testing.T) {
+	priv, cmd := signedActionCmd(t)
+	boundary := withinOpts()
+	boundary.Now = cmd.GetIssuedAt().AsTime().Add(-5 * time.Minute)
+	if got, err := sign.VerifyCommand(&priv.PublicKey, cmd, boundary); err != nil || got == nil {
+		t.Fatalf("issued_at exactly five minutes ahead rejected: payload=%q err=%v", got, err)
+	}
+
+	beyond := boundary
+	beyond.Now = boundary.Now.Add(-time.Second)
+	got, err := sign.VerifyCommand(&priv.PublicKey, cmd, beyond)
+	assertRejected(t, got, err, "issued_at more than five minutes in the future")
+	if err != nil && !strings.Contains(err.Error(), "issued_at is more than 5m0s in the future") {
+		t.Errorf("future issued_at error = %q, want sanitized skew category", err)
+	}
 }
 
 // TestCommandDomain_CatalogTypes: each of the 8 closed command types maps to

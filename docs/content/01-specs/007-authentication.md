@@ -3,7 +3,7 @@ title: "SPEC-007 — Authentication"
 ---
 # SPEC-007 — Authentication
 
-Status: READY FOR IMPLEMENTATION
+Status: See `00-index.md` (single status ledger)
 Builds on: SPEC-003 (wire-contract), SPEC-005 (event-store)
 Enables: SPEC-008 (authorization), SPEC-009 (crud-kernel-search-and-domains), SPEC-011 (audit-and-retention)
 Module(s): `contract/` (ControlService auth RPCs, ScimService), `server/` (control: token service, OIDC client, SCIM server, rate limiting, `bootstrap-admin` CLI); the web UI (separate repo) consumes this surface
@@ -43,6 +43,9 @@ Minimum prior knowledge, restated:
 - **Client IP resolution (LIM-4):** rate limiters and audit actor-IP fields
   resolve the client IP by a right-to-left X-Forwarded-For walk from
   configured trusted proxies only — never the raw leftmost header value.
+
+- **Defended actors:** external unauthenticated and low-privilege callers must
+  not forge sessions, enumerate accounts, or escalate authentication state.
 
 ## 3. Requirements
 

@@ -3,7 +3,7 @@ title: "SPEC-015 — Secret Surfaces"
 ---
 # SPEC-015 — Secret Surfaces
 
-Status: READY FOR IMPLEMENTATION
+Status: See `00-index.md` (single status ledger)
 Builds on: SPEC-006 (pki-and-identity), SPEC-009 (crud-kernel-search-and-domains), SPEC-011 (audit-and-retention — secret-read audit events), SPEC-013 (agent-core); transitively SPEC-003/004/005/008 via those
 Enables: SPEC-017
 Module(s): server, agent
@@ -51,6 +51,9 @@ Minimum prior knowledge, restated:
 - Every state change is an event; projections rebuild 1:1 (ES-2, SPEC-005).
   `user_encryption_keys` is the sanctioned non-replay exception so crypto-shred is
   real deletion (ES-1, SPEC-005).
+
+- **Defended actors:** compromised relays and low-privilege users must not
+  observe, substitute, or retrieve secrets outside their signed and scoped flow.
 
 ## 3. Requirements
 
@@ -220,9 +223,11 @@ control is the audit trail (label changes and secret reads are both evented).
 
 Applies to every surface in [SEC-1]:
 
-- No plaintext secret in logs, audit payloads, RPC error messages, URLs or query
-  parameters, argv, or child environment (curated env allowlist — AG-14,
-  SPEC-013; SDK-4, SPEC-004).
+- No plaintext application secret in logs, audit payloads, RPC error messages,
+  argv, or child environment (curated env allowlist — AG-14, SPEC-013; SDK-4,
+  SPEC-004). Authentication/session/enrollment secrets never use URL queries.
+  Caller-supplied artifact URLs may carry opaque access queries; fetch errors
+  always remove query, fragment, and userinfo, and URL userinfo is refused.
 - Errors touching secret paths are static and non-oracular (WIRE-7, SPEC-003).
 - Tokens are hashed at rest, always; hash comparisons are constant-time.
 - File-or-stdin indirection everywhere a secret enters the system: secrets are
@@ -304,9 +309,10 @@ device-directed, inside the signed command (recorded operator decision,
 - **AC-13** A device-group-scoped grant reads secrets for devices labeled into
   the group's dynamic query (pierce accepted); an out-of-scope read returns
   NotFound plus a denial audit event.
-- **AC-14** No secret appears in logs, error strings, URLs, argv, or child env
-  across the surfaces in [SEC-1], demonstrated by the §7 guards' liveness
-  fixtures.
+- **AC-14** No application secret appears in logs, error strings, argv, or child
+  env across the surfaces in [SEC-1]; URL userinfo is refused and caller-supplied
+  artifact query credentials never appear in errors. The §7 guards' liveness
+  fixtures demonstrate each rule.
 - **AC-15** Boot with a missing at-rest encryption key fails; no code path
   writes a classified secret column in plaintext.
 - **AC-16** A WIFI dispatch captured at the gateway contains no plaintext PSK

@@ -36,6 +36,19 @@ spec's own header, which is authoritative.
 | 017 | [testing-and-release](017-testing-and-release.md) | 000–016 | all | Spec ready |
 
 Status values: `Spec ready` → `In progress (M<n> done)` → `Implemented`.
+`Implemented` means the spec's own milestones and module-owned checks are green;
+it does not claim that downstream components or end-to-end product paths exist.
+
+## Deferred cross-spec obligations
+
+These obligations are visible exceptions, not silent green coverage:
+
+- SPEC-001's boundary-registry and gateway-purity guards remain dormant until
+  server listener and gateway packages exist. Their skips are surfaced by the
+  verification gate and their violation fixtures remain active.
+- SPEC-003 G-5 currently proves the contract domain registry, round trips, and
+  pairwise isolation. Its cross-repository sign-site + fail-closed verify-site
+  floor activates when SPEC-005/007/013 add those consumers.
 
 ## Milestone ledger
 

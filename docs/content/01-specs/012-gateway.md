@@ -3,7 +3,7 @@ title: "SPEC-012 — Gateway"
 ---
 # SPEC-012 — Gateway
 
-Status: READY FOR IMPLEMENTATION / Builds on: SPEC-003 (wire-contract), SPEC-006 (pki-and-identity) / Enables: SPEC-013 (agent-core), SPEC-016 (operations-and-ha) / Module(s): server (gateway binary; control-side InternalService stream, dispatch, routing config), contract (stream frame shapes)
+Status: See `00-index.md` (single status ledger) / Builds on: SPEC-003 (wire-contract), SPEC-006 (pki-and-identity) / Enables: SPEC-013 (agent-core), SPEC-016 (operations-and-ha) / Module(s): server (gateway binary; control-side InternalService stream, dispatch, routing config), contract (stream frame shapes)
 
 ## 1. Scope
 
@@ -56,6 +56,9 @@ A fresh implementer needs the following from prior specs, restated:
   AUDIT-GAP posture. Postgres down: control RPCs error, running gateways keep
   bridging, agents run offline. One gateway down: its agents reconnect
   through edge routing to another.
+
+- **Defended actors:** the compromised relay itself and on-path network
+  attackers must gain no authority from gateway connectivity or routing state.
 
 ## 3. Requirements
 

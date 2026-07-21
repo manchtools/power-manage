@@ -103,6 +103,9 @@ func Fetch(ctx context.Context, rawURL string, dst io.Writer, opts Options) erro
 		}
 		return fmt.Errorf("fetch: parse URL failed")
 	}
+	if u.User != nil {
+		return fmt.Errorf("fetch %s: URL userinfo is not allowed", safeURL(rawURL))
+	}
 	if u.Scheme != "https" {
 		return fmt.Errorf("%w: scheme %q", ErrInsecureScheme, u.Scheme)
 	}
@@ -125,6 +128,9 @@ func Fetch(ctx context.Context, rawURL string, dst io.Writer, opts Options) erro
 	client := &http.Client{
 		Transport: transport,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if req.URL.User != nil {
+				return errors.New("fetch: redirect URL userinfo is not allowed")
+			}
 			if len(via) > maxRedirectHops {
 				return ErrTooManyRedirects
 			}

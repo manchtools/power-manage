@@ -36,18 +36,18 @@ Everything is spec-driven. Start here:
 3. [`docs/content/02-decisions/01-operator-decisions.md`](docs/content/02-decisions/01-operator-decisions.md) — preserved operator decisions.
    These are final; do not re-litigate them.
 
+<!-- docref: begin src=scripts/verify.sh:ad5bd804 -->
 Verification gate (run before every commit):
 
 ```bash
 ./scripts/verify.sh
 ```
+<!-- docref: end -->
 
-## Building
+## Planned binaries
 
-```bash
-go build ./server/cmd/control
-go build ./server/cmd/gateway
-CGO_ENABLED=0 go build ./agent/cmd/agent
-```
+The control, gateway, and agent binaries land with SPEC-005, SPEC-012, and
+SPEC-013. The current implemented surface is the `contract` and `sdk` library
+foundation; use the verification gate above until those binary milestones land.
 
 Versioning: `vYYYY.MM.PP`. Conventional commits.

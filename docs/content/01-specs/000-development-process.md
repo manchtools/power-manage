@@ -3,7 +3,7 @@ title: "SPEC-000 — Development Process"
 ---
 # SPEC-000 — Development Process
 
-Status: READY FOR IMPLEMENTATION
+Status: See `00-index.md` (single status ledger)
 Builds on: nothing
 Enables: SPEC-001..SPEC-017 (every other spec is implemented under this process)
 Module(s): all (`contract/`, `sdk/`, `server/`, `agent/`) + root tooling (`scripts/`, CI)
@@ -84,9 +84,11 @@ invariant below ships with a build-failing guard, never a code-review habit.
   1. **Self-discovering**: it enumerates its subjects (handlers, tables, enums,
      fields, packages, RPCs) from a registry, descriptor, AST, or directory
      walk — never from a hand-maintained list [META-2].
-  2. **Matches-zero protected**: a discovery step that returns zero subjects
-     FAILS the guard. An empty result means the discovery broke, not that the
-     codebase is clean.
+  2. **Matches-zero protected**: once a guard's owning subject class exists, a
+     discovery step that returns zero applicable subjects FAILS. Before the
+     owning component exists, a dormant guard may skip only when the gate
+     surfaces the skip, its violation fixture remains active, and the spec names
+     the activation floor. An unexplained empty result is always a failure.
   3. **Liveness-probed** where applicable: a fixture containing a deliberate
      violation must be detected, proving the guard can still go red.
   4. **Co-shipped**: the guard lands in the same change as the first
@@ -110,7 +112,7 @@ list an implementer builds guards for FIRST.
   turned corrupt files into policy bypasses.
 - **[INV-2]** Every enum switch has an erroring `default`; an exhaustiveness
   guard walks the proto descriptor (WIRE-4, SPEC-003).
-- **[INV-3]** Disabled security gates do not exist silently: a nil
+- **[INV-3]** Disabled security gates do not exist silently (SPEC-006): a nil
   verifier/resolver/sealer is a boot failure; sanctioned bypasses are explicit
   named configuration. Lesson: a "no resolver wired → skip the binding check"
   nil-check ran fail-open in production; the gate was off and nothing said so.
@@ -135,9 +137,12 @@ list an implementer builds guards for FIRST.
   site AND a fail-closed verify site, across modules.
 - **[INV-7]** No plaintext secret transits the relay, lands in events, or
   appears in logs/audit (sealed transport WIRE-23/24 SPEC-003; redaction
-  schemas AUD-3, SPEC-011). No secrets in URL query params; tokens hashed at
-  rest. Lesson: disk-encryption passphrases historically transited the relay in
-  plaintext, both directions.
+  schemas AUD-3, SPEC-011). Authentication/session/enrollment secrets never use
+  URL query parameters. Caller-supplied artifact URLs may carry opaque access
+  queries; their query, fragment, and userinfo are never emitted in errors or
+  logs, and URL userinfo is rejected. Tokens are hashed at rest. Lesson:
+  disk-encryption passphrases historically transited the relay in plaintext,
+  both directions.
 - **[INV-8]** One AEAD format (`enc:v1`, AAD-bound); encryption at rest is
   mandatory — no opt-out knob exists (recorded decision); constant-time
   compares for every secret/MAC; `crypto/rand` only; `math/rand` banned outside
@@ -268,8 +273,8 @@ locale lanes, the deployment E2E gate, release provenance — is SPEC-017.
 - **[PROC-4]** `scripts/verify.sh` is the canonical verification gate. It runs,
   across all modules: `go vet`, `staticcheck`, the full test suite under
   `-race`, the entire guard suite, doc-anchor checks, and generated-artifact
-  freshness checks. Exit is nonzero on any failure. CI runs it on every PR;
-  merge is blocked on red.
+  freshness checks. Doc-anchor discovery has a nonzero floor. Exit is nonzero
+  on any failure. CI runs it on every PR; merge is blocked on red.
 - **[PROC-5]** A session works ONE milestone at a time, from one spec's §9,
   and every milestone ends with a green `scripts/verify.sh` before the next
   begins; a session that has merged its milestone green may take the next one.
@@ -297,8 +302,10 @@ locale lanes, the deployment E2E gate, release provenance — is SPEC-017.
 - **AC-2** CI executes `scripts/verify.sh` on every PR and blocks merge on
   failure; the CI-lane guard [TEST-3] discovers all test-bearing packages and
   fails when it discovers zero.
-- **AC-3** The guard harness provides a discovery + matches-zero helper; a
-  guard whose discovery returns an empty subject set fails the build.
+- **AC-3** The guard harness provides a discovery + matches-zero helper; once
+  applicable subjects exist, an empty discovery fails the build. A pre-owner
+  dormant skip is permitted only under PROC-3's surfaced-skip, live-fixture,
+  and named-floor conditions.
 - **AC-4** Every guard has a liveness self-test: a fixture containing a
   deliberate violation is detected.
 - **AC-5** A machine-readable invariant registry lists INV-1..INV-19 with
@@ -320,7 +327,8 @@ locale lanes, the deployment E2E gate, release provenance — is SPEC-017.
 | Code change with no governing spec section + AC | Not merged; write or extend the spec first [META-1] |
 | New test first observed green (never seen red) | Rework: prove red via a scoped neutralizing edit, never a revert [TEST-1] |
 | Guard implemented as a hand-maintained list | Not merged [META-2] |
-| Guard discovery returns zero subjects | Build failure (matches-zero), never a silent pass [PROC-3] |
+| Applicable guard discovery returns zero subjects | Build failure (matches-zero), never a silent pass [PROC-3] |
+| Pre-owner guard skips without a surfaced skip, live fixture, or named activation floor | Build failure [PROC-3] |
 | Invariant implementation without its guard in the same change | Not merged [PROC-3] |
 | Bug fix without a fails-on-buggy-version regression test | Not merged [TEST-8] |
 | Attempt to re-litigate a recorded decision | Rejected in review; only an operator ADR changes it [PROC-2] |

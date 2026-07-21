@@ -3,7 +3,7 @@ title: "SPEC-001 — Architecture and Trust Model"
 ---
 # SPEC-001 — Architecture and Trust Model
 
-Status: READY FOR IMPLEMENTATION
+Status: See `00-index.md` (single status ledger)
 Builds on: SPEC-000 (M2–M3: guard harness and invariant registry — this spec's guards register there)
 Enables: SPEC-002..SPEC-017 (every design decision derives from this trust model)
 Module(s): all (`contract/`, `sdk/`, `server/`, `agent/`); normative reference for the separate web repo
@@ -244,6 +244,9 @@ Write first, confirm red, then implement:
 4. **Fail-closed boundary tests** (AC-4): written red-first inside each owning
    spec's milestone against real backends (real Postgres, real handlers —
    SPEC-000 §3.5); this spec's ledger entry tracks their existence.
+5. **Actor-declaration guard** (AC-6): discover SPEC-003..016; a fixture spec
+   without an actor reference fails, and discovering fewer than all 14 specs
+   fails closed.
 
 ## 7. Guards
 
@@ -253,6 +256,7 @@ Write first, confirm red, then implement:
 | G-001-2 boundary registry | AST walk for listen/socket call sites, joined to B1–B11 registrations | ≥1 listener once server code exists; final floor 7 |
 | G-001-3 gateway purity | Import-closure walk of the gateway binary | Non-empty closure once `server/cmd/gateway` exists (reported skip before) |
 | G-001-4 singleton advisory-lock coverage | AST walk for ticker/timer loops in `server/`, joined to the advisory-lock helper | ≥1 background loop (lands with SPEC-016) |
+| G-001-5 defended-actor declarations | Discovers SPEC-003..016 and checks each pre-rejection-table design names an actor | Exactly 14 specs |
 
 ## 8. Historical lessons
 

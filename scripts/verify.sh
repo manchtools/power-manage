@@ -95,26 +95,35 @@ if [ -f contract/buf.yaml ]; then
 fi
 if [ -n "$PROTO_SRC" ]; then
   require buf
-  require sha256sum
-  if command -v buf >/dev/null 2>&1 && command -v sha256sum >/dev/null 2>&1; then
+  require diff
+  if command -v buf >/dev/null 2>&1 && command -v diff >/dev/null 2>&1; then
     run "contract: buf lint" env -C contract buf lint
-    # Regeneration must be a no-op against the working tree: a stale or
-    # hand-edited gen/ changes under buf generate and fails here; CI runs
-    # this against the committed state, so forgetting to commit gen/ fails
-    # there ([WIRE-2] machine-readable tags depend on gen matching source).
-    # A failing snapshot must fail the stage — two empty hashes match, so an
-    # unchecked sha256sum failure would silently disarm the comparison.
+    # Generate outside the working tree: buf.gen.yaml uses clean:true, so an
+    # in-place generator failure could otherwise delete committed output.
     run "contract: generated code in sync" bash -c '
       set -o pipefail
       cd contract || exit 1
-      snapshot() { find gen -type f -print0 2>/dev/null | sort -z | xargs -0 -r sha256sum | sha256sum; }
-      before=$(snapshot) || { echo "gen snapshot failed"; exit 1; }
-      buf generate || exit 1
-      after=$(snapshot) || { echo "gen snapshot failed"; exit 1; }
-      if [ "$before" != "$after" ]; then
-        echo "contract/gen was out of sync with the proto sources — buf generate changed it; commit the regenerated output and never hand-edit it (AC-13, SPEC-003)"
+      generated=$(mktemp -d) || exit 1
+      trap '\''rm -rf "$generated"'\'' EXIT
+      buf generate -o "$generated" || exit 1
+      diff -qr gen "$generated/gen" || {
+        echo "contract/gen is out of sync with the proto sources — run buf generate, commit the output, and never hand-edit it (AC-13, SPEC-003)"
         exit 1
-      fi'
+      }'
+  fi
+fi
+
+# Documentation claims are strict and non-vacuous once docref is configured.
+if [ -f docref.toml ]; then
+  require docref
+  if command -v docref >/dev/null 2>&1; then
+    run "documentation: docref" docref check --strict
+    say "documentation: docref reference floor"
+    if ! DOCREF_INDEX=$(set -o pipefail; docref ls --json 2>&1 | tee -a "$LOG"); then
+      fail "documentation: docref reference discovery"
+    elif ! tr -d '[:space:]' <<<"$DOCREF_INDEX" | grep -q '"refs":\[{' ; then
+      fail "documentation: docref discovered zero references"
+    fi
   fi
 fi
 

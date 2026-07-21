@@ -47,9 +47,18 @@ jobs:
           go-version: "1.26"
           cache: true
       - name: Install staticcheck
-        run: go install honnef.co/go/tools/cmd/staticcheck@latest
+        run: go install honnef.co/go/tools/cmd/staticcheck@v0.7.0
       - name: Install buf
-        run: go install github.com/bufbuild/buf/cmd/buf@latest
+        run: go install github.com/bufbuild/buf/cmd/buf@v1.66.1
+      - name: Install docref
+        env:
+          DOCREF_VERSION: v0.1.0
+        run: |
+          curl -fsSL "https://github.com/manchtools/open-docref/releases/download/${DOCREF_VERSION}/docref-linux-x64" -o "$RUNNER_TEMP/docref-linux-x64"
+          curl -fsSL "https://github.com/manchtools/open-docref/releases/download/${DOCREF_VERSION}/SHA256SUMS" -o "$RUNNER_TEMP/SHA256SUMS"
+          (cd "$RUNNER_TEMP" && grep '  docref-linux-x64$' SHA256SUMS | sha256sum -c -)
+          install -m 0755 "$RUNNER_TEMP/docref-linux-x64" "$RUNNER_TEMP/docref"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
       - name: Verify
         run: ./scripts/verify.sh
 

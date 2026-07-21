@@ -35,12 +35,20 @@ trusted admin, compromised relay/gateway, on-path network attacker.
 - Every AEAD/HKDF call carries a domain-separation info tag / AAD.
 - Signature verification checks domain tag, identity binding, AND freshness —
   all three before acting on content.
+- Public-key validation isolates standard-library serialization calls that can
+  panic on malformed coordinates and converts those panics to validation
+  errors; hostile key material must never crash the process.
 - Constant-time comparison for secrets. ULIDs for identifiers.
 
 ## Secrets
 
-- Never in logs, URLs, error messages, events, panics, or argv; stdin or
-  file indirection only.
+- Never in logs, error messages, events, panics, or argv; authentication,
+  session, and enrollment secrets never use URLs; stdin or file indirection
+  only.
+- Artifact and checksum fetch URLs reject userinfo, matching the repository's
+  other URL validators. Query content remains valid unless its governing spec
+  says otherwise; strip query and fragment from every error and never log the
+  raw URL.
 - At-rest secrets are AEAD-wrapped with AAD binding them to their owner row.
 - Watch the two leak classes that pass review: the timing/error oracle
   (distinct errors for "not found" vs "not yours") and the helpful debug log

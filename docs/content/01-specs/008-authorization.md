@@ -3,7 +3,7 @@ title: "SPEC-008 — Authorization"
 ---
 # SPEC-008 — Authorization
 
-Status: READY FOR IMPLEMENTATION / Builds on: SPEC-005 (event-store), SPEC-007 (authentication) / Enables: SPEC-009 (crud-kernel-search-and-domains), SPEC-011 (audit-and-retention), SPEC-015 (secret-surfaces) / Module(s): server (catalog, enforcement, guards), contract (grant and scope wire shapes)
+Status: See `00-index.md` (single status ledger) / Builds on: SPEC-005 (event-store), SPEC-007 (authentication) / Enables: SPEC-009 (crud-kernel-search-and-domains), SPEC-011 (audit-and-retention), SPEC-015 (secret-surfaces) / Module(s): server (catalog, enforcement, guards), contract (grant and scope wire shapes)
 
 ## 1. Scope
 
@@ -58,6 +58,9 @@ Terminology used below:
 | Scope | One of: global, a device-group set, a user-group set, self |
 | Confinable | A permission whose effect can be narrowed by a grant scope |
 | Global-only | A permission that activates only through a global grant |
+
+- **Defended actors:** low-privilege authenticated users must not exceed their
+  permissions or learn whether out-of-scope objects exist.
 
 ## 3. Requirements
 

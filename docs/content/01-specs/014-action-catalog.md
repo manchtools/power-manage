@@ -3,7 +3,7 @@ title: "SPEC-014 — Action Catalog"
 ---
 # SPEC-014 — Action Catalog
 
-Status: READY FOR IMPLEMENTATION / Builds on: SPEC-003, SPEC-004, SPEC-009, SPEC-010, SPEC-013 / Enables: SPEC-015, SPEC-017 / Module(s): `contract/` (MIT), `sdk/` (MIT), `server/` (AGPL-3.0), `agent/` (GPL-3.0)
+Status: See `00-index.md` (single status ledger) / Builds on: SPEC-003, SPEC-004, SPEC-009, SPEC-010, SPEC-013 / Enables: SPEC-015, SPEC-017 / Module(s): `contract/` (MIT), `sdk/` (MIT), `server/` (AGPL-3.0), `agent/` (GPL-3.0)
 
 ## 1. Scope
 
@@ -71,6 +71,9 @@ Minimum prior knowledge, restated:
 - **Secrets (SPEC-003/SPEC-015):** device-originated secrets (LPS passwords,
   LUKS passphrases, USER temp passwords) are sealed to control's X25519 key; no
   plaintext secret transits the gateway (WIRE-23, WIRE-24, SPEC-003).
+- **Defended actors:** low-privilege users must not smuggle unsafe values or
+  exceed grant scope, and compromised relays/on-path attackers must not alter
+  the signed action bytes an agent validates and executes.
 
 ## 3. Requirements
 
