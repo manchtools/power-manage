@@ -3,7 +3,10 @@ title: "SPEC-012 — Gateway"
 ---
 # SPEC-012 — Gateway
 
-Status: See `00-index.md` (single status ledger) / Builds on: SPEC-003 (wire-contract), SPEC-006 (pki-and-identity) / Enables: SPEC-013 (agent-core), SPEC-016 (operations-and-ha) / Module(s): server (gateway binary; control-side InternalService stream, dispatch, routing config), contract (stream frame shapes)
+Status: See `00-index.md` (single status ledger)
+Builds on: SPEC-003 (wire-contract), SPEC-006 (pki-and-identity)
+Enables: SPEC-013 (agent-core), SPEC-016 (operations-and-ha)
+Module(s): server (gateway binary; control-side InternalService stream, dispatch, routing config), contract (stream frame shapes)
 
 ## 1. Scope
 

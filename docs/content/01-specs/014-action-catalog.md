@@ -3,7 +3,10 @@ title: "SPEC-014 — Action Catalog"
 ---
 # SPEC-014 — Action Catalog
 
-Status: See `00-index.md` (single status ledger) / Builds on: SPEC-003, SPEC-004, SPEC-009, SPEC-010, SPEC-013 / Enables: SPEC-015, SPEC-017 / Module(s): `contract/` (MIT), `sdk/` (MIT), `server/` (AGPL-3.0), `agent/` (GPL-3.0)
+Status: See `00-index.md` (single status ledger)
+Builds on: SPEC-003, SPEC-004, SPEC-009, SPEC-010, SPEC-013
+Enables: SPEC-015, SPEC-017
+Module(s): `contract/` (MIT), `sdk/` (MIT), `server/` (AGPL-3.0), `agent/` (GPL-3.0)
 
 ## 1. Scope
 

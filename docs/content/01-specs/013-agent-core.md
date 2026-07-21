@@ -3,7 +3,10 @@ title: "SPEC-013 — Agent Core"
 ---
 # SPEC-013 — Agent Core
 
-Status: See `00-index.md` (single status ledger) / Builds on: SPEC-003, SPEC-004, SPEC-006, SPEC-010 / Enables: SPEC-014, SPEC-015, SPEC-017 / Module(s): `agent/` (GPL-3.0)
+Status: See `00-index.md` (single status ledger)
+Builds on: SPEC-003, SPEC-004, SPEC-006, SPEC-010
+Enables: SPEC-014, SPEC-015, SPEC-017
+Module(s): `agent/` (GPL-3.0)
 
 ## 1. Scope
 

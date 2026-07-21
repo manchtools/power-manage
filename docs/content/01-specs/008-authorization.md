@@ -3,7 +3,10 @@ title: "SPEC-008 — Authorization"
 ---
 # SPEC-008 — Authorization
 
-Status: See `00-index.md` (single status ledger) / Builds on: SPEC-005 (event-store), SPEC-007 (authentication) / Enables: SPEC-009 (crud-kernel-search-and-domains), SPEC-011 (audit-and-retention), SPEC-015 (secret-surfaces) / Module(s): server (catalog, enforcement, guards), contract (grant and scope wire shapes)
+Status: See `00-index.md` (single status ledger)
+Builds on: SPEC-005 (event-store), SPEC-007 (authentication)
+Enables: SPEC-009 (crud-kernel-search-and-domains), SPEC-011 (audit-and-retention), SPEC-015 (secret-surfaces)
+Module(s): server (catalog, enforcement, guards), contract (grant and scope wire shapes)
 
 ## 1. Scope
 

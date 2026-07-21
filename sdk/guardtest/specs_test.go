@@ -12,7 +12,7 @@ import (
 var (
 	defendedActorsLine = regexp.MustCompile(`(?m)^- \*\*Defended actors:\*\*[ \t]+([^\r\n]*\S)[ \t]*$`)
 	statusHeaderLine   = regexp.MustCompile(`(?m)^Status:[^\r\n]*$`)
-	canonicalStatus    = regexp.MustCompile("^Status: See `00-index\\.md` \\(single status ledger\\)(?: / .+)?$")
+	canonicalStatus    = regexp.MustCompile("^Status: See `00-index\\.md` \\(single status ledger\\)$")
 )
 
 func hasDefendedActors(preamble string) bool {
@@ -107,10 +107,14 @@ func TestSpecHeaders_DeferToStatusLedger(t *testing.T) {
 }
 
 func TestSpecHeaders_Liveness(t *testing.T) {
+	if !hasCanonicalStatus("Status: See `00-index.md` (single status ledger)\n") {
+		t.Fatal("exact canonical status header was rejected")
+	}
 	for name, preamble := range map[string]string{
-		"embedded":  "Prose says Status: See `00-index.md` but has no header.\n",
-		"duplicate": "Status: See `00-index.md` (single status ledger)\nStatus: READY\n",
-		"wrong":     "Status: READY\n",
+		"embedded":         "Prose says Status: See `00-index.md` but has no header.\n",
+		"duplicate":        "Status: See `00-index.md` (single status ledger)\nStatus: READY\n",
+		"inline secondary": "Status: See `00-index.md` (single status ledger) / READY\n",
+		"wrong":            "Status: READY\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			if hasCanonicalStatus(preamble) {
