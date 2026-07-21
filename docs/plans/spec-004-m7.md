@@ -14,7 +14,7 @@ Milestone: SPEC-004 §3.7 **[SDK-18]**, AC-21/AC-22.
 <!-- docref: begin src=sdk/fsafe/policy_test.go#TestApplyPolicyFile_HashEqualNoOp:4bf34164,sdk/fsafe/policy_test.go#TestApplyPolicyFile_ValidatorFailureNeverReachesLivePath:803a5fc9,sdk/fsafe/policy_test.go#TestApplyPolicyFile_ReloadFailureRestoresPreviousBytes:a78ad9c7,sdk/fsafe/policy_test.go#TestApplyPolicyFile_RevertReplaysPriorThroughValidator:3f985c0d,sdk/fsafe/policy_test.go#TestApplyPolicyFile_ManagedBlockReplacesMarkedRegion:43c17caa,sdk/fsafe/policy_test.go#TestPolicySurfaceTable_ExactRows:3f77251b -->
 - `sdk/fsafe/policy_test.go`: AC-21/AC-22 acceptance tests below
 <!-- docref: end -->
-<!-- docref: begin src=sdk/fsafe/policy_container_test.go#TestContainer_PolicyValidators:deaf2877 -->
+<!-- docref: begin src=sdk/fsafe/policy_container_test.go#TestContainer_PolicyValidators:ca24b907 -->
 - `sdk/fsafe/policy_container_test.go`, `sdk/fsafe/test/*`, `.github/workflows/ci.yml`:
   `TestContainer_PolicyValidators`
 <!-- docref: end -->
@@ -25,7 +25,7 @@ Milestone: SPEC-004 §3.7 **[SDK-18]**, AC-21/AC-22.
 
 ## Acceptance tests
 
-<!-- docref: begin src=sdk/fsafe/policy_test.go#TestApplyPolicyFile_HashEqualNoOp:4bf34164,sdk/fsafe/policy_test.go#TestApplyPolicyFile_ValidatorFailureNeverReachesLivePath:803a5fc9,sdk/fsafe/policy_test.go#TestApplyPolicyFile_ReloadFailureRestoresPreviousBytes:a78ad9c7,sdk/fsafe/policy_test.go#TestApplyPolicyFile_RevertReplaysPriorThroughValidator:3f985c0d,sdk/fsafe/policy_test.go#TestApplyPolicyFile_ManagedBlockReplacesMarkedRegion:43c17caa,sdk/fsafe/policy_test.go#TestPolicySurfaceTable_ExactRows:3f77251b,sdk/fsafe/policy_container_test.go#TestContainer_PolicyValidators:deaf2877 -->
+<!-- docref: begin src=sdk/fsafe/policy_test.go#TestApplyPolicyFile_HashEqualNoOp:4bf34164,sdk/fsafe/policy_test.go#TestApplyPolicyFile_ValidatorFailureNeverReachesLivePath:803a5fc9,sdk/fsafe/policy_test.go#TestApplyPolicyFile_ReloadFailureRestoresPreviousBytes:a78ad9c7,sdk/fsafe/policy_test.go#TestApplyPolicyFile_RevertReplaysPriorThroughValidator:3f985c0d,sdk/fsafe/policy_test.go#TestApplyPolicyFile_ManagedBlockReplacesMarkedRegion:43c17caa,sdk/fsafe/policy_test.go#TestPolicySurfaceTable_ExactRows:3f77251b,sdk/fsafe/policy_container_test.go#TestContainer_PolicyValidators:ca24b907 -->
 - `TestApplyPolicyFile_HashEqualNoOp`
 - `TestApplyPolicyFile_ValidatorFailureNeverReachesLivePath`
 - `TestApplyPolicyFile_ReloadFailureRestoresPreviousBytes`
