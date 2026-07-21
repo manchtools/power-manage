@@ -3,7 +3,10 @@ title: "SPEC-004 — SDK Core"
 ---
 # SPEC-004 — SDK Core
 
-Status: See `00-index.md` (single status ledger) / Builds on: SPEC-000, SPEC-001, SPEC-002 / Enables: SPEC-013, SPEC-014, SPEC-015 / Module(s): `sdk/` (MIT); module-boundary rules also constrain `contract/` (MIT)
+Status: See `00-index.md` (single status ledger)
+Builds on: SPEC-000, SPEC-001, SPEC-002
+Enables: SPEC-013, SPEC-014, SPEC-015
+Module(s): `sdk/` (MIT); module-boundary rules also constrain `contract/` (MIT)
 
 ## 1. Scope
 
