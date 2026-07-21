@@ -21,7 +21,7 @@ spec's own header, which is authoritative.
 | 002 | [repo-module-and-config-contract](002-repo-module-and-config-contract.md) | 000 (M2) | all | Implemented |
 | 003 | [wire-contract](003-wire-contract.md) | 000–002 | contract | Implemented |
 | 004 | [sdk-core](004-sdk-core.md) | 000–002 | sdk | Implemented |
-| 005 | [event-store](005-event-store.md) | 000–003 | server | In progress (M1 done) |
+| 005 | [event-store](005-event-store.md) | 000–003 | server | In progress (M1–M2 done) |
 | 006 | [pki-and-identity](006-pki-and-identity.md) | 003, 005 | server | Spec ready |
 | 007 | [authentication](007-authentication.md) | 003, 005 | server | Spec ready |
 | 008 | [authorization](008-authorization.md) | 005, 007 | server | Spec ready |
@@ -87,6 +87,8 @@ SPEC-004 M6 — package managers + rollback: typed absent/query-failure split, s
 SPEC-004 M7 — policy-file engine: one fsafe composition, closed three-row surface table, surface-path/symlink guards, candidate validation, atomic swap with cancellation-independent restore, marker-delimited updates, real sshd/visudo container lane (AC-21, AC-22) — PR #32
 
 SPEC-005 M1 — events schema, auto-versioned append with exact conflict retry, capability-limited in-transaction projector registry, atomic rollback, read-after-write, real Postgres contention tests (AC-1..4) — PR #33
+
+SPEC-005 M2 — expected-version CAS without retry, atomic ordered batch append, and real Postgres consume/rollback tests (AC-8..9; AC-10 activates with the first state-changing RPC) — PR #35
 
 ## Rules
 

@@ -8,7 +8,7 @@ Milestone: SPEC-005 §9 M1, AC-1..4.
 - `server/go.mod`, `server/go.sum`: pinned pgx, goose, and Postgres
   testcontainers dependencies required by SPEC-005.
 <!-- docref: end -->
-<!-- docref: begin src=server/internal/store/migrations/001_events.sql#@events-schema:902b4a87,server/internal/store/generated/events.sql.go#CurrentStreamVersion:1af6ae91,server/internal/store/generated/events.sql.go#InsertEvent:eaad48fb,server/internal/store/store.go#AppendEvent:798bff78,server/internal/store/store.go#ProjectionTx:00db46f5,server/internal/store/store.go#Projector:77e93082 -->
+<!-- docref: begin src=server/internal/store/migrations/001_events.sql#@events-schema:902b4a87,server/internal/store/generated/events.sql.go#CurrentStreamVersion:1af6ae91,server/internal/store/generated/events.sql.go#InsertEvent:eaad48fb,server/internal/store/store.go#AppendEvent:59053c99,server/internal/store/store.go#ProjectionTx:00db46f5,server/internal/store/store.go#Projector:77e93082 -->
 - `server/internal/store/migrations/001_events.sql`,
   `server/internal/store/migrations/embed.go`: `events` schema and embedded goose
   migration.
