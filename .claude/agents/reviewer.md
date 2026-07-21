@@ -35,6 +35,14 @@ This codebase's actual failure modes — check each:
 - Secrets in log fields, error strings, URLs, or argv.
 - Hand-edited generated code (`gen/`, sqlc output).
 - `errors.Is` against store sentinels instead of the store recognizer.
+- Privileged-filesystem TOCTOU: a path resolved then acted on through its
+  final component (a symlink LEAF is "existing" to `Lstat`, so a resolve
+  step dereferences it); a safety predicate (`parentDirSafe`-style) run on
+  the resolved/referent path instead of the caller-named path; a mutation
+  that follows a symlink it should refuse (O_NOFOLLOW / no-leaf-resolve).
+- Backend/tier asymmetry: a guard, no-follow flag, or byte-exactness the
+  Direct path has but the escalated (sudo/doas) path drops — or vice versa.
+  Read both tiers side by side; the safe one is the spec, the other must match.
 - `context.Background()` in request paths; naked `time.Now()`.
 - References to external repositories or issues (self-contained rule); AI
   attribution anywhere.
@@ -75,7 +83,18 @@ First-pass findings are a draft. Before reporting:
    against the matcher — the guards skill lists the families. Verify
    domain facts (AST node shapes, API behavior) with a web search rather
    than trusting recall.
-3. Second-pass findings go into the report like any other — if one
+3. **Privileged-filesystem / multi-tier lens.** When the diff touches path
+   resolution, a filesystem mutation, or a Direct-vs-escalated backend split:
+   breadth review misses this class, so hunt it explicitly. Plant the attack
+   on disk in a scratch probe — a symlink at the *named* target (not a
+   dereferenced helper below the public method), a leaf that resolution would
+   follow, a path whose named parent is attacker-writable but whose resolved
+   parent is safe — and assert the referent is untouched. Diff the Direct and
+   escalated implementations line by line for a guard, no-follow flag, or
+   byte-exact channel present in one tier and absent in the other. A symlink
+   test that drives a helper below the resolver proves nothing about the
+   public API and is itself a finding (test asserts the wrong layer).
+4. Second-pass findings go into the report like any other — if one
    changes the verdict, say so.
 
 ## Report format (CodeRabbit-compatible)
