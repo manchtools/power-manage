@@ -1,0 +1,13 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    schema: "migrations"
+    queries: "queries"
+    gen:
+      go:
+        package: "generated"
+        out: "generated"
+        sql_package: "pgx/v5"
+        overrides:
+          - db_type: "pg_catalog.timestamptz"
+            go_type: "time.Time"
