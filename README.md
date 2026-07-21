@@ -36,7 +36,7 @@ Everything is spec-driven. Start here:
 3. [`docs/content/02-decisions/01-operator-decisions.md`](docs/content/02-decisions/01-operator-decisions.md) — preserved operator decisions.
    These are final; do not re-litigate them.
 
-<!-- docref: begin src=scripts/verify.sh:6848bd72 -->
+<!-- docref: begin src=scripts/verify.sh:3c32baa8 -->
 Verification gate (run before every commit):
 
 ```bash
