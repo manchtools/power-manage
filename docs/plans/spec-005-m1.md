@@ -31,7 +31,7 @@ Milestone: SPEC-005 §9 M1, AC-1..4.
 
 ## Acceptance tests
 
-<!-- docref: begin src=server/internal/store/store_test.go#TestEventsUniqueStreamVersion_ConcurrentConflict:440295cb,server/internal/store/store_test.go#TestAppendEvent_AutoVersionsConcurrentFacts:00a73860,server/internal/store/store_test.go#TestAppendEvent_UnregisteredTypeWritesNothing:1cb8f72c,server/internal/store/store_test.go#TestAppendEvent_ProjectorFailureRollsBack:5a022898,server/internal/store/store_test.go#TestAppendEvent_ReadAfterWriteProjection:68ed69e7 -->
+<!-- docref: begin src=server/internal/store/store_test.go#TestEventsUniqueStreamVersion_ConcurrentConflict:440295cb,server/internal/store/store_test.go#TestAppendEvent_AutoVersionsConcurrentFacts:324f203a,server/internal/store/store_test.go#TestAppendEvent_UnregisteredTypeWritesNothing:f32ff24a,server/internal/store/store_test.go#TestAppendEvent_ProjectorFailureRollsBack:c7d6a08a,server/internal/store/store_test.go#TestAppendEvent_ReadAfterWriteProjection:8ca76df8 -->
 - `TestEventsUniqueStreamVersion_ConcurrentConflict`
 - `TestAppendEvent_AutoVersionsConcurrentFacts`
 - `TestAppendEvent_UnregisteredTypeWritesNothing`
@@ -41,7 +41,7 @@ Milestone: SPEC-005 §9 M1, AC-1..4.
 
 ## Review regressions
 
-<!-- docref: begin src=server/internal/store/store_test.go#TestAppendEvent_ProjectorTransactionIsCapabilityLimited:043576b2,server/internal/store/store_test.go#TestAppendEvent_LowercaseULIDPersistsCanonicalID:cc698cf1,server/internal/store/store_test.go#TestIsStreamVersionConflict_ExactPostgresError:8b19850d,server/internal/store/store_test.go#TestWaitAppendRetry_CancelledContext:dc1fba4d -->
+<!-- docref: begin src=server/internal/store/store_test.go#TestAppendEvent_ProjectorTransactionIsCapabilityLimited:9192d5b9,server/internal/store/store_test.go#TestAppendEvent_LowercaseULIDPersistsCanonicalID:d2d45985,server/internal/store/store_test.go#TestIsStreamVersionConflict_ExactPostgresError:8b19850d,server/internal/store/store_test.go#TestWaitAppendRetry_CancelledContext:dc1fba4d -->
 - `TestAppendEvent_ProjectorTransactionIsCapabilityLimited`
 - `TestAppendEvent_LowercaseULIDPersistsCanonicalID`
 - `TestIsStreamVersionConflict_ExactPostgresError`

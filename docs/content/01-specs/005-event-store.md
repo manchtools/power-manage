@@ -260,8 +260,11 @@ Write in this order:
 3. **Append API tests**: CAS race with N goroutines on a bounded-use consume
    (AC-8); `AppendEvents` atomicity (AC-9). Append-failure-fails-RPC (AC-10)
    activates with the first real state-changing handler.
-4. **Replay tests**: 1:1 rebuild equality per projection (AC-6); FK-closure
-   refuse/include (AC-7); `projection_version` out-of-order guard (AC-11).
+4. **Replay tests**: 1:1 rebuild equality per projection (AC-6, SPEC-005);
+   FK-closure refuse/include (AC-7, SPEC-005). The `projection_version` out-of-order guard
+   (AC-11, SPEC-005) activates with the first production projection in (M5,
+   SPEC-005); no test-only production projector is added solely to create an
+   earlier subject.
 5. **Work-table tests**: same-tx outbox atomicity, SKIP LOCKED exclusivity,
    `run_at`/`attempts`/`next_attempt_at` semantics, exhausted-row visibility
    (AC-12).
@@ -335,14 +338,17 @@ Each milestone is one implementation session ending green (full suite passing).
    activates with the first real state-changing RPC. Tests: AC-8..9; AC-10 at
    its activation floor.
 3. **M3 — Replay + rebuild**: replay runner over the same projector functions;
-   `projection_version` guards; `RebuildAll` with FK-closure computation as a CLI
-   subcommand. Tests: AC-6, AC-7, AC-11.
+   `RebuildAll` with FK-closure computation and exact projector/rebuild-target
+   registry parity. Tests: (AC-6, SPEC-005), (AC-7, SPEC-005).
 4. **M4 — Work tables**: outbox write in the append transaction; advisory-lock
    worker harness (`WithoutCancel` + timeout + `recover()`); SKIP LOCKED drain;
-   attempts/backoff columns; doctor queries. Tests: AC-12.
+   attempts/backoff columns; doctor queries. Tests: (AC-12, SPEC-005).
 5. **M5 — Guards + tiers**: classification guard, projection-write guard,
-   sentinel ban, golden-corpus harness; inventory snapshot event + projection;
-   operational-telemetry tables with caps. Tests: AC-5, AC-13..15.
+   sentinel ban, golden-corpus harness; inventory snapshot event + projection
+   with its `projection_version` guard; operational-telemetry tables with caps;
+   recovery CLI wiring for the first production rebuild target. Tests: (AC-5,
+   SPEC-005), (AC-11, SPEC-005), (AC-13, SPEC-005), (AC-14, SPEC-005), and
+   (AC-15, SPEC-005).
 
 ## 10. Out of scope
 

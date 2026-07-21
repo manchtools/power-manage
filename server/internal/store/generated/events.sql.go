@@ -70,3 +70,108 @@ func (q *Queries) InsertEvent(ctx context.Context, arg InsertEventParams) (Event
 	)
 	return i, err
 }
+
+const listEventsForReplayPage = `-- name: ListEventsForReplayPage :many
+SELECT stream_type, stream_id, stream_version, event_type,
+       payload_version, payload, created_at
+FROM events
+WHERE stream_type = ANY($1::text[])
+  AND (stream_type, stream_id, stream_version) > (
+      $2::text,
+      $3::text,
+      $4::bigint
+  )
+ORDER BY stream_type, stream_id, stream_version
+LIMIT $5::integer
+`
+
+type ListEventsForReplayPageParams struct {
+	StreamTypes        []string
+	AfterStreamType    string
+	AfterStreamID      string
+	AfterStreamVersion int64
+	PageSize           int32
+}
+
+func (q *Queries) ListEventsForReplayPage(ctx context.Context, arg ListEventsForReplayPageParams) ([]Event, error) {
+	rows, err := q.db.Query(ctx, listEventsForReplayPage,
+		arg.StreamTypes,
+		arg.AfterStreamType,
+		arg.AfterStreamID,
+		arg.AfterStreamVersion,
+		arg.PageSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Event
+	for rows.Next() {
+		var i Event
+		if err := rows.Scan(
+			&i.StreamType,
+			&i.StreamID,
+			&i.StreamVersion,
+			&i.EventType,
+			&i.PayloadVersion,
+			&i.Payload,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const rebuildTableClosure = `-- name: RebuildTableClosure :many
+WITH RECURSIVE target_tables AS (
+    SELECT class.oid, class.relname::text AS table_name
+    FROM pg_catalog.pg_class AS class
+    JOIN pg_catalog.pg_namespace AS namespace
+      ON namespace.oid = class.relnamespace
+    WHERE namespace.nspname = 'public'
+      AND class.relkind IN ('r', 'p')
+      AND class.relname = ANY($1::text[])
+), fk_closure AS (
+    SELECT oid, table_name
+    FROM target_tables
+    UNION
+    SELECT child.oid, child.relname::text AS table_name
+    FROM fk_closure AS parent
+    JOIN pg_catalog.pg_constraint AS fk
+      ON fk.contype = 'f'
+     AND fk.confrelid = parent.oid
+    JOIN pg_catalog.pg_class AS child
+      ON child.oid = fk.conrelid
+    JOIN pg_catalog.pg_namespace AS child_namespace
+      ON child_namespace.oid = child.relnamespace
+     AND child_namespace.nspname = 'public'
+)
+SELECT table_name
+FROM fk_closure
+ORDER BY table_name
+`
+
+func (q *Queries) RebuildTableClosure(ctx context.Context, tableNames []string) ([]string, error) {
+	rows, err := q.db.Query(ctx, rebuildTableClosure, tableNames)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var table_name string
+		if err := rows.Scan(&table_name); err != nil {
+			return nil, err
+		}
+		items = append(items, table_name)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

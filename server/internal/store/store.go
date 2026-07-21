@@ -6,6 +6,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 	"time"
 
@@ -64,20 +66,39 @@ type preparedEvent struct {
 // Projector updates a read model using the same transaction as its event.
 type Projector func(context.Context, ProjectionTx, PersistedEvent) error
 
-// Store appends events and invokes their registered projectors atomically.
-type Store struct {
-	pool       *pgxpool.Pool
-	projectors map[string]Projector
+// RebuildTarget describes one projection reset and the events that reproduce it.
+type RebuildTarget struct {
+	Tables      []string
+	StreamTypes []string
+	EventTypes  []string
+	Reset       func(context.Context, ProjectionTx) error
 }
 
-// New returns a Store with a defensive copy of the projector registry.
-func New(pool *pgxpool.Pool, projectors map[string]Projector) (*Store, error) {
+// Store appends events and invokes their registered projectors atomically.
+type Store struct {
+	pool           *pgxpool.Pool
+	projectors     map[string]Projector
+	rebuildTargets map[string]RebuildTarget
+	eventTargets   map[string]string
+}
+
+// New returns a Store with defensively copied, exactly matched projector and
+// rebuild-target registries.
+func New(
+	pool *pgxpool.Pool,
+	projectors map[string]Projector,
+	rebuildTargets map[string]RebuildTarget,
+) (*Store, error) {
 	if pool == nil {
 		return nil, errors.New("store: nil Postgres pool")
 	}
+	if len(projectors) == 0 {
+		return nil, errors.New("store: projector registry is empty")
+	}
 
 	registry := make(map[string]Projector, len(projectors))
-	for eventType, projector := range projectors {
+	for _, eventType := range slices.Sorted(maps.Keys(projectors)) {
+		projector := projectors[eventType]
 		if strings.TrimSpace(eventType) == "" {
 			return nil, errors.New("store: projector event type is empty")
 		}
@@ -87,7 +108,105 @@ func New(pool *pgxpool.Pool, projectors map[string]Projector) (*Store, error) {
 		registry[eventType] = projector
 	}
 
-	return &Store{pool: pool, projectors: registry}, nil
+	targets, err := copyRebuildTargets(registry, rebuildTargets)
+	if err != nil {
+		return nil, err
+	}
+	eventTargets := make(map[string]string, len(registry))
+	for targetName, target := range targets {
+		for _, eventType := range target.EventTypes {
+			eventTargets[eventType] = targetName
+		}
+	}
+	return &Store{
+		pool:           pool,
+		projectors:     registry,
+		rebuildTargets: targets,
+		eventTargets:   eventTargets,
+	}, nil
+}
+
+func copyRebuildTargets(
+	projectors map[string]Projector,
+	targets map[string]RebuildTarget,
+) (map[string]RebuildTarget, error) {
+	if len(targets) == 0 {
+		firstEventType := slices.Min(slices.Collect(maps.Keys(projectors)))
+		return nil, fmt.Errorf("store: projector event type %q has no rebuild target", firstEventType)
+	}
+
+	tableOwners := make(map[string]string)
+	streamOwners := make(map[string]string)
+	eventOwners := make(map[string]string)
+	registry := make(map[string]RebuildTarget, len(targets))
+	for _, name := range slices.Sorted(maps.Keys(targets)) {
+		target := targets[name]
+		if strings.TrimSpace(name) == "" {
+			return nil, errors.New("store: rebuild target name is empty")
+		}
+		if target.Reset == nil {
+			return nil, fmt.Errorf("store: rebuild target %q has nil reset", name)
+		}
+
+		var err error
+		target.Tables, err = claimRebuildValues(name, "table", target.Tables, tableOwners)
+		if err != nil {
+			return nil, err
+		}
+		target.StreamTypes, err = claimRebuildValues(name, "stream type", target.StreamTypes, streamOwners)
+		if err != nil {
+			return nil, err
+		}
+		target.EventTypes, err = claimRebuildValues(name, "event type", target.EventTypes, eventOwners)
+		if err != nil {
+			return nil, err
+		}
+		for _, eventType := range target.EventTypes {
+			if _, ok := projectors[eventType]; !ok {
+				return nil, fmt.Errorf(
+					"store: rebuild target %q references event type %q without a projector",
+					name,
+					eventType,
+				)
+			}
+		}
+		registry[name] = target
+	}
+
+	for _, eventType := range slices.Sorted(maps.Keys(projectors)) {
+		if _, ok := eventOwners[eventType]; !ok {
+			return nil, fmt.Errorf("store: projector event type %q has no rebuild target", eventType)
+		}
+	}
+	return registry, nil
+}
+
+func claimRebuildValues(
+	targetName string,
+	kind string,
+	values []string,
+	owners map[string]string,
+) ([]string, error) {
+	if len(values) == 0 {
+		return nil, fmt.Errorf("store: rebuild target %q has no %ss", targetName, kind)
+	}
+	copy := slices.Clone(values)
+	for _, value := range copy {
+		if strings.TrimSpace(value) == "" {
+			return nil, fmt.Errorf("store: rebuild target %q has an empty %s", targetName, kind)
+		}
+		if owner, ok := owners[value]; ok {
+			return nil, fmt.Errorf(
+				"store: rebuild %s %q is owned by both %q and %q",
+				kind,
+				value,
+				owner,
+				targetName,
+			)
+		}
+		owners[value] = targetName
+	}
+	return copy, nil
 }
 
 // Migrate applies the embedded server migrations to dsn.
@@ -250,6 +369,18 @@ func (s *Store) prepareEvent(event Event) (preparedEvent, error) {
 	if !ok {
 		return preparedEvent{}, fmt.Errorf("store: no projector registered for event type %q", event.EventType)
 	}
+	targetName, ok := s.eventTargets[event.EventType]
+	if !ok {
+		return preparedEvent{}, fmt.Errorf("store: no rebuild target registered for event type %q", event.EventType)
+	}
+	if !slices.Contains(s.rebuildTargets[targetName].StreamTypes, event.StreamType) {
+		return preparedEvent{}, fmt.Errorf(
+			"store: stream type %q is outside rebuild target %q for event type %q",
+			event.StreamType,
+			targetName,
+			event.EventType,
+		)
+	}
 	return preparedEvent{Event: event, projector: projector}, nil
 }
 
@@ -307,7 +438,14 @@ func appendPrepared(
 		return fmt.Errorf("insert event: %w", err)
 	}
 
-	persisted := PersistedEvent{
+	if err := event.projector(ctx, projectionTx{DBTX: tx}, persistedEvent(row)); err != nil {
+		return fmt.Errorf("project event %q: %w", event.EventType, err)
+	}
+	return nil
+}
+
+func persistedEvent(row generated.Event) PersistedEvent {
+	return PersistedEvent{
 		Event: Event{
 			StreamType:     row.StreamType,
 			StreamID:       row.StreamID,
@@ -318,10 +456,6 @@ func appendPrepared(
 		StreamVersion: row.StreamVersion,
 		CreatedAt:     row.CreatedAt,
 	}
-	if err := event.projector(ctx, projectionTx{DBTX: tx}, persisted); err != nil {
-		return fmt.Errorf("project event %q: %w", event.EventType, err)
-	}
-	return nil
 }
 
 func validateEvent(event Event) error {
@@ -374,7 +508,7 @@ func rollbackTx(ctx context.Context, tx pgx.Tx) error {
 	rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), rollbackTimeout)
 	defer cancel()
 	if err := tx.Rollback(rollbackCtx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
-		return fmt.Errorf("store: roll back append transaction: %w", err)
+		return fmt.Errorf("store: roll back transaction: %w", err)
 	}
 	return nil
 }
