@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - name: Self-contained repo check
         run: ./scripts/check-self-contained.sh
 
@@ -23,6 +25,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0 # the lint walks the pushed/PR commit range
+          persist-credentials: false
       - name: Tag format
         if: startsWith(github.ref, 'refs/tags/')
         run: ./scripts/check-conventions.sh tag "${GITHUB_REF#refs/tags/}"
@@ -42,6 +45,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@v6
         with:
           go-version: "1.26"
@@ -72,6 +77,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@v6
         with:
           go-version: "1.26"
@@ -118,6 +125,8 @@ jobs:
             require_non_english: "0"
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - name: Build ${{ matrix.backend }} real-tool lane
         run: docker build --build-arg "BASE=${{ matrix.base }}" --build-arg "BACKEND=${{ matrix.backend }}" -f sdk/pkg/test/Dockerfile -t "pm-sdk-pkg:${{ matrix.backend }}" .
       - name: Test ${{ matrix.backend }} round trip

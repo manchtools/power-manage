@@ -105,6 +105,8 @@ regression test proven red first.
 - Judge test runs by grepping the FULL output for `FAIL`, not the last lines.
 - Before accepting a version correction or changing a pin, verify the upstream
   release/tag and installable artifact; a claimed version is not availability.
+- For a newly published release, treat an initial 404 as potentially transient:
+  re-check the release assets before proposing a downgrade.
 - Multi-step validation commands use `set -e -o pipefail` unless each failure
   is deliberately captured; a later green command must not mask an earlier red.
 - Before rerunning a failed command, resolve every path against the command's
