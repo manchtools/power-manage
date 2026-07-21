@@ -1,7 +1,5 @@
 FROM golang:1.26
 
-ENV CGO_ENABLED=0
-
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends openssh-server sudo \
     && mkdir -p /run/sshd /etc/ssh/sshd_config.d /etc/sudoers.d \

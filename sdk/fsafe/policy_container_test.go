@@ -69,6 +69,10 @@ func TestContainer_PolicyValidators(t *testing.T) {
 		if err == nil {
 			t.Fatal("real sshd accepted invalid candidate")
 		}
+		var commandErr *pmexec.CommandError
+		if !errors.As(err, &commandErr) || commandErr.Name != "sshd" {
+			t.Fatalf("reject error = %v, want sshd CommandError proving the validator rejected the candidate", err)
+		}
 		got, readErr := os.ReadFile(path)
 		if readErr != nil || !slices.Equal(got, before) {
 			t.Fatalf("live sshd file = (%q, %v), want prior %q", got, readErr, before)
