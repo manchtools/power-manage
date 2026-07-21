@@ -83,7 +83,7 @@ func TestMutationsReturnCommandOutput(t *testing.T) {
 // --- New -------------------------------------------------------------------
 
 func TestNew_AllBackends(t *testing.T) {
-	for _, b := range []Backend{Apt, Dnf, Pacman, Zypper, Flatpak} {
+	for _, b := range allBackends {
 		m, err := New(b, newFake())
 		if err != nil {
 			t.Fatalf("New(%v) unexpected error: %v", b, err)

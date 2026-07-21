@@ -23,7 +23,7 @@ Milestone: SPEC-004 §9 M6 **[SDK-15..17]**, AC-18..20.
   - apt/dnf/pacman/zypper/flatpak real-tool matrix; apt lane runs under
     `de_DE.UTF-8`
 <!-- docref: end -->
-<!-- docref: begin src=sdk/guardtest/package_lanes_test.go#TestGuard_PackageManagerLaneParity:4d3801f0 -->
+<!-- docref: begin src=sdk/guardtest/package_lanes_test.go#TestGuard_PackageManagerLaneParity:9331b29a -->
 - `sdk/guardtest/{imports.go,package_lanes_test.go}`
   - sdk package floor 10→12; exact backend-lane coverage with matches-zero
 <!-- docref: end -->
