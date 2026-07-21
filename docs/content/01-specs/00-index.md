@@ -20,7 +20,7 @@ spec's own header, which is authoritative.
 | 001 | [architecture-and-trust-model](001-architecture-and-trust-model.md) | 000 (M2–M3) | all | Implemented |
 | 002 | [repo-module-and-config-contract](002-repo-module-and-config-contract.md) | 000 (M2) | all | Implemented |
 | 003 | [wire-contract](003-wire-contract.md) | 000–002 | contract | Implemented |
-| 004 | [sdk-core](004-sdk-core.md) | 000–002 | sdk | In progress (M6 done) |
+| 004 | [sdk-core](004-sdk-core.md) | 000–002 | sdk | Implemented |
 | 005 | [event-store](005-event-store.md) | 000–003 | server | Spec ready |
 | 006 | [pki-and-identity](006-pki-and-identity.md) | 003, 005 | server | Spec ready |
 | 007 | [authentication](007-authentication.md) | 003, 005 | server | Spec ready |
@@ -83,6 +83,8 @@ SPEC-004 M4 — validators: sdk/validate intent grammars (package/rpm/repo/flatp
 SPEC-004 M5 — crypto: sdk/crypto stdlib-only seal/open — AES-256-GCM AEAD (SealWithAAD/OpenWithAAD, mandatory non-empty key/AAD/plaintext rejected symmetrically at seal AND open, nonce‖ct‖tag layout, ErrMalformedCiphertext floor, fail-closed on tamper/wrong-key/wrong-AAD), X25519+HKDF-SHA256+AES-256-GCM sealed transport (SealToPublicKey/OpenWithPrivateKey, framePreimage length-prefix/domain salt over both public keys, mandatory info domain separation, fresh ephemeral per seal), constantTimeEqual (subtle), randReader RNG seam with NewPrivateKey keygen honoring crypto/rand read errors (GenerateKey ignores its reader in Go 1.26); armed G-3 (crypto/rand call-site floor), G-5 M5 per-construction framing, G-6 AAD-surface auto-arm; floor 9→10 (AC-16, AC-17) — PR #24
 
 SPEC-004 M6 — package managers + rollback: typed absent/query-failure split, strict non-nil/error-returning parsers, reverse compensation with joined failures, real apt/dnf/pacman/zypper/flatpak container lanes (non-English apt), exact lane-parity guard; floor 10→12 (AC-18..20) — PR #31
+
+SPEC-004 M7 — policy-file engine: one fsafe composition, closed three-row surface table, surface-path/symlink guards, candidate validation, atomic swap with cancellation-independent restore, marker-delimited updates, real sshd/visudo container lane (AC-21, AC-22) — PR #32
 
 ## Rules
 
