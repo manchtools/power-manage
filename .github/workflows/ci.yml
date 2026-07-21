@@ -52,7 +52,7 @@ jobs:
         run: go install github.com/bufbuild/buf/cmd/buf@v1.66.1
       - name: Install docref
         env:
-          DOCREF_VERSION: v0.1.0
+          DOCREF_VERSION: v0.1.1
         run: |
           curl -fsSL "https://github.com/manchtools/open-docref/releases/download/${DOCREF_VERSION}/docref-linux-x64" -o "$RUNNER_TEMP/docref-linux-x64"
           curl -fsSL "https://github.com/manchtools/open-docref/releases/download/${DOCREF_VERSION}/SHA256SUMS" -o "$RUNNER_TEMP/SHA256SUMS"
@@ -84,3 +84,41 @@ jobs:
           cache: false
       - name: Direct-backend fsafe tests as root
         run: sudo -E env "PATH=$PATH" go test -C sdk ./fsafe/ -count=1
+
+  package-managers:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - backend: apt
+            base: ubuntu:24.04
+            known_package: bash
+            locale: de_DE.UTF-8
+            require_non_english: "1"
+          - backend: dnf
+            base: fedora:43
+            known_package: bash
+            locale: C.UTF-8
+            require_non_english: "0"
+          - backend: pacman
+            base: archlinux:base
+            known_package: bash
+            locale: C.UTF-8
+            require_non_english: "0"
+          - backend: zypper
+            base: opensuse/tumbleweed
+            known_package: bash
+            locale: C.UTF-8
+            require_non_english: "0"
+          - backend: flatpak
+            base: ubuntu:24.04
+            known_package: ""
+            locale: C.UTF-8
+            require_non_english: "0"
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build ${{ matrix.backend }} real-tool lane
+        run: docker build --build-arg "BASE=${{ matrix.base }}" --build-arg "BACKEND=${{ matrix.backend }}" -f sdk/pkg/test/Dockerfile -t "pm-sdk-pkg:${{ matrix.backend }}" .
+      - name: Test ${{ matrix.backend }} round trip
+        run: docker run --rm -e "PM_PKG_BACKEND=${{ matrix.backend }}" -e "PM_KNOWN_PACKAGE=${{ matrix.known_package }}" -e "PM_REQUIRE_NON_ENGLISH=${{ matrix.require_non_english }}" -e "LC_ALL=${{ matrix.locale }}" -e "LANG=${{ matrix.locale }}" "pm-sdk-pkg:${{ matrix.backend }}"
