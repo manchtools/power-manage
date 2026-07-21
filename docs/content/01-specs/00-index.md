@@ -21,7 +21,7 @@ spec's own header, which is authoritative.
 | 002 | [repo-module-and-config-contract](002-repo-module-and-config-contract.md) | 000 (M2) | all | Implemented |
 | 003 | [wire-contract](003-wire-contract.md) | 000–002 | contract | Implemented |
 | 004 | [sdk-core](004-sdk-core.md) | 000–002 | sdk | Implemented |
-| 005 | [event-store](005-event-store.md) | 000–003 | server | Spec ready |
+| 005 | [event-store](005-event-store.md) | 000–003 | server | In progress (M1 done) |
 | 006 | [pki-and-identity](006-pki-and-identity.md) | 003, 005 | server | Spec ready |
 | 007 | [authentication](007-authentication.md) | 003, 005 | server | Spec ready |
 | 008 | [authorization](008-authorization.md) | 005, 007 | server | Spec ready |
@@ -85,6 +85,8 @@ SPEC-004 M5 — crypto: sdk/crypto stdlib-only seal/open — AES-256-GCM AEAD (S
 SPEC-004 M6 — package managers + rollback: typed absent/query-failure split, strict non-nil/error-returning parsers, reverse compensation with joined failures, real apt/dnf/pacman/zypper/flatpak container lanes (non-English apt), exact lane-parity guard; floor 10→12 (AC-18..20) — PR #31
 
 SPEC-004 M7 — policy-file engine: one fsafe composition, closed three-row surface table, surface-path/symlink guards, candidate validation, atomic swap with cancellation-independent restore, marker-delimited updates, real sshd/visudo container lane (AC-21, AC-22) — PR #32
+
+SPEC-005 M1 — events schema, auto-versioned append with exact conflict retry, capability-limited in-transaction projector registry, atomic rollback, read-after-write, real Postgres contention tests (AC-1..4) — PR #33
 
 ## Rules
 
