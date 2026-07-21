@@ -9,8 +9,8 @@ package guardtest
 //
 // ponytail: resolution is syntactic (recorded M2 ceiling) — a local
 // declaration shadowing a dot-imported symbol, or a package whose name
-// differs from its import-path base, is not resolved; move to go/types if
-// that ever bites.
+// differs from its import-path base for reasons other than a canonical v2+
+// module suffix is not resolved; move to go/types if that ever bites.
 
 import (
 	"fmt"
@@ -69,7 +69,7 @@ func importAliases(file *ast.File, importPath string) (names map[string]bool, do
 		}
 		switch {
 		case imp.Name == nil:
-			names[path.Base(importPath)] = true
+			names[defaultImportName(importPath)] = true
 		case imp.Name.Name == ".":
 			dotImported = true
 		case imp.Name.Name == "_":
@@ -78,6 +78,18 @@ func importAliases(file *ast.File, importPath string) (names map[string]bool, do
 		}
 	}
 	return names, dotImported
+}
+
+func defaultImportName(importPath string) string {
+	name := path.Base(importPath)
+	if len(name) > 1 && name[0] == 'v' {
+		major, err := strconv.Atoi(name[1:])
+		parent := path.Dir(importPath)
+		if err == nil && major >= 2 && strconv.Itoa(major) == name[1:] && parent != "." {
+			return path.Base(parent)
+		}
+	}
+	return name
 }
 
 func pathAllowed(rel string, allow []string) bool {

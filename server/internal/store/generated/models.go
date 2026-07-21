@@ -20,6 +20,30 @@ type Event struct {
 	CreatedAt      time.Time
 }
 
+type ExecutionOutput struct {
+	ExecutionID  string
+	OutputBytes  int64
+	OutputChunks int32
+	Truncated    bool
+	UpdatedAt    time.Time
+}
+
+type ExecutionOutputChunk struct {
+	ExecutionID string
+	ChunkIndex  int32
+	Body        []byte
+	CreatedAt   time.Time
+}
+
+type InventorySnapshot struct {
+	AgentID           string
+	ProjectionVersion int64
+	PayloadVersion    int32
+	Snapshot          []byte
+	Deleted           bool
+	UpdatedAt         time.Time
+}
+
 type WorkItem struct {
 	SourceStreamType    string
 	SourceStreamID      string

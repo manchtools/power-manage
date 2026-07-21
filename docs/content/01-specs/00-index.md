@@ -21,7 +21,7 @@ spec's own header, which is authoritative.
 | 002 | [repo-module-and-config-contract](002-repo-module-and-config-contract.md) | 000 (M2) | all | Implemented |
 | 003 | [wire-contract](003-wire-contract.md) | 000–002 | contract | Implemented |
 | 004 | [sdk-core](004-sdk-core.md) | 000–002 | sdk | Implemented |
-| 005 | [event-store](005-event-store.md) | 000–003 | server | In progress (M1–M2 done) |
+| 005 | [event-store](005-event-store.md) | 000–003 | server | Implemented |
 | 006 | [pki-and-identity](006-pki-and-identity.md) | 003, 005 | server | Spec ready |
 | 007 | [authentication](007-authentication.md) | 003, 005 | server | Spec ready |
 | 008 | [authorization](008-authorization.md) | 005, 007 | server | Spec ready |
@@ -89,6 +89,12 @@ SPEC-004 M7 — policy-file engine: one fsafe composition, closed three-row surf
 SPEC-005 M1 — events schema, auto-versioned append with exact conflict retry, capability-limited in-transaction projector registry, atomic rollback, read-after-write, real Postgres contention tests (AC-1..4) — PR #33
 
 SPEC-005 M2 — expected-version CAS without retry, atomic ordered batch append, and real Postgres consume/rollback tests (AC-8..9; AC-10 activates with the first state-changing RPC) — PR #35
+
+SPEC-005 M3 — repeatable-read projection rebuild through the production projector registry, exact target parity, and FK-closure refusal (AC-6, SPEC-005), (AC-7, SPEC-005) — PR #36
+
+SPEC-005 M4 — same-transaction durable work queue, bounded retry/backoff, SKIP LOCKED workers, and rebuild-safe work preservation (AC-12, SPEC-005) — PR #37
+
+SPEC-005 M5 — exact storage classification and static guards, golden event corpus, version-guarded inventory snapshots, bounded operational output, and CLI-only recovery wiring (AC-5, SPEC-005), (AC-11, SPEC-005), (AC-13, SPEC-005), (AC-14, SPEC-005), (AC-15, SPEC-005) — PR #38
 
 ## Rules
 

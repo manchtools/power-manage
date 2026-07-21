@@ -44,10 +44,12 @@ Verification gate (run before every commit):
 ```
 <!-- docref: end -->
 
-## Planned binaries
+## Binaries
 
-The control, gateway, and agent binaries land with SPEC-005, SPEC-012, and
-SPEC-013. The current implemented surface is the `contract` and `sdk` library
-foundation; use the verification gate above until those binary milestones land.
+<!-- docref: begin src=server/cmd/power-manage-recovery/main.go#main:603fb0f9,server/cmd/power-manage-recovery/main.go#run:31fa3fca -->
+The server module includes the CLI-only projection recovery binary delivered by
+SPEC-005. The networked control, gateway, and agent binaries remain planned for
+their owning milestones; use the verification gate above until they land.
+<!-- docref: end -->
 
 Versioning: `vYYYY.MM.PP`. Conventional commits.

@@ -1,5 +1,24 @@
 # Error journal
 
+## 2026-07-21 — Repeated mistake: escaped the repository with a docref path
+
+**What happened**: I ran `docref approve ../docs/...` from a module directory
+twice. The CLI first resolves the repository root, so the supplied `../` path
+escaped the workspace and the approval failed without changing files.
+
+**What the user said**: Not user-initiated; I caught both failures in the
+command output.
+
+**Root cause**: I treated `docref` like a shell command resolving paths against
+the declared working directory, despite it being a repository-wide tool with
+root-relative path handling.
+
+**Harness fix**: `CLAUDE.md` now requires repository-wide CLIs such as `docref`
+to run from the repository root with repository-relative paths.
+
+**Prevention**: Module-local Go checks and repository-wide documentation checks
+run in separate commands from their respective roots.
+
 ## 2026-07-21 — Shallow analysis: treated URL secrecy as a transport ban
 
 **What happened**: I proposed rejecting every artifact URL containing a query
@@ -208,3 +227,39 @@ assets before proposing a downgrade after an initial 404.
 
 **Prevention**: A transient publication delay will be retried rather than
 mistaken for proof that the requested version does not exist.
+
+## 2026-07-21 — Wrong scope: root-relative paths under a module working directory
+
+**What happened**: A formatting-and-test command declared `server/` as its
+working directory but passed formatter paths prefixed with `server/`. The
+formatter failed before changing files or running tests.
+
+**What the user said**: Not user-initiated; the invalid paths were visible in
+the immediate command result.
+
+**Root cause**: The working directory was selected for the Go commands, but the
+formatter arguments were copied from a repository-root invocation.
+
+**Harness fix**: `CLAUDE.md` now requires resolving command paths against the
+declared working directory before first execution as well as before retries.
+
+**Prevention**: Mixed formatter/test invocations use paths relative to their
+explicit module working directory, or run as separate root and module commands.
+
+## 2026-07-21 — Wrong interface: requested job steps from run JSON
+
+**What happened**: A read-only GitHub Actions status query requested `steps`
+from `gh run view --json`, but that command exposes run-level fields rather than
+nested job steps and rejected the request.
+
+**What the user said**: Not user-initiated; the CLI printed its supported field
+list immediately.
+
+**Root cause**: The job-selection flag was assumed to change the JSON schema to
+a job response without checking the command's advertised fields.
+
+**Harness fix**: `CLAUDE.md` now requires using the command's listed JSON fields
+and falling back to the GitHub API for nested job-step inspection.
+
+**Prevention**: Status polling uses run-level fields for completion and the
+Actions jobs API only when individual step state is needed.
