@@ -56,18 +56,16 @@ var regexCompileFns = map[string]bool{
 var hashImportPaths = []string{"crypto/sha256", "crypto/sha512", "crypto/hmac", "crypto/hkdf"}
 
 // hashImportAllow sanctions hash imports outside the crypto chokepoint,
-// keyed FIRST by import path and THEN per file — so the fetch exemption
-// admits crypto/sha256 ONLY, never crypto/sha512 or crypto/hmac (a future
-// HMAC/SHA-512 construction in fetch still trips), and only in the one named
-// file (a same-package sibling still trips). fetch's artifact-pin check
-// VERIFIES a published SHA-256 digest (AG-13a, M3); it constructs no
-// domain-separated hash, so there is no lp/domain framing to get wrong.
-// G-6's floor couples "sdk/crypto exists" to "seal surface exists", which
-// rules out landing a digest-only chokepoint before M5. Sunset at M5: fold
-// the digest into sdk/crypto and drop the fetch/fetch.go entry — the orphan
-// check below fails the guard if the exemption outlives its import.
+// keyed FIRST by import path and THEN per file. The file-keyed exemptions admit
+// crypto/sha256 ONLY, never crypto/sha512 or crypto/hmac, and only at the named
+// complete-blob digest sites (a same-package sibling still trips): fetch
+// verifies a published artifact checksum (AG-13a), while fsafe compares the
+// complete current/desired policy bytes for idempotency (SDK-18). Neither
+// constructs a multi-part/MAC preimage, so there is no framing ambiguity.
+// The orphan check below fails the guard if either exemption outlives its
+// import.
 var hashImportAllow = map[string][]string{
-	"crypto/sha256": {cryptoPkgDir, "fetch/fetch.go"},
+	"crypto/sha256": {cryptoPkgDir, "fetch/fetch.go", "fsafe/policy_linux.go"},
 	"crypto/sha512": {cryptoPkgDir},
 	"crypto/hmac":   {cryptoPkgDir},
 	"crypto/hkdf":   {cryptoPkgDir},

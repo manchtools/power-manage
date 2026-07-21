@@ -18,43 +18,60 @@ import (
 // error leaves the original untouched and removes the temp. With
 // removeExisting false the rename refuses to clobber an existing target.
 func replaceFileFrom(path string, src io.Reader, perm os.FileMode, removeExisting bool) (err error) {
-	if err := validateMode(perm); err != nil {
+	tmpName, err := writeTempFrom(path, src, perm)
+	if err != nil {
 		return err
 	}
-	dir := filepath.Dir(path)
-	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp-*")
-	if err != nil {
-		return fmt.Errorf("create temp in %s: %w", dir, err)
-	}
-	tmpName := tmp.Name()
 	defer func() {
 		if err != nil {
-			_ = tmp.Close()        // double close after the success path is a harmless no-op
 			_ = os.Remove(tmpName) // best-effort cleanup; the primary error wins
 		}
 	}()
-	if _, err = io.Copy(tmp, src); err != nil {
-		return fmt.Errorf("write %s: %w", path, err)
-	}
-	if err = tmp.Chmod(perm); err != nil {
-		return fmt.Errorf("chmod temp for %s: %w", path, err)
-	}
-	if err = tmp.Sync(); err != nil {
-		return fmt.Errorf("sync temp for %s: %w", path, err)
-	}
-	if err = tmp.Close(); err != nil {
-		return fmt.Errorf("close temp for %s: %w", path, err)
-	}
 	if err = safeRename(tmpName, path, removeExisting); err != nil {
 		return err
 	}
 	// Make the rename itself durable. Best-effort: the data is already synced,
 	// and a dir-fsync failure must not report a completed replace as failed.
-	if d, derr := os.Open(dir); derr == nil {
+	if d, derr := os.Open(filepath.Dir(path)); derr == nil {
 		_ = d.Sync()
 		_ = d.Close() // read-only dir fd
 	}
 	return nil
+}
+
+// writeTempFrom writes and syncs src into a random O_EXCL sibling of path,
+// returning the still-unpublished temp name. replaceFileFrom publishes it;
+// the policy-file composition validates that exact candidate before publish.
+func writeTempFrom(path string, src io.Reader, perm os.FileMode) (tmpName string, err error) {
+	if err := validateMode(perm); err != nil {
+		return "", err
+	}
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp-*")
+	if err != nil {
+		return "", fmt.Errorf("create temp in %s: %w", dir, err)
+	}
+	cleanupName := tmp.Name()
+	tmpName = cleanupName
+	defer func() {
+		if err != nil {
+			_ = tmp.Close()            // double close after the success path is a harmless no-op
+			_ = os.Remove(cleanupName) // best-effort cleanup; the primary error wins
+		}
+	}()
+	if _, err = io.Copy(tmp, src); err != nil {
+		return "", fmt.Errorf("write %s: %w", path, err)
+	}
+	if err = tmp.Chmod(perm); err != nil {
+		return "", fmt.Errorf("chmod temp for %s: %w", path, err)
+	}
+	if err = tmp.Sync(); err != nil {
+		return "", fmt.Errorf("sync temp for %s: %w", path, err)
+	}
+	if err = tmp.Close(); err != nil {
+		return "", fmt.Errorf("close temp for %s: %w", path, err)
+	}
+	return tmpName, nil
 }
 
 // safeRename renames oldPath over newPath. With removeExisting an existing

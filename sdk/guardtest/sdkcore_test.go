@@ -130,9 +130,9 @@ func TestGuard_RegexChokepoint_Liveness(t *testing.T) {
 //
 //   - M1 import-ban: crypto/sha256, crypto/sha512, and crypto/hmac are banned
 //     in sdk outside the crypto package path, so no hash/MAC surface can grow
-//     outside the package the framing walk covers. The one per-path file-keyed
-//     exception (crypto/sha256 in fetch/fetch.go) and its M5 sunset are
-//     documented at hashImportAllow; an orphaned exemption fails this guard.
+//     outside the package the framing walk covers. Narrow file-keyed complete-
+//     blob digest exceptions are documented at hashImportAllow; an orphaned
+//     exemption fails this guard.
 //   - M5 per-construction framing (armed once sdk/crypto exists): every
 //     function in sdk/crypto that constructs a hash/MAC/derived key routes its
 //     preimage through framePreimage. Discovery must find ≥1 such construction
@@ -189,10 +189,9 @@ func TestGuard_PreimageFraming_Liveness(t *testing.T) {
 		[]string{"clean.go", "crypto/inpkg.go"})
 }
 
-// TestGuard_PreimageFraming_FileKeyNarrowness: the per-path file-keyed
-// exemption (crypto/sha256 in fetch/fetch.go) does NOT leak to a same-package
-// sibling — a second hash import in fetch/sibling.go still trips. This is the
-// narrowness plan 8b claims; here it is pinned by a fixture, not a one-off
+// TestGuard_PreimageFraming_FileKeyNarrowness: a per-path file-keyed exemption
+// does NOT leak to a same-package sibling — a second hash import in
+// fetch/sibling.go still trips. This is pinned by a fixture, not a one-off
 // manual red-check.
 func TestGuard_PreimageFraming_FileKeyNarrowness(t *testing.T) {
 	RequireViolation(t, "file-keyed exemption leaks to sibling", hashImportViolations, "testdata/sdkcore/hashfilekey")
