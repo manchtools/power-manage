@@ -460,6 +460,9 @@ func (f *flatpak) Unpin(ctx context.Context, packages ...string) (pmexec.Result,
 }
 
 func (f *flatpak) changeMasks(ctx context.Context, desired bool, packages []string) (pmexec.Result, error) {
+	if len(packages) == 0 {
+		return pmexec.Result{}, nil
+	}
 	pinned, err := f.getPinnedSet(ctx)
 	if err != nil {
 		return pmexec.Result{}, err

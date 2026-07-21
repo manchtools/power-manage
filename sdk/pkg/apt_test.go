@@ -416,6 +416,19 @@ func TestApt_Show(t *testing.T) {
 			t.Errorf("pkg = %+v", p)
 		}
 	})
+	t.Run("uses only the first version stanza", func(t *testing.T) {
+		m, f := aptM(t)
+		ok(f, "Package: vim\nVersion: 2:8.2\nArchitecture: amd64\nInstalled-Size: 3000\nDescription: candidate\n\nPackage: vim\nVersion: 2:8.1\nArchitecture: i386\nInstalled-Size: 1\nDescription: older\n")
+		f.Push(pmexec.Result{ExitCode: 1}, nil)
+		ok(f, "")
+		p, err := m.Show(ctx, "vim")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if p.Version != "2:8.2" || p.Architecture != "amd64" || p.Size != 3000*1024 || p.Description != "candidate" {
+			t.Errorf("pkg = %+v, want first stanza", p)
+		}
+	})
 	t.Run("pin-check runner failure propagates", func(t *testing.T) {
 		m, f := aptM(t)
 		ok(f, "Package: vim\nVersion: 2:8.2\n")
