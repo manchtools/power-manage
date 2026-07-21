@@ -101,11 +101,11 @@ if [ -n "$PROTO_SRC" ]; then
     # Generate outside the working tree: buf.gen.yaml uses clean:true, so an
     # in-place generator failure could otherwise delete committed output.
     run "contract: generated code in sync" bash -c '
-      set -o pipefail
-      cd contract || exit 1
-      generated=$(mktemp -d) || exit 1
+      set -e -o pipefail
+      cd contract
+      generated=$(mktemp -d)
       trap '\''rm -rf "$generated"'\'' EXIT
-      buf generate -o "$generated" || exit 1
+      buf generate -o "$generated"
       diff -qr gen "$generated/gen" || {
         echo "contract/gen is out of sync with the proto sources — run buf generate, commit the output, and never hand-edit it (AC-13, SPEC-003)"
         exit 1

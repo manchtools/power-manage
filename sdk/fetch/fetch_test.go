@@ -160,6 +160,9 @@ func TestFetch_RejectsUserinfoButAcceptsQuery(t *testing.T) {
 	if err == nil {
 		t.Fatal("Fetch accepted URL userinfo; credentials must not transit in the authority component")
 	}
+	if !strings.Contains(err.Error(), "URL userinfo is not allowed") {
+		t.Fatalf("userinfo rejection error = %q, want URL userinfo rejection", err)
+	}
 	if hits.Load() != 0 {
 		t.Fatal("Fetch contacted the server before rejecting URL userinfo")
 	}
@@ -269,6 +272,9 @@ func TestFetch_RedirectUserinfoRefusedBeforeDial(t *testing.T) {
 	err := Fetch(context.Background(), origin.URL+"/jump", &bytes.Buffer{}, Options{MaxBytes: 1 << 20, PinnedSHA256: bodyPin()})
 	if err == nil {
 		t.Fatal("Fetch followed redirect URL userinfo")
+	}
+	if !strings.Contains(err.Error(), "redirect URL userinfo is not allowed") {
+		t.Fatalf("redirect userinfo rejection error = %q, want redirect URL userinfo rejection", err)
 	}
 	if targetHits.Load() != 0 {
 		t.Fatal("Fetch dialed redirect target before rejecting URL userinfo")
