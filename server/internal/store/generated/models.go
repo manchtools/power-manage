@@ -6,6 +6,8 @@ package generated
 
 import (
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Event struct {
@@ -16,4 +18,19 @@ type Event struct {
 	PayloadVersion int32
 	Payload        []byte
 	CreatedAt      time.Time
+}
+
+type WorkItem struct {
+	SourceStreamType    string
+	SourceStreamID      string
+	SourceStreamVersion int64
+	WorkKind            string
+	PayloadVersion      int32
+	Payload             []byte
+	RunAt               time.Time
+	Attempts            int32
+	MaxAttempts         int32
+	NextAttemptAt       pgtype.Timestamptz
+	LastError           pgtype.Text
+	CreatedAt           time.Time
 }

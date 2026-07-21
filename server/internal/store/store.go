@@ -52,10 +52,13 @@ type PersistedEvent struct {
 // append transaction independently.
 type ProjectionTx interface {
 	generated.DBTX
+	EnqueueWork(context.Context, Work) error
 }
 
 type projectionTx struct {
 	generated.DBTX
+	sourceEvent *PersistedEvent
+	skipWork    bool
 }
 
 type preparedEvent struct {
@@ -438,7 +441,8 @@ func appendPrepared(
 		return fmt.Errorf("insert event: %w", err)
 	}
 
-	if err := event.projector(ctx, projectionTx{DBTX: tx}, persistedEvent(row)); err != nil {
+	persisted := persistedEvent(row)
+	if err := event.projector(ctx, projectionTx{DBTX: tx, sourceEvent: &persisted}, persisted); err != nil {
 		return fmt.Errorf("project event %q: %w", event.EventType, err)
 	}
 	return nil
