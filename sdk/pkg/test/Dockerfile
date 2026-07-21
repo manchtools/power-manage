@@ -19,6 +19,7 @@ RUN set -eux; \
         dnf -y install ca-certificates dnf5-plugins; \
         dnf clean all ;; \
       pacman) \
+        pacman -Sy --needed --noconfirm archlinux-keyring; \
         pacman -Syu --noconfirm ca-certificates; \
         pacman -Scc --noconfirm ;; \
       zypper) \

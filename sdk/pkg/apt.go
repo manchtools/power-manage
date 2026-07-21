@@ -321,6 +321,9 @@ func (a *apt) Show(ctx context.Context, name string) (*Package, error) {
 	scanner := newLineScanner(out)
 	for scanner.Scan() {
 		line := scanner.Text()
+		if line == "" {
+			break
+		}
 		switch {
 		case strings.HasPrefix(line, "Version:"):
 			pkg.Version = strings.TrimSpace(strings.TrimPrefix(line, "Version:"))

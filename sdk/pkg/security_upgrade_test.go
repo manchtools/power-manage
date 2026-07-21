@@ -39,7 +39,7 @@ func TestUpgradeAll_SecurityOnly(t *testing.T) {
 	})
 
 	t.Run("apt via unattended-upgrade", func(t *testing.T) {
-		m, f := mustNew(t, Apt)
+		m, f := aptM(t)
 		ok(f, "")
 		if _, err := m.UpgradeAll(ctx, UpgradeOptions{SecurityOnly: true}); err != nil {
 			t.Fatal(err)

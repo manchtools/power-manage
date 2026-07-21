@@ -553,6 +553,18 @@ func TestFlatpak_HasUpdates(t *testing.T) {
 
 func TestFlatpak_PinUnpin(t *testing.T) {
 	ctx := context.Background()
+	t.Run("empty lists are no-ops", func(t *testing.T) {
+		m, f := flatpakM(t)
+		if _, err := m.Pin(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := m.Unpin(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if len(f.Calls()) != 0 {
+			t.Errorf("calls = %d, want none", len(f.Calls()))
+		}
+	})
 	t.Run("pin masks each package", func(t *testing.T) {
 		m, f := flatpakM(t)
 		ok(f, "") // current mask set
