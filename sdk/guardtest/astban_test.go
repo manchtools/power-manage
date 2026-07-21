@@ -127,6 +127,40 @@ func TestSentinelComparisons_Fixture(t *testing.T) {
 	requireFlagged(t, v, []string{"bad.go:11", "bad.go:13", "bad.go:15", "bad.go:17", "bad.go:19", "bad.go:21", "aliased_bad.go:9", "dot_bad.go:10"}, []string{"clean.go"})
 }
 
+func TestSentinelComparisons_VersionedImportPathFixture(t *testing.T) {
+	sentinels := map[string][]string{"example.com/driver/v5": {"ErrNoRows"}}
+	v, err := SentinelComparisons("testdata/astban/sentinel_versioned", sentinels)
+	if err != nil {
+		t.Fatalf("scanning the versioned sentinel fixture: %v", err)
+	}
+	requireFlagged(t, v, []string{"bad.go"}, nil)
+}
+
+func TestSentinelComparisons_VersionLikePackageNames(t *testing.T) {
+	for _, version := range []string{"v0", "v1", "v01"} {
+		t.Run(version, func(t *testing.T) {
+			importPath := "example.com/driver/" + version
+			sentinels := map[string][]string{importPath: {"ErrNoRows"}}
+			v, err := SentinelComparisons(
+				"testdata/astban/sentinel_"+version,
+				sentinels,
+			)
+			if err != nil {
+				t.Fatalf("scanning the %s sentinel fixture: %v", version, err)
+			}
+			requireFlagged(t, v, []string{"bad.go"}, nil)
+		})
+	}
+	t.Run("bare v2", func(t *testing.T) {
+		sentinels := map[string][]string{"v2": {"ErrNoRows"}}
+		v, err := SentinelComparisons("testdata/astban/sentinel_bare_v2", sentinels)
+		if err != nil {
+			t.Fatalf("scanning the bare-v2 sentinel fixture: %v", err)
+		}
+		requireFlagged(t, v, []string{"bad.go"}, nil)
+	})
+}
+
 func TestEnumSwitches_Fixture(t *testing.T) {
 	prefixes := []string{"example.com/gen/"}
 	RequireViolation(t, "enum erroring-default", func(root string) ([]string, error) {

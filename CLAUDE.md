@@ -109,15 +109,21 @@ regression test proven red first.
   re-check the release assets before proposing a downgrade.
 - Multi-step validation commands use `set -e -o pipefail` unless each failure
   is deliberately captured; a later green command must not mask an earlier red.
-- Before rerunning a failed command, resolve every path against the command's
-  declared working directory; do not reuse a known-bad command verbatim.
+- Before running or rerunning a command, resolve every path against the
+  command's declared working directory; do not reuse a known-bad command
+  verbatim.
 - Keep checks that require different working directories in separate command
   invocations, each with an explicit working directory.
+- Run repository-wide CLIs, including `docref`, from the repository root with
+  repository-relative paths; do not rewrite those paths with `../` from a
+  module working directory.
 - After editing a shell file containing heredocs, inspect the numbered changed
   region; `bash -n` cannot detect code accidentally swallowed as fixture text.
 - Negative tests assert the intended failure message, never only a nonzero exit.
 - After pushing, poll CI to completion in the same session; fix failures
   immediately.
+- For `gh --json` status inspection, use only fields listed by that command;
+  query the GitHub API when nested job-step data is required.
 - No-self-mention instructions for publication apply to commit and PR text;
   do not rewrite unrelated project prose unless requested. The repository-wide
   no-attribution rule above remains unconditional.

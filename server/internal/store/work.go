@@ -10,7 +10,6 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/manchtools/power-manage/server/internal/store/generated"
@@ -159,7 +158,7 @@ func (q *WorkQueue) RunOnce(ctx context.Context) (processed bool, retErr error) 
 		return false, nil
 	}
 	row, err := queries.ClaimDueWork(runCtx)
-	if errors.Is(err, pgx.ErrNoRows) {
+	if IsNotFound(err) {
 		return false, nil
 	}
 	if err != nil {
