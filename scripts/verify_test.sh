@@ -52,12 +52,18 @@ EOF
   fi
 }
 
+write_empty_module() {
+  local root="$1" name="$2"
+  mkdir -p "$root/$name"
+  printf 'module fixture/%s\n\ngo 1.26\n' "$name" > "$root/$name/go.mod"
+}
+
 # run_verify <fixture-root> <out-file>; global RC carries the exit code.
 RC=0
 run_verify() {
   local dir="$1" out="$2"
   RC=0
-  (cd "$dir" && PM_VERIFY_SKIP_SELFTEST=1 VERIFY_LOG="$out.log" "$VERIFY") \
+  (cd "$dir" && PATH="$dir/.test-bin:$PATH" PM_VERIFY_SKIP_SELFTEST=1 VERIFY_LOG="$out.log" "$VERIFY") \
     > "$out" 2>&1 || RC=$?
 }
 
@@ -151,6 +157,99 @@ if [ "$RC" -eq 0 ] && grep -q 'm1: go test' "$WORK/s6.out" \
 else
   flunk "large census: want exit 0 + 'm1: go test', got exit $RC"
   dump_on_flunk "$WORK/s6.out"
+fi
+
+# Scenario 7: generated-code verification must never mutate committed output,
+# even when the generator deletes its target and then fails.
+FIX7="$WORK/fix7"
+for m in contract m2 m3 m4; do write_empty_module "$FIX7" "$m"; done
+mkdir -p "$FIX7/contract/proto" "$FIX7/contract/gen" "$FIX7/.test-bin"
+printf 'version: v2\nclean: true\n' > "$FIX7/contract/buf.yaml"
+printf 'syntax = "proto3";\n' > "$FIX7/contract/proto/x.proto"
+printf 'committed\n' > "$FIX7/contract/gen/stable.txt"
+cat > "$FIX7/.test-bin/buf" <<'EOF'
+#!/usr/bin/env bash
+if [ "$1" = lint ]; then exit 0; fi
+out=.
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = -o ]; then out="$2"; shift 2; continue; fi
+  shift
+done
+rm -rf "$out/gen"
+exit 42
+EOF
+chmod +x "$FIX7/.test-bin/buf"
+run_verify "$FIX7" "$WORK/s7.out"
+if [ "$RC" -ne 0 ] \
+   && grep -q 'FAIL: contract: generated code in sync' "$WORK/s7.out" \
+   && [ "$(cat "$FIX7/contract/gen/stable.txt" 2>/dev/null)" = committed ]; then
+  pass "failed Buf generation leaves committed output unchanged"
+else
+  flunk "failed Buf generation: want nonzero exit and intact contract/gen, got exit $RC"
+  dump_on_flunk "$WORK/s7.out"
+fi
+
+# Scenario 8: docref is a strict, non-vacuous gate when configured.
+FIX8="$WORK/fix8"
+for m in m1 m2 m3 m4; do write_empty_module "$FIX8" "$m"; done
+mkdir -p "$FIX8/.test-bin"
+printf '[check]\nlevel = "strict"\n' > "$FIX8/docref.toml"
+cat > "$FIX8/.test-bin/docref" <<'EOF'
+#!/usr/bin/env bash
+if [ "$1" = check ]; then exit 0; fi
+if [ "$1" = ls ]; then printf '{"refs":[]}\n'; exit 0; fi
+exit 2
+EOF
+chmod +x "$FIX8/.test-bin/docref"
+run_verify "$FIX8" "$WORK/s8.out"
+if [ "$RC" -ne 0 ] && grep -Eqi 'docref.*(zero|reference)|(zero|reference).*docref' "$WORK/s8.out"; then
+  pass "zero docref references fail the gate"
+else
+  flunk "zero docref floor: want nonzero exit naming docref references, got exit $RC"
+  dump_on_flunk "$WORK/s8.out"
+fi
+
+# Scenario 9: docref drift fails even when the index is non-empty.
+FIX9="$WORK/fix9"
+for m in m1 m2 m3 m4; do write_empty_module "$FIX9" "$m"; done
+mkdir -p "$FIX9/.test-bin"
+printf '[check]\nlevel = "strict"\n' > "$FIX9/docref.toml"
+cat > "$FIX9/.test-bin/docref" <<'EOF'
+#!/usr/bin/env bash
+if [ "$1" = check ]; then exit 1; fi
+if [ "$1" = ls ]; then printf '{"refs":[{"ref":"x"}]}\n'; exit 0; fi
+exit 2
+EOF
+chmod +x "$FIX9/.test-bin/docref"
+run_verify "$FIX9" "$WORK/s9.out"
+if [ "$RC" -ne 0 ] && grep -q 'FAIL: documentation: docref' "$WORK/s9.out"; then
+  pass "stale docref claim fails the gate"
+else
+  flunk "stale docref: want nonzero exit naming the docref stage, got exit $RC"
+  dump_on_flunk "$WORK/s9.out"
+fi
+
+ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+if grep -q '@latest' "$ROOT/.github/workflows/ci.yml"; then
+  flunk "CI verification tools float on @latest"
+else
+  pass "CI verification tool versions are pinned"
+fi
+if grep -Eq 'DOCREF_VERSION: "?v[0-9]+\.[0-9]+\.[0-9]+"?$' "$ROOT/.github/workflows/ci.yml" \
+   && grep -q 'docref-linux-x64' "$ROOT/.github/workflows/ci.yml"; then
+  pass "CI installs a pinned docref release"
+else
+  flunk "CI does not install a pinned docref release"
+fi
+if grep -q 'run `buf breaking`' "$ROOT/.claude/rules/contract.md"; then
+  flunk "contract contributor rule contradicts SPEC-003 AC-13"
+else
+  pass "contract contributor rule matches the no-buf-breaking decision"
+fi
+if grep -Eq 'go build ./server/cmd|go build ./agent/cmd' "$ROOT/README.md"; then
+  flunk "README presents unimplemented binaries as buildable"
+else
+  pass "README labels unimplemented binaries as planned"
 fi
 
 echo

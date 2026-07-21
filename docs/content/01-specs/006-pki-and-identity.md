@@ -3,7 +3,7 @@ title: "SPEC-006 — PKI and Identity"
 ---
 # SPEC-006 — PKI and Identity
 
-Status: READY FOR IMPLEMENTATION
+Status: See `00-index.md` (single status ledger)
 Builds on: SPEC-003 (wire-contract), SPEC-005 (event-store)
 Enables: SPEC-012 (gateway), SPEC-013 (agent-core), SPEC-015 (secret-surfaces), SPEC-016 (operations-and-ha)
 Module(s): `contract/` (PkiService protos, identity conventions), `server/` (control: PkiService, CA custody, CRL issuance; gateway: self-enrollment, CRL enforcement), `agent/` (enroll flow, renewal loop, CA continuity)
@@ -48,6 +48,9 @@ Minimum prior knowledge, restated:
   local enrollment socket (B5), gateway↔control mTLS (B6), and the PkiService
   listener (B10).
 
+- **Defended actors:** compromised relays, on-path network attackers, and
+  unauthenticated enrollment callers must not mint or substitute identities.
+
 ## 3. Requirements
 
 ### 3.1 Certificate-only identity
@@ -80,7 +83,8 @@ Minimum prior knowledge, restated:
   (WIRE-14, SPEC-003): commands under `"power-manage:cmd:<type>:v1"`, device
   results under `"power-manage:result:<type>:v1"`. Domains are pairwise
   isolated: a signature valid in one domain verifies in no other.
-  ECDSA/RSA + SHA-256; an Ed25519 key is refused at boot.
+  ECDSA P-256/P-384/P-521 or RSA ≥2048 bits + SHA-256; malformed keys, other
+  curves, weaker RSA, and Ed25519 are refused at boot.
 
 ### 3.3 PkiService transport and per-operation authorization
 
@@ -262,7 +266,7 @@ Minimum prior knowledge, restated:
 | Revocation state unavailable at handshake time | Deny (fail closed) |
 | SignedCommand `target_device_id` ≠ agent's own identity | Agent refuses; nothing executes |
 | Renewal delivers a CA neither byte-identical nor cross-signed | Agent refuses adoption; keeps enrolled CA |
-| Ed25519 configured as a signing key | Refuse to boot |
+| Ed25519, unsupported-curve, malformed, or RSA <2048 configured as a signing key | Refuse to boot |
 | Verifier / resolver / CRL signer unwired | Refuse to boot (never a silent skip) |
 | Token passed as argv | Structurally impossible — the flag does not exist |
 

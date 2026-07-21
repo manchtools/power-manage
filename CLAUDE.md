@@ -72,8 +72,9 @@ regression test proven red first.
 ## Commands
 
 - Verify gate (before every commit): `./scripts/verify.sh`
-- Build: `go build ./server/cmd/control` | `./server/cmd/gateway`;
-  `CGO_ENABLED=0 go build ./agent/cmd/agent`
+- Build: server/agent binary targets are planned but do not exist yet; their
+  commands land with SPEC-005/012/013. Verify the current libraries with the
+  canonical gate.
 - Test one module: `go test -C <module> ./... -count=1 -race`
 - Protos: `cd contract && buf lint && buf generate`
 
@@ -102,8 +103,22 @@ regression test proven red first.
   file first, then grep the file; `set -o pipefail`. <!-- a tail -30 once
   kept 1 of 7 review findings and forced a full re-run -->
 - Judge test runs by grepping the FULL output for `FAIL`, not the last lines.
+- Before accepting a version correction or changing a pin, verify the upstream
+  release/tag and installable artifact; a claimed version is not availability.
+- Multi-step validation commands use `set -e -o pipefail` unless each failure
+  is deliberately captured; a later green command must not mask an earlier red.
+- Before rerunning a failed command, resolve every path against the command's
+  declared working directory; do not reuse a known-bad command verbatim.
+- Keep checks that require different working directories in separate command
+  invocations, each with an explicit working directory.
+- After editing a shell file containing heredocs, inspect the numbered changed
+  region; `bash -n` cannot detect code accidentally swallowed as fixture text.
+- Negative tests assert the intended failure message, never only a nonzero exit.
 - After pushing, poll CI to completion in the same session; fix failures
   immediately.
+- No-self-mention instructions for publication apply to commit and PR text;
+  do not rewrite unrelated project prose unless requested. The repository-wide
+  no-attribution rule above remains unconditional.
 - Report plainly: what passed, what failed, what was skipped.
 
 ## Navigation

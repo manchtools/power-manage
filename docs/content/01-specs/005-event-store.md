@@ -3,7 +3,7 @@ title: "SPEC-005 — Event Store"
 ---
 # SPEC-005 — Event Store
 
-Status: READY FOR IMPLEMENTATION
+Status: See `00-index.md` (single status ledger)
 Builds on: SPEC-000 (development-process), SPEC-001 (architecture-and-trust-model), SPEC-002 (repo-module-and-config-contract), SPEC-003 (wire-contract)
 Enables: SPEC-006, SPEC-007, SPEC-008, SPEC-009, SPEC-010, SPEC-011, SPEC-012, SPEC-016
 Module(s): server
@@ -41,6 +41,9 @@ Minimum prior knowledge, restated:
 - Guards are self-discovering with matches-zero protection (META-2, SPEC-000):
   hand-maintained lists of tables/types/handlers are forbidden — they go stale and
   fail open.
+- **Defended actors:** external unauthenticated and low-privilege callers must
+  not inject, overwrite, or observe state outside their authority; a compromised
+  relay has no event-store write path.
 
 ## 3. Requirements
 

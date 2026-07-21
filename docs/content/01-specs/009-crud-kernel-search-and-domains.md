@@ -3,7 +3,7 @@ title: "SPEC-009 — CRUD Kernel, Search, and Domains"
 ---
 # SPEC-009 — CRUD Kernel, Search, and Domains
 
-Status: READY FOR IMPLEMENTATION
+Status: See `00-index.md` (single status ledger)
 Builds on: SPEC-005 (event-store), SPEC-007 (authentication), SPEC-008 (authorization)
 Enables: SPEC-011, SPEC-012, SPEC-014, SPEC-015
 Module(s): server (kernel, search, limits), contract (domain messages, validate tags)
@@ -45,6 +45,9 @@ Minimum prior knowledge, restated:
 - **Threat focus:** the primary adversary at this surface is the authenticated
   low-privilege user (actor 2, SPEC-001) — IDOR, scope bypass, information
   oracles — plus resource-exhaustion from anyone who can reach the edge.
+
+- **Defended actors:** low-privilege authenticated users must not bypass scope,
+  inject search/filter input, or mutate another actor's resources.
 
 ## 3. Requirements
 

@@ -3,7 +3,7 @@ title: "SPEC-017 — Testing and Release"
 ---
 # SPEC-017 — Testing and Release
 
-Status: READY FOR IMPLEMENTATION
+Status: See `00-index.md` (single status ledger)
 Builds on: SPEC-000..SPEC-016 (capstone — every prior spec's test plan executes inside the structure defined here)
 Enables: releases
 Module(s): all (monorepo: contract, sdk, server, agent; plus the separately versioned web repo at release time)

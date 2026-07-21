@@ -150,6 +150,39 @@ func TestFetch_URLCredentialsNotInError(t *testing.T) {
 	}
 }
 
+func TestFetch_RejectsUserinfoButAcceptsQuery(t *testing.T) {
+	allowLoopback(t)
+	srv, hits := newServer(t)
+	trustServers(t, srv)
+
+	withUserinfo := strings.Replace(srv.URL+"/body?token=QUERYSECRET", "https://", "https://user:USERINFOSECRET@", 1)
+	err := Fetch(context.Background(), withUserinfo, &bytes.Buffer{}, Options{MaxBytes: 1 << 20})
+	if err == nil {
+		t.Fatal("Fetch accepted URL userinfo; credentials must not transit in the authority component")
+	}
+	if hits.Load() != 0 {
+		t.Fatal("Fetch contacted the server before rejecting URL userinfo")
+	}
+	if strings.Contains(err.Error(), "USERINFOSECRET") || strings.Contains(err.Error(), "QUERYSECRET") {
+		t.Fatalf("credential leaked in userinfo rejection: %v", err)
+	}
+
+	var dst bytes.Buffer
+	if err := Fetch(context.Background(), srv.URL+"/body?token=QUERYSECRET", &dst, Options{MaxBytes: 1 << 20}); err != nil {
+		t.Fatalf("Fetch rejected query-bearing HTTPS URL: %v", err)
+	}
+	if !bytes.Equal(dst.Bytes(), body) {
+		t.Errorf("query-bearing fetch body = %q, want %q", dst.Bytes(), body)
+	}
+	dst.Reset()
+	if err := Fetch(context.Background(), srv.URL+"/body?token=QUERYSECRET", &dst, Options{MaxBytes: 1 << 20, PinnedSHA256: bodyPin()}); err != nil {
+		t.Fatalf("Fetch rejected checksum-pinned query-bearing HTTPS URL: %v", err)
+	}
+	if !bytes.Equal(dst.Bytes(), body) {
+		t.Errorf("pinned query-bearing fetch body = %q, want %q", dst.Bytes(), body)
+	}
+}
+
 // MaxBytes is mandatory: an unbounded fetch is refused before any request.
 func TestFetch_RequiresMaxBytes(t *testing.T) {
 	allowLoopback(t)
@@ -218,6 +251,30 @@ func TestFetch_RedirectToHTTPRefused(t *testing.T) {
 	err := Fetch(context.Background(), srv.URL+"/to-http", &bytes.Buffer{}, Options{MaxBytes: 1 << 20})
 	if !errors.Is(err, ErrInsecureScheme) {
 		t.Fatalf("err = %v, want ErrInsecureScheme", err)
+	}
+}
+
+func TestFetch_RedirectUserinfoRefusedBeforeDial(t *testing.T) {
+	allowLoopback(t)
+	target, targetHits := newServer(t)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/jump", func(w http.ResponseWriter, r *http.Request) {
+		withUserinfo := strings.Replace(target.URL+"/body?token=QUERYSECRET", "https://", "https://user:USERINFOSECRET@", 1)
+		http.Redirect(w, r, withUserinfo, http.StatusFound)
+	})
+	origin := httptest.NewTLSServer(mux)
+	t.Cleanup(origin.Close)
+	trustServers(t, origin, target)
+
+	err := Fetch(context.Background(), origin.URL+"/jump", &bytes.Buffer{}, Options{MaxBytes: 1 << 20, PinnedSHA256: bodyPin()})
+	if err == nil {
+		t.Fatal("Fetch followed redirect URL userinfo")
+	}
+	if targetHits.Load() != 0 {
+		t.Fatal("Fetch dialed redirect target before rejecting URL userinfo")
+	}
+	if strings.Contains(err.Error(), "USERINFOSECRET") || strings.Contains(err.Error(), "QUERYSECRET") {
+		t.Fatalf("credential leaked in redirect rejection: %v", err)
 	}
 }
 

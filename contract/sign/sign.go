@@ -14,6 +14,7 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -47,6 +48,9 @@ const (
 	// unconditionally ([WIRE-16]): a compromised gateway must never hold a
 	// long-lived PTY grant, whatever freshness class the caller picked.
 	MaxTerminalGrantWindow = 60 * time.Second
+	// MaxFutureClockSkew bounds how far issued_at may be ahead of verification
+	// time to accommodate bounded device-clock drift ([WIRE-15]).
+	MaxFutureClockSkew = 5 * time.Minute
 
 	terminalGrantType = "terminal-grant"
 )
@@ -101,10 +105,18 @@ func ValidateSigningKey(key crypto.PublicKey) error {
 		if k == nil {
 			return fmt.Errorf("nil ECDSA public key: typed-nil key material must never reach verification ([TM-5])")
 		}
-		return nil
+		switch k.Curve {
+		case elliptic.P256(), elliptic.P384(), elliptic.P521():
+		default:
+			return fmt.Errorf("unsupported ECDSA curve: use P-256, P-384, or P-521")
+		}
+		return validateECDSAPoint(k)
 	case *rsa.PublicKey:
 		if k == nil {
 			return fmt.Errorf("nil RSA public key: typed-nil key material must never reach verification ([TM-5])")
+		}
+		if k.N == nil || k.N.Sign() <= 0 || k.N.BitLen() < 2048 || k.N.Bit(0) == 0 || k.E < 3 || k.E%2 == 0 {
+			return fmt.Errorf("invalid RSA public key: use an odd modulus of at least 2048 bits and an odd exponent >= 3")
 		}
 		return nil
 	case ed25519.PublicKey, ed25519.PrivateKey:
@@ -119,6 +131,20 @@ func ValidateSigningKey(key crypto.PublicKey) error {
 	default:
 		return fmt.Errorf("unsupported command-signing key type %T: use ECDSA or RSA", key)
 	}
+}
+
+// validateECDSAPoint converts PublicKey.Bytes' nil-coordinate panic into the
+// same fail-closed error returned for other malformed points.
+func validateECDSAPoint(key *ecdsa.PublicKey) (err error) {
+	defer func() {
+		if recover() != nil {
+			err = fmt.Errorf("invalid ECDSA public key: malformed coordinates")
+		}
+	}()
+	if _, err := key.Bytes(); err != nil {
+		return fmt.Errorf("invalid ECDSA public key: %w", err)
+	}
+	return nil
 }
 
 // CommandPreimage builds the [WIRE-14] signing input for the envelope:
@@ -249,6 +275,9 @@ func VerifyCommand(pub crypto.PublicKey, cmd *powermanagev1.SignedCommand, opts 
 	expires := cmd.GetExpiresAt().AsTime()
 	if issued.After(expires) {
 		return nil, fmt.Errorf("issued_at is after expires_at: malformed validity window")
+	}
+	if issued.After(opts.Now) && issued.Sub(opts.Now) > MaxFutureClockSkew {
+		return nil, fmt.Errorf("issued_at is more than %s in the future ([WIRE-15])", MaxFutureClockSkew)
 	}
 	if expires.Before(opts.Now) {
 		return nil, fmt.Errorf("command expired: nothing executes or persists past expires_at ([WIRE-15])")

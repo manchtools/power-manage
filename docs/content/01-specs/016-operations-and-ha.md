@@ -3,7 +3,7 @@ title: "SPEC-016 — Operations and HA"
 ---
 # SPEC-016 — Operations and HA
 
-Status: READY FOR IMPLEMENTATION
+Status: See `00-index.md` (single status ledger)
 Builds on: SPEC-005 (event-store), SPEC-012 (gateway)
 Enables: SPEC-017
 Module(s): server
@@ -48,6 +48,9 @@ Minimum prior knowledge, restated:
 - Request-boundary limits [LIM-1..4] are defined in SPEC-009: size caps,
   statement timeouts + per-handler deadlines, output budgets with truncation
   markers, trusted-proxy IP resolution.
+
+- **Defended actors:** external and on-path attackers plus compromised relays
+  must not turn failover, routing, or operational state into authority.
 
 ## 3. Requirements
 

@@ -3,7 +3,7 @@ title: "SPEC-011 — Audit and Retention"
 ---
 # SPEC-011 — Audit and Retention
 
-Status: READY FOR IMPLEMENTATION
+Status: See `00-index.md` (single status ledger)
 Builds on: SPEC-005 (event-store), SPEC-008 (authorization), SPEC-010 (artifact-store)
 Enables: SPEC-012, SPEC-016, SPEC-017
 Module(s): server (audit, redaction, retention, recording storage), contract (audit/export/recording RPC shapes)
@@ -47,6 +47,9 @@ Minimum prior knowledge, restated:
 - **Config (INV-18, SPEC-002):** operator configuration is one typed struct per
   binary; retention windows and the recording opt-in are configuration keys with
   generated reference docs.
+
+- **Defended actors:** low-privilege users and compromised relays must not hide,
+  forge, or read audit evidence outside their authority.
 
 ## 3. Requirements
 

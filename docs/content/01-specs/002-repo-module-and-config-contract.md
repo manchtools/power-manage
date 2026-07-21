@@ -3,7 +3,7 @@ title: "SPEC-002 — Repo, Module, and Config Contract"
 ---
 # SPEC-002 — Repo, Module, and Config Contract
 
-Status: READY FOR IMPLEMENTATION
+Status: See `00-index.md` (single status ledger)
 Builds on: SPEC-000 (M2: guard harness — this spec's guards use its discovery/matches-zero helpers)
 Enables: SPEC-003..SPEC-017 (all code lands inside this layout, licensing, and config discipline)
 Module(s): repo root + all (`contract/`, `sdk/`, `server/`, `agent/`)

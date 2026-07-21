@@ -3,7 +3,7 @@ title: "SPEC-013 — Agent Core"
 ---
 # SPEC-013 — Agent Core
 
-Status: READY FOR IMPLEMENTATION / Builds on: SPEC-003, SPEC-004, SPEC-006, SPEC-010 / Enables: SPEC-014, SPEC-015, SPEC-017 / Module(s): `agent/` (GPL-3.0)
+Status: See `00-index.md` (single status ledger) / Builds on: SPEC-003, SPEC-004, SPEC-006, SPEC-010 / Enables: SPEC-014, SPEC-015, SPEC-017 / Module(s): `agent/` (GPL-3.0)
 
 ## 1. Scope
 
@@ -51,6 +51,9 @@ A fresh implementer needs exactly this from prior specs:
   refs covered by the signed command; agents fetch by digest over the agent
   stream in chunks relayed statelessly by the gateway (ART-2; GW-3,
   SPEC-012) and cache by digest.
+
+- **Defended actors:** compromised relays and on-path network attackers must not
+  make the root agent execute unsigned, replayed, or wrongly addressed work.
 
 ## 3. Requirements
 

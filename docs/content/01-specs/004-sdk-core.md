@@ -3,7 +3,7 @@ title: "SPEC-004 — SDK Core"
 ---
 # SPEC-004 — SDK Core
 
-Status: READY FOR IMPLEMENTATION / Builds on: SPEC-000, SPEC-001, SPEC-002 / Enables: SPEC-013, SPEC-014, SPEC-015 / Module(s): `sdk/` (MIT); module-boundary rules also constrain `contract/` (MIT)
+Status: See `00-index.md` (single status ledger) / Builds on: SPEC-000, SPEC-001, SPEC-002 / Enables: SPEC-013, SPEC-014, SPEC-015 / Module(s): `sdk/` (MIT); module-boundary rules also constrain `contract/` (MIT)
 
 ## 1. Scope
 
@@ -39,6 +39,10 @@ A fresh implementer needs exactly this from prior specs:
   bypass or a symlink race in the SDK is a root-level vulnerability on every
   managed device. Fail closed, always: decode error, absent backend, or
   ambiguous input → error, never a permissive default.
+- **Defended actors:** compromised relays and on-path attackers can supply
+  artifact bytes/locations, while low-privilege users can influence values that
+  eventually reach privileged agent operations. SDK boundaries reject or
+  constrain those inputs before root-level side effects.
 - The server also consumes the sdk (shared validators), so validation grammar
   cannot drift between server-side request validation and agent-side execution
   (WIRE-3, SPEC-003).
@@ -99,7 +103,8 @@ A fresh implementer needs exactly this from prior specs:
   loopback/link-local/metadata addresses refused, every redirect re-validated,
   and the URL-transport rules (HTTPS-only, https→http refused, redirect-hop
   cap, cross-origin only when checksum-pinned — AG-13a, SPEC-013) enforced at
-  every level with a fail-closed default.
+  every level with a fail-closed default. URL userinfo is refused before DNS or
+  dialing; query strings remain valid and are removed from every error.
 
 ### 3.4 Validators (one grammar, shared server + agent)
 
@@ -214,9 +219,13 @@ A fresh implementer needs exactly this from prior specs:
 - **AC-12** Streaming atomic write of a file larger than the process memory
   budget succeeds without buffering the whole content; a mid-stream error
   leaves the original file untouched.
+<!-- docref: begin src=sdk/fetch/fetch.go#Fetch:e692160d -->
 - **AC-13** The SSRF guard refuses loopback, link-local, and metadata
   addresses — including when a redirect lands there — and refuses any
-  https→http downgrade.
+  https→http downgrade. URL userinfo is rejected before network activity;
+  query-bearing HTTPS URLs remain accepted and query/fragment content never
+  appears in an error.
+<!-- docref: end -->
 - **AC-14** Each structured-file validator rejects control characters and its
   format's structural delimiters before any write; a multi-field file whose
   fields are individually valid but jointly unparseable is rejected
@@ -265,6 +274,7 @@ A fresh implementer needs exactly this from prior specs:
 | Final path component is a symlink (mutation) | Refused |
 | Create or delete under a protected prefix (incl. via symlink) | Refused, symmetric |
 | Fetch URL resolves to loopback/link-local/metadata (incl. post-redirect) | Refused |
+| Fetch URL contains userinfo | Refused before DNS/dial; sanitized error |
 | https→http redirect | Refused |
 | Structured-file value with `\n`/`\r`/control chars or format delimiters | Error before write |
 | Multi-field file cross-field invalid | Error before write |

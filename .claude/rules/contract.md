@@ -12,8 +12,8 @@ paths:
   (`optional`).
 - ONE ActionParams registry — a new action type registers there; no parallel
   parameter unions.
-- `buf lint` clean; run `buf breaking` and justify intentional breaks in the
-  PR description.
+- `buf lint` clean. Do not add a `buf breaking` gate: V1 deliberately re-tags
+  in place with no compatibility markers (SPEC-003 AC-13).
 - Generated output (`gen/`) is never hand-edited; regenerate with
   `buf generate`.
 - This module imports nothing in-repo (INV-19) and stays MIT — it is a
