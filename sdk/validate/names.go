@@ -2,6 +2,7 @@ package validate
 
 import (
 	"net/url"
+	"path/filepath"
 	"strings"
 
 	"github.com/manchtools/power-manage/sdk/redos"
@@ -18,6 +19,8 @@ import (
 var (
 	// PackageName: apt multiarch `:`, flatpak ref `/@~`, epoch/version `+`; max 256.
 	rePackageName = redos.MustVet(`^[a-zA-Z0-9][a-zA-Z0-9._+:/@~-]{0,255}$`)
+	// PackageVersion: cross-distro Debian/RPM/Arch version grammar; max 128.
+	rePackageVersion = redos.MustVet(`^[a-zA-Z0-9][a-zA-Z0-9._+:~^-]{0,127}$`)
 	// RpmPackageName: narrower — `+` for libstdc++, but no `:/@~`; max 256.
 	reRpmPackageName = redos.MustVet(`^[a-zA-Z0-9][a-zA-Z0-9._+-]{0,255}$`)
 	// RepoName / FlatpakRemoteName: config-section / remote alias; max 128.
@@ -40,6 +43,43 @@ const ulidLen = 26
 // PackageName validates a system package name (apt/dnf/flatpak refs).
 func PackageName(name string) error {
 	return matchGrammar("package name", rePackageName, name)
+}
+
+// PackageVersion validates a non-empty package version before it is composed
+// into a package-manager operand. Empty means "latest" and remains valid.
+func PackageVersion(version string) error {
+	if version == "" {
+		return nil
+	}
+	return matchGrammar("package version", rePackageVersion, version)
+}
+
+// LocalPackagePath validates a local package-file operand. It must be absolute,
+// non-traversing, control-character-free, and therefore never flag-shaped.
+func LocalPackagePath(path string) error {
+	if path == "" {
+		return invalidf("local package path is empty")
+	}
+	if hasControlChar(path) {
+		return invalidf("local package path contains a control character")
+	}
+	if !filepath.IsAbs(path) || containsDotDot(path) {
+		return invalidf("local package path must be absolute and non-traversing")
+	}
+	return nil
+}
+
+// SearchQuery validates a free-text package search operand. Its grammar stays
+// intentionally broad, but option-shaped and control-bearing values are never
+// allowed to reach argv.
+func SearchQuery(query string) error {
+	if startsWithDash(query) {
+		return invalidf("search query is flag-shaped")
+	}
+	if hasControlChar(query) {
+		return invalidf("search query contains a control character")
+	}
+	return nil
 }
 
 // RpmPackageName validates an rpm `%{NAME}` — narrower than PackageName.
