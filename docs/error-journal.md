@@ -192,3 +192,19 @@ installable artifact before accepting a version correction or changing a pin.
 
 **Prevention**: CI pins are selected from verified, checksum-bearing release
 assets rather than an unverified version claim.
+
+## 2026-07-21 — User correction: treated a new-release 404 as final
+
+**What happened**: After a CI download returned 404, I recommended downgrading
+the pin instead of accounting for the expected release still being published.
+
+**What the user said**: Version `0.1.1` was released.
+
+**Root cause**: The verification rule covered unverified version claims but not
+the propagation window of a newly published release.
+
+**Harness fix**: `CLAUDE.md` now requires rechecking newly published release
+assets before proposing a downgrade after an initial 404.
+
+**Prevention**: A transient publication delay will be retried rather than
+mistaken for proof that the requested version does not exist.
