@@ -27,8 +27,20 @@ This codebase's actual failure modes — check each:
 
 - Fail-open error paths: a decode/verify/authz error that logs and continues
   instead of denying.
+- Effect before verification: the mutation, write, or append happens BEFORE
+  the check that would reject it, so the reject path returns an error but the
+  side effect persists (bytes on disk, a row observed, a partial write). The
+  error is handled correctly — the ORDER is wrong. The rule is verify-then-
+  effect; a request failing validation must leave no observable trace.
 - A new invariant without a self-discovering guard, or a guard whose
   discovery can return an empty set and pass.
+- Guard watches the wrong representation: the guard's discovery source is one
+  step removed from what actually executes — it pins the constants but not the
+  runtime map/registry those constants feed, the schema but not the query, the
+  allow-list declaration but not the dispatch table. Non-empty discovery, green
+  suite, yet a new entry in the real load-bearing structure is unguarded. Ask
+  what bytes the enforced path reads at runtime and confirm the guard reads
+  the same ones.
 - Tests that mock the database or stub the handler under test.
 - Missing rejection paths: unauthenticated / wrong permission / out-of-scope /
   cross-actor (must be NotFound, never PermissionDenied).
@@ -40,9 +52,12 @@ This codebase's actual failure modes — check each:
   step dereferences it); a safety predicate (`parentDirSafe`-style) run on
   the resolved/referent path instead of the caller-named path; a mutation
   that follows a symlink it should refuse (O_NOFOLLOW / no-leaf-resolve).
-- Backend/tier asymmetry: a guard, no-follow flag, or byte-exactness the
-  Direct path has but the escalated (sudo/doas) path drops — or vice versa.
-  Read both tiers side by side; the safe one is the spec, the other must match.
+- Sibling-invariant drift: a family that should enforce one invariant, where
+  one member is silently weaker. The special case is backend/tier asymmetry —
+  a guard, no-follow flag, or byte-exactness the Direct path has but the
+  escalated (sudo/doas) path drops (or vice versa); the general case is one
+  validator/handler/path in a set that omits a check its siblings make. Read
+  the members side by side; the strictest is the spec, the others must match.
 - `context.Background()` in request paths; naked `time.Now()`.
 - References to external repositories or issues (self-contained rule); AI
   attribution anywhere.
@@ -82,8 +97,19 @@ First-pass findings are a draft. Before reporting:
    text probes: comments and string literals) and check each shape
    against the matcher — the guards skill lists the families. Verify
    domain facts (AST node shapes, API behavior) with a web search rather
-   than trusting recall.
-3. **Privileged-filesystem / multi-tier lens.** When the diff touches path
+   than trusting recall. Then check the guard's TARGET, not just its input:
+   trace what representation the enforced path reads at runtime (the map, the
+   registry, the dispatch table) and confirm the guard discovers the SAME one
+   — a guard that pins the constants while behavior flows through a map they
+   feed is green and blind. Add an inline member the runtime accepts and
+   confirm a test goes red; if it stays green, that is the finding.
+3. **Effect-ordering probe.** For any handler or function that both mutates
+   (write, append, delete, network send) and validates/authorizes/verifies:
+   confirm every rejecting check precedes its effect. Drive the reject path
+   and assert no side effect survives — the write buffer is untouched, no row
+   is observable, `dst` is empty after a checksum/size failure. A correctly
+   returned error over an already-applied effect is the bug.
+4. **Privileged-filesystem / multi-tier lens.** When the diff touches path
    resolution, a filesystem mutation, or a Direct-vs-escalated backend split:
    breadth review misses this class, so hunt it explicitly. Plant the attack
    on disk in a scratch probe — a symlink at the *named* target (not a
@@ -94,7 +120,7 @@ First-pass findings are a draft. Before reporting:
    byte-exact channel present in one tier and absent in the other. A symlink
    test that drives a helper below the resolver proves nothing about the
    public API and is itself a finding (test asserts the wrong layer).
-4. Second-pass findings go into the report like any other — if one
+5. Second-pass findings go into the report like any other — if one
    changes the verdict, say so.
 
 ## Report format (CodeRabbit-compatible)
