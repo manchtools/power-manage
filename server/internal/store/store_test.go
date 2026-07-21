@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 const (
@@ -88,7 +89,7 @@ func TestAppendEvent_AutoVersionsConcurrentFacts(t *testing.T) {
 	ctx := context.Background()
 	createCounterProjection(t, pool)
 
-	store, err := New(pool, map[string]Projector{
+	store, err := newTestStore(pool, map[string]Projector{
 		testEventType: incrementCounter,
 	})
 	if err != nil {
@@ -147,7 +148,7 @@ func TestAppendEvent_AutoVersionsConcurrentFacts(t *testing.T) {
 func TestAppendEvent_UnregisteredTypeWritesNothing(t *testing.T) {
 	pool := testPostgres(t)
 	createCounterProjection(t, pool)
-	store, err := New(pool, map[string]Projector{
+	store, err := newTestStore(pool, map[string]Projector{
 		testEventType: incrementCounter,
 	})
 	if err != nil {
@@ -171,7 +172,7 @@ func TestAppendEvent_ProjectorFailureRollsBack(t *testing.T) {
 	pool := testPostgres(t)
 	createCounterProjection(t, pool)
 	wantErr := errors.New("projector failed")
-	store, err := New(pool, map[string]Projector{
+	store, err := newTestStore(pool, map[string]Projector{
 		testEventType: func(ctx context.Context, tx ProjectionTx, persisted PersistedEvent) error {
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO test_projection (stream_id, fact_count)
@@ -218,7 +219,7 @@ func TestAppendEvent_ReadAfterWriteProjection(t *testing.T) {
 		observedMu.Unlock()
 		return nil
 	}
-	store, err := New(pool, map[string]Projector{testEventType: projector})
+	store, err := newTestStore(pool, map[string]Projector{testEventType: projector})
 	if err != nil {
 		t.Fatalf("create store: %v", err)
 	}
@@ -265,7 +266,7 @@ func TestAppendEvent_ProjectorTransactionIsCapabilityLimited(t *testing.T) {
 		}
 		return nil
 	}
-	store, err := New(pool, map[string]Projector{testEventType: projector})
+	store, err := newTestStore(pool, map[string]Projector{testEventType: projector})
 	if err != nil {
 		t.Fatalf("create store: %v", err)
 	}
@@ -290,7 +291,7 @@ func TestAppendEvent_ProjectorTransactionIsCapabilityLimited(t *testing.T) {
 func TestAppendEvent_LowercaseULIDPersistsCanonicalID(t *testing.T) {
 	pool := testPostgres(t)
 	createCounterProjection(t, pool)
-	store, err := New(pool, map[string]Projector{testEventType: incrementCounter})
+	store, err := newTestStore(pool, map[string]Projector{testEventType: incrementCounter})
 	if err != nil {
 		t.Fatalf("create store: %v", err)
 	}
@@ -378,7 +379,7 @@ func TestWaitAppendRetry_CancelledContext(t *testing.T) {
 func TestAppendEventWithVersion_ConcurrentConsume(t *testing.T) {
 	pool := testPostgres(t)
 	createCounterProjection(t, pool)
-	store, err := New(pool, map[string]Projector{testEventType: incrementCounter})
+	store, err := newTestStore(pool, map[string]Projector{testEventType: incrementCounter})
 	if err != nil {
 		t.Fatalf("create store: %v", err)
 	}
@@ -422,7 +423,7 @@ func TestAppendEventWithVersion_ConcurrentConsume(t *testing.T) {
 func TestAppendEventWithVersion_ConflictDoesNotRetry(t *testing.T) {
 	pool := testPostgres(t)
 	createCounterProjection(t, pool)
-	store, err := New(pool, map[string]Projector{testEventType: incrementCounter})
+	store, err := newTestStore(pool, map[string]Projector{testEventType: incrementCounter})
 	if err != nil {
 		t.Fatalf("create store: %v", err)
 	}
@@ -443,7 +444,7 @@ func TestAppendEventWithVersion_ConflictDoesNotRetry(t *testing.T) {
 func TestAppendEventWithVersion_FutureExpectedVersionConflicts(t *testing.T) {
 	pool := testPostgres(t)
 	createCounterProjection(t, pool)
-	store, err := New(pool, map[string]Projector{testEventType: incrementCounter})
+	store, err := newTestStore(pool, map[string]Projector{testEventType: incrementCounter})
 	if err != nil {
 		t.Fatalf("create store: %v", err)
 	}
@@ -458,7 +459,7 @@ func TestAppendEventWithVersion_FutureExpectedVersionConflicts(t *testing.T) {
 func TestAppendEventWithVersion_NegativeExpectedVersionRejected(t *testing.T) {
 	pool := testPostgres(t)
 	createCounterProjection(t, pool)
-	store, err := New(pool, map[string]Projector{testEventType: incrementCounter})
+	store, err := newTestStore(pool, map[string]Projector{testEventType: incrementCounter})
 	if err != nil {
 		t.Fatalf("create store: %v", err)
 	}
@@ -474,7 +475,7 @@ func TestAppendEvents_ProjectorFailureRollsBackBatch(t *testing.T) {
 	pool := testPostgres(t)
 	createCounterProjection(t, pool)
 	wantErr := errors.New("second projector failed")
-	store, err := New(pool, map[string]Projector{
+	store, err := newTestStore(pool, map[string]Projector{
 		testEventType: incrementCounter,
 		"FactRejected": func(ctx context.Context, tx ProjectionTx, persisted PersistedEvent) error {
 			if err := incrementCounter(ctx, tx, persisted); err != nil {
@@ -522,7 +523,7 @@ func TestAppendEvents_ConflictOnSecondInsertDoesNotRetry(t *testing.T) {
 			FOR EACH ROW EXECUTE FUNCTION fail_second_batch_event_once()`); err != nil {
 		t.Fatalf("install one-shot second-event conflict: %v", err)
 	}
-	store, err := New(pool, map[string]Projector{testEventType: incrementCounter})
+	store, err := newTestStore(pool, map[string]Projector{testEventType: incrementCounter})
 	if err != nil {
 		t.Fatalf("create store: %v", err)
 	}
@@ -543,7 +544,7 @@ func TestAppendEvents_ConflictOnSecondInsertDoesNotRetry(t *testing.T) {
 func TestAppendEvents_SameStreamUsesConsecutiveVersions(t *testing.T) {
 	pool := testPostgres(t)
 	createCounterProjection(t, pool)
-	store, err := New(pool, map[string]Projector{testEventType: incrementCounter})
+	store, err := newTestStore(pool, map[string]Projector{testEventType: incrementCounter})
 	if err != nil {
 		t.Fatalf("create store: %v", err)
 	}
@@ -596,6 +597,24 @@ func event(eventType string, payload []byte) Event {
 		PayloadVersion: 1,
 		Payload:        payload,
 	}
+}
+
+func newTestStore(pool *pgxpool.Pool, projectors map[string]Projector) (*Store, error) {
+	eventTypes := make([]string, 0, len(projectors))
+	for eventType := range projectors {
+		eventTypes = append(eventTypes, eventType)
+	}
+	return New(pool, projectors, map[string]RebuildTarget{
+		"test": {
+			Tables:      []string{"test_projection"},
+			StreamTypes: []string{testStreamType},
+			EventTypes:  eventTypes,
+			Reset: func(ctx context.Context, tx ProjectionTx) error {
+				_, err := tx.Exec(ctx, `DELETE FROM test_projection`)
+				return err
+			},
+		},
+	})
 }
 
 func createCounterProjection(t *testing.T, pool interface {

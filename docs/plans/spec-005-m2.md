@@ -13,7 +13,7 @@ Spec milestone: SPEC-005 M2 (`ES-4`, `ES-5`; AC-8..10).
   - share validation, projector lookup, persistence, and rollback mechanics
     across all three append APIs.
 <!-- docref: end -->
-<!-- docref: begin src=server/internal/store/store_test.go#TestAppendEventWithVersion_ConcurrentConsume:471ff391,server/internal/store/store_test.go#TestAppendEventWithVersion_ConflictDoesNotRetry:b1f960c7,server/internal/store/store_test.go#TestAppendEventWithVersion_FutureExpectedVersionConflicts:dddb6a9b,server/internal/store/store_test.go#TestAppendEventWithVersion_NegativeExpectedVersionRejected:9c007724,server/internal/store/store_test.go#TestAppendEvents_ProjectorFailureRollsBackBatch:4952b89b,server/internal/store/store_test.go#TestAppendEvents_ConflictOnSecondInsertDoesNotRetry:a300f533,server/internal/store/store_test.go#TestAppendEvents_SameStreamUsesConsecutiveVersions:3b1103fa -->
+<!-- docref: begin src=server/internal/store/store_test.go#TestAppendEventWithVersion_ConcurrentConsume:ec14c5dc,server/internal/store/store_test.go#TestAppendEventWithVersion_ConflictDoesNotRetry:11c804c9,server/internal/store/store_test.go#TestAppendEventWithVersion_FutureExpectedVersionConflicts:606a18cf,server/internal/store/store_test.go#TestAppendEventWithVersion_NegativeExpectedVersionRejected:c9a3ebe0,server/internal/store/store_test.go#TestAppendEvents_ProjectorFailureRollsBackBatch:9cf1302f,server/internal/store/store_test.go#TestAppendEvents_ConflictOnSecondInsertDoesNotRetry:498e8fdc,server/internal/store/store_test.go#TestAppendEvents_SameStreamUsesConsecutiveVersions:2ffcc07e -->
 - `server/internal/store/store_test.go`
   - `TestAppendEventWithVersion_ConcurrentConsume`
   - `TestAppendEventWithVersion_ConflictDoesNotRetry`
