@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -374,6 +375,219 @@ func TestWaitAppendRetry_CancelledContext(t *testing.T) {
 	}
 }
 
+func TestAppendEventWithVersion_ConcurrentConsume(t *testing.T) {
+	pool := testPostgres(t)
+	createCounterProjection(t, pool)
+	store, err := New(pool, map[string]Projector{testEventType: incrementCounter})
+	if err != nil {
+		t.Fatalf("create store: %v", err)
+	}
+
+	const consumers = 8
+	start := make(chan struct{})
+	results := make(chan error, consumers)
+	for range consumers {
+		go func() {
+			<-start
+			results <- store.AppendEventWithVersion(
+				context.Background(), event(testEventType, []byte{1}), 0,
+			)
+		}()
+	}
+	close(start)
+
+	var successes, conflicts int
+	for range consumers {
+		err := <-results
+		switch {
+		case err == nil:
+			successes++
+		case IsVersionConflict(err):
+			conflicts++
+		default:
+			t.Fatalf("concurrent consume returned unexpected error: %v", err)
+		}
+	}
+	if successes != 1 || conflicts != consumers-1 {
+		t.Fatalf("concurrent consumes: successes=%d conflicts=%d; want 1 and %d", successes, conflicts, consumers-1)
+	}
+	if got := eventCount(t, pool); got != 1 {
+		t.Fatalf("event count = %d; want 1", got)
+	}
+	if got := projectionCount(t, pool); got != 1 {
+		t.Fatalf("projection count = %d; want 1", got)
+	}
+}
+
+func TestAppendEventWithVersion_ConflictDoesNotRetry(t *testing.T) {
+	pool := testPostgres(t)
+	createCounterProjection(t, pool)
+	store, err := New(pool, map[string]Projector{testEventType: incrementCounter})
+	if err != nil {
+		t.Fatalf("create store: %v", err)
+	}
+
+	ctx := context.Background()
+	if err := store.AppendEventWithVersion(ctx, event(testEventType, []byte{1}), 0); err != nil {
+		t.Fatalf("first version-pinned append: %v", err)
+	}
+	err = store.AppendEventWithVersion(ctx, event(testEventType, []byte{2}), 0)
+	if !IsVersionConflict(err) {
+		t.Fatalf("second version-pinned append error = %v; want version conflict", err)
+	}
+	if got := eventCount(t, pool); got != 1 {
+		t.Fatalf("event count = %d; want 1 because the conflict must not retry", got)
+	}
+}
+
+func TestAppendEventWithVersion_FutureExpectedVersionConflicts(t *testing.T) {
+	pool := testPostgres(t)
+	createCounterProjection(t, pool)
+	store, err := New(pool, map[string]Projector{testEventType: incrementCounter})
+	if err != nil {
+		t.Fatalf("create store: %v", err)
+	}
+
+	err = store.AppendEventWithVersion(context.Background(), event(testEventType, []byte{1}), 1)
+	if !IsVersionConflict(err) {
+		t.Fatalf("future version-pinned append error = %v; want version conflict", err)
+	}
+	assertNoEvents(t, pool)
+}
+
+func TestAppendEventWithVersion_NegativeExpectedVersionRejected(t *testing.T) {
+	pool := testPostgres(t)
+	createCounterProjection(t, pool)
+	store, err := New(pool, map[string]Projector{testEventType: incrementCounter})
+	if err != nil {
+		t.Fatalf("create store: %v", err)
+	}
+
+	err = store.AppendEventWithVersion(context.Background(), event(testEventType, []byte{1}), -1)
+	if err == nil || !strings.Contains(err.Error(), "must not be negative") {
+		t.Fatalf("negative expected version error = %v; want validation error", err)
+	}
+	assertNoEvents(t, pool)
+}
+
+func TestAppendEvents_ProjectorFailureRollsBackBatch(t *testing.T) {
+	pool := testPostgres(t)
+	createCounterProjection(t, pool)
+	wantErr := errors.New("second projector failed")
+	store, err := New(pool, map[string]Projector{
+		testEventType: incrementCounter,
+		"FactRejected": func(ctx context.Context, tx ProjectionTx, persisted PersistedEvent) error {
+			if err := incrementCounter(ctx, tx, persisted); err != nil {
+				return err
+			}
+			return wantErr
+		},
+	})
+	if err != nil {
+		t.Fatalf("create store: %v", err)
+	}
+
+	err = store.AppendEvents(context.Background(), []Event{
+		event(testEventType, []byte{1}),
+		event("FactRejected", []byte{2}),
+	})
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("AppendEvents error = %v; want second projector error", err)
+	}
+	assertNoEvents(t, pool)
+	if got := projectionRowCount(t, pool); got != 0 {
+		t.Fatalf("projection row count = %d; want 0", got)
+	}
+}
+
+func TestAppendEvents_ConflictOnSecondInsertDoesNotRetry(t *testing.T) {
+	pool := testPostgres(t)
+	createCounterProjection(t, pool)
+	if _, err := pool.Exec(context.Background(), `
+		CREATE SEQUENCE batch_conflict_once;
+		CREATE FUNCTION fail_second_batch_event_once() RETURNS trigger
+		LANGUAGE plpgsql AS $function$
+		BEGIN
+			IF NEW.payload = decode('02', 'hex')
+				AND nextval('batch_conflict_once') = 1 THEN
+				RAISE EXCEPTION 'forced batch conflict'
+					USING ERRCODE = '23505',
+					      CONSTRAINT = 'events_stream_version_key';
+			END IF;
+			RETURN NEW;
+		END
+		$function$;
+		CREATE TRIGGER fail_second_batch_event_once
+			BEFORE INSERT ON events
+			FOR EACH ROW EXECUTE FUNCTION fail_second_batch_event_once()`); err != nil {
+		t.Fatalf("install one-shot second-event conflict: %v", err)
+	}
+	store, err := New(pool, map[string]Projector{testEventType: incrementCounter})
+	if err != nil {
+		t.Fatalf("create store: %v", err)
+	}
+
+	err = store.AppendEvents(context.Background(), []Event{
+		event(testEventType, []byte{1}),
+		event(testEventType, []byte{2}),
+	})
+	if !IsVersionConflict(err) {
+		t.Fatalf("AppendEvents error = %v; want version conflict without retry", err)
+	}
+	assertNoEvents(t, pool)
+	if got := projectionRowCount(t, pool); got != 0 {
+		t.Fatalf("projection row count = %d; want 0 after second insert failed", got)
+	}
+}
+
+func TestAppendEvents_SameStreamUsesConsecutiveVersions(t *testing.T) {
+	pool := testPostgres(t)
+	createCounterProjection(t, pool)
+	store, err := New(pool, map[string]Projector{testEventType: incrementCounter})
+	if err != nil {
+		t.Fatalf("create store: %v", err)
+	}
+
+	if err := store.AppendEvents(context.Background(), []Event{
+		event(testEventType, []byte{1}),
+		event(testEventType, []byte{2}),
+		event(testEventType, []byte{3}),
+	}); err != nil {
+		t.Fatalf("AppendEvents: %v", err)
+	}
+
+	rows, err := pool.Query(context.Background(), `SELECT stream_version, payload FROM events ORDER BY stream_version`)
+	if err != nil {
+		t.Fatalf("query stream versions: %v", err)
+	}
+	defer rows.Close()
+	for want := int64(1); want <= 3; want++ {
+		if !rows.Next() {
+			t.Fatalf("stream ended before version %d", want)
+		}
+		var got int64
+		var payload []byte
+		if err := rows.Scan(&got, &payload); err != nil {
+			t.Fatalf("scan stream version: %v", err)
+		}
+		if got != want {
+			t.Fatalf("stream version = %d; want %d", got, want)
+		}
+		if wantPayload := []byte{byte(want)}; !bytes.Equal(payload, wantPayload) {
+			t.Fatalf("payload at version %d = %x; want %x", want, payload, wantPayload)
+		}
+	}
+	if rows.Next() {
+		t.Fatal("stream contains more than three events")
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate stream versions: %v", err)
+	}
+	if got := projectionCount(t, pool); got != 3 {
+		t.Fatalf("projection count = %d; want 3", got)
+	}
+}
+
 func event(eventType string, payload []byte) Event {
 	return Event{
 		StreamType:     testStreamType,
@@ -410,13 +624,20 @@ func assertNoEvents(t *testing.T, pool interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }) {
 	t.Helper()
+	if count := eventCount(t, pool); count != 0 {
+		t.Fatalf("events count = %d; want 0", count)
+	}
+}
+
+func eventCount(t *testing.T, pool interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}) int {
+	t.Helper()
 	var count int
 	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM events`).Scan(&count); err != nil {
 		t.Fatalf("count events: %v", err)
 	}
-	if count != 0 {
-		t.Fatalf("events count = %d; want 0", count)
-	}
+	return count
 }
 
 func projectionCount(t *testing.T, pool interface {

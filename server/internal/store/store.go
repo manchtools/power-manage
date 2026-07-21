@@ -27,6 +27,8 @@ const (
 	appendRetryMaxDelay           = 50 * time.Millisecond
 )
 
+var errVersionConflict = errors.New("store: version conflict")
+
 // Event is an unpersisted, versioned domain event payload.
 type Event struct {
 	StreamType     string
@@ -52,6 +54,11 @@ type ProjectionTx interface {
 
 type projectionTx struct {
 	generated.DBTX
+}
+
+type preparedEvent struct {
+	Event
+	projector Projector
 }
 
 // Projector updates a read model using the same transaction as its event.
@@ -117,28 +124,20 @@ func Migrate(ctx context.Context, dsn string) (retErr error) {
 
 // AppendEvent assigns the next stream version, persists event, and runs its
 // projector before commit. Composite-key conflicts are retried for independent
-// facts; bounded-use consumers use the M2 CAS API instead.
+// facts; bounded-use consumers use AppendEventWithVersion instead.
 func (s *Store) AppendEvent(ctx context.Context, event Event) error {
-	if s == nil || s.pool == nil {
-		return errors.New("store: nil store")
-	}
-	if ctx == nil {
-		return errors.New("store: nil append context")
-	}
-	if err := validateEvent(event); err != nil {
+	if err := s.validateAppendCall(ctx); err != nil {
 		return err
 	}
-	event.StreamID = strings.ToUpper(event.StreamID)
-
-	projector, ok := s.projectors[event.EventType]
-	if !ok {
-		return fmt.Errorf("store: no projector registered for event type %q", event.EventType)
+	prepared, err := s.prepareEvent(event)
+	if err != nil {
+		return err
 	}
 
 	for attempt := 0; ; attempt++ {
-		retry, err := s.appendOnce(ctx, event, projector)
+		retry, err := s.appendAutoBatchOnce(ctx, []preparedEvent{prepared})
 		if err != nil {
-			return err
+			return fmt.Errorf("store: append event: %w", err)
 		}
 		if !retry {
 			return nil
@@ -152,10 +151,112 @@ func (s *Store) AppendEvent(ctx context.Context, event Event) error {
 	}
 }
 
-func (s *Store) appendOnce(ctx context.Context, event Event, projector Projector) (retry bool, retErr error) {
+// AppendEventWithVersion appends at expectedVersion+1 only when the stream is
+// still at expectedVersion. A conflict is returned without retrying.
+func (s *Store) AppendEventWithVersion(ctx context.Context, event Event, expectedVersion int64) (retErr error) {
+	if err := s.validateAppendCall(ctx); err != nil {
+		return err
+	}
+	if expectedVersion < 0 {
+		return errors.New("store: expected version must not be negative")
+	}
+	prepared, err := s.prepareEvent(event)
+	if err != nil {
+		return err
+	}
+
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return false, fmt.Errorf("store: begin append transaction: %w", err)
+		return fmt.Errorf("store: begin version-pinned append transaction: %w", err)
+	}
+	defer func() {
+		if err := rollbackTx(ctx, tx); err != nil {
+			retErr = errors.Join(retErr, err)
+		}
+	}()
+	queries := generated.New(tx)
+
+	currentVersion, err := queries.CurrentStreamVersion(ctx, generated.CurrentStreamVersionParams{
+		StreamType: prepared.StreamType,
+		StreamID:   prepared.StreamID,
+	})
+	if err != nil {
+		return fmt.Errorf("store: read stream version: %w", err)
+	}
+	if currentVersion != expectedVersion {
+		return fmt.Errorf("%w: expected %d, current %d", errVersionConflict, expectedVersion, currentVersion)
+	}
+	if err := appendPrepared(ctx, tx, queries, prepared, expectedVersion+1); err != nil {
+		if isStreamVersionConflict(err) {
+			return fmt.Errorf("%w: expected %d", errVersionConflict, expectedVersion)
+		}
+		return fmt.Errorf("store: version-pinned append: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("store: commit version-pinned append transaction: %w", err)
+	}
+	return nil
+}
+
+// AppendEvents appends and projects the ordered batch in one transaction.
+func (s *Store) AppendEvents(ctx context.Context, events []Event) error {
+	if err := s.validateAppendCall(ctx); err != nil {
+		return err
+	}
+	if len(events) == 0 {
+		return nil
+	}
+
+	prepared := make([]preparedEvent, len(events))
+	for i, event := range events {
+		var err error
+		prepared[i], err = s.prepareEvent(event)
+		if err != nil {
+			return fmt.Errorf("store: prepare batch event %d: %w", i, err)
+		}
+	}
+
+	retry, err := s.appendAutoBatchOnce(ctx, prepared)
+	if err != nil {
+		return fmt.Errorf("store: append events: %w", err)
+	}
+	if retry {
+		return fmt.Errorf("%w: batch stream changed concurrently", errVersionConflict)
+	}
+	return nil
+}
+
+// IsVersionConflict recognizes the stable error returned by version-pinned appends.
+func IsVersionConflict(err error) bool {
+	return errors.Is(err, errVersionConflict)
+}
+
+func (s *Store) validateAppendCall(ctx context.Context) error {
+	if s == nil || s.pool == nil {
+		return errors.New("store: nil store")
+	}
+	if ctx == nil {
+		return errors.New("store: nil append context")
+	}
+	return nil
+}
+
+func (s *Store) prepareEvent(event Event) (preparedEvent, error) {
+	if err := validateEvent(event); err != nil {
+		return preparedEvent{}, err
+	}
+	event.StreamID = strings.ToUpper(event.StreamID)
+	projector, ok := s.projectors[event.EventType]
+	if !ok {
+		return preparedEvent{}, fmt.Errorf("store: no projector registered for event type %q", event.EventType)
+	}
+	return preparedEvent{Event: event, projector: projector}, nil
+}
+
+func (s *Store) appendAutoBatchOnce(ctx context.Context, events []preparedEvent) (retry bool, retErr error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return false, fmt.Errorf("begin append transaction: %w", err)
 	}
 	defer func() {
 		if err := rollbackTx(ctx, tx); err != nil {
@@ -165,27 +266,45 @@ func (s *Store) appendOnce(ctx context.Context, event Event, projector Projector
 	}()
 	queries := generated.New(tx)
 
-	currentVersion, err := queries.CurrentStreamVersion(ctx, generated.CurrentStreamVersionParams{
-		StreamType: event.StreamType,
-		StreamID:   event.StreamID,
-	})
-	if err != nil {
-		return false, fmt.Errorf("store: read stream version: %w", err)
+	for i, event := range events {
+		currentVersion, err := queries.CurrentStreamVersion(ctx, generated.CurrentStreamVersionParams{
+			StreamType: event.StreamType,
+			StreamID:   event.StreamID,
+		})
+		if err != nil {
+			return false, fmt.Errorf("event %d: read stream version: %w", i, err)
+		}
+		if err := appendPrepared(ctx, tx, queries, event, currentVersion+1); err != nil {
+			if isStreamVersionConflict(err) {
+				return true, nil
+			}
+			return false, fmt.Errorf("event %d: %w", i, err)
+		}
 	}
 
+	if err := tx.Commit(ctx); err != nil {
+		return false, fmt.Errorf("commit append transaction: %w", err)
+	}
+	return false, nil
+}
+
+func appendPrepared(
+	ctx context.Context,
+	tx pgx.Tx,
+	queries *generated.Queries,
+	event preparedEvent,
+	streamVersion int64,
+) error {
 	row, err := queries.InsertEvent(ctx, generated.InsertEventParams{
 		StreamType:     event.StreamType,
 		StreamID:       event.StreamID,
-		StreamVersion:  currentVersion + 1,
+		StreamVersion:  streamVersion,
 		EventType:      event.EventType,
 		PayloadVersion: event.PayloadVersion,
 		Payload:        event.Payload,
 	})
 	if err != nil {
-		if isStreamVersionConflict(err) {
-			return true, nil
-		}
-		return false, fmt.Errorf("store: insert event: %w", err)
+		return fmt.Errorf("insert event: %w", err)
 	}
 
 	persisted := PersistedEvent{
@@ -199,13 +318,10 @@ func (s *Store) appendOnce(ctx context.Context, event Event, projector Projector
 		StreamVersion: row.StreamVersion,
 		CreatedAt:     row.CreatedAt,
 	}
-	if err := projector(ctx, projectionTx{DBTX: tx}, persisted); err != nil {
-		return false, fmt.Errorf("store: project event %q: %w", event.EventType, err)
+	if err := event.projector(ctx, projectionTx{DBTX: tx}, persisted); err != nil {
+		return fmt.Errorf("project event %q: %w", event.EventType, err)
 	}
-	if err := tx.Commit(ctx); err != nil {
-		return false, fmt.Errorf("store: commit append transaction: %w", err)
-	}
-	return false, nil
+	return nil
 }
 
 func validateEvent(event Event) error {

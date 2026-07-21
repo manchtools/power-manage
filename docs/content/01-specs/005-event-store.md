@@ -205,7 +205,9 @@ Projectors are Go functions that run INSIDE the append transaction:
 - **AC-9** `AppendEvents` is all-or-nothing: a failure on the k-th event (append
   or projection) rolls back events 1..k-1.
 - **AC-10** A handler whose primary-mutation append fails returns an error to the
-  caller; no code path returns success after a failed append.
+  caller; no code path returns success after a failed append. The behavioral
+  test activates with the first state-changing RPC implementation; this storage
+  milestone does not add a placeholder handler solely to create a test subject.
 - **AC-11** Replaying a delete/downgrade event against a projection row with a
   newer `projection_version` leaves the newer row untouched.
 - **AC-12** A work row is written in the same transaction as its motivating event:
@@ -256,8 +258,8 @@ Write in this order:
 2. **Registry tests**: unregistered event type → hard error, nothing persisted
    (AC-2); projector error → full abort (AC-3); read-after-write (AC-4).
 3. **Append API tests**: CAS race with N goroutines on a bounded-use consume
-   (AC-8); `AppendEvents` atomicity (AC-9); append-failure-fails-RPC (AC-10)
-   through a real handler.
+   (AC-8); `AppendEvents` atomicity (AC-9). Append-failure-fails-RPC (AC-10)
+   activates with the first real state-changing handler.
 4. **Replay tests**: 1:1 rebuild equality per projection (AC-6); FK-closure
    refuse/include (AC-7); `projection_version` out-of-order guard (AC-11).
 5. **Work-table tests**: same-tx outbox atomicity, SKIP LOCKED exclusivity,
@@ -329,8 +331,9 @@ Each milestone is one implementation session ending green (full suite passing).
    `AppendEvent`; projector registry; hard error on unregistered type;
    projector-error abort; read-after-write. Tests: AC-1..4.
 2. **M2 — Append discipline**: `AppendEventWithVersion` (CAS, no auto-retry),
-   `AppendEvents` (all-or-nothing), handler-level append-failure propagation.
-   Tests: AC-8..10.
+   `AppendEvents` (all-or-nothing). Handler-level append-failure propagation
+   activates with the first real state-changing RPC. Tests: AC-8..9; AC-10 at
+   its activation floor.
 3. **M3 — Replay + rebuild**: replay runner over the same projector functions;
    `projection_version` guards; `RebuildAll` with FK-closure computation as a CLI
    subcommand. Tests: AC-6, AC-7, AC-11.
