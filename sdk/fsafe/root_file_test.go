@@ -22,6 +22,7 @@ func TestValidateRootOnlyFileInfo_RequiresRegularRootOwnedExactModeAndBound(t *t
 		{name: "non-regular", info: fakeRootFileInfo{mode: os.ModeNamedPipe | 0o600, size: 8, stat: syscall.Stat_t{Uid: 0}}, want: "regular"},
 		{name: "non-root owner", info: fakeRootFileInfo{mode: 0o600, size: 8, stat: syscall.Stat_t{Uid: 1000}}, want: "root-owned"},
 		{name: "permissive mode", info: fakeRootFileInfo{mode: 0o640, size: 8, stat: syscall.Stat_t{Uid: 0}}, want: "0600"},
+		{name: "special mode bits", info: fakeRootFileInfo{mode: os.ModeSetuid | os.ModeSetgid | os.ModeSticky | 0o600, size: 8, stat: syscall.Stat_t{Uid: 0}}, want: "0600"},
 		{name: "too large", info: fakeRootFileInfo{mode: 0o600, size: 9, stat: syscall.Stat_t{Uid: 0}}, want: "too large"},
 		{name: "negative size", info: fakeRootFileInfo{mode: 0o600, size: -1, stat: syscall.Stat_t{Uid: 0}}, want: "size"},
 	}

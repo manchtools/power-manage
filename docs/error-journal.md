@@ -437,6 +437,26 @@ and `--type`, alongside the exact supported command.
 **Prevention**: Copy the repository's literal review command; do not reconstruct
 it from remembered or summarized CLI syntax.
 
+## 2026-07-22 — Conversational summary overrode CodeRabbit harness again
+
+**What happened**: After context compaction, the local review command was once
+again reconstructed from the summary as `--plain --type uncommitted`. The
+installed CLI rejected it before a review ran, despite the exact supported
+command already being present in `CLAUDE.md` and two journal entries.
+
+**What the user said**: Not user-initiated; the local CLI exposed the repeated
+harness bypass during the required pre-commit review.
+
+**Root cause**: The summary was treated as executable tooling guidance without
+re-reading the repository harness immediately before invoking the command.
+
+**Harness fix**: `CLAUDE.md` now requires re-reading and literally copying the
+recorded CodeRabbit command before every local review, and explicitly states
+that conversational summaries are not CLI authority.
+
+**Prevention**: Resolve mutable CLI syntax from the repository harness at the
+moment of use; summaries may describe intent but never supply the command.
+
 ## 2026-07-22 — Go `-C` ordered after another build flag
 
 **What happened**: A supplementary race test invoked `go test -race -C server`.

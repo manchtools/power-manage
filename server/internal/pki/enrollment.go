@@ -149,14 +149,15 @@ func (s *EnrollmentService) EnrollAgent(
 	}
 	var certificateDER, certificateAuthorityDER []byte
 	err = s.eventStore.WithDeviceLifecycleLock(ctx, deviceID, func(lifecycle *store.DeviceLifecycle) error {
-		certificateDER, certificateAuthorityDER, err = s.authorities.issueAgentCertificate(
+		var issueErr error
+		certificateDER, certificateAuthorityDER, issueErr = s.authorities.issueAgentCertificate(
 			csr.PublicKey,
 			deviceID,
 			s.now(),
 			s.random,
 		)
-		if err != nil {
-			return err
+		if issueErr != nil {
+			return issueErr
 		}
 		event, eventErr := store.AgentEnrolledEvent(
 			deviceID,

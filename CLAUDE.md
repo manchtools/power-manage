@@ -132,7 +132,8 @@ regression test proven red first.
 - Review an uncommitted milestone with
   `coderabbit review --base main --include-untracked`; plain text is the
   default in the installed CLI, so do not pass the removed `--plain` or
-  `--type` flags.
+  `--type` flags. Re-read this rule immediately before every local review and
+  copy the command literally; conversational summaries are not CLI authority.
 - After editing a shell file containing heredocs, inspect the numbered changed
   region; `bash -n` cannot detect code accidentally swallowed as fixture text.
 - Negative tests assert the intended failure message, never only a nonzero exit.

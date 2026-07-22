@@ -8,6 +8,7 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	powermanagev1 "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1"
@@ -49,12 +50,18 @@ func (s *EnrollmentService) RenewAgent() {}
 	if err := os.WriteFile(filepath.Join(root, "fixture.go"), fixture, 0o600); err != nil {
 		t.Fatalf("write lifecycle guard fixture: %v", err)
 	}
+	testFixture := []byte(`package fixture
+func (s *EnrollmentService) RenewAgent() { s.eventStore.WithDeviceLifecycleLock() }
+`)
+	if err := os.WriteFile(filepath.Join(root, "masking_test.go"), testFixture, 0o600); err != nil {
+		t.Fatalf("write lifecycle guard test fixture: %v", err)
+	}
 	calls, err := lifecycleLockCalls(root)
 	if err != nil {
 		t.Fatalf("scan lifecycle guard fixture: %v", err)
 	}
 	if calls["RenewAgent"] != 0 {
-		t.Fatalf("unlocked fixture calls = %v; want zero", calls)
+		t.Fatalf("unlocked production fixture calls = %v; test fixture must not mask it", calls)
 	}
 }
 
@@ -69,7 +76,7 @@ func lifecycleLockCalls(root string) (map[string]int, error) {
 	calls := make(map[string]int)
 	fileset := token.NewFileSet()
 	for _, path := range files {
-		if filepath.Ext(path) != ".go" || filepath.Base(path) == "lifecycle_guard_test.go" {
+		if filepath.Ext(path) != ".go" || strings.HasSuffix(filepath.Base(path), "_test.go") {
 			continue
 		}
 		file, err := parser.ParseFile(fileset, path, nil, 0)
