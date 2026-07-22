@@ -111,7 +111,7 @@ func (s *EnrollmentService) RenewAgent(
 	})
 	if err != nil {
 		switch {
-		case errors.Is(err, errRenewalAuthRejected), store.IsVersionConflict(err):
+		case errors.Is(err, errRenewalAuthRejected):
 			return nil, connect.NewError(connect.CodeUnauthenticated, errRenewalAuthRejected)
 		case errors.Is(err, context.Canceled):
 			return nil, connect.NewError(connect.CodeCanceled, context.Canceled)

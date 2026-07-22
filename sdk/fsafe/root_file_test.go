@@ -65,6 +65,7 @@ func TestReadRootFile_ReadsOnlyBoundedMode0600RootFile(t *testing.T) {
 	if os.Geteuid() != 0 {
 		t.Skip("requires root-owned fixture")
 	}
+	allowWriteFileNewTestParent(t)
 	directory := t.TempDir()
 	if err := os.Chmod(directory, 0o700); err != nil {
 		t.Fatalf("harden root-owned fixture directory: %v", err)

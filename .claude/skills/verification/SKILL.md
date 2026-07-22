@@ -25,6 +25,9 @@ never round a partial run up to "verified".
   failed — not by eyeballing the last lines.
 - When piping, use `set -o pipefail` / check `PIPESTATUS[0]` — otherwise the
   pipe reports the grep's exit code, not the build's.
+- The canonical logged gate is always invoked as
+  `set -o pipefail; ./scripts/verify.sh 2>&1 | tee <log>`; never run its `tee`
+  form without that prefix.
 
 ## Gate scripts fail closed
 
@@ -66,6 +69,9 @@ because it keeps printing OK. In verify/CI/guard scripts:
 - Keep repository work at the repository root. Format root-relative paths and
   run module checks with `go ... -C <module>`; do not combine root-relative
   formatting with a module-local command.
+- Every `gofmt` invocation is its own repository-root tool call. Its declared
+  workdir must equal `git rev-parse --show-toplevel`; run the related module
+  test only afterward in a separate call with `go test -C <module>`.
 - When `workdir` is a module directory, arguments are module-relative and do
   not name that module or a sibling as their first path component. Cross-module
   scans and repository-wide CLIs run from the repository root.
