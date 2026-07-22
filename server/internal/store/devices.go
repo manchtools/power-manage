@@ -396,7 +396,7 @@ func projectAgentCertificateRenewal(ctx context.Context, tx ProjectionTx, event 
 		return fmt.Errorf("store: project agent certificate renewal: %w", err)
 	}
 	if affected == 1 {
-		return projectCertificateRevocation(ctx, tx, event, payload.SupersededCertificateDER, reasonCodeSuperseded)
+		return projectCertificateRevocation(ctx, tx, event, payload.SupersededCertificateDER, reasonCodeSuperseded, CertificateClassAgent, PublishAgentCRLWorkKind)
 	}
 	if affected != 0 {
 		return fmt.Errorf("store: agent certificate renewal affected %d rows; want one", affected)
@@ -411,7 +411,7 @@ func projectAgentCertificateRenewal(ctx context.Context, tx ProjectionTx, event 
 		bytes.Equal(row.SealingPublicKey, payload.SealingPublicKey) &&
 		bytes.Equal(row.PreviousCertificateDer, payload.SupersededCertificateDER) &&
 		row.LifecycleState == string(DeviceLifecycleActive) {
-		return projectCertificateRevocation(ctx, tx, event, payload.SupersededCertificateDER, reasonCodeSuperseded)
+		return projectCertificateRevocation(ctx, tx, event, payload.SupersededCertificateDER, reasonCodeSuperseded, CertificateClassAgent, PublishAgentCRLWorkKind)
 	}
 	return errors.New("store: agent certificate renewal conflicts with the current device projection")
 }
@@ -469,7 +469,7 @@ func projectAgentLifecycleState(
 			return errors.New("store: agent certificate lifecycle event conflicts with the current device projection")
 		}
 	}
-	return projectCertificateRevocation(ctx, tx, event, certificateDER, reasonCode)
+	return projectCertificateRevocation(ctx, tx, event, certificateDER, reasonCode, CertificateClassAgent, PublishAgentCRLWorkKind)
 }
 
 func projectCertificateRevocation(
@@ -478,7 +478,14 @@ func projectCertificateRevocation(
 	event PersistedEvent,
 	certificateDER []byte,
 	reasonCode int,
+	class CertificateClass,
+	workKind string,
 ) error {
+	if !validCertificateClass(class) ||
+		(class == CertificateClassAgent && workKind != PublishAgentCRLWorkKind) ||
+		(class == CertificateClassGateway && workKind != PublishGatewayCRLWorkKind) {
+		return errors.New("store: invalid certificate revocation class or work kind")
+	}
 	certificate, err := x509.ParseCertificate(certificateDER)
 	if err != nil || !bytes.Equal(certificate.Raw, certificateDER) || certificate.SerialNumber == nil || certificate.SerialNumber.Sign() <= 0 {
 		return errors.New("store: revoked certificate DER is invalid")
@@ -486,7 +493,7 @@ func projectCertificateRevocation(
 	fingerprint := sha256.Sum256(certificateDER)
 	queries := generated.New(tx)
 	affected, err := queries.InsertCertificateRevocation(ctx, generated.InsertCertificateRevocationParams{
-		CertificateClass:       string(CertificateClassAgent),
+		CertificateClass:       string(class),
 		CertificateFingerprint: fingerprint[:],
 		CertificateDer:         certificateDER,
 		SerialNumber:           certificate.SerialNumber.Bytes(),
@@ -501,7 +508,7 @@ func projectCertificateRevocation(
 	}
 	if affected == 0 {
 		existing, readErr := queries.GetCertificateRevocation(ctx, generated.GetCertificateRevocationParams{
-			CertificateClass:       string(CertificateClassAgent),
+			CertificateClass:       string(class),
 			CertificateFingerprint: fingerprint[:],
 		})
 		if readErr != nil {
@@ -524,7 +531,7 @@ func projectCertificateRevocation(
 		return fmt.Errorf("store: certificate revocation affected %d rows; want one", affected)
 	}
 	return tx.EnqueueWork(ctx, Work{
-		Kind:           PublishAgentCRLWorkKind,
+		Kind:           workKind,
 		PayloadVersion: 1,
 		Payload:        []byte(`{}`),
 		RunAt:          event.CreatedAt,

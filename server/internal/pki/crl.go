@@ -54,7 +54,10 @@ func (i *CRLIssuer) WorkHandlers() map[string]store.WorkHandler {
 	if i == nil {
 		return nil
 	}
-	return map[string]store.WorkHandler{store.PublishAgentCRLWorkKind: i.HandleAgentCRLWork}
+	return map[string]store.WorkHandler{
+		store.PublishAgentCRLWorkKind:   i.HandleAgentCRLWork,
+		store.PublishGatewayCRLWorkKind: i.HandleGatewayCRLWork,
+	}
 }
 
 // HandleAgentCRLWork validates durable work before issuing an agent CRL.
@@ -75,6 +78,24 @@ func (i *CRLIssuer) HandleAgentCRLWork(ctx context.Context, item store.WorkItem)
 		StreamVersion: item.SourceStreamVersion,
 	}
 	_, err := i.issue(ctx, store.CertificateClassAgent, source)
+	return err
+}
+
+// HandleGatewayCRLWork validates durable work before issuing a gateway CRL.
+func (i *CRLIssuer) HandleGatewayCRLWork(ctx context.Context, item store.WorkItem) error {
+	if err := i.validateWiring(); err != nil {
+		return err
+	}
+	if ctx == nil {
+		return errors.New("pki: nil gateway CRL work context")
+	}
+	if item.Kind != store.PublishGatewayCRLWorkKind || item.PayloadVersion != 1 || !bytes.Equal(item.Payload, []byte(`{}`)) ||
+		item.SourceStreamType != "gateway" || !identity.IsCanonicalULID(item.SourceStreamID) || item.SourceStreamVersion < 2 {
+		return errors.New("pki: invalid gateway CRL work item")
+	}
+	_, err := i.issue(ctx, store.CertificateClassGateway, store.CRLSource{
+		StreamType: item.SourceStreamType, StreamID: item.SourceStreamID, StreamVersion: item.SourceStreamVersion,
+	})
 	return err
 }
 

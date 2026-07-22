@@ -3,12 +3,16 @@ package store
 import (
 	"context"
 	"crypto/sha256"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 )
 
-const testRegistrationTokenID = "01J00000000000000000000002"
+const (
+	testRegistrationTokenID        = "01J00000000000000000000002"
+	testGatewayRegistrationTokenID = "01J00000000000000000000003"
+)
 
 // TestRegistrationTokenProjection_RebuildsCompleteState pins the M3 event and
 // projection model, including monotonic use count and the durable kill switch.
@@ -48,6 +52,7 @@ func TestRegistrationTokenProjection_RebuildsCompleteState(t *testing.T) {
 	want := RegistrationToken{
 		TokenID:           testRegistrationTokenID,
 		Hash:              digest,
+		Purpose:           RegistrationTokenPurposeAgent,
 		MaxUses:           3,
 		Uses:              2,
 		ExpiresAt:         expiresAt,
@@ -71,6 +76,75 @@ func TestRegistrationTokenProjection_RebuildsCompleteState(t *testing.T) {
 		t.Fatalf("rebuild registration-token projection: %v", err)
 	}
 	assertRegistrationToken(t, eventStore, want)
+}
+
+func TestGatewayRegistrationToken_RebuildPreservesPurposeAndDNSNames(t *testing.T) {
+	pool := testPostgres(t)
+	eventStore, err := NewProduction(pool)
+	if err != nil {
+		t.Fatalf("create production store: %v", err)
+	}
+	expiresAt := time.Date(2030, time.January, 2, 3, 4, 5, 0, time.UTC)
+	agentHash := sha256.Sum256([]byte("agent registration secret"))
+	agentEvent, err := RegistrationTokenMintedEvent(
+		testRegistrationTokenID,
+		agentHash,
+		1,
+		expiresAt,
+		"agent-owner@example.com",
+	)
+	if err != nil {
+		t.Fatalf("create agent token mint event: %v", err)
+	}
+	gatewayHash := sha256.Sum256([]byte("gateway registration secret"))
+	gatewayDNSNames := []string{"gateway-1.internal.example", "gateway-1.backup.internal.example"}
+	gatewayEvent, err := GatewayRegistrationTokenMintedEvent(
+		testGatewayRegistrationTokenID,
+		gatewayHash,
+		2,
+		expiresAt,
+		"gateway-owner@example.com",
+		gatewayDNSNames,
+	)
+	if err != nil {
+		t.Fatalf("create gateway token mint event: %v", err)
+	}
+	ctx := context.Background()
+	for _, event := range []Event{agentEvent, gatewayEvent} {
+		if err := eventStore.AppendEventWithVersion(ctx, event, 0); err != nil {
+			t.Fatalf("append %s registration-token event: %v", event.StreamID, err)
+		}
+	}
+
+	wantAgent := RegistrationToken{
+		TokenID:           testRegistrationTokenID,
+		Hash:              agentHash,
+		Purpose:           RegistrationTokenPurposeAgent,
+		MaxUses:           1,
+		ExpiresAt:         expiresAt,
+		Owner:             "agent-owner@example.com",
+		ProjectionVersion: 1,
+	}
+	wantGateway := RegistrationToken{
+		TokenID:           testGatewayRegistrationTokenID,
+		Hash:              gatewayHash,
+		Purpose:           RegistrationTokenPurposeGateway,
+		DNSNames:          gatewayDNSNames,
+		MaxUses:           2,
+		ExpiresAt:         expiresAt,
+		Owner:             "gateway-owner@example.com",
+		ProjectionVersion: 1,
+	}
+	assertRegistrationToken(t, eventStore, wantAgent)
+	assertRegistrationToken(t, eventStore, wantGateway)
+	if _, err := pool.Exec(ctx, `DELETE FROM registration_tokens`); err != nil {
+		t.Fatalf("delete registration-token projections: %v", err)
+	}
+	if err := eventStore.RebuildAll(ctx, RegistrationTokenRebuildTarget); err != nil {
+		t.Fatalf("rebuild registration-token projections: %v", err)
+	}
+	assertRegistrationToken(t, eventStore, wantAgent)
+	assertRegistrationToken(t, eventStore, wantGateway)
 }
 
 func TestRegistrationTokenEvents_ValidateAndCanonicalize(t *testing.T) {
@@ -208,6 +282,8 @@ func assertRegistrationToken(t *testing.T, eventStore *Store, want RegistrationT
 	}
 	if got.TokenID != want.TokenID ||
 		got.Hash != want.Hash ||
+		got.Purpose != want.Purpose ||
+		!slices.Equal(got.DNSNames, want.DNSNames) ||
 		got.MaxUses != want.MaxUses ||
 		got.Uses != want.Uses ||
 		!got.ExpiresAt.Equal(want.ExpiresAt) ||

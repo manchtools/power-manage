@@ -28,9 +28,12 @@ import (
 // Every entry is a deliberate, reviewable decision that these two identical
 // shapes are NOT a [WIRE-1] mirrored copy.
 var nearCopyAllowlist = map[string]string{
-	"powermanage.v1.DeviceConnected|powermanage.v1.DeviceDisconnected":        "two distinct lifecycle events sharing the minimal addressing-only shape {device_id: ULID}; the discriminant is the frame-oneof tag, not a drifted payload field (GW-3.1)",
-	"powermanage.v1.EnrollAgentResponse|powermanage.v1.RenewAgentResponse":    "operation-specific RPC results currently share public certificate/CA fields, while renewal alone gains CA-continuity material in SPEC-006 M8; distinct descriptors keep that evolution out of fresh enrollment",
-	"powermanage.v1.ForceRenewAgentRequest|powermanage.v1.RevokeAgentRequest": "Buf requires operation-specific unary request types; both identify the exact current certificate, while force-renew may gain renewal policy independently of terminal revocation (PKI-6)",
+	"powermanage.v1.DeviceConnected|powermanage.v1.DeviceDisconnected":          "two distinct lifecycle events sharing the minimal addressing-only shape {device_id: ULID}; the discriminant is the frame-oneof tag, not a drifted payload field (GW-3.1)",
+	"powermanage.v1.EnrollAgentResponse|powermanage.v1.RenewAgentResponse":      "operation-specific RPC results currently share public certificate/CA fields, while renewal alone gains CA-continuity material in SPEC-006 M8; distinct descriptors keep that evolution out of fresh enrollment",
+	"powermanage.v1.EnrollGatewayResponse|powermanage.v1.RenewGatewayResponse":  "operation-specific gateway lifecycle results share the exact public certificate/issuing-CA shape; renewal authorization and state transition remain distinct from token-authorized enrollment",
+	"powermanage.v1.ForceRenewAgentRequest|powermanage.v1.RevokeAgentRequest":   "Buf requires operation-specific unary request types; both identify the exact current certificate, while force-renew may gain renewal policy independently of terminal revocation (PKI-6)",
+	"powermanage.v1.ForceRenewAgentRequest|powermanage.v1.RevokeGatewayRequest": "operator lifecycle operations identify the exact current certificate while preserving separate agent force-renew and terminal gateway-revocation procedures",
+	"powermanage.v1.RevokeAgentRequest|powermanage.v1.RevokeGatewayRequest":     "agent and gateway revocation both identify the exact current certificate, while separate RPC descriptors preserve class-specific authorization and lifecycle handling",
 }
 
 // TestGuard_NearCopies is G-8 over the real contract: no two messages share an
@@ -41,6 +44,30 @@ func TestGuard_NearCopies(t *testing.T) {
 	})
 	for _, v := range nearCopyViolations(files) {
 		t.Errorf("%s (G-8, [WIRE-1], SPEC-003)", v)
+	}
+	allowlistPairs := make([]string, 0, len(nearCopyAllowlist))
+	for pair := range nearCopyAllowlist {
+		allowlistPairs = append(allowlistPairs, pair)
+	}
+	sort.Strings(allowlistPairs)
+	for _, pair := range allowlistPairs {
+		names := strings.Split(pair, "|")
+		if len(names) != 2 {
+			t.Errorf("near-copy allowlist key %q is not an exact pair", pair)
+			continue
+		}
+		messages := make([]protoreflect.MessageDescriptor, 0, 2)
+		for _, fullName := range names {
+			message, err := findRegistry(files, protoreflect.Name(strings.TrimPrefix(fullName, "powermanage.v1.")))
+			if err != nil {
+				t.Errorf("near-copy allowlist key %q is stale: %v", pair, err)
+				continue
+			}
+			messages = append(messages, message)
+		}
+		if len(messages) == 2 && shapeSignature(messages[0]) != shapeSignature(messages[1]) {
+			t.Errorf("near-copy allowlist key %q no longer names an identical-shape pair", pair)
+		}
 	}
 	// The addressing wrappers (plan choice 3) are composition, not near-copies:
 	// pin that DeviceReport and PushCommand exist and differ structurally, so a

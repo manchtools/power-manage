@@ -73,8 +73,9 @@ func NewEnrollmentService(
 	if tokens.eventStore != eventStore {
 		return nil, errors.New("pki: enrollment token service and event store differ")
 	}
-	if authorities == nil || authorities.agentCA.certificate == nil || authorities.agentCA.signer == nil {
-		return nil, errors.New("pki: agent certificate authority is not wired")
+	if authorities == nil || authorities.agentCA.certificate == nil || authorities.agentCA.signer == nil ||
+		authorities.gatewayCA.certificate == nil || authorities.gatewayCA.signer == nil {
+		return nil, errors.New("pki: enrollment certificate authorities are not wired")
 	}
 	if interfaceNil(lifecycleAuthorizer) {
 		return nil, errors.New("pki: lifecycle authorizer is not wired")
@@ -108,7 +109,8 @@ func (s *EnrollmentService) validateWiring() error {
 		interfaceNil(s.lifecycleAuthorizer) || s.lifecycleLimiter == nil || s.random == nil || s.now == nil {
 		return errors.New("pki: enrollment service is not wired")
 	}
-	if s.tokens.eventStore != s.eventStore || s.authorities.agentCA.certificate == nil || s.authorities.agentCA.signer == nil {
+	if s.tokens.eventStore != s.eventStore || s.authorities.agentCA.certificate == nil || s.authorities.agentCA.signer == nil ||
+		s.authorities.gatewayCA.certificate == nil || s.authorities.gatewayCA.signer == nil {
 		return errors.New("pki: enrollment service dependencies are inconsistent")
 	}
 	return nil
@@ -150,7 +152,7 @@ func (s *EnrollmentService) EnrollAgent(
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, errEnrollmentTemporarilyFailed)
 	}
-	grant, err := s.tokens.Consume(ctx, source, request.Msg.GetRegistrationToken())
+	grant, err := s.tokens.Consume(ctx, source, request.Msg.GetRegistrationToken(), RegistrationTokenPurposeAgent)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrRegistrationRateLimited):
@@ -198,8 +200,9 @@ func (s *EnrollmentService) EnrollAgent(
 		return nil, connect.NewError(connect.CodeInternal, errEnrollmentTemporarilyFailed)
 	}
 	return connect.NewResponse(&powermanagev1.EnrollAgentResponse{
-		CertificateDer:          certificateDER,
-		CertificateAuthorityDer: certificateAuthorityDER,
+		CertificateDer:                 certificateDER,
+		CertificateAuthorityDer:        certificateAuthorityDER,
+		GatewayCertificateAuthorityDer: slices.Clone(s.authorities.gatewayCA.certificate.Raw),
 	}), nil
 }
 

@@ -84,14 +84,16 @@ func productionRebuildTargets() map[string]RebuildTarget {
 			StreamTypes: []string{registrationTokenStreamType},
 			EventTypes: []string{
 				registrationTokenMintedEventType,
+				gatewayTokenMintedEventType,
 				registrationTokenConsumedEventType,
 				registrationTokenDisabledEventType,
 			},
 			Reset: resetRegistrationTokens,
 		},
 		DeviceRebuildTarget: {
-			Tables:      []string{"certificate_revocations", "devices"},
-			StreamTypes: []string{deviceStreamType},
+			Tables:       []string{"devices"},
+			SharedTables: []string{"certificate_revocations"},
+			StreamTypes:  []string{deviceStreamType},
 			EventTypes: []string{
 				agentEnrolledEventType,
 				agentCertificateRenewedEventType,
@@ -99,6 +101,17 @@ func productionRebuildTargets() map[string]RebuildTarget {
 				agentForceRenewalRequiredEventType,
 			},
 			Reset: resetDevices,
+		},
+		GatewayRebuildTarget: {
+			Tables:       []string{"gateways"},
+			SharedTables: []string{"certificate_revocations"},
+			StreamTypes:  []string{gatewayStreamType},
+			EventTypes: []string{
+				gatewayEnrolledEventType,
+				gatewayCertificateRenewedEventType,
+				gatewayCertificateRevokedEventType,
+			},
+			Reset: resetGateways,
 		},
 	}
 }
@@ -175,6 +188,9 @@ func productionEventDefinitions() map[string]eventDefinition {
 	for eventType, definition := range deviceEventDefinitions() {
 		definitions[eventType] = definition
 	}
+	for eventType, definition := range gatewayEventDefinitions() {
+		definitions[eventType] = definition
+	}
 	return definitions
 }
 
@@ -193,6 +209,9 @@ func goldenEventCorpus() map[string]goldenEvent {
 		corpus[eventType] = event
 	}
 	for eventType, event := range deviceGoldenCorpus() {
+		corpus[eventType] = event
+	}
+	for eventType, event := range gatewayGoldenCorpus() {
 		corpus[eventType] = event
 	}
 	return corpus

@@ -57,6 +57,9 @@ func TestRenewalHandler_RenewsCurrentIdentityAndRecordsSupersession(t *testing.T
 	if !bytes.Equal(response.Msg.GetCertificateAuthorityDer(), fixture.agentCA.Raw) {
 		t.Fatal("renewal returned a different agent CA")
 	}
+	if !bytes.Equal(response.Msg.GetGatewayCertificateAuthorityDer(), fixture.gatewayCA.Raw) {
+		t.Fatal("renewal returned a different gateway CA")
+	}
 
 	persisted, err := fixture.eventStore.Device(context.Background(), deviceID)
 	if err != nil {

@@ -49,6 +49,9 @@ These obligations are visible exceptions, not silent green coverage:
 - SPEC-003 G-5 currently proves the contract domain registry, round trips, and
   pairwise isolation. Its cross-repository sign-site + fail-closed verify-site
   floor activates when SPEC-005/007/013 add those consumers.
+- SPEC-006 M7 owns gateway certificate issuance, renewal, revocation state,
+  and the agent trust anchor. PKI-5's revoked-gateway process halt activates
+  with the gateway runtime in SPEC-012.
 
 ## Milestone ledger
 

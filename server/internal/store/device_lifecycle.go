@@ -82,9 +82,37 @@ func (l *DeviceLifecycle) Device(ctx context.Context) (Device, error) {
 	return deviceFromRowWithFingerprintPolicy(l.deviceID, row, false)
 }
 
+// Gateway reads the authoritative gateway projection inside the held lock.
+func (l *DeviceLifecycle) Gateway(ctx context.Context) (Gateway, error) {
+	if err := l.validate(ctx); err != nil {
+		return Gateway{}, err
+	}
+	row, err := l.queries.GetGateway(ctx, l.deviceID)
+	if err != nil {
+		return Gateway{}, fmt.Errorf("store: read locked gateway: %w", err)
+	}
+	return gatewayFromRow(l.deviceID, row, false)
+}
+
 // AppendEvent performs one expected-version append inside the held lifecycle
 // transaction. Only events owned by the device rebuild target are accepted.
 func (l *DeviceLifecycle) AppendEvent(ctx context.Context, event Event, expectedVersion int64) error {
+	return l.appendEventFor(ctx, event, expectedVersion, deviceStreamType, DeviceRebuildTarget)
+}
+
+// AppendGatewayEvent appends one gateway lifecycle event under the same
+// transaction-limited advisory-lock capability.
+func (l *DeviceLifecycle) AppendGatewayEvent(ctx context.Context, event Event, expectedVersion int64) error {
+	return l.appendEventFor(ctx, event, expectedVersion, gatewayStreamType, GatewayRebuildTarget)
+}
+
+func (l *DeviceLifecycle) appendEventFor(
+	ctx context.Context,
+	event Event,
+	expectedVersion int64,
+	streamType string,
+	rebuildTarget string,
+) error {
 	if err := l.validate(ctx); err != nil {
 		return err
 	}
@@ -98,12 +126,12 @@ func (l *DeviceLifecycle) AppendEvent(ctx context.Context, event Event, expected
 	if err != nil {
 		return err
 	}
-	if prepared.StreamType != deviceStreamType || prepared.StreamID != l.deviceID ||
-		l.store.eventTargets[prepared.EventType] != DeviceRebuildTarget {
+	if prepared.StreamType != streamType || prepared.StreamID != l.deviceID ||
+		l.store.eventTargets[prepared.EventType] != rebuildTarget {
 		return errors.New("store: device lifecycle event does not belong to the locked device")
 	}
 	currentVersion, err := l.queries.CurrentStreamVersion(ctx, generated.CurrentStreamVersionParams{
-		StreamType: deviceStreamType,
+		StreamType: streamType,
 		StreamID:   l.deviceID,
 	})
 	if err != nil {

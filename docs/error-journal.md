@@ -1504,3 +1504,25 @@ contain exactly one SQL statement.
 
 **Prevention**: Scoped fixture mutations retain their predicates while each
 prepared call remains valid under pgx's extended protocol.
+
+## 2026-07-23 — Manual gofmt was bundled with a read-only probe
+
+**What happened**: A successful repository-root `gofmt` invocation shared one
+executor call with a preceding `rg` query instead of running as the required
+standalone manual formatting step.
+
+**What the user said**: Not user-initiated; the process violation was caught
+before the affected tests ran.
+
+**Root cause**: Independent read and formatting steps were grouped for
+throughput even though the established command-hygiene rule prioritizes an
+unambiguous formatter boundary.
+
+**Harness fix**: This journal now records that “separate tool call” means the
+manual formatter is the only shell command in that executor call, including no
+read-only prefix or suffix.
+
+**Prevention**: Run repository-root `gofmt` alone, wait for it to complete, and
+start module tests in a later call. This rule applies to a manual formatter
+invocation; the canonical verification script retains its own output-capture
+harness.

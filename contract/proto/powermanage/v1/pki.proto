@@ -14,6 +14,9 @@ service PkiService {
   rpc RenewAgent(RenewAgentRequest) returns (RenewAgentResponse);
   rpc RevokeAgent(RevokeAgentRequest) returns (RevokeAgentResponse);
   rpc ForceRenewAgent(ForceRenewAgentRequest) returns (ForceRenewAgentResponse);
+  rpc EnrollGateway(EnrollGatewayRequest) returns (EnrollGatewayResponse);
+  rpc RenewGateway(RenewGatewayRequest) returns (RenewGatewayResponse);
+  rpc RevokeGateway(RevokeGatewayRequest) returns (RevokeGatewayResponse);
 }
 
 // EnrollAgentRequest carries proof generated entirely on the device. The
@@ -38,6 +41,10 @@ message EnrollAgentResponse {
     max_len: 65536
   }];
   bytes certificate_authority_der = 2 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 65536
+  }];
+  bytes gateway_certificate_authority_der = 3 [(buf.validate.field).bytes = {
     min_len: 1
     max_len: 65536
   }];
@@ -69,6 +76,10 @@ message RenewAgentResponse {
     min_len: 1
     max_len: 65536
   }];
+  bytes gateway_certificate_authority_der = 3 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 65536
+  }];
 }
 
 // RevokeAgentRequest identifies the currently stored certificate exactly.
@@ -94,3 +105,59 @@ message ForceRenewAgentRequest {
 message RevokeAgentResponse {}
 
 message ForceRenewAgentResponse {}
+
+// EnrollGatewayRequest carries only the gateway-held proof and a
+// gateway-purpose token. DNS identity is control-owned token metadata.
+message EnrollGatewayRequest {
+  string registration_token = 1 [(buf.validate.field).string.max_len = 512];
+  bytes certificate_signing_request_der = 2 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 65536
+  }];
+}
+
+message EnrollGatewayResponse {
+  bytes certificate_der = 1 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 65536
+  }];
+  bytes certificate_authority_der = 2 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 65536
+  }];
+}
+
+// RenewGatewayRequest proves continuity from the exact current certificate
+// to a CSR signed by the same in-memory gateway key.
+message RenewGatewayRequest {
+  bytes certificate_der = 1 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 65536
+  }];
+  bytes certificate_signing_request_der = 2 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 65536
+  }];
+}
+
+message RenewGatewayResponse {
+  bytes certificate_der = 1 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 65536
+  }];
+  bytes certificate_authority_der = 2 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 65536
+  }];
+}
+
+// RevokeGatewayRequest identifies the exact currently stored gateway
+// certificate. Operator authorization remains transport metadata.
+message RevokeGatewayRequest {
+  bytes certificate_der = 1 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 65536
+  }];
+}
+
+message RevokeGatewayResponse {}

@@ -78,6 +78,19 @@ type ExecutionOutputChunk struct {
 	CreatedAt   time.Time
 }
 
+type Gateway struct {
+	GatewayID              string
+	ProjectionVersion      int64
+	CertificateDer         []byte
+	CertificateFingerprint []byte
+	PreviousCertificateDer []byte
+	RegistrationTokenID    string
+	Owner                  string
+	DnsNames               []string
+	LifecycleState         string
+	UpdatedAt              time.Time
+}
+
 type InventorySnapshot struct {
 	AgentID           string
 	ProjectionVersion int64
@@ -97,6 +110,8 @@ type RegistrationToken struct {
 	Owner             string
 	Disabled          bool
 	UpdatedAt         time.Time
+	Purpose           string
+	DnsNames          []string
 }
 
 type WorkItem struct {

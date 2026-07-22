@@ -10,6 +10,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
@@ -31,6 +32,78 @@ import (
 )
 
 const enrolledClientDeviceID = "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+
+func TestClient_EnrolledCredentialBundleVerifiesGatewayWithProductionTLSConfig(t *testing.T) {
+	remote := newClientRemoteFixture(t)
+	store := &capturingCredentialStore{}
+	client, err := NewClient(remote.client, store)
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	pin := sha256.Sum256(remote.ca.Raw)
+	if _, err := client.Enroll(context.Background(), "registration-token", "sha256:"+fmt.Sprintf("%x", pin)); err != nil {
+		t.Fatalf("Enroll: %v", err)
+	}
+	bundle := store.bundle
+	gatewayCA, err := x509.ParseCertificate(bundle.GatewayCertificateAuthorityDER)
+	if err != nil {
+		t.Fatalf("parse enrolled gateway trust anchor: %v", err)
+	}
+	agentCA, err := x509.ParseCertificate(bundle.CertificateAuthorityDER)
+	if err != nil {
+		t.Fatalf("parse enrolled agent trust anchor: %v", err)
+	}
+	gatewayKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("generate gateway TLS key: %v", err)
+	}
+	const gatewayDNSName = "gateway.internal.example"
+	gatewayCertificateDER := newClientGatewayCertificate(
+		t,
+		gatewayCA,
+		remote.gatewaySigner,
+		gatewayKey.Public(),
+		gatewayDNSName,
+	)
+
+	agentRoots := x509.NewCertPool()
+	agentRoots.AddCert(agentCA)
+	serverTLS, err := identity.ServerTLSConfig(tls.Certificate{
+		Certificate: [][]byte{gatewayCertificateDER},
+		PrivateKey:  gatewayKey,
+	}, agentRoots, identity.AgentClass)
+	if err != nil {
+		t.Fatalf("build production gateway TLS server config: %v", err)
+	}
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
+		response.WriteHeader(http.StatusNoContent)
+	}))
+	server.TLS = serverTLS
+	server.StartTLS()
+	t.Cleanup(server.Close)
+
+	gatewayRoots := x509.NewCertPool()
+	gatewayRoots.AddCert(gatewayCA)
+	clientTLS, err := identity.ClientTLSConfig(tls.Certificate{
+		Certificate: [][]byte{bytes.Clone(bundle.CertificateDER)},
+		PrivateKey:  bundle.PrivateKey,
+	}, gatewayRoots, gatewayDNSName, identity.GatewayClass)
+	if err != nil {
+		t.Fatalf("build production agent TLS client config: %v", err)
+	}
+	transport := &http.Transport{TLSClientConfig: clientTLS}
+	t.Cleanup(transport.CloseIdleConnections)
+	response, err := (&http.Client{Transport: transport}).Get(server.URL)
+	if err != nil {
+		t.Fatalf("verify gateway from enrolled credential bundle: %v", err)
+	}
+	if err := response.Body.Close(); err != nil {
+		t.Fatalf("close gateway TLS response: %v", err)
+	}
+	if response.StatusCode != http.StatusNoContent {
+		t.Fatalf("gateway TLS response = %d; want 204", response.StatusCode)
+	}
+}
 
 func TestClient_EnrollKeepsPrivateKeysLocalAndStoresVerifiedIdentity(t *testing.T) {
 	remote := newClientRemoteFixture(t)
@@ -69,7 +142,9 @@ func TestClient_EnrollKeepsPrivateKeysLocalAndStoresVerifiedIdentity(t *testing.
 	if !bytes.Equal(store.bundle.SealingPrivateKey.PublicKey().Bytes(), remote.handler.request.GetSealingPublicKey()) {
 		t.Fatal("stored sealing private key does not match submitted public key")
 	}
-	if !bytes.Equal(store.bundle.CertificateDER, remote.handler.certificateDER) || !bytes.Equal(store.bundle.CertificateAuthorityDER, remote.ca.Raw) {
+	if !bytes.Equal(store.bundle.CertificateDER, remote.handler.certificateDER) ||
+		!bytes.Equal(store.bundle.CertificateAuthorityDER, remote.ca.Raw) ||
+		!bytes.Equal(store.bundle.GatewayCertificateAuthorityDER, remote.gatewayCA.Raw) {
 		t.Fatal("stored bundle differs from verified response material")
 	}
 }
@@ -83,6 +158,8 @@ func TestClient_EnrollRefusesPinAndResponseSubstitutionBeforeStorage(t *testing.
 	}{
 		{name: "CA pin mismatch", pin: strings.Repeat("0", 64), want: "fingerprint"},
 		{name: "malformed CA", mutate: func(handler *clientRemoteHandler) { handler.responseCA = []byte("bad") }, want: "certificate authority"},
+		{name: "malformed gateway CA", mutate: func(handler *clientRemoteHandler) { handler.responseGatewayCA = []byte("bad") }, want: "gateway certificate authority"},
+		{name: "gateway CA equals agent CA", mutate: func(handler *clientRemoteHandler) { handler.responseGatewayCA = handler.ca.Raw }, want: "distinct"},
 		{name: "substituted certificate key", mutate: func(handler *clientRemoteHandler) { handler.substituteKey = true }, want: "public key"},
 		{name: "wrong certificate class", mutate: func(handler *clientRemoteHandler) { handler.class = identity.GatewayClass }, want: "agent"},
 		{name: "unsupported CA key", mutate: func(handler *clientRemoteHandler) {
@@ -125,6 +202,7 @@ func TestFileCredentialStore_EncodesRootOnlyNoOverwriteBundle(t *testing.T) {
 		t.Fatalf("generate sealing key: %v", err)
 	}
 	ca, caSigner := newClientTestCA(t)
+	gatewayCA, _ := newClientTestCA(t)
 	now := time.Now().UTC().Truncate(time.Second)
 	template := &x509.Certificate{
 		SerialNumber:          big.NewInt(3),
@@ -142,11 +220,12 @@ func TestFileCredentialStore_EncodesRootOnlyNoOverwriteBundle(t *testing.T) {
 		t.Fatalf("create credential certificate: %v", err)
 	}
 	bundle := CredentialBundle{
-		DeviceID:                enrolledClientDeviceID,
-		CertificateDER:          certificateDER,
-		CertificateAuthorityDER: ca.Raw,
-		PrivateKey:              key,
-		SealingPrivateKey:       sealingKey,
+		DeviceID:                       enrolledClientDeviceID,
+		CertificateDER:                 certificateDER,
+		CertificateAuthorityDER:        ca.Raw,
+		GatewayCertificateAuthorityDER: gatewayCA.Raw,
+		PrivateKey:                     key,
+		SealingPrivateKey:              sealingKey,
 	}
 	var gotPath string
 	var gotData []byte
@@ -166,8 +245,8 @@ func TestFileCredentialStore_EncodesRootOnlyNoOverwriteBundle(t *testing.T) {
 		t.Fatalf("credential create = (%q, %o); want production path and 0600", gotPath, gotMode)
 	}
 	blocks := decodeCredentialPEM(t, gotData)
-	if len(blocks) != 4 || blocks[0].Type != "POWER MANAGE AGENT CERTIFICATE" || blocks[1].Type != "POWER MANAGE AGENT PRIVATE KEY" || blocks[2].Type != "POWER MANAGE AGENT CA CERTIFICATE" || blocks[3].Type != "POWER MANAGE SEALING PRIVATE KEY" {
-		t.Fatalf("credential PEM blocks = %v; want exact four-block bundle", blocks)
+	if len(blocks) != 5 || blocks[0].Type != "POWER MANAGE AGENT CERTIFICATE" || blocks[1].Type != "POWER MANAGE AGENT PRIVATE KEY" || blocks[2].Type != "POWER MANAGE AGENT CA CERTIFICATE" || blocks[3].Type != "POWER MANAGE GATEWAY CA CERTIFICATE" || blocks[4].Type != "POWER MANAGE SEALING PRIVATE KEY" {
+		t.Fatalf("credential PEM blocks = %v; want exact five-block bundle", blocks)
 	}
 }
 
@@ -194,22 +273,26 @@ func (s *capturingCredentialStore) Replace(_ context.Context, bundle CredentialB
 }
 
 type clientRemoteFixture struct {
-	client  powermanagev1connect.PkiServiceClient
-	ca      *x509.Certificate
-	handler *clientRemoteHandler
+	client        powermanagev1connect.PkiServiceClient
+	ca            *x509.Certificate
+	gatewayCA     *x509.Certificate
+	gatewaySigner crypto.Signer
+	handler       *clientRemoteHandler
 }
 
 type clientRemoteHandler struct {
 	powermanagev1connect.UnimplementedPkiServiceHandler
 
-	ca             *x509.Certificate
-	caSigner       crypto.Signer
-	class          identity.Class
-	responseCA     []byte
-	substituteKey  bool
-	calls          int
-	request        *powermanagev1.EnrollAgentRequest
-	certificateDER []byte
+	ca                *x509.Certificate
+	caSigner          crypto.Signer
+	class             identity.Class
+	responseCA        []byte
+	gatewayCA         *x509.Certificate
+	responseGatewayCA []byte
+	substituteKey     bool
+	calls             int
+	request           *powermanagev1.EnrollAgentRequest
+	certificateDER    []byte
 }
 
 func (h *clientRemoteHandler) RenewAgent(context.Context, *connect.Request[powermanagev1.RenewAgentRequest]) (*connect.Response[powermanagev1.RenewAgentResponse], error) {
@@ -252,25 +335,64 @@ func (h *clientRemoteHandler) EnrollAgent(_ context.Context, request *connect.Re
 		caDER = h.ca.Raw
 	}
 	return connect.NewResponse(&powermanagev1.EnrollAgentResponse{
-		CertificateDer:          certificateDER,
-		CertificateAuthorityDer: caDER,
+		CertificateDer:                 certificateDER,
+		CertificateAuthorityDer:        caDER,
+		GatewayCertificateAuthorityDer: h.gatewayCertificateAuthorityDER(),
 	}), nil
+}
+
+func (h *clientRemoteHandler) gatewayCertificateAuthorityDER() []byte {
+	if h.responseGatewayCA != nil {
+		return h.responseGatewayCA
+	}
+	return h.gatewayCA.Raw
 }
 
 func newClientRemoteFixture(t *testing.T) clientRemoteFixture {
 	t.Helper()
 	ca, signer := newClientTestCA(t)
-	handler := &clientRemoteHandler{ca: ca, caSigner: signer, class: identity.AgentClass}
+	gatewayCA, gatewaySigner := newClientTestCA(t)
+	handler := &clientRemoteHandler{ca: ca, caSigner: signer, gatewayCA: gatewayCA, class: identity.AgentClass}
 	path, httpHandler := powermanagev1connect.NewPkiServiceHandler(handler)
 	mux := http.NewServeMux()
 	mux.Handle(path, httpHandler)
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
 	return clientRemoteFixture{
-		client:  powermanagev1connect.NewPkiServiceClient(server.Client(), server.URL),
-		ca:      ca,
-		handler: handler,
+		client:        powermanagev1connect.NewPkiServiceClient(server.Client(), server.URL),
+		ca:            ca,
+		gatewayCA:     gatewayCA,
+		gatewaySigner: gatewaySigner,
+		handler:       handler,
 	}
+}
+
+func newClientGatewayCertificate(
+	t *testing.T,
+	gatewayCA *x509.Certificate,
+	gatewaySigner crypto.Signer,
+	publicKey crypto.PublicKey,
+	dnsName string,
+) []byte {
+	t.Helper()
+	now := time.Now().UTC().Truncate(time.Second)
+	template := &x509.Certificate{
+		SerialNumber:          big.NewInt(29),
+		NotBefore:             now.Add(-time.Minute),
+		NotAfter:              now.Add(-time.Minute).Add(45 * 24 * time.Hour),
+		BasicConstraintsValid: true,
+		KeyUsage:              x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+		DNSNames:              []string{dnsName},
+	}
+	if err := identity.StampCertificateIdentity(template, identity.GatewayClass, "01ARZ3NDEKTSV4RRFFQ69G5FB0"); err != nil {
+		t.Fatalf("stamp gateway TLS identity: %v", err)
+	}
+	certificateDER, err := x509.CreateCertificate(rand.Reader, template, gatewayCA, publicKey, gatewaySigner)
+	if err != nil {
+		t.Fatalf("create gateway TLS certificate: %v", err)
+	}
+	return certificateDER
 }
 
 func newClientTestCA(t *testing.T) (*x509.Certificate, crypto.Signer) {

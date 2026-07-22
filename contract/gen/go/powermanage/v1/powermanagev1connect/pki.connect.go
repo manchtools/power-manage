@@ -46,6 +46,14 @@ const (
 	// PkiServiceForceRenewAgentProcedure is the fully-qualified name of the PkiService's
 	// ForceRenewAgent RPC.
 	PkiServiceForceRenewAgentProcedure = "/powermanage.v1.PkiService/ForceRenewAgent"
+	// PkiServiceEnrollGatewayProcedure is the fully-qualified name of the PkiService's EnrollGateway
+	// RPC.
+	PkiServiceEnrollGatewayProcedure = "/powermanage.v1.PkiService/EnrollGateway"
+	// PkiServiceRenewGatewayProcedure is the fully-qualified name of the PkiService's RenewGateway RPC.
+	PkiServiceRenewGatewayProcedure = "/powermanage.v1.PkiService/RenewGateway"
+	// PkiServiceRevokeGatewayProcedure is the fully-qualified name of the PkiService's RevokeGateway
+	// RPC.
+	PkiServiceRevokeGatewayProcedure = "/powermanage.v1.PkiService/RevokeGateway"
 )
 
 // PkiServiceClient is a client for the powermanage.v1.PkiService service.
@@ -54,6 +62,9 @@ type PkiServiceClient interface {
 	RenewAgent(context.Context, *connect.Request[v1.RenewAgentRequest]) (*connect.Response[v1.RenewAgentResponse], error)
 	RevokeAgent(context.Context, *connect.Request[v1.RevokeAgentRequest]) (*connect.Response[v1.RevokeAgentResponse], error)
 	ForceRenewAgent(context.Context, *connect.Request[v1.ForceRenewAgentRequest]) (*connect.Response[v1.ForceRenewAgentResponse], error)
+	EnrollGateway(context.Context, *connect.Request[v1.EnrollGatewayRequest]) (*connect.Response[v1.EnrollGatewayResponse], error)
+	RenewGateway(context.Context, *connect.Request[v1.RenewGatewayRequest]) (*connect.Response[v1.RenewGatewayResponse], error)
+	RevokeGateway(context.Context, *connect.Request[v1.RevokeGatewayRequest]) (*connect.Response[v1.RevokeGatewayResponse], error)
 }
 
 // NewPkiServiceClient constructs a client for the powermanage.v1.PkiService service. By default, it
@@ -91,6 +102,24 @@ func NewPkiServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(pkiServiceMethods.ByName("ForceRenewAgent")),
 			connect.WithClientOptions(opts...),
 		),
+		enrollGateway: connect.NewClient[v1.EnrollGatewayRequest, v1.EnrollGatewayResponse](
+			httpClient,
+			baseURL+PkiServiceEnrollGatewayProcedure,
+			connect.WithSchema(pkiServiceMethods.ByName("EnrollGateway")),
+			connect.WithClientOptions(opts...),
+		),
+		renewGateway: connect.NewClient[v1.RenewGatewayRequest, v1.RenewGatewayResponse](
+			httpClient,
+			baseURL+PkiServiceRenewGatewayProcedure,
+			connect.WithSchema(pkiServiceMethods.ByName("RenewGateway")),
+			connect.WithClientOptions(opts...),
+		),
+		revokeGateway: connect.NewClient[v1.RevokeGatewayRequest, v1.RevokeGatewayResponse](
+			httpClient,
+			baseURL+PkiServiceRevokeGatewayProcedure,
+			connect.WithSchema(pkiServiceMethods.ByName("RevokeGateway")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -100,6 +129,9 @@ type pkiServiceClient struct {
 	renewAgent      *connect.Client[v1.RenewAgentRequest, v1.RenewAgentResponse]
 	revokeAgent     *connect.Client[v1.RevokeAgentRequest, v1.RevokeAgentResponse]
 	forceRenewAgent *connect.Client[v1.ForceRenewAgentRequest, v1.ForceRenewAgentResponse]
+	enrollGateway   *connect.Client[v1.EnrollGatewayRequest, v1.EnrollGatewayResponse]
+	renewGateway    *connect.Client[v1.RenewGatewayRequest, v1.RenewGatewayResponse]
+	revokeGateway   *connect.Client[v1.RevokeGatewayRequest, v1.RevokeGatewayResponse]
 }
 
 // EnrollAgent calls powermanage.v1.PkiService.EnrollAgent.
@@ -122,12 +154,30 @@ func (c *pkiServiceClient) ForceRenewAgent(ctx context.Context, req *connect.Req
 	return c.forceRenewAgent.CallUnary(ctx, req)
 }
 
+// EnrollGateway calls powermanage.v1.PkiService.EnrollGateway.
+func (c *pkiServiceClient) EnrollGateway(ctx context.Context, req *connect.Request[v1.EnrollGatewayRequest]) (*connect.Response[v1.EnrollGatewayResponse], error) {
+	return c.enrollGateway.CallUnary(ctx, req)
+}
+
+// RenewGateway calls powermanage.v1.PkiService.RenewGateway.
+func (c *pkiServiceClient) RenewGateway(ctx context.Context, req *connect.Request[v1.RenewGatewayRequest]) (*connect.Response[v1.RenewGatewayResponse], error) {
+	return c.renewGateway.CallUnary(ctx, req)
+}
+
+// RevokeGateway calls powermanage.v1.PkiService.RevokeGateway.
+func (c *pkiServiceClient) RevokeGateway(ctx context.Context, req *connect.Request[v1.RevokeGatewayRequest]) (*connect.Response[v1.RevokeGatewayResponse], error) {
+	return c.revokeGateway.CallUnary(ctx, req)
+}
+
 // PkiServiceHandler is an implementation of the powermanage.v1.PkiService service.
 type PkiServiceHandler interface {
 	EnrollAgent(context.Context, *connect.Request[v1.EnrollAgentRequest]) (*connect.Response[v1.EnrollAgentResponse], error)
 	RenewAgent(context.Context, *connect.Request[v1.RenewAgentRequest]) (*connect.Response[v1.RenewAgentResponse], error)
 	RevokeAgent(context.Context, *connect.Request[v1.RevokeAgentRequest]) (*connect.Response[v1.RevokeAgentResponse], error)
 	ForceRenewAgent(context.Context, *connect.Request[v1.ForceRenewAgentRequest]) (*connect.Response[v1.ForceRenewAgentResponse], error)
+	EnrollGateway(context.Context, *connect.Request[v1.EnrollGatewayRequest]) (*connect.Response[v1.EnrollGatewayResponse], error)
+	RenewGateway(context.Context, *connect.Request[v1.RenewGatewayRequest]) (*connect.Response[v1.RenewGatewayResponse], error)
+	RevokeGateway(context.Context, *connect.Request[v1.RevokeGatewayRequest]) (*connect.Response[v1.RevokeGatewayResponse], error)
 }
 
 // NewPkiServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -161,6 +211,24 @@ func NewPkiServiceHandler(svc PkiServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(pkiServiceMethods.ByName("ForceRenewAgent")),
 		connect.WithHandlerOptions(opts...),
 	)
+	pkiServiceEnrollGatewayHandler := connect.NewUnaryHandler(
+		PkiServiceEnrollGatewayProcedure,
+		svc.EnrollGateway,
+		connect.WithSchema(pkiServiceMethods.ByName("EnrollGateway")),
+		connect.WithHandlerOptions(opts...),
+	)
+	pkiServiceRenewGatewayHandler := connect.NewUnaryHandler(
+		PkiServiceRenewGatewayProcedure,
+		svc.RenewGateway,
+		connect.WithSchema(pkiServiceMethods.ByName("RenewGateway")),
+		connect.WithHandlerOptions(opts...),
+	)
+	pkiServiceRevokeGatewayHandler := connect.NewUnaryHandler(
+		PkiServiceRevokeGatewayProcedure,
+		svc.RevokeGateway,
+		connect.WithSchema(pkiServiceMethods.ByName("RevokeGateway")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/powermanage.v1.PkiService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case PkiServiceEnrollAgentProcedure:
@@ -171,6 +239,12 @@ func NewPkiServiceHandler(svc PkiServiceHandler, opts ...connect.HandlerOption) 
 			pkiServiceRevokeAgentHandler.ServeHTTP(w, r)
 		case PkiServiceForceRenewAgentProcedure:
 			pkiServiceForceRenewAgentHandler.ServeHTTP(w, r)
+		case PkiServiceEnrollGatewayProcedure:
+			pkiServiceEnrollGatewayHandler.ServeHTTP(w, r)
+		case PkiServiceRenewGatewayProcedure:
+			pkiServiceRenewGatewayHandler.ServeHTTP(w, r)
+		case PkiServiceRevokeGatewayProcedure:
+			pkiServiceRevokeGatewayHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -194,4 +268,16 @@ func (UnimplementedPkiServiceHandler) RevokeAgent(context.Context, *connect.Requ
 
 func (UnimplementedPkiServiceHandler) ForceRenewAgent(context.Context, *connect.Request[v1.ForceRenewAgentRequest]) (*connect.Response[v1.ForceRenewAgentResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.PkiService.ForceRenewAgent is not implemented"))
+}
+
+func (UnimplementedPkiServiceHandler) EnrollGateway(context.Context, *connect.Request[v1.EnrollGatewayRequest]) (*connect.Response[v1.EnrollGatewayResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.PkiService.EnrollGateway is not implemented"))
+}
+
+func (UnimplementedPkiServiceHandler) RenewGateway(context.Context, *connect.Request[v1.RenewGatewayRequest]) (*connect.Response[v1.RenewGatewayResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.PkiService.RenewGateway is not implemented"))
+}
+
+func (UnimplementedPkiServiceHandler) RevokeGateway(context.Context, *connect.Request[v1.RevokeGatewayRequest]) (*connect.Response[v1.RevokeGatewayResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.PkiService.RevokeGateway is not implemented"))
 }

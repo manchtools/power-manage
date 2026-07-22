@@ -271,6 +271,53 @@ func TestRequireCertificateClass_RejectsWrongClass(t *testing.T) {
 	}
 }
 
+func TestRequireDNSAndURISANs_RequiresPresentNonEmptyExactExtension(t *testing.T) {
+	emptyGeneralNames, err := asn1.Marshal([]asn1.RawValue{})
+	if err != nil {
+		t.Fatalf("marshal empty GeneralNames: %v", err)
+	}
+	parsedWithoutSAN := serializeCertificateTemplate(t, &x509.Certificate{})
+	parsedEmptySAN := serializeCertificateTemplate(t, &x509.Certificate{ExtraExtensions: []pkix.Extension{{
+		Id: asn1.ObjectIdentifier{2, 5, 29, 17}, Value: emptyGeneralNames,
+	}}})
+	supported := serializeCertificateTemplate(t, &x509.Certificate{
+		DNSNames: []string{testGatewayDNS},
+		URIs:     []*url.URL{mustURL(t, identity.GatewaySPIFFEURI)},
+	})
+	tests := []struct {
+		name    string
+		cert    *x509.Certificate
+		wantErr string
+	}{
+		{name: "nil certificate", wantErr: "nil certificate"},
+		{
+			name: "in-memory parsed fields without raw SAN extension",
+			cert: &x509.Certificate{
+				DNSNames: []string{testGatewayDNS},
+				URIs:     []*url.URL{mustURL(t, identity.GatewaySPIFFEURI)},
+			},
+			wantErr: "subjectAltName extension is missing",
+		},
+		{name: "parsed certificate without SAN extension", cert: parsedWithoutSAN, wantErr: "subjectAltName extension is missing"},
+		{name: "empty GeneralNames sequence", cert: parsedEmptySAN, wantErr: "subjectAltName extension is empty"},
+		{name: "supported DNS and URI", cert: supported},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := identity.RequireDNSAndURISANs(test.cert)
+			if test.wantErr == "" {
+				if err != nil {
+					t.Fatalf("RequireDNSAndURISANs rejected supported DNS+URI SANs: %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), test.wantErr) {
+				t.Fatalf("RequireDNSAndURISANs error = %v; want %q", err, test.wantErr)
+			}
+		})
+	}
+}
+
 // TestIsCanonicalULID_ProfileGrammar keeps certificate IDs on the same exact
 // uppercase Crockford grammar consumed by command/result verification.
 func TestIsCanonicalULID_ProfileGrammar(t *testing.T) {

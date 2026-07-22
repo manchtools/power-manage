@@ -281,3 +281,13 @@ func (q *Queries) ResetAgentCertificateRevocations(ctx context.Context) error {
 	_, err := q.db.Exec(ctx, resetAgentCertificateRevocations)
 	return err
 }
+
+const resetGatewayCertificateRevocations = `-- name: ResetGatewayCertificateRevocations :exec
+DELETE FROM certificate_revocations
+WHERE certificate_class = 'gateway'
+`
+
+func (q *Queries) ResetGatewayCertificateRevocations(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, resetGatewayCertificateRevocations)
+	return err
+}

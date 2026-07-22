@@ -72,6 +72,9 @@ func TestEnrollmentHandler_IssuesAndPersistsAgentIdentity(t *testing.T) {
 	if !bytes.Equal(response.Msg.GetCertificateAuthorityDer(), fixture.agentCA.Raw) {
 		t.Fatal("enrollment response returned a different agent CA")
 	}
+	if !bytes.Equal(response.Msg.GetGatewayCertificateAuthorityDer(), fixture.gatewayCA.Raw) {
+		t.Fatal("enrollment response returned a different gateway CA")
+	}
 
 	persisted, err := fixture.eventStore.Device(context.Background(), deviceID)
 	if err != nil {
@@ -257,12 +260,34 @@ type enrollmentHandlerFixture struct {
 	pool       *pgxpool.Pool
 	eventStore *store.Store
 	agentCA    *x509.Certificate
+	gatewayCA  *x509.Certificate
 	tokenID    string
 	token      string
 	authorizer *testLifecycleAuthorizer
 }
 
 func newEnrollmentHandlerFixture(t *testing.T, maxUses int32) enrollmentHandlerFixture {
+	t.Helper()
+	return newEnrollmentHandlerFixtureForToken(t, RegistrationTokenOptions{
+		Purpose:   RegistrationTokenPurposeAgent,
+		MaxUses:   maxUses,
+		ExpiresAt: time.Now().Add(time.Hour),
+		Owner:     "owner@example.com",
+	})
+}
+
+func newGatewayEnrollmentHandlerFixture(t *testing.T, maxUses int32, dnsNames []string) enrollmentHandlerFixture {
+	t.Helper()
+	return newEnrollmentHandlerFixtureForToken(t, RegistrationTokenOptions{
+		Purpose:   RegistrationTokenPurposeGateway,
+		MaxUses:   maxUses,
+		ExpiresAt: time.Now().Add(time.Hour),
+		Owner:     "gateway-owner@example.com",
+		DNSNames:  dnsNames,
+	})
+}
+
+func newEnrollmentHandlerFixtureForToken(t *testing.T, options RegistrationTokenOptions) enrollmentHandlerFixture {
 	t.Helper()
 	pool := registrationPostgres.Database(t, store.Migrate)
 	eventStore, err := store.NewProduction(pool)
@@ -273,11 +298,7 @@ func newEnrollmentHandlerFixture(t *testing.T, maxUses int32) enrollmentHandlerF
 	if err != nil {
 		t.Fatalf("create registration-token service: %v", err)
 	}
-	minted, err := tokens.Mint(context.Background(), RegistrationTokenOptions{
-		MaxUses:   maxUses,
-		ExpiresAt: time.Now().Add(time.Hour),
-		Owner:     "owner@example.com",
-	})
+	minted, err := tokens.Mint(context.Background(), options)
 	if err != nil {
 		t.Fatalf("mint registration token: %v", err)
 	}
@@ -304,6 +325,7 @@ func newEnrollmentHandlerFixture(t *testing.T, maxUses int32) enrollmentHandlerF
 		pool:       pool,
 		eventStore: eventStore,
 		agentCA:    agentCA,
+		gatewayCA:  gatewayCA,
 		tokenID:    minted.TokenID,
 		token:      minted.Token,
 		authorizer: authorizer,

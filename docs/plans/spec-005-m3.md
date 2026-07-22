@@ -4,7 +4,7 @@ Spec milestone: SPEC-005 M3 (`ES-2`, `ES-3`, `ES-7`; AC-6, AC-7).
 
 ## Delta
 
-<!-- docref: begin src=server/internal/store/store.go#RebuildTarget:1cd7119a,server/internal/store/store.go#New:ff592594,server/internal/store/rebuild.go#RebuildAll:02b0c7a2,server/internal/store/generated/events.sql.go#ListEventsForReplayPage:b8ed1a35,server/internal/store/generated/events.sql.go#RebuildTableClosure:afc91dce -->
+<!-- docref: begin src=server/internal/store/store.go#RebuildTarget:538781d4,server/internal/store/store.go#New:ff592594,server/internal/store/rebuild.go#RebuildAll:417d4774,server/internal/store/generated/events.sql.go#ListEventsForReplayPage:b8ed1a35,server/internal/store/generated/events.sql.go#RebuildTableClosure:afc91dce -->
 - `server/internal/store/store.go`
   - require exact projector/rebuild-target parity at construction;
   - keep defensive copies of target metadata and reject duplicate ownership.

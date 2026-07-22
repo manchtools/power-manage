@@ -25,6 +25,7 @@ var credentialPEMTypes = [...]string{
 	"POWER MANAGE AGENT CERTIFICATE",
 	"POWER MANAGE AGENT PRIVATE KEY",
 	"POWER MANAGE AGENT CA CERTIFICATE",
+	"POWER MANAGE GATEWAY CA CERTIFICATE",
 	"POWER MANAGE SEALING PRIVATE KEY",
 }
 
@@ -173,7 +174,10 @@ func decodeStoredCredentialBundle(encoded []byte) (CredentialBundle, error) {
 	if _, err := parseExactCertificate(blocks[2].Bytes); err != nil {
 		return CredentialBundle{}, fmt.Errorf("enroll: parse stored agent CA certificate: %w", err)
 	}
-	sealingKeyValue, err := x509.ParsePKCS8PrivateKey(blocks[3].Bytes)
+	if _, err := parseExactCertificate(blocks[3].Bytes); err != nil {
+		return CredentialBundle{}, fmt.Errorf("enroll: parse stored gateway CA certificate: %w", err)
+	}
+	sealingKeyValue, err := x509.ParsePKCS8PrivateKey(blocks[4].Bytes)
 	if err != nil {
 		return CredentialBundle{}, fmt.Errorf("enroll: parse stored sealing private key: %w", err)
 	}
@@ -182,11 +186,12 @@ func decodeStoredCredentialBundle(encoded []byte) (CredentialBundle, error) {
 		return CredentialBundle{}, errors.New("enroll: stored sealing private key is not X25519")
 	}
 	return CredentialBundle{
-		DeviceID:                deviceID,
-		CertificateDER:          bytes.Clone(blocks[0].Bytes),
-		PrivateKey:              privateKey,
-		CertificateAuthorityDER: bytes.Clone(blocks[2].Bytes),
-		SealingPrivateKey:       sealingPrivateKey,
+		DeviceID:                       deviceID,
+		CertificateDER:                 bytes.Clone(blocks[0].Bytes),
+		PrivateKey:                     privateKey,
+		CertificateAuthorityDER:        bytes.Clone(blocks[2].Bytes),
+		GatewayCertificateAuthorityDER: bytes.Clone(blocks[3].Bytes),
+		SealingPrivateKey:              sealingPrivateKey,
 	}, nil
 }
 
@@ -203,7 +208,8 @@ func encodeCredentialBundle(bundle CredentialBundle) ([]byte, error) {
 		{Type: credentialPEMTypes[0], Bytes: bundle.CertificateDER},
 		{Type: credentialPEMTypes[1], Bytes: privateKeyDER},
 		{Type: credentialPEMTypes[2], Bytes: bundle.CertificateAuthorityDER},
-		{Type: credentialPEMTypes[3], Bytes: sealingPrivateKeyDER},
+		{Type: credentialPEMTypes[3], Bytes: bundle.GatewayCertificateAuthorityDER},
+		{Type: credentialPEMTypes[4], Bytes: sealingPrivateKeyDER},
 	}
 	var encoded []byte
 	for _, block := range blocks {

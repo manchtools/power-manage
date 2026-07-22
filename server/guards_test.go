@@ -61,27 +61,32 @@ func TestGuard_ProjectionWritesOnlyFromProjectors(t *testing.T) {
 	// These are the only generated projection mutations sanctioned by ES-2;
 	// each owner is the projector or reset function that may call it.
 	allowed := map[string]string{
-		"UpsertInventorySnapshot":          "projectInventorySnapshot",
-		"UpsertInventoryTombstone":         "projectInventoryTombstone",
-		"ResetInventorySnapshots":          "resetInventorySnapshots",
-		"UpsertRegistrationToken":          "projectRegistrationTokenMint",
-		"ProjectRegistrationTokenConsume":  "projectRegistrationTokenConsume",
-		"ProjectRegistrationTokenDisable":  "projectRegistrationTokenDisable",
-		"ResetRegistrationTokens":          "resetRegistrationTokens",
-		"UpsertDeviceEnrollment":           "projectAgentEnrollment",
-		"UpdateDeviceRenewal":              "projectAgentCertificateRenewal",
-		"UpdateDeviceLifecycleState":       "projectAgentLifecycleState",
-		"InsertCertificateRevocation":      "projectCertificateRevocation",
-		"ResetAgentCertificateRevocations": "resetDevices",
-		"ResetDevices":                     "resetDevices",
+		"UpsertInventorySnapshot":            "projectInventorySnapshot",
+		"UpsertInventoryTombstone":           "projectInventoryTombstone",
+		"ResetInventorySnapshots":            "resetInventorySnapshots",
+		"UpsertRegistrationToken":            "projectRegistrationTokenMint",
+		"ProjectRegistrationTokenConsume":    "projectRegistrationTokenConsume",
+		"ProjectRegistrationTokenDisable":    "projectRegistrationTokenDisable",
+		"ResetRegistrationTokens":            "resetRegistrationTokens",
+		"UpsertDeviceEnrollment":             "projectAgentEnrollment",
+		"UpdateDeviceRenewal":                "projectAgentCertificateRenewal",
+		"UpdateDeviceLifecycleState":         "projectAgentLifecycleState",
+		"InsertCertificateRevocation":        "projectCertificateRevocation",
+		"ResetAgentCertificateRevocations":   "resetDevices",
+		"ResetDevices":                       "resetDevices",
+		"UpsertGatewayEnrollment":            "projectGatewayEnrollment",
+		"UpdateGatewayRenewal":               "projectGatewayRenewal",
+		"UpdateGatewayLifecycleState":        "projectGatewayRevocation",
+		"ResetGatewayCertificateRevocations": "resetGateways",
+		"ResetGateways":                      "resetGateways",
 	}
 	var violations []string
-	guardtest.Discover(t, "projection mutation call sites", 13, func() ([]string, error) {
+	guardtest.Discover(t, "projection mutation call sites", 18, func() ([]string, error) {
 		var discovered int
 		var err error
 		violations, discovered, err = scanProjectionWrites(
 			".",
-			map[string]bool{"certificate_revocations": true, "devices": true, "inventory_snapshots": true, "registration_tokens": true},
+			map[string]bool{"certificate_revocations": true, "devices": true, "gateways": true, "inventory_snapshots": true, "registration_tokens": true},
 			allowed,
 		)
 		return make([]string, discovered), err

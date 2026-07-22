@@ -126,8 +126,9 @@ func (s *EnrollmentService) RenewAgent(
 		}
 	}
 	return connect.NewResponse(&powermanagev1.RenewAgentResponse{
-		CertificateDer:          certificateDER,
-		CertificateAuthorityDer: certificateAuthorityDER,
+		CertificateDer:                 certificateDER,
+		CertificateAuthorityDer:        certificateAuthorityDER,
+		GatewayCertificateAuthorityDer: bytes.Clone(s.authorities.gatewayCA.certificate.Raw),
 	}), nil
 }
 

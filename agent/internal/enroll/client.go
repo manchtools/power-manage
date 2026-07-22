@@ -38,11 +38,12 @@ const (
 // CredentialBundle is the verified public identity plus the two private keys
 // generated locally for it. Private fields never cross the enrollment RPC.
 type CredentialBundle struct {
-	DeviceID                string
-	CertificateDER          []byte
-	CertificateAuthorityDER []byte
-	PrivateKey              crypto.Signer
-	SealingPrivateKey       *ecdh.PrivateKey
+	DeviceID                       string
+	CertificateDER                 []byte
+	CertificateAuthorityDER        []byte
+	GatewayCertificateAuthorityDER []byte
+	PrivateKey                     crypto.Signer
+	SealingPrivateKey              *ecdh.PrivateKey
 }
 
 // CredentialStore owns first publication, strict loading, and atomic renewal
@@ -126,12 +127,21 @@ func (c *Client) Enroll(ctx context.Context, token, caFingerprint string) (strin
 	if err != nil {
 		return "", err
 	}
+	if err := validateGatewayTrustAnchor(
+		response.Msg.GetGatewayCertificateAuthorityDer(),
+		response.Msg.GetCertificateAuthorityDer(),
+		c.now(),
+		true,
+	); err != nil {
+		return "", err
+	}
 	bundle := CredentialBundle{
-		DeviceID:                deviceID,
-		CertificateDER:          bytes.Clone(response.Msg.GetCertificateDer()),
-		CertificateAuthorityDER: bytes.Clone(response.Msg.GetCertificateAuthorityDer()),
-		PrivateKey:              privateKey,
-		SealingPrivateKey:       sealingPrivateKey,
+		DeviceID:                       deviceID,
+		CertificateDER:                 bytes.Clone(response.Msg.GetCertificateDer()),
+		CertificateAuthorityDER:        bytes.Clone(response.Msg.GetCertificateAuthorityDer()),
+		GatewayCertificateAuthorityDER: bytes.Clone(response.Msg.GetGatewayCertificateAuthorityDer()),
+		PrivateKey:                     privateKey,
+		SealingPrivateKey:              sealingPrivateKey,
 	}
 	if err := c.store.Create(ctx, bundle); err != nil {
 		return "", fmt.Errorf("enroll: store credentials: %w", err)
@@ -199,12 +209,24 @@ func (c *Client) Renew(ctx context.Context) error {
 	if !bytes.Equal(response.Msg.GetCertificateAuthorityDer(), current.CertificateAuthorityDER) {
 		return errors.New("enroll: renewed certificate authority differs from enrolled authority")
 	}
+	if err := validateGatewayTrustAnchor(
+		response.Msg.GetGatewayCertificateAuthorityDer(),
+		response.Msg.GetCertificateAuthorityDer(),
+		c.now(),
+		true,
+	); err != nil {
+		return fmt.Errorf("enroll: validate renewal gateway certificate authority: %w", err)
+	}
+	if !bytes.Equal(response.Msg.GetGatewayCertificateAuthorityDer(), current.GatewayCertificateAuthorityDER) {
+		return errors.New("enroll: renewed gateway certificate authority differs from enrolled authority")
+	}
 	replacement := CredentialBundle{
-		DeviceID:                current.DeviceID,
-		CertificateDER:          bytes.Clone(response.Msg.GetCertificateDer()),
-		CertificateAuthorityDER: bytes.Clone(response.Msg.GetCertificateAuthorityDer()),
-		PrivateKey:              current.PrivateKey,
-		SealingPrivateKey:       sealingPrivateKey,
+		DeviceID:                       current.DeviceID,
+		CertificateDER:                 bytes.Clone(response.Msg.GetCertificateDer()),
+		CertificateAuthorityDER:        bytes.Clone(response.Msg.GetCertificateAuthorityDer()),
+		GatewayCertificateAuthorityDER: bytes.Clone(response.Msg.GetGatewayCertificateAuthorityDer()),
+		PrivateKey:                     current.PrivateKey,
+		SealingPrivateKey:              sealingPrivateKey,
 	}
 	if err := c.store.Replace(ctx, replacement); err != nil {
 		return fmt.Errorf("enroll: replace renewed credentials: %w", err)
@@ -340,6 +362,9 @@ func validateCredentialBundle(bundle CredentialBundle, now time.Time) error {
 	if deviceID != bundle.DeviceID {
 		return errors.New("enroll: credential bundle device ID mismatch")
 	}
+	if err := validateGatewayTrustAnchor(bundle.GatewayCertificateAuthorityDER, bundle.CertificateAuthorityDER, now, true); err != nil {
+		return err
+	}
 	if err := seal.ValidateX25519PublicKey(bundle.SealingPrivateKey.PublicKey().Bytes()); err != nil {
 		return fmt.Errorf("enroll: validate sealing private key: %w", err)
 	}
@@ -362,6 +387,9 @@ func validateStoredCredentialBundle(bundle CredentialBundle) error {
 	}
 	if err := sign.ValidateSigningKey(certificateAuthority.PublicKey); err != nil {
 		return fmt.Errorf("enroll: validate stored certificate authority key: %w", err)
+	}
+	if err := validateGatewayTrustAnchor(bundle.GatewayCertificateAuthorityDER, bundle.CertificateAuthorityDER, time.Time{}, false); err != nil {
+		return err
 	}
 	certificate, err := parseExactCertificate(bundle.CertificateDER)
 	if err != nil {
@@ -387,6 +415,30 @@ func validateStoredCredentialBundle(bundle CredentialBundle) error {
 	}
 	if err := seal.ValidateX25519PublicKey(bundle.SealingPrivateKey.PublicKey().Bytes()); err != nil {
 		return fmt.Errorf("enroll: validate stored sealing private key: %w", err)
+	}
+	return nil
+}
+
+func validateGatewayTrustAnchor(gatewayDER, agentDER []byte, now time.Time, requireCurrent bool) error {
+	gatewayCA, err := parseExactCertificate(gatewayDER)
+	if err != nil {
+		return fmt.Errorf("enroll: parse gateway certificate authority: %w", err)
+	}
+	if !gatewayCA.IsCA || !gatewayCA.BasicConstraintsValid || gatewayCA.KeyUsage&x509.KeyUsageCertSign == 0 {
+		return errors.New("enroll: gateway certificate authority has an invalid profile")
+	}
+	if err := sign.ValidateSigningKey(gatewayCA.PublicKey); err != nil {
+		return fmt.Errorf("enroll: validate gateway certificate authority key: %w", err)
+	}
+	if requireCurrent && (now.Before(gatewayCA.NotBefore) || now.After(gatewayCA.NotAfter)) {
+		return errors.New("enroll: gateway certificate authority is not currently valid")
+	}
+	agentCA, err := parseExactCertificate(agentDER)
+	if err != nil {
+		return fmt.Errorf("enroll: parse agent certificate authority for gateway separation: %w", err)
+	}
+	if bytes.Equal(gatewayCA.Raw, agentCA.Raw) || publicKeysEqual(gatewayCA.PublicKey, agentCA.PublicKey) {
+		return errors.New("enroll: agent and gateway certificate authorities are not distinct")
 	}
 	return nil
 }
