@@ -18,6 +18,7 @@ import (
 	"github.com/manchtools/power-manage/agent/internal/signing"
 	powermanagev1 "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1"
 	"github.com/manchtools/power-manage/contract/sign"
+	"github.com/manchtools/power-manage/contract/sign/testsupport"
 )
 
 const testDeviceID = "01ARZ3NDEKTSV4RRFFQ69G5FAV"
@@ -40,7 +41,7 @@ func TestNewProfile_RejectsUnsupportedSigningProfiles(t *testing.T) {
 		t.Fatalf("generate P-224 fixture: %v", err)
 	}
 	malformedPublic := &ecdsa.PublicKey{Curve: elliptic.P256()}
-	malformedPrivate := ecdsaPrivateKeyWithScalar(t, *malformedPublic, []byte{1})
+	malformedPrivate := testsupport.ECDSAPrivateKeyWithScalar(t, *malformedPublic, []byte{1})
 	validECDSADevice := validDevice.(*ecdsa.PrivateKey)
 	validECDSADeviceScalar, err := validECDSADevice.Bytes()
 	if err != nil {
@@ -51,9 +52,9 @@ func TestNewProfile_RejectsUnsupportedSigningProfiles(t *testing.T) {
 	if mismatchedECDSADeviceScalar.Sign() == 0 {
 		mismatchedECDSADeviceScalar.SetInt64(1)
 	}
-	ecdsaNilD := ecdsaPrivateKeyWithScalar(t, validECDSADevice.PublicKey, nil)
-	ecdsaZeroD := ecdsaPrivateKeyWithScalar(t, validECDSADevice.PublicKey, []byte{})
-	ecdsaMismatchedD := ecdsaPrivateKeyWithScalar(t, validECDSADevice.PublicKey, mismatchedECDSADeviceScalar.Bytes())
+	ecdsaNilD := testsupport.ECDSAPrivateKeyWithScalar(t, validECDSADevice.PublicKey, nil)
+	ecdsaZeroD := testsupport.ECDSAPrivateKeyWithScalar(t, validECDSADevice.PublicKey, []byte{})
+	ecdsaMismatchedD := testsupport.ECDSAPrivateKeyWithScalar(t, validECDSADevice.PublicKey, mismatchedECDSADeviceScalar.Bytes())
 	validRSADevice := rsa2048Signer(t).(*rsa.PrivateKey)
 	rsaNilD := *validRSADevice
 	rsaNilD.D = nil
@@ -221,21 +222,6 @@ func assertErrorContains(t *testing.T, err error, want string) {
 	if !strings.Contains(strings.ToLower(err.Error()), strings.ToLower(want)) {
 		t.Fatalf("error = %q; want substring %q", err, want)
 	}
-}
-
-func ecdsaPrivateKeyWithScalar(t *testing.T, public ecdsa.PublicKey, scalar []byte) *ecdsa.PrivateKey {
-	t.Helper()
-	key := &ecdsa.PrivateKey{PublicKey: public}
-	field := reflect.ValueOf(key).Elem().FieldByName("D")
-	if !field.IsValid() || !field.CanSet() {
-		t.Fatal("ecdsa.PrivateKey scalar field D is unavailable to the adversarial test fixture")
-	}
-	if scalar == nil {
-		field.Set(reflect.Zero(field.Type()))
-	} else {
-		field.Set(reflect.ValueOf(new(big.Int).SetBytes(scalar)))
-	}
-	return key
 }
 
 func p256Signer(t *testing.T) crypto.Signer { return ecdsaSigner(t, elliptic.P256()) }
