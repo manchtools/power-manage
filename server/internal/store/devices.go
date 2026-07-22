@@ -36,6 +36,7 @@ type Device struct {
 	CertificateDER         []byte
 	CertificateFingerprint [sha256.Size]byte
 	SealingPublicKey       []byte
+	PreviousCertificateDER []byte
 	RegistrationTokenID    string
 	Owner                  string
 	ProjectionVersion      int64
@@ -167,11 +168,24 @@ func deviceFromRowWithFingerprintPolicy(deviceID string, row generated.Device, r
 	if requireDerivedFingerprint && storedFingerprint != derivedFingerprint {
 		return Device{}, errors.New("store: device projection has a mismatched certificate fingerprint")
 	}
+	var previousCertificateDER []byte
+	if len(row.PreviousCertificateDer) > 0 {
+		_, renewal, err := validateAgentCertificateRenewal(canonicalID, agentCertificateRenewedPayload{
+			CertificateDER:           payload.CertificateDER,
+			SealingPublicKey:         payload.SealingPublicKey,
+			SupersededCertificateDER: row.PreviousCertificateDer,
+		})
+		if err != nil {
+			return Device{}, fmt.Errorf("store: invalid previous certificate projection: %w", err)
+		}
+		previousCertificateDER = renewal.SupersededCertificateDER
+	}
 	return Device{
 		DeviceID:               canonicalID,
 		CertificateDER:         payload.CertificateDER,
 		CertificateFingerprint: storedFingerprint,
 		SealingPublicKey:       payload.SealingPublicKey,
+		PreviousCertificateDER: previousCertificateDER,
 		RegistrationTokenID:    payload.RegistrationTokenID,
 		Owner:                  payload.Owner,
 		ProjectionVersion:      row.ProjectionVersion,
@@ -265,6 +279,7 @@ func projectAgentEnrollment(ctx context.Context, tx ProjectionTx, event Persiste
 		bytes.Equal(row.CertificateDer, payload.CertificateDER) &&
 		bytes.Equal(row.CertificateFingerprint, fingerprint[:]) &&
 		bytes.Equal(row.SealingPublicKey, payload.SealingPublicKey) &&
+		len(row.PreviousCertificateDer) == 0 &&
 		row.RegistrationTokenID == payload.RegistrationTokenID &&
 		row.Owner == payload.Owner {
 		return nil
@@ -311,7 +326,8 @@ func projectAgentCertificateRenewal(ctx context.Context, tx ProjectionTx, event 
 	if row.ProjectionVersion == event.StreamVersion &&
 		bytes.Equal(row.CertificateDer, payload.CertificateDER) &&
 		bytes.Equal(row.CertificateFingerprint, fingerprint[:]) &&
-		bytes.Equal(row.SealingPublicKey, payload.SealingPublicKey) {
+		bytes.Equal(row.SealingPublicKey, payload.SealingPublicKey) &&
+		bytes.Equal(row.PreviousCertificateDer, payload.SupersededCertificateDER) {
 		return nil
 	}
 	return errors.New("store: agent certificate renewal conflicts with the current device projection")

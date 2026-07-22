@@ -64,7 +64,9 @@ func TestRenewalHandler_RenewsCurrentIdentityAndRecordsSupersession(t *testing.T
 	}
 	wantFingerprint := sha256.Sum256(renewed.Raw)
 	if persisted.ProjectionVersion != 2 || persisted.CertificateFingerprint != wantFingerprint ||
-		!bytes.Equal(persisted.CertificateDER, renewed.Raw) || !bytes.Equal(persisted.SealingPublicKey, newSealingKey) {
+		!bytes.Equal(persisted.CertificateDER, renewed.Raw) ||
+		!bytes.Equal(persisted.PreviousCertificateDER, currentCertificate) ||
+		!bytes.Equal(persisted.SealingPublicKey, newSealingKey) {
 		t.Fatalf("renewed projection = %+v; want version two with exact replacement state", persisted)
 	}
 
@@ -80,6 +82,44 @@ func TestRenewalHandler_RenewsCurrentIdentityAndRecordsSupersession(t *testing.T
 	if eventType != "AgentCertificateRenewed" || !bytes.Equal(durable.CertificateDER, renewed.Raw) ||
 		!bytes.Equal(durable.SealingPublicKey, newSealingKey) || !bytes.Equal(durable.SupersededCertificateDER, currentCertificate) {
 		t.Fatalf("renewal event = %q %+v; want exact replacement and superseded DER", eventType, durable)
+	}
+}
+
+func TestRenewalHandler_RetryAfterLostResponseReturnsExistingSuccessor(t *testing.T) {
+	fixture := newEnrollmentHandlerFixture(t, 1)
+	currentKey, currentCertificate, deviceID := enrollRenewalFixture(t, fixture)
+	request := &powermanagev1.RenewAgentRequest{
+		CertificateDer:               currentCertificate,
+		CertificateSigningRequestDer: newEnrollmentCSR(t, currentKey, pkix.Name{}, nil),
+		SealingPublicKey:             newEnrollmentSealingKey(t),
+	}
+
+	first, err := fixture.client.RenewAgent(context.Background(), connect.NewRequest(proto.Clone(request).(*powermanagev1.RenewAgentRequest)))
+	if err != nil {
+		t.Fatalf("first RenewAgent: %v", err)
+	}
+	retryRequest := proto.Clone(request).(*powermanagev1.RenewAgentRequest)
+	retryRequest.CertificateSigningRequestDer = newEnrollmentCSR(t, currentKey, pkix.Name{}, nil)
+	retry, err := fixture.client.RenewAgent(context.Background(), connect.NewRequest(retryRequest))
+	if err != nil {
+		t.Fatalf("retry RenewAgent: %v", err)
+	}
+	if !bytes.Equal(retry.Msg.GetCertificateDer(), first.Msg.GetCertificateDer()) ||
+		!bytes.Equal(retry.Msg.GetCertificateAuthorityDer(), first.Msg.GetCertificateAuthorityDer()) {
+		t.Fatal("renewal retry did not return the exact existing successor")
+	}
+
+	mismatched := proto.Clone(request).(*powermanagev1.RenewAgentRequest)
+	mismatched.SealingPublicKey = newEnrollmentSealingKey(t)
+	if _, err := fixture.client.RenewAgent(context.Background(), connect.NewRequest(mismatched)); connect.CodeOf(err) != connect.CodeUnauthenticated {
+		t.Fatalf("mismatched retry code = %v (error %v); want unauthenticated", connect.CodeOf(err), err)
+	}
+	var events int
+	if err := fixture.pool.QueryRow(context.Background(), `SELECT count(*) FROM events WHERE stream_type = 'device' AND stream_id = $1`, deviceID).Scan(&events); err != nil {
+		t.Fatalf("count device events: %v", err)
+	}
+	if events != 2 {
+		t.Fatalf("device events = %d; want enrollment plus one renewal", events)
 	}
 }
 
@@ -239,7 +279,11 @@ func TestRenewalHandler_RateLimitsNetworkSource(t *testing.T) {
 		SealingPublicKey:             newEnrollmentSealingKey(t),
 	}
 	for attempt := 1; attempt <= 6; attempt++ {
-		_, err := fixture.client.RenewAgent(context.Background(), connect.NewRequest(proto.Clone(request).(*powermanagev1.RenewAgentRequest)))
+		attemptRequest := proto.Clone(request).(*powermanagev1.RenewAgentRequest)
+		if attempt > 1 {
+			attemptRequest.SealingPublicKey = newEnrollmentSealingKey(t)
+		}
+		_, err := fixture.client.RenewAgent(context.Background(), connect.NewRequest(attemptRequest))
 		if attempt == 1 {
 			if err != nil {
 				t.Fatalf("attempt 1 renewal: %v", err)
@@ -268,7 +312,11 @@ func TestRenewalHandler_ConcurrentRequestsProduceOneCertificate(t *testing.T) {
 		SealingPublicKey:             newEnrollmentSealingKey(t),
 	}
 	start := make(chan struct{})
-	results := make(chan error, 2)
+	type renewalResult struct {
+		response *connect.Response[powermanagev1.RenewAgentResponse]
+		err      error
+	}
+	results := make(chan renewalResult, 2)
 	var wait sync.WaitGroup
 	for range 2 {
 		wait.Add(1)
@@ -276,25 +324,25 @@ func TestRenewalHandler_ConcurrentRequestsProduceOneCertificate(t *testing.T) {
 			defer wait.Done()
 			<-start
 			cloned := proto.Clone(request).(*powermanagev1.RenewAgentRequest)
-			_, err := fixture.client.RenewAgent(context.Background(), connect.NewRequest(cloned))
-			results <- err
+			response, err := fixture.client.RenewAgent(context.Background(), connect.NewRequest(cloned))
+			results <- renewalResult{response: response, err: err}
 		}()
 	}
 	close(start)
 	wait.Wait()
 	close(results)
-	successes := 0
-	for err := range results {
-		if err == nil {
-			successes++
+	var certificateDER []byte
+	for result := range results {
+		if result.err != nil {
+			t.Fatalf("concurrent renewal error = %v; want idempotent success", result.err)
+		}
+		if certificateDER == nil {
+			certificateDER = bytes.Clone(result.response.Msg.GetCertificateDer())
 			continue
 		}
-		if connect.CodeOf(err) != connect.CodeUnauthenticated {
-			t.Fatalf("losing renewal error = %v; want uniform unauthenticated rejection", err)
+		if !bytes.Equal(result.response.Msg.GetCertificateDer(), certificateDER) {
+			t.Fatal("concurrent renewal returned more than one successor certificate")
 		}
-	}
-	if successes != 1 {
-		t.Fatalf("successful renewals = %d; want exactly one", successes)
 	}
 	var events int
 	if err := fixture.pool.QueryRow(context.Background(), `SELECT count(*) FROM events WHERE stream_type = 'device' AND stream_id = $1`, deviceID).Scan(&events); err != nil {

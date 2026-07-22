@@ -174,7 +174,7 @@ func TestDeviceProjection_RenewsAndRebuildsExactState(t *testing.T) {
 		t.Fatalf("append locked renewal: %v", err)
 	}
 
-	assertRenewedDeviceProjection(t, eventStore, renewedDER, renewedSealingKey)
+	assertRenewedDeviceProjection(t, eventStore, renewedDER, currentDER, renewedSealingKey)
 	currentFingerprint := sha256.Sum256(currentDER)
 	if _, err := pool.Exec(context.Background(), `
 		UPDATE devices
@@ -182,14 +182,15 @@ func TestDeviceProjection_RenewsAndRebuildsExactState(t *testing.T) {
 		    certificate_der = $1,
 		    certificate_fingerprint = $2,
 		    sealing_public_key = $3,
+		    previous_certificate_der = $4,
 		    registration_token_id = '01ARZ3NDEKTSV4RRFFQ69G5FAX',
-		    owner = 'corrupt'`, currentDER, currentFingerprint[:], firstSealingKey); err != nil {
+		    owner = 'corrupt'`, currentDER, currentFingerprint[:], firstSealingKey, renewedDER); err != nil {
 		t.Fatalf("corrupt renewed projection fixture: %v", err)
 	}
 	if err := eventStore.RebuildAll(context.Background(), DeviceRebuildTarget); err != nil {
 		t.Fatalf("rebuild renewed device projection: %v", err)
 	}
-	assertRenewedDeviceProjection(t, eventStore, renewedDER, renewedSealingKey)
+	assertRenewedDeviceProjection(t, eventStore, renewedDER, currentDER, renewedSealingKey)
 }
 
 func TestAgentCertificateRenewedEvent_RejectsInvalidTransitionMaterial(t *testing.T) {
@@ -326,7 +327,7 @@ func TestDeviceLifecycleLock_SerializesSameDeviceOnly(t *testing.T) {
 	}
 }
 
-func assertRenewedDeviceProjection(t *testing.T, eventStore *Store, certificateDER, sealingKey []byte) {
+func assertRenewedDeviceProjection(t *testing.T, eventStore *Store, certificateDER, previousCertificateDER, sealingKey []byte) {
 	t.Helper()
 	device, err := eventStore.Device(context.Background(), testEnrolledDeviceID)
 	if err != nil {
@@ -334,7 +335,9 @@ func assertRenewedDeviceProjection(t *testing.T, eventStore *Store, certificateD
 	}
 	wantFingerprint := sha256.Sum256(certificateDER)
 	if device.ProjectionVersion != 2 || device.CertificateFingerprint != wantFingerprint ||
-		!bytes.Equal(device.CertificateDER, certificateDER) || !bytes.Equal(device.SealingPublicKey, sealingKey) ||
+		!bytes.Equal(device.CertificateDER, certificateDER) ||
+		!bytes.Equal(device.PreviousCertificateDER, previousCertificateDER) ||
+		!bytes.Equal(device.SealingPublicKey, sealingKey) ||
 		device.RegistrationTokenID != testEnrollmentTokenID || device.Owner != "owner@example.com" {
 		t.Fatalf("renewed device projection = %+v; want exact version-two state", device)
 	}

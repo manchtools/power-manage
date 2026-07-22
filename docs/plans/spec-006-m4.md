@@ -21,7 +21,7 @@ AC-1/AC-2/AC-16; GUARD-006-1).
   stamps exactly the agent SPIFFE URI plus CN, and issues a one-year
   ClientAuth certificate from the agent CA.
 <!-- docref: end -->
-<!-- docref: begin src=server/internal/store/migrations/006_devices.sql#@devices-schema:f36bec6f,server/internal/store/devices.go#AgentEnrolledEvent:5763ffe4,server/internal/store/devices.go#Store.Device:320327d5,server/internal/store/devices.go#projectAgentEnrollment:49449e20 -->
+<!-- docref: begin src=server/internal/store/migrations/006_devices.sql#@devices-schema:f36bec6f,server/internal/store/devices.go#AgentEnrolledEvent:5763ffe4,server/internal/store/devices.go#Store.Device:320327d5,server/internal/store/devices.go#projectAgentEnrollment:267d69f3 -->
 - Persist `AgentEnrolled` as the sole durable enrollment mutation. Its device
   projection stores exact certificate DER, a SHA-256 certificate fingerprint,
   the 32-byte sealing public key, token locator/owner provenance, and

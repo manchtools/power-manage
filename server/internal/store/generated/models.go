@@ -19,6 +19,7 @@ type Device struct {
 	RegistrationTokenID    string
 	Owner                  string
 	UpdatedAt              time.Time
+	PreviousCertificateDer []byte
 }
 
 type Event struct {

@@ -46,6 +46,8 @@ because it keeps printing OK. In verify/CI/guard scripts:
 - `docref suggest` is repository-wide and verbose: tee its full output before
   filtering. With docref 0.1.1, use `docref claim` for marker blocks and
   `docref approve` for reviewed prose; there is no `docref fix` command.
+- Commit-range lint uses `./scripts/check-conventions.sh ci-commits <base>
+  <head>`; both revisions are mandatory.
 - Before accepting a version correction or pin change, verify the upstream
   release/tag and installable artifact. Treat a newly published release's
   initial 404 as potentially transient and re-check its assets before
@@ -74,6 +76,8 @@ because it keeps printing OK. In verify/CI/guard scripts:
 - Run repository-wide `docref` commands from the root with root-relative paths.
   Go symbol references use `path#Symbol`; named regions use `path#@region` and
   are confirmed with `docref anchors` before claiming.
+- `docref approve` always requires one or more explicit root-relative paths;
+  never invoke it without path arguments.
 - Follow-up reads use only paths actually returned by prior `rg --files` or
   `find` discovery. A known directory is not a file inventory; never append a
   guessed sibling filename, including inside the same shell command.

@@ -19,12 +19,12 @@ func TestValidateRootOnlyFileInfo_RequiresRegularRootOwnedExactModeAndBound(t *t
 		want string
 	}{
 		{name: "regular root-only", info: fakeRootFileInfo{mode: 0o600, size: 8, stat: syscall.Stat_t{Uid: 0}}},
-		{name: "non-regular", info: fakeRootFileInfo{mode: os.ModeNamedPipe | 0o600, size: 8, stat: syscall.Stat_t{Uid: 0}}, want: "regular"},
-		{name: "non-root owner", info: fakeRootFileInfo{mode: 0o600, size: 8, stat: syscall.Stat_t{Uid: 1000}}, want: "root-owned"},
-		{name: "permissive mode", info: fakeRootFileInfo{mode: 0o640, size: 8, stat: syscall.Stat_t{Uid: 0}}, want: "0600"},
-		{name: "special mode bits", info: fakeRootFileInfo{mode: os.ModeSetuid | os.ModeSetgid | os.ModeSticky | 0o600, size: 8, stat: syscall.Stat_t{Uid: 0}}, want: "0600"},
-		{name: "too large", info: fakeRootFileInfo{mode: 0o600, size: 9, stat: syscall.Stat_t{Uid: 0}}, want: "too large"},
-		{name: "negative size", info: fakeRootFileInfo{mode: 0o600, size: -1, stat: syscall.Stat_t{Uid: 0}}, want: "size"},
+		{name: "non-regular", info: fakeRootFileInfo{mode: os.ModeNamedPipe | 0o600, size: 8, stat: syscall.Stat_t{Uid: 0}}, want: "is not a regular file"},
+		{name: "non-root owner", info: fakeRootFileInfo{mode: 0o600, size: 8, stat: syscall.Stat_t{Uid: 1000}}, want: "is not root-owned"},
+		{name: "permissive mode", info: fakeRootFileInfo{mode: 0o640, size: 8, stat: syscall.Stat_t{Uid: 0}}, want: "must have mode 0600"},
+		{name: "special mode bits", info: fakeRootFileInfo{mode: os.ModeSetuid | os.ModeSetgid | os.ModeSticky | 0o600, size: 8, stat: syscall.Stat_t{Uid: 0}}, want: "must have mode 0600"},
+		{name: "too large", info: fakeRootFileInfo{mode: 0o600, size: 9, stat: syscall.Stat_t{Uid: 0}}, want: "is too large"},
+		{name: "negative size", info: fakeRootFileInfo{mode: 0o600, size: -1, stat: syscall.Stat_t{Uid: 0}}, want: "has an invalid size"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -56,7 +56,7 @@ func TestReadRootFile_RefusesFinalSymlink(t *testing.T) {
 }
 
 func TestReadRootFile_RejectsInvalidBoundBeforeFilesystemAccess(t *testing.T) {
-	if _, err := ReadRootFile("/definitely/absent/identity.pem", 0, 0o600); err == nil || !strings.Contains(err.Error(), "maximum file size") {
+	if _, err := ReadRootFile("/definitely/absent/identity.pem", 0, 0o600); err == nil || !strings.Contains(err.Error(), "maximum file size must be within") {
 		t.Fatalf("ReadRootFile invalid-bound error = %v; want argument rejection", err)
 	}
 }
@@ -77,13 +77,13 @@ func TestReadRootFile_ReadsOnlyBoundedMode0600RootFile(t *testing.T) {
 	if err != nil || string(got) != "12345678" {
 		t.Fatalf("ReadRootFile = %q, %v; want exact bounded content", got, err)
 	}
-	if _, err := ReadRootFile(path, 7, 0o600); err == nil || !strings.Contains(err.Error(), "too large") {
+	if _, err := ReadRootFile(path, 7, 0o600); err == nil || !strings.Contains(err.Error(), "is too large") {
 		t.Fatalf("oversize ReadRootFile error = %v; want too large", err)
 	}
 	if err := os.Chmod(path, 0o640); err != nil {
 		t.Fatalf("make root file too permissive: %v", err)
 	}
-	if _, err := ReadRootFile(path, 8, 0o600); err == nil || !strings.Contains(err.Error(), "0600") {
+	if _, err := ReadRootFile(path, 8, 0o600); err == nil || !strings.Contains(err.Error(), "must have mode 0600") {
 		t.Fatalf("permissive ReadRootFile error = %v; want mode 0600", err)
 	}
 }

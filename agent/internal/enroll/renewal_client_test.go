@@ -10,6 +10,7 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"errors"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -57,6 +58,28 @@ func TestClient_RenewReusesSigningKeyRotatesSealingAndAtomicallyReplaces(t *test
 	}
 	if !bytes.Equal(fixture.store.bundle.CertificateAuthorityDER, fixture.ca.Raw) || fixture.store.bundle.DeviceID != enrolledClientDeviceID {
 		t.Fatal("replacement changed the enrolled CA or device identity")
+	}
+}
+
+func TestClient_RenewReusesPendingSealingKeyAfterRemoteFailure(t *testing.T) {
+	fixture := newRenewalClientFixture(t)
+	fixture.handler.failAfterIssue = 1
+
+	if err := fixture.client.Renew(context.Background()); err == nil {
+		t.Fatal("first Renew error = nil; want lost-response failure")
+	}
+	if fixture.store.replaceCalls != 0 {
+		t.Fatalf("replace calls after lost response = %d; want 0", fixture.store.replaceCalls)
+	}
+	if err := fixture.client.Renew(context.Background()); err != nil {
+		t.Fatalf("retry Renew: %v", err)
+	}
+	if fixture.handler.calls != 2 || fixture.store.replaceCalls != 1 {
+		t.Fatalf("retry effects = (%d remote, %d replace); want (2, 1)", fixture.handler.calls, fixture.store.replaceCalls)
+	}
+	if len(fixture.handler.sealingPublicKeys) != 2 ||
+		!bytes.Equal(fixture.handler.sealingPublicKeys[0], fixture.handler.sealingPublicKeys[1]) {
+		t.Fatal("renewal retry did not reuse the pending sealing key")
 	}
 }
 
@@ -112,8 +135,10 @@ type renewalClientHandler struct {
 	responseCertificate []byte
 	substituteKey       bool
 	omitClientAuth      bool
+	failAfterIssue      int
 	calls               int
 	request             *powermanagev1.RenewAgentRequest
+	sealingPublicKeys   [][]byte
 }
 
 func newRenewalClientFixture(t *testing.T) renewalClientFixture {
@@ -157,6 +182,7 @@ func (h *renewalClientHandler) EnrollAgent(context.Context, *connect.Request[pow
 func (h *renewalClientHandler) RenewAgent(_ context.Context, request *connect.Request[powermanagev1.RenewAgentRequest]) (*connect.Response[powermanagev1.RenewAgentResponse], error) {
 	h.calls++
 	h.request = request.Msg
+	h.sealingPublicKeys = append(h.sealingPublicKeys, bytes.Clone(request.Msg.GetSealingPublicKey()))
 	csr, err := x509.ParseCertificateRequest(request.Msg.GetCertificateSigningRequestDer())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -175,10 +201,15 @@ func (h *renewalClientHandler) RenewAgent(_ context.Context, request *connect.Re
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+		h.responseCertificate = bytes.Clone(certificateDER)
 	}
 	caDER := h.responseCA
 	if caDER == nil {
 		caDER = h.ca.Raw
+	}
+	if h.failAfterIssue > 0 {
+		h.failAfterIssue--
+		return nil, connect.NewError(connect.CodeUnavailable, errors.New("response lost after issuance"))
 	}
 	return connect.NewResponse(&powermanagev1.RenewAgentResponse{
 		CertificateDer:          certificateDER,
