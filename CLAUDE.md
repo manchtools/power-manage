@@ -127,14 +127,38 @@ regression test proven red first.
 - **For repository work, keep `workdir` at the repository root.** Format with
   root-relative paths and run module checks with `go ... -C <module>`; never
   combine `gofmt` and a module-local Go command under one module workdir.
+- `staticcheck` gets its own module-scoped command; never prefix a
+  module-workdir staticcheck invocation with root-relative formatting or file
+  paths.
 - When a Go command combines `-C` with flags such as `-race` or `-run`, place
   `-C <module>` first in the Go subcommand's flag list.
 - Run repository-wide CLIs, including `docref`, from the repository root with
   repository-relative paths; do not rewrite those paths with `../` from a
   module working directory.
+- In docref source references, Go symbols use `path#Symbol` while named code
+  regions use `path#@region`; confirm region names with `docref anchors` before
+  generating a claim.
 - After discovering files with `rg --files` or `find`, build follow-up reads
   only from paths that discovery actually returned; never append a guessed
   sibling filename to an otherwise verified command.
+- Before patching an escaping-sensitive literal, inspect its exact current
+  bytes and match that observed form; do not reconstruct it through an extra
+  shell, JSON, or JavaScript escaping layer.
+- When a patch touches several distant hunks or files, inspect every current
+  target and apply small file-local patches; do not let one stale context make
+  an otherwise independent multi-file correction fail wholesale.
+- After adding a call site, resolve every new identifier against an existing
+  declaration or add that declaration in the same patch; reuse values already
+  returned by test factories instead of inventing accessor helpers.
+- In PostgreSQL migrations, explicitly name table-level constraints so they
+  cannot collide with PostgreSQL's `<table>_<column>_check` names for
+  column-level checks; exercise every new migration from an empty database.
+- Projection-corruption fixtures must write constraint-valid but semantically
+  wrong values unless the schema constraint itself is under test; compare the
+  fixture mutation against the current migration before running it.
+- Before adding an importable test-support package with dynamic database calls,
+  inspect repository static-SQL guards; any necessary exemption must be keyed
+  to the exact file and method with a matches-zero-protected call count.
 - Review an uncommitted milestone with
   `coderabbit review --base main --include-untracked`; plain text is the
   default in the installed CLI, so do not pass the removed `--plain` or
@@ -142,6 +166,18 @@ regression test proven red first.
 - After editing a shell file containing heredocs, inspect the numbered changed
   region; `bash -n` cannot detect code accidentally swallowed as fixture text.
 - Negative tests assert the intended failure message, never only a nonzero exit.
+- Before the local review gate, scan every changed negative-test branch,
+  including table subtests, and pair each `err != nil` expectation with the
+  exact intended sentinel or stable error category.
+- Every optimistic-conflict retry loop must combine fresh-state
+  re-authorization with backoff and a finite internal retry budget; caller
+  cancellation alone is not a bound because production callers may use a
+  context without a deadline.
+- Preserve stable multiword error categories as contiguous phrases; place
+  operation-specific qualifiers after the category so callers and negative
+  tests do not lose the recognizer text.
+- Go error strings begin lowercase and omit terminal punctuation so wrapped
+  errors compose cleanly and pass staticcheck ST1005.
 - After pushing, poll CI to completion in the same session; fix failures
   immediately.
 - For `gh --json` status inspection, use only fields listed by that command;
