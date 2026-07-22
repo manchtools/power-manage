@@ -3,12 +3,14 @@ package enroll
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -174,6 +176,24 @@ func TestRelay_RefusesWritableSocketParent(t *testing.T) {
 	if err := os.Chmod(directory, 0o777); err != nil {
 		t.Fatalf("make socket parent writable: %v", err)
 	}
+	original := relayParentSafe
+	relayParentSafe = func(path string) error {
+		info, err := os.Stat(path)
+		if err != nil {
+			return err
+		}
+		stat, ok := info.Sys().(*syscall.Stat_t)
+		if !ok || stat == nil {
+			return errors.New("test parent ownership is unavailable")
+		}
+		rootStat := *stat
+		rootStat.Uid = 0
+		if err := validateRelayParentInfo(rootOwnedRelayParentInfo{FileInfo: info, stat: &rootStat}); err != nil {
+			return fmt.Errorf("enroll: relay socket parent is unsafe: %s: %w", path, err)
+		}
+		return nil
+	}
+	t.Cleanup(func() { relayParentSafe = original })
 	relay, err := NewRelay(&countingEnroller{})
 	if err != nil {
 		t.Fatalf("NewRelay: %v", err)
@@ -185,6 +205,13 @@ func TestRelay_RefusesWritableSocketParent(t *testing.T) {
 		t.Fatalf("writable-parent Serve error = %v; want unsafe-parent refusal", err)
 	}
 }
+
+type rootOwnedRelayParentInfo struct {
+	os.FileInfo
+	stat *syscall.Stat_t
+}
+
+func (i rootOwnedRelayParentInfo) Sys() any { return i.stat }
 
 func TestSubmit_RejectsTrailingLocalResponse(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "enroll.sock")

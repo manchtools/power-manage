@@ -99,66 +99,9 @@ regression test proven red first.
 
 ## Verification honesty
 
-- Never truncate a command's only copy of its output: `cmd 2>&1 | tee` to a
-  file first, then grep the file; `set -o pipefail`. <!-- a tail -30 once
-  kept 1 of 7 review findings and forced a full re-run -->
-- `docref suggest` is repository-wide and verbose: always tee its full output
-  to a file before filtering for the touched documentation.
-- With docref 0.1.1, generate marker blocks with `docref claim` and record
-  reviewed prose with `docref approve`; there is no `docref fix` command.
-- Judge test runs by grepping the FULL output for `FAIL`, not the last lines.
-- Before accepting a version correction or changing a pin, verify the upstream
-  release/tag and installable artifact; a claimed version is not availability.
-- For a new direct dependency, select the newest verified stable version that
-  supports the repository toolchain unless a documented compatibility bound
-  requires an older one; transitive-version alignment alone is not a reason.
-- Before `go mod tidy` in a multi-module workspace, inspect the repository's
-  existing local-module requirement convention. Do not persist pseudo-version
-  requirements for workspace-local modules when sibling manifests deliberately
-  rely on `go.work`.
-- For a newly published release, treat an initial 404 as potentially transient:
-  re-check the release assets before proposing a downgrade.
-- Multi-step validation commands use `set -e -o pipefail` unless each failure
-  is deliberately captured; a later green command must not mask an earlier red.
-- Before running or rerunning a command, resolve every path against the
-  command's declared working directory; do not reuse a known-bad command
-  verbatim.
-- Keep checks that require different working directories in separate command
-  invocations, each with an explicit working directory.
-- For a command that formats repository paths and runs module-local Go checks,
-  format from the repository root first; never combine the two path contexts.
-- Before the canonical gate, derive the full modified/untracked non-generated
-  Go-file inventory from Git and run gofmt over that set; formatting only the
-  most recently edited package can leave registry edits behind.
-- **Before every command, compare `workdir` with every explicit path.** When
-  `workdir` is any module directory (`contract/`, `agent/`, `server/`, or
-  `sdk/`), arguments must be module-relative and must not name that module or
-  a sibling module as their first path component. Run cross-module scans and
-  repository-relative formatting from the repository root; split them from
-  module-local checks.
-- **For repository work, keep `workdir` at the repository root.** Format with
-  root-relative paths and run module checks with `go ... -C <module>`; never
-  combine `gofmt` and a module-local Go command under one module workdir.
-- `staticcheck` gets its own module-scoped command; never prefix a
-  module-workdir staticcheck invocation with root-relative formatting or file
-  paths.
-- When a Go command combines `-C` with flags such as `-race` or `-run`, place
-  `-C <module>` first in the Go subcommand's flag list.
-- Run repository-wide CLIs, including `docref`, from the repository root with
-  repository-relative paths; do not rewrite those paths with `../` from a
-  module working directory.
-- In docref source references, Go symbols use `path#Symbol` while named code
-  regions use `path#@region`; confirm region names with `docref anchors` before
-  generating a claim.
-- After discovering files with `rg --files` or `find`, build follow-up reads
-  only from paths that discovery actually returned; never append a guessed
-  sibling filename or substitute a conventional-looking basename in an
-  otherwise verified command. A known directory is not a file inventory: run
-  `rg --files <directory>` and paste only returned paths into multi-file reads.
-- If an inventory and a follow-up read share one shell command, the read list
-  must still be a literal subset of the inventory output known before that
-  command; do not use a same-command discovery as justification for a guessed
-  trailing path.
+- Load the `verification` skill before every commit or push. It owns the
+  canonical gate, full-output handling, dependency checks, and command/path
+  hygiene; keep those process rules out of this session-wide index.
 - Before patching an escaping-sensitive literal, inspect its exact current
   bytes and match that observed form; do not reconstruct it through an extra
   shell, JSON, or JavaScript escaping layer.
