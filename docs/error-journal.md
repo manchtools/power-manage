@@ -1297,8 +1297,8 @@ approval invocation, then run the strict repository-wide check separately.
 ## 2026-07-22 — Commit-range lint omitted its head revision
 
 **What happened**: I invoked `check-conventions.sh ci-commits` with only the
-base revision. The script rejected the command because both base and head are
-required.
+base revision. The script rejected the command because the required head
+revision was missing.
 
 **What the user said**: Not user-initiated; the pre-push commit inspection
 surfaced the incomplete command.
@@ -1306,8 +1306,8 @@ surfaced the incomplete command.
 **Root cause**: I inferred the command shape from verification output instead
 of checking the script's required arguments.
 
-**Harness fix**: The verification skill now records the exact
-`ci-commits <base> <head>` form.
+**Harness fix**: The verification skill now records that the head revision is
+mandatory while an empty or unknown base deliberately selects the fallback.
 
-**Prevention**: Use explicit base and head revisions for every commit-range
-lint invocation.
+**Prevention**: Always supply the head revision; supply a known base when one
+exists or an empty base to exercise the documented fallback.

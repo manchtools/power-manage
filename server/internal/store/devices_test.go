@@ -184,7 +184,8 @@ func TestDeviceProjection_RenewsAndRebuildsExactState(t *testing.T) {
 		    sealing_public_key = $3,
 		    previous_certificate_der = $4,
 		    registration_token_id = '01ARZ3NDEKTSV4RRFFQ69G5FAX',
-		    owner = 'corrupt'`, currentDER, currentFingerprint[:], firstSealingKey, renewedDER); err != nil {
+		    owner = 'corrupt'
+		WHERE device_id = $5`, currentDER, currentFingerprint[:], firstSealingKey, renewedDER, testEnrolledDeviceID); err != nil {
 		t.Fatalf("corrupt renewed projection fixture: %v", err)
 	}
 	if err := eventStore.RebuildAll(context.Background(), DeviceRebuildTarget); err != nil {
