@@ -19,7 +19,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"math/big"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -28,6 +27,7 @@ import (
 
 	powermanagev1 "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1"
 	"github.com/manchtools/power-manage/contract/sign"
+	"github.com/manchtools/power-manage/contract/sign/testsupport"
 )
 
 const (
@@ -715,9 +715,9 @@ func TestValidateSigningKey_RejectsMalformedPrivateKeys(t *testing.T) {
 	if mismatchedECDSAScalar.Sign() == 0 {
 		mismatchedECDSAScalar.SetInt64(1)
 	}
-	ecdsaNilD := ecdsaPrivateKeyWithScalar(t, validECDSA.PublicKey, nil)
-	ecdsaZeroD := ecdsaPrivateKeyWithScalar(t, validECDSA.PublicKey, []byte{})
-	ecdsaMismatchedD := ecdsaPrivateKeyWithScalar(t, validECDSA.PublicKey, mismatchedECDSAScalar.Bytes())
+	ecdsaNilD := testsupport.ECDSAPrivateKeyWithScalar(t, validECDSA.PublicKey, nil)
+	ecdsaZeroD := testsupport.ECDSAPrivateKeyWithScalar(t, validECDSA.PublicKey, []byte{})
+	ecdsaMismatchedD := testsupport.ECDSAPrivateKeyWithScalar(t, validECDSA.PublicKey, mismatchedECDSAScalar.Bytes())
 
 	validRSA := newRSAKey(t)
 	rsaNilD := *validRSA
@@ -757,21 +757,6 @@ func TestValidateSigningKey_RejectsMalformedPrivateKeys(t *testing.T) {
 			}
 		})
 	}
-}
-
-func ecdsaPrivateKeyWithScalar(t *testing.T, public ecdsa.PublicKey, scalar []byte) *ecdsa.PrivateKey {
-	t.Helper()
-	key := &ecdsa.PrivateKey{PublicKey: public}
-	field := reflect.ValueOf(key).Elem().FieldByName("D")
-	if !field.IsValid() || !field.CanSet() {
-		t.Fatal("ecdsa.PrivateKey scalar field D is unavailable to the adversarial test fixture")
-	}
-	if scalar == nil {
-		field.Set(reflect.Zero(field.Type()))
-	} else {
-		field.Set(reflect.ValueOf(new(big.Int).SetBytes(scalar)))
-	}
-	return key
 }
 
 func TestVerifyCommand_FutureIssuedAtSkew(t *testing.T) {

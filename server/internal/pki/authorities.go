@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"encoding/asn1"
 	"fmt"
+	"time"
 
 	powermanagev1 "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1"
 	"github.com/manchtools/power-manage/contract/sign"
@@ -100,6 +101,10 @@ func newCertificateAuthority(role string, certificateDER []byte, signer crypto.S
 	certificate, err := parseExactCertificate(certificateDER)
 	if err != nil {
 		return certificateAuthority{}, fmt.Errorf("parse %s CA certificate: %w", role, err)
+	}
+	now := time.Now()
+	if now.Before(certificate.NotBefore) || now.After(certificate.NotAfter) {
+		return certificateAuthority{}, fmt.Errorf("%s CA certificate is not currently valid", role)
 	}
 	if !certificate.BasicConstraintsValid || !certificate.IsCA {
 		return certificateAuthority{}, fmt.Errorf("%s CA certificate is not a CA", role)

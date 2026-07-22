@@ -21,6 +21,7 @@ import (
 
 	powermanagev1 "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1"
 	"github.com/manchtools/power-manage/contract/sign"
+	"github.com/manchtools/power-manage/contract/sign/testsupport"
 	"github.com/manchtools/power-manage/server/internal/pki"
 )
 
@@ -92,6 +93,18 @@ func TestNewAuthorities_RejectsInvalidCA(t *testing.T) {
 			opts.subjectKeyID = false
 			return newCA(t, signer, opts).der
 		}, wantErr: fixedError("subject key ID")},
+		{name: "not yet valid", der: func(t *testing.T, signer crypto.Signer) []byte {
+			opts := defaultCAOptions()
+			opts.notBefore = time.Now().Add(time.Hour)
+			opts.notAfter = time.Now().Add(2 * time.Hour)
+			return newCA(t, signer, opts).der
+		}, wantErr: func(role string) string { return role + " CA certificate is not currently valid" }},
+		{name: "expired", der: func(t *testing.T, signer crypto.Signer) []byte {
+			opts := defaultCAOptions()
+			opts.notBefore = time.Now().Add(-2 * time.Hour)
+			opts.notAfter = time.Now().Add(-time.Hour)
+			return newCA(t, signer, opts).der
+		}, wantErr: func(role string) string { return role + " CA certificate is not currently valid" }},
 	}
 	roles := []struct {
 		name   string
@@ -179,9 +192,9 @@ func TestNewAuthorities_RejectsUnsupportedSigningProfiles(t *testing.T) {
 	if agentMismatchedScalar.Sign() == 0 {
 		agentMismatchedScalar.SetInt64(1)
 	}
-	agentMismatchedD := ecdsaPrivateKeyWithScalar(t, agentECDSA.PublicKey, agentMismatchedScalar.Bytes())
+	agentMismatchedD := testsupport.ECDSAPrivateKeyWithScalar(t, agentECDSA.PublicKey, agentMismatchedScalar.Bytes())
 	commandECDSA := validCommand.(*ecdsa.PrivateKey)
-	commandNilD := ecdsaPrivateKeyWithScalar(t, commandECDSA.PublicKey, nil)
+	commandNilD := testsupport.ECDSAPrivateKeyWithScalar(t, commandECDSA.PublicKey, nil)
 	rsaGatewaySigner := rsa2048Signer(t).(*rsa.PrivateKey)
 	rsaGateway := newCA(t, rsaGatewaySigner, defaultCAOptions())
 	rsaGatewayMissingPrimes := *rsaGatewaySigner
@@ -201,7 +214,7 @@ func TestNewAuthorities_RejectsUnsupportedSigningProfiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("generate P-224 fixture: %v", err)
 	}
-	malformed := ecdsaPrivateKeyWithScalar(t, ecdsa.PublicKey{Curve: elliptic.P256()}, []byte{1})
+	malformed := testsupport.ECDSAPrivateKeyWithScalar(t, ecdsa.PublicKey{Curve: elliptic.P256()}, []byte{1})
 	var typedNil *ecdsa.PrivateKey
 	weakGateway := newCA(t, weakRSA, defaultCAOptions())
 	tests := []struct {
@@ -476,10 +489,19 @@ type caOptions struct {
 	isCA         bool
 	keyUsage     x509.KeyUsage
 	subjectKeyID bool
+	notBefore    time.Time
+	notAfter     time.Time
 }
 
 func defaultCAOptions() caOptions {
-	return caOptions{isCA: true, keyUsage: x509.KeyUsageCertSign | x509.KeyUsageCRLSign, subjectKeyID: true}
+	now := time.Now()
+	return caOptions{
+		isCA:         true,
+		keyUsage:     x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		subjectKeyID: true,
+		notBefore:    now.Add(-time.Hour),
+		notAfter:     now.Add(24 * time.Hour),
+	}
 }
 
 func newCA(t *testing.T, signer crypto.Signer, opts caOptions) testCA {
@@ -492,8 +514,8 @@ func newCA(t *testing.T, signer crypto.Signer, opts caOptions) testCA {
 	template := &x509.Certificate{
 		SerialNumber:          big.NewInt(1),
 		Subject:               pkix.Name{CommonName: "test CA"},
-		NotBefore:             time.Now().Add(-time.Hour),
-		NotAfter:              time.Now().Add(24 * time.Hour),
+		NotBefore:             opts.notBefore,
+		NotAfter:              opts.notAfter,
 		IsCA:                  opts.isCA,
 		BasicConstraintsValid: true,
 		KeyUsage:              opts.keyUsage,
@@ -585,21 +607,6 @@ func assertErrorContains(t *testing.T, err error, want string) {
 	if !strings.Contains(strings.ToLower(err.Error()), strings.ToLower(want)) {
 		t.Fatalf("error = %q; want substring %q", err, want)
 	}
-}
-
-func ecdsaPrivateKeyWithScalar(t *testing.T, public ecdsa.PublicKey, scalar []byte) *ecdsa.PrivateKey {
-	t.Helper()
-	key := &ecdsa.PrivateKey{PublicKey: public}
-	field := reflect.ValueOf(key).Elem().FieldByName("D")
-	if !field.IsValid() || !field.CanSet() {
-		t.Fatal("ecdsa.PrivateKey scalar field D is unavailable to the adversarial test fixture")
-	}
-	if scalar == nil {
-		field.Set(reflect.Zero(field.Type()))
-	} else {
-		field.Set(reflect.ValueOf(new(big.Int).SetBytes(scalar)))
-	}
-	return key
 }
 
 func p256Signer(t *testing.T) crypto.Signer { return ecdsaSigner(t, elliptic.P256()) }
