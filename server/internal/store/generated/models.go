@@ -10,6 +10,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Device struct {
+	DeviceID               string
+	ProjectionVersion      int64
+	CertificateDer         []byte
+	CertificateFingerprint []byte
+	SealingPublicKey       []byte
+	RegistrationTokenID    string
+	Owner                  string
+	UpdatedAt              time.Time
+}
+
 type Event struct {
 	StreamType     string
 	StreamID       string

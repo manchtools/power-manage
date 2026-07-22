@@ -68,14 +68,16 @@ func TestGuard_ProjectionWritesOnlyFromProjectors(t *testing.T) {
 		"ProjectRegistrationTokenConsume": "projectRegistrationTokenConsume",
 		"ProjectRegistrationTokenDisable": "projectRegistrationTokenDisable",
 		"ResetRegistrationTokens":         "resetRegistrationTokens",
+		"UpsertDeviceEnrollment":          "projectAgentEnrollment",
+		"ResetDevices":                    "resetDevices",
 	}
 	var violations []string
-	guardtest.Discover(t, "projection mutation call sites", 7, func() ([]string, error) {
+	guardtest.Discover(t, "projection mutation call sites", 9, func() ([]string, error) {
 		var discovered int
 		var err error
 		violations, discovered, err = scanProjectionWrites(
 			".",
-			map[string]bool{"inventory_snapshots": true, "registration_tokens": true},
+			map[string]bool{"devices": true, "inventory_snapshots": true, "registration_tokens": true},
 			allowed,
 		)
 		return make([]string, discovered), err

@@ -20,6 +20,10 @@ func TestRecoveryCLI_RebuildsRegisteredTokenTarget(t *testing.T) {
 	testRecoveryCLIRegisteredTarget(t, store.RegistrationTokenRebuildTarget)
 }
 
+func TestRecoveryCLI_RebuildsRegisteredDeviceTarget(t *testing.T) {
+	testRecoveryCLIRegisteredTarget(t, store.DeviceRebuildTarget)
+}
+
 func testRecoveryCLIRegisteredTarget(t *testing.T, target string) {
 	t.Helper()
 	dsnPath := filepath.Join(t.TempDir(), "database.dsn")

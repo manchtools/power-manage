@@ -26,7 +26,11 @@ import (
 // One registration covers every listen call inside that function (recorded
 // ceiling: a function serving two boundaries cannot be expressed — split
 // the function).
-var ListenerRegistrations = map[string]string{}
+var ListenerRegistrations = map[string]string{
+	"agent/internal/enroll/relay.go:(*Relay).Serve":          "B5",
+	"server/internal/pki/server.go:(*Server).ListenAndServe": "B10",
+	"server/internal/pki/server.go:(*Server).Serve":          "B10",
+}
 
 // ListenerSite is one discovered listen/serve call site.
 type ListenerSite struct {
