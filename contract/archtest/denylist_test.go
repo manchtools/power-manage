@@ -153,6 +153,7 @@ func TestGuard_DenyList_Liveness(t *testing.T) {
 	requireExactPrefixes(t, "PkiService authentication fields", pkiViolations, []string{
 		"powermanage.fixture.v1.FixturePkiIdentityNested.gateway_id",
 		"powermanage.fixture.v1.FixturePkiIdentityRequest.auth_token",
+		"powermanage.fixture.v1.FixturePkiJSONAlias.claimed_identity",
 		"powermanage.fixture.v1.FixturePkiIdentityRequest.device_id",
 	}, []string{"FixtureAddressingFields", "tagged_id", "clean_token"})
 
@@ -242,8 +243,8 @@ func bannedFieldNameViolations(files []protoreflect.FileDescriptor) []string {
 		fields := md.Fields()
 		for i := 0; i < fields.Len(); i++ {
 			f := fields.Get(i)
-			if canon[canonicalFieldToken(string(f.Name()))] {
-				out = append(out, fmt.Sprintf("%s: field name is on the [WIRE-30] deny-list — self-asserted identity comes only from the mTLS cert, and signed content has ONE deterministic representation", f.FullName()))
+			if fieldMatchesCanonicalName(f, canon) {
+				out = append(out, fmt.Sprintf("%s: field or JSON name is on the [WIRE-30] deny-list — self-asserted identity comes only from the mTLS cert, and signed content has ONE deterministic representation", f.FullName()))
 			}
 		}
 	}
@@ -274,13 +275,18 @@ func pkiAuthenticationFieldViolations(files []protoreflect.FileDescriptor, servi
 		fields := message.Fields()
 		for i := 0; i < fields.Len(); i++ {
 			field := fields.Get(i)
-			if canon[canonicalFieldToken(string(field.Name()))] {
+			if fieldMatchesCanonicalName(field, canon) {
 				out = append(out, fmt.Sprintf("%s: PkiService request field self-asserts authentication identity — authorization comes from the operation credential and issued certificate, never device_id, gateway_id, or auth_token", field.FullName()))
 			}
 		}
 	}
 	sort.Strings(out)
 	return out, nil
+}
+
+func fieldMatchesCanonicalName(field protoreflect.FieldDescriptor, denied map[string]bool) bool {
+	return denied[canonicalFieldToken(string(field.Name()))] ||
+		denied[canonicalFieldToken(field.JSONName())]
 }
 
 func bannedRPCViolations(files []protoreflect.FileDescriptor) []string {

@@ -118,6 +118,8 @@ regression test proven red first.
   invocations, each with an explicit working directory.
 - For a command that formats repository paths and runs module-local Go checks,
   format from the repository root first; never combine the two path contexts.
+- Concrete path preflight: when `workdir` ends in `/contract`, no file argument
+  may still start with `contract/`; split root formatting from module checks.
 - Run repository-wide CLIs, including `docref`, from the repository root with
   repository-relative paths; do not rewrite those paths with `../` from a
   module working directory.
