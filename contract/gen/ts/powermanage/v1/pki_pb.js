@@ -13,7 +13,7 @@ import { file_buf_validate_validate } from "../../buf/validate/validate_pb";
  * Describes the file powermanage/v1/pki.proto.
  */
 export const file_powermanage_v1_pki = /*@__PURE__*/
-  fileDesc("Chhwb3dlcm1hbmFnZS92MS9wa2kucHJvdG8SDnBvd2VybWFuYWdlLnYxIpUBChJFbnJvbGxBZ2VudFJlcXVlc3QSJAoScmVnaXN0cmF0aW9uX3Rva2VuGAEgASgJQgi6SAVyAxiABBI0Ch9jZXJ0aWZpY2F0ZV9zaWduaW5nX3JlcXVlc3RfZGVyGAIgASgMQgu6SAh6BhABGICABBIjChJzZWFsaW5nX3B1YmxpY19rZXkYAyABKAxCB7pIBHoCaCAiawoTRW5yb2xsQWdlbnRSZXNwb25zZRIkCg9jZXJ0aWZpY2F0ZV9kZXIYASABKAxCC7pICHoGEAEYgIAEEi4KGWNlcnRpZmljYXRlX2F1dGhvcml0eV9kZXIYAiABKAxCC7pICHoGEAEYgIAEMmQKClBraVNlcnZpY2USVgoLRW5yb2xsQWdlbnQSIi5wb3dlcm1hbmFnZS52MS5FbnJvbGxBZ2VudFJlcXVlc3QaIy5wb3dlcm1hbmFnZS52MS5FbnJvbGxBZ2VudFJlc3BvbnNlQlFaT2dpdGh1Yi5jb20vbWFuY2h0b29scy9wb3dlci1tYW5hZ2UvY29udHJhY3QvZ2VuL2dvL3Bvd2VybWFuYWdlL3YxO3Bvd2VybWFuYWdldjFiBnByb3RvMw", [file_buf_validate_validate]);
+  fileDesc("Chhwb3dlcm1hbmFnZS92MS9wa2kucHJvdG8SDnBvd2VybWFuYWdlLnYxIpUBChJFbnJvbGxBZ2VudFJlcXVlc3QSJAoScmVnaXN0cmF0aW9uX3Rva2VuGAEgASgJQgi6SAVyAxiABBI0Ch9jZXJ0aWZpY2F0ZV9zaWduaW5nX3JlcXVlc3RfZGVyGAIgASgMQgu6SAh6BhABGICABBIjChJzZWFsaW5nX3B1YmxpY19rZXkYAyABKAxCB7pIBHoCaCAiawoTRW5yb2xsQWdlbnRSZXNwb25zZRIkCg9jZXJ0aWZpY2F0ZV9kZXIYASABKAxCC7pICHoGEAEYgIAEEi4KGWNlcnRpZmljYXRlX2F1dGhvcml0eV9kZXIYAiABKAxCC7pICHoGEAEYgIAEIpQBChFSZW5ld0FnZW50UmVxdWVzdBIkCg9jZXJ0aWZpY2F0ZV9kZXIYASABKAxCC7pICHoGEAEYgIAEEjQKH2NlcnRpZmljYXRlX3NpZ25pbmdfcmVxdWVzdF9kZXIYAiABKAxCC7pICHoGEAEYgIAEEiMKEnNlYWxpbmdfcHVibGljX2tleRgDIAEoDEIHukgEegJoICJqChJSZW5ld0FnZW50UmVzcG9uc2USJAoPY2VydGlmaWNhdGVfZGVyGAEgASgMQgu6SAh6BhABGICABBIuChljZXJ0aWZpY2F0ZV9hdXRob3JpdHlfZGVyGAIgASgMQgu6SAh6BhABGICABDK5AQoKUGtpU2VydmljZRJWCgtFbnJvbGxBZ2VudBIiLnBvd2VybWFuYWdlLnYxLkVucm9sbEFnZW50UmVxdWVzdBojLnBvd2VybWFuYWdlLnYxLkVucm9sbEFnZW50UmVzcG9uc2USUwoKUmVuZXdBZ2VudBIhLnBvd2VybWFuYWdlLnYxLlJlbmV3QWdlbnRSZXF1ZXN0GiIucG93ZXJtYW5hZ2UudjEuUmVuZXdBZ2VudFJlc3BvbnNlQlFaT2dpdGh1Yi5jb20vbWFuY2h0b29scy9wb3dlci1tYW5hZ2UvY29udHJhY3QvZ2VuL2dvL3Bvd2VybWFuYWdlL3YxO3Bvd2VybWFuYWdldjFiBnByb3RvMw", [file_buf_validate_validate]);
 
 /**
  * Describes the message powermanage.v1.EnrollAgentRequest.
@@ -28,6 +28,20 @@ export const EnrollAgentRequestSchema = /*@__PURE__*/
  */
 export const EnrollAgentResponseSchema = /*@__PURE__*/
   messageDesc(file_powermanage_v1_pki, 1);
+
+/**
+ * Describes the message powermanage.v1.RenewAgentRequest.
+ * Use `create(RenewAgentRequestSchema)` to create a new message.
+ */
+export const RenewAgentRequestSchema = /*@__PURE__*/
+  messageDesc(file_powermanage_v1_pki, 2);
+
+/**
+ * Describes the message powermanage.v1.RenewAgentResponse.
+ * Use `create(RenewAgentResponseSchema)` to create a new message.
+ */
+export const RenewAgentResponseSchema = /*@__PURE__*/
+  messageDesc(file_powermanage_v1_pki, 3);
 
 /**
  * @generated from service powermanage.v1.PkiService

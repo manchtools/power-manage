@@ -7,39 +7,60 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-// TestPkiServiceEnrollmentShape pins the M4 CSR-only public enrollment wire
-// surface. The request has authorization material, never a self-asserted
-// device identity, and the response cannot carry private key material.
-func TestPkiServiceEnrollmentShape(t *testing.T) {
+// TestPkiServiceShape pins the M5 public enrollment and renewal wire surface.
+// Requests carry authorization proof, never a self-asserted device identity,
+// and responses cannot carry private key material.
+func TestPkiServiceShape(t *testing.T) {
 	files := packageFiles(ContractPackage)
 	service, err := findService(files, "PkiService")
 	if err != nil {
 		t.Fatalf("find PkiService: %v", err)
 	}
 	methods := service.Methods()
-	if methods.Len() != 1 {
-		t.Fatalf("PkiService methods = %d; want exactly EnrollAgent", methods.Len())
+	if methods.Len() != 2 {
+		t.Fatalf("PkiService methods = %d; want EnrollAgent and RenewAgent", methods.Len())
 	}
-	method := methods.Get(0)
-	if method.Name() != "EnrollAgent" || method.IsStreamingClient() || method.IsStreamingServer() {
-		t.Fatalf("PkiService method = %s (client_stream=%v server_stream=%v); want unary EnrollAgent", method.Name(), method.IsStreamingClient(), method.IsStreamingServer())
+	enroll := methods.ByName("EnrollAgent")
+	renew := methods.ByName("RenewAgent")
+	for _, method := range []protoreflect.MethodDescriptor{enroll, renew} {
+		if method == nil || method.IsStreamingClient() || method.IsStreamingServer() {
+			t.Fatalf("PkiService method = %v; want a unary method", method)
+		}
 	}
 
-	assertMessageFields(t, method.Input(), []string{
+	assertMessageFields(t, enroll.Input(), []string{
 		"registration_token",
 		"certificate_signing_request_der",
 		"sealing_public_key",
 	})
-	assertMessageFields(t, method.Output(), []string{
+	assertMessageFields(t, enroll.Output(), []string{
 		"certificate_der",
 		"certificate_authority_der",
 	})
+	assertStringMaxLen(t, enroll.Input().Fields().ByName("registration_token"), 512)
+	assertBytesBounds(t, enroll.Input().Fields().ByName("certificate_signing_request_der"), 1, 65536)
+	assertBytesLen(t, enroll.Input().Fields().ByName("sealing_public_key"), 32)
+	assertCertificateResponseBounds(t, enroll.Output())
 
-	assertStringMaxLen(t, method.Input().Fields().ByName("registration_token"), 512)
-	assertBytesBounds(t, method.Input().Fields().ByName("certificate_signing_request_der"), 1, 65536)
-	assertBytesLen(t, method.Input().Fields().ByName("sealing_public_key"), 32)
-	assertBytesBounds(t, method.Output().Fields().ByName("certificate_der"), 1, 65536)
-	assertBytesBounds(t, method.Output().Fields().ByName("certificate_authority_der"), 1, 65536)
+	assertMessageFields(t, renew.Input(), []string{
+		"certificate_der",
+		"certificate_signing_request_der",
+		"sealing_public_key",
+	})
+	assertMessageFields(t, renew.Output(), []string{
+		"certificate_der",
+		"certificate_authority_der",
+	})
+	assertBytesBounds(t, renew.Input().Fields().ByName("certificate_der"), 1, 65536)
+	assertBytesBounds(t, renew.Input().Fields().ByName("certificate_signing_request_der"), 1, 65536)
+	assertBytesLen(t, renew.Input().Fields().ByName("sealing_public_key"), 32)
+	assertCertificateResponseBounds(t, renew.Output())
+}
+
+func assertCertificateResponseBounds(t *testing.T, message protoreflect.MessageDescriptor) {
+	t.Helper()
+	assertBytesBounds(t, message.Fields().ByName("certificate_der"), 1, 65536)
+	assertBytesBounds(t, message.Fields().ByName("certificate_authority_der"), 1, 65536)
 }
 
 func assertMessageFields(t *testing.T, message protoreflect.MessageDescriptor, want []string) {

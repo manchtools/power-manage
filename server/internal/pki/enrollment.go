@@ -46,11 +46,12 @@ var (
 
 // EnrollmentService is the public CSR-only PkiService implementation.
 type EnrollmentService struct {
-	tokens      *RegistrationTokens
-	eventStore  *store.Store
-	authorities *Authorities
-	random      io.Reader
-	now         func() time.Time
+	tokens         *RegistrationTokens
+	eventStore     *store.Store
+	authorities    *Authorities
+	renewalLimiter *registrationRateLimiter
+	random         io.Reader
+	now            func() time.Time
 }
 
 // NewEnrollmentService validates the complete M4 enrollment dependency set.
@@ -72,11 +73,12 @@ func NewEnrollmentService(
 		return nil, errors.New("pki: agent certificate authority is not wired")
 	}
 	return &EnrollmentService{
-		tokens:      tokens,
-		eventStore:  eventStore,
-		authorities: authorities,
-		random:      cryptorand.Reader,
-		now:         time.Now,
+		tokens:         tokens,
+		eventStore:     eventStore,
+		authorities:    authorities,
+		renewalLimiter: newRegistrationRateLimiter(),
+		random:         cryptorand.Reader,
+		now:            time.Now,
 	}, nil
 }
 
@@ -93,7 +95,7 @@ func NewEnrollmentHTTPHandler(service *EnrollmentService) (string, http.Handler)
 }
 
 func (s *EnrollmentService) validateWiring() error {
-	if s == nil || s.tokens == nil || s.eventStore == nil || s.authorities == nil || s.random == nil || s.now == nil {
+	if s == nil || s.tokens == nil || s.eventStore == nil || s.authorities == nil || s.renewalLimiter == nil || s.random == nil || s.now == nil {
 		return errors.New("pki: enrollment service is not wired")
 	}
 	if s.tokens.eventStore != s.eventStore || s.authorities.agentCA.certificate == nil || s.authorities.agentCA.signer == nil {
@@ -145,26 +147,30 @@ func (s *EnrollmentService) EnrollAgent(
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, errEnrollmentTemporarilyFailed)
 	}
-	certificateDER, certificateAuthorityDER, err := s.authorities.issueAgentCertificate(
-		csr.PublicKey,
-		deviceID,
-		s.now(),
-		s.random,
-	)
+	var certificateDER, certificateAuthorityDER []byte
+	err = s.eventStore.WithDeviceLifecycleLock(ctx, deviceID, func(lifecycle *store.DeviceLifecycle) error {
+		certificateDER, certificateAuthorityDER, err = s.authorities.issueAgentCertificate(
+			csr.PublicKey,
+			deviceID,
+			s.now(),
+			s.random,
+		)
+		if err != nil {
+			return err
+		}
+		event, eventErr := store.AgentEnrolledEvent(
+			deviceID,
+			certificateDER,
+			request.Msg.GetSealingPublicKey(),
+			grant.TokenID,
+			grant.Owner,
+		)
+		if eventErr != nil {
+			return eventErr
+		}
+		return lifecycle.AppendEvent(ctx, event, 0)
+	})
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, errEnrollmentTemporarilyFailed)
-	}
-	event, err := store.AgentEnrolledEvent(
-		deviceID,
-		certificateDER,
-		request.Msg.GetSealingPublicKey(),
-		grant.TokenID,
-		grant.Owner,
-	)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, errEnrollmentTemporarilyFailed)
-	}
-	if err := s.eventStore.AppendEventWithVersion(ctx, event, 0); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, errEnrollmentTemporarilyFailed)
 	}
 	return connect.NewResponse(&powermanagev1.EnrollAgentResponse{

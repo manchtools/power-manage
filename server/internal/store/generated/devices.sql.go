@@ -10,6 +10,15 @@ import (
 	"time"
 )
 
+const acquireDeviceLifecycleLock = `-- name: AcquireDeviceLifecycleLock :exec
+SELECT pg_advisory_xact_lock(hashtextextended('device:' || $1::text, 0))
+`
+
+func (q *Queries) AcquireDeviceLifecycleLock(ctx context.Context, deviceID string) error {
+	_, err := q.db.Exec(ctx, acquireDeviceLifecycleLock, deviceID)
+	return err
+}
+
 const getDevice = `-- name: GetDevice :one
 SELECT device_id, projection_version, certificate_der,
        certificate_fingerprint, sealing_public_key,
@@ -41,6 +50,46 @@ DELETE FROM devices
 func (q *Queries) ResetDevices(ctx context.Context) error {
 	_, err := q.db.Exec(ctx, resetDevices)
 	return err
+}
+
+const updateDeviceRenewal = `-- name: UpdateDeviceRenewal :execrows
+UPDATE devices
+SET projection_version = $1,
+    certificate_der = $2,
+    certificate_fingerprint = $3,
+    sealing_public_key = $4,
+    updated_at = $5
+WHERE device_id = $6
+  AND projection_version = $7
+  AND certificate_der = $8
+`
+
+type UpdateDeviceRenewalParams struct {
+	ProjectionVersion         int64
+	CertificateDer            []byte
+	CertificateFingerprint    []byte
+	SealingPublicKey          []byte
+	UpdatedAt                 time.Time
+	DeviceID                  string
+	PreviousProjectionVersion int64
+	SupersededCertificateDer  []byte
+}
+
+func (q *Queries) UpdateDeviceRenewal(ctx context.Context, arg UpdateDeviceRenewalParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateDeviceRenewal,
+		arg.ProjectionVersion,
+		arg.CertificateDer,
+		arg.CertificateFingerprint,
+		arg.SealingPublicKey,
+		arg.UpdatedAt,
+		arg.DeviceID,
+		arg.PreviousProjectionVersion,
+		arg.SupersededCertificateDer,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const upsertDeviceEnrollment = `-- name: UpsertDeviceEnrollment :execrows

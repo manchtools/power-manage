@@ -18,6 +18,10 @@ var publicProcedureLimits = map[string]PublicRateLimit{
 		Attempts: registrationAttemptsPerMinute,
 		Window:   time.Minute,
 	},
+	powermanagev1connect.PkiServiceRenewAgentProcedure: {
+		Attempts: registrationAttemptsPerMinute,
+		Window:   time.Minute,
+	},
 }
 
 // PublicProcedureLimits returns the defensively copied PkiService public

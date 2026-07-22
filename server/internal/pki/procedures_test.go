@@ -36,8 +36,13 @@ func TestGuard_PkiPublicRateLimitRegistration(t *testing.T) {
 	if !slices.Equal(registeredNames, discovered) {
 		t.Fatalf("public Pki procedure limits = %v; descriptor procedures = %v", registeredNames, discovered)
 	}
-	limit := registered[powermanagev1connect.PkiServiceEnrollAgentProcedure]
-	if limit.Attempts != 5 || limit.Window != time.Minute {
-		t.Fatalf("EnrollAgent public limit = %+v; want five attempts per minute", limit)
+	for _, procedure := range []string{
+		powermanagev1connect.PkiServiceEnrollAgentProcedure,
+		powermanagev1connect.PkiServiceRenewAgentProcedure,
+	} {
+		limit := registered[procedure]
+		if limit.Attempts != 5 || limit.Window != time.Minute {
+			t.Fatalf("%s public limit = %+v; want five attempts per minute", procedure, limit)
+		}
 	}
 }
