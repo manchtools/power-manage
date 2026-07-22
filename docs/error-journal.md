@@ -1311,3 +1311,40 @@ mandatory while an empty or unknown base deliberately selects the fallback.
 
 **Prevention**: Always supply the head revision; supply a known base when one
 exists or an empty base to exercise the documented fallback.
+
+## 2026-07-22 — Repeated server-workdir formatting path failure
+
+**What happened**: A combined command again declared `server/` as its working
+directory while passing repository-root paths to `gofmt`. Formatting failed
+before the focused tests ran and changed no files.
+
+**What the user said**: Not user-initiated; `gofmt` immediately reported the
+nonexistent root-prefixed paths under the module directory.
+
+**Root cause**: Formatting and module testing were still grouped into one tool
+call despite the existing repository-root formatting rule.
+
+**Harness fix**: The verification skill now requires every `gofmt` invocation
+to be a separate tool call whose declared workdir is the Git repository root;
+module tests follow in a separate call using `go test -C`.
+
+**Prevention**: Never optimize formatting and module tests into one executor
+call. Format first from the root, then test the module through Go's `-C` flag.
+
+## 2026-07-22 — Logged canonical gate omitted pipefail
+
+**What happened**: The canonical verification gate found stale docref claims
+and printed `VERIFY FAILED`, but its surrounding `tee` pipeline returned zero
+because the invocation omitted `set -o pipefail`.
+
+**What the user said**: Not user-initiated; the preserved full gate output
+made the discrepancy visible before commit.
+
+**Root cause**: The output-preservation pattern was copied without the
+failure-propagation prefix already required by the verification skill.
+
+**Harness fix**: The verification skill now records the literal logged gate
+shape with `set -o pipefail` as a mandatory prefix.
+
+**Prevention**: Every canonical gate piped through `tee` uses the recorded
+literal command shape so the tool result and the gate summary agree.

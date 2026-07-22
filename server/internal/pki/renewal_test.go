@@ -213,6 +213,15 @@ func TestRenewalHandler_RejectsFingerprintOrPossessionMismatchWithoutStateChange
 			},
 			wantCode: connect.CodeUnauthenticated,
 		},
+		{
+			name: "projection version differs from event stream",
+			mutate: func(t *testing.T, fixture enrollmentHandlerFixture, _ *ecdsa.PrivateKey, deviceID string, _ *powermanagev1.RenewAgentRequest) {
+				if _, err := fixture.pool.Exec(context.Background(), `UPDATE devices SET projection_version = projection_version + 1 WHERE device_id = $1`, deviceID); err != nil {
+					t.Fatalf("corrupt stored projection version: %v", err)
+				}
+			},
+			wantCode: connect.CodeInternal,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -232,6 +241,8 @@ func TestRenewalHandler_RejectsFingerprintOrPossessionMismatchWithoutStateChange
 			wantError := test.wantCode.String() + ": renewal request rejected"
 			if test.wantCode == connect.CodeUnauthenticated {
 				wantError = test.wantCode.String() + ": renewal authorization rejected"
+			} else if test.wantCode == connect.CodeInternal {
+				wantError = test.wantCode.String() + ": renewal temporarily unavailable"
 			}
 			if err.Error() != wantError {
 				t.Fatalf("RenewAgent error = %q; want uniform %q", err, wantError)
