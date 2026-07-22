@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"connectrpc.com/connect"
@@ -55,9 +56,11 @@ type CredentialStore interface {
 // Client generates local keys, submits their public proof, validates TOFU/pin
 // continuity, and creates the first credential bundle.
 type Client struct {
-	remote powermanagev1connect.PkiServiceClient
-	store  CredentialStore
-	now    func() time.Time
+	remote                   powermanagev1connect.PkiServiceClient
+	store                    CredentialStore
+	now                      func() time.Time
+	renewalMu                sync.Mutex
+	pendingRenewalSealingKey *ecdh.PrivateKey
 }
 
 // NewClient validates the remote and local credential-custody dependencies.
@@ -148,6 +151,8 @@ func (c *Client) Renew(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	c.renewalMu.Lock()
+	defer c.renewalMu.Unlock()
 	current, err := c.store.Load(ctx)
 	if err != nil {
 		return fmt.Errorf("enroll: load credentials for renewal: %w", err)
@@ -159,9 +164,13 @@ func (c *Client) Renew(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("enroll: create renewal certificate signing request: %w", err)
 	}
-	sealingPrivateKey, err := ecdh.X25519().GenerateKey(rand.Reader)
-	if err != nil {
-		return fmt.Errorf("enroll: generate renewed sealing private key: %w", err)
+	sealingPrivateKey := c.pendingRenewalSealingKey
+	if sealingPrivateKey == nil {
+		sealingPrivateKey, err = ecdh.X25519().GenerateKey(rand.Reader)
+		if err != nil {
+			return fmt.Errorf("enroll: generate renewed sealing private key: %w", err)
+		}
+		c.pendingRenewalSealingKey = sealingPrivateKey
 	}
 	response, err := c.remote.RenewAgent(ctx, connect.NewRequest(&powermanagev1.RenewAgentRequest{
 		CertificateDer:               bytes.Clone(current.CertificateDER),
@@ -200,6 +209,7 @@ func (c *Client) Renew(ctx context.Context) error {
 	if err := c.store.Replace(ctx, replacement); err != nil {
 		return fmt.Errorf("enroll: replace renewed credentials: %w", err)
 	}
+	c.pendingRenewalSealingKey = nil
 	return nil
 }
 

@@ -14,7 +14,7 @@ ON CONFLICT (device_id) DO NOTHING;
 -- name: GetDevice :one
 SELECT device_id, projection_version, certificate_der,
        certificate_fingerprint, sealing_public_key,
-       registration_token_id, owner, updated_at
+       registration_token_id, owner, updated_at, previous_certificate_der
 FROM devices
 WHERE device_id = $1;
 
@@ -27,6 +27,7 @@ SET projection_version = sqlc.arg(projection_version),
     certificate_der = sqlc.arg(certificate_der),
     certificate_fingerprint = sqlc.arg(certificate_fingerprint),
     sealing_public_key = sqlc.arg(sealing_public_key),
+    previous_certificate_der = sqlc.arg(superseded_certificate_der),
     updated_at = sqlc.arg(updated_at)
 WHERE device_id = sqlc.arg(device_id)
   AND projection_version = sqlc.arg(previous_projection_version)

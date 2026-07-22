@@ -1275,3 +1275,39 @@ to be rejected.
 
 **Prevention**: Validate every review suggestion against the owning repository
 rule before applying it, even when the suggestion is otherwise reasonable.
+
+## 2026-07-22 — Docref approval omitted its required paths
+
+**What happened**: I invoked `docref approve` without path arguments while
+refreshing reviewed M5 claims. The CLI rejected the command without changing
+files.
+
+**What the user said**: Not user-initiated; the command output exposed the
+mistake during the documentation gate.
+
+**Root cause**: I remembered that approval follows review but omitted the
+installed CLI's explicit-path requirement.
+
+**Harness fix**: The verification skill now states that `docref approve` must
+always receive one or more root-relative paths.
+
+**Prevention**: Pass the exact reviewed documentation paths to every docref
+approval invocation, then run the strict repository-wide check separately.
+
+## 2026-07-22 — Commit-range lint omitted its head revision
+
+**What happened**: I invoked `check-conventions.sh ci-commits` with only the
+base revision. The script rejected the command because both base and head are
+required.
+
+**What the user said**: Not user-initiated; the pre-push commit inspection
+surfaced the incomplete command.
+
+**Root cause**: I inferred the command shape from verification output instead
+of checking the script's required arguments.
+
+**Harness fix**: The verification skill now records the exact
+`ci-commits <base> <head>` form.
+
+**Prevention**: Use explicit base and head revisions for every commit-range
+lint invocation.

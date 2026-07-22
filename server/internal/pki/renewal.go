@@ -72,7 +72,22 @@ func (s *EnrollmentService) RenewAgent(
 		}
 		if subtle.ConstantTimeCompare(current.CertificateFingerprint[:], presentedFingerprint[:]) != 1 ||
 			!bytes.Equal(current.CertificateDER, presented.Raw) {
-			return errRenewalAuthRejected
+			currentFingerprint := sha256.Sum256(current.CertificateDER)
+			if subtle.ConstantTimeCompare(current.CertificateFingerprint[:], currentFingerprint[:]) != 1 ||
+				!bytes.Equal(current.PreviousCertificateDER, presented.Raw) ||
+				!bytes.Equal(current.SealingPublicKey, request.Msg.GetSealingPublicKey()) {
+				return errRenewalAuthRejected
+			}
+			currentCertificate, currentDeviceID, parseErr := parseRenewalCertificate(current.CertificateDER)
+			if parseErr != nil {
+				return parseErr
+			}
+			if currentDeviceID != deviceID || !renewalPublicKeysEqual(currentCertificate.PublicKey, csr.PublicKey) {
+				return errRenewalAuthRejected
+			}
+			certificateDER = bytes.Clone(current.CertificateDER)
+			certificateAuthorityDER = bytes.Clone(s.authorities.agentCA.certificate.Raw)
+			return nil
 		}
 		certificateDER, certificateAuthorityDER, readErr = s.authorities.issueAgentCertificate(
 			csr.PublicKey,

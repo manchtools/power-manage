@@ -22,7 +22,7 @@ func (q *Queries) AcquireDeviceLifecycleLock(ctx context.Context, deviceID strin
 const getDevice = `-- name: GetDevice :one
 SELECT device_id, projection_version, certificate_der,
        certificate_fingerprint, sealing_public_key,
-       registration_token_id, owner, updated_at
+       registration_token_id, owner, updated_at, previous_certificate_der
 FROM devices
 WHERE device_id = $1
 `
@@ -39,6 +39,7 @@ func (q *Queries) GetDevice(ctx context.Context, deviceID string) (Device, error
 		&i.RegistrationTokenID,
 		&i.Owner,
 		&i.UpdatedAt,
+		&i.PreviousCertificateDer,
 	)
 	return i, err
 }
@@ -58,10 +59,11 @@ SET projection_version = $1,
     certificate_der = $2,
     certificate_fingerprint = $3,
     sealing_public_key = $4,
-    updated_at = $5
-WHERE device_id = $6
-  AND projection_version = $7
-  AND certificate_der = $8
+    previous_certificate_der = $5,
+    updated_at = $6
+WHERE device_id = $7
+  AND projection_version = $8
+  AND certificate_der = $5
 `
 
 type UpdateDeviceRenewalParams struct {
@@ -69,10 +71,10 @@ type UpdateDeviceRenewalParams struct {
 	CertificateDer            []byte
 	CertificateFingerprint    []byte
 	SealingPublicKey          []byte
+	SupersededCertificateDer  []byte
 	UpdatedAt                 time.Time
 	DeviceID                  string
 	PreviousProjectionVersion int64
-	SupersededCertificateDer  []byte
 }
 
 func (q *Queries) UpdateDeviceRenewal(ctx context.Context, arg UpdateDeviceRenewalParams) (int64, error) {
@@ -81,10 +83,10 @@ func (q *Queries) UpdateDeviceRenewal(ctx context.Context, arg UpdateDeviceRenew
 		arg.CertificateDer,
 		arg.CertificateFingerprint,
 		arg.SealingPublicKey,
+		arg.SupersededCertificateDer,
 		arg.UpdatedAt,
 		arg.DeviceID,
 		arg.PreviousProjectionVersion,
-		arg.SupersededCertificateDer,
 	)
 	if err != nil {
 		return 0, err
