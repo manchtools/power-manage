@@ -1,0 +1,195 @@
+// Package pki holds control's signing authorities and DER-backed verification
+// seams for SPEC-006. Private CA and command keys never leave this package.
+package pki
+
+import (
+	"bytes"
+	"crypto"
+	"crypto/rand"
+	"crypto/x509"
+	"encoding/asn1"
+	"fmt"
+
+	powermanagev1 "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1"
+	"github.com/manchtools/power-manage/contract/sign"
+)
+
+type certificateAuthority struct {
+	certificate *x509.Certificate
+	signer      crypto.Signer
+	publicKey   []byte
+}
+
+var reservedCRLExtensions = []asn1.ObjectIdentifier{
+	{2, 5, 29, 20}, // cRLNumber is sourced from RevocationList.Number.
+	{2, 5, 29, 35}, // authorityKeyIdentifier is sourced from the CA certificate.
+}
+
+// Authorities is control's opaque, purpose-separated signing-key custody set.
+// Its methods expose signing operations, never the private keys themselves.
+type Authorities struct {
+	agentCA       certificateAuthority
+	gatewayCA     certificateAuthority
+	commandSigner crypto.Signer
+}
+
+// NewAuthorities validates all three control-only authorities before boot.
+func NewAuthorities(
+	agentCertificateDER []byte,
+	agentSigner crypto.Signer,
+	gatewayCertificateDER []byte,
+	gatewaySigner crypto.Signer,
+	commandSigner crypto.Signer,
+) (*Authorities, error) {
+	agentCA, err := newCertificateAuthority("agent", agentCertificateDER, agentSigner)
+	if err != nil {
+		return nil, err
+	}
+	gatewayCA, err := newCertificateAuthority("gateway", gatewayCertificateDER, gatewaySigner)
+	if err != nil {
+		return nil, err
+	}
+	if err := sign.ValidateSigningKey(commandSigner); err != nil {
+		return nil, fmt.Errorf("validate command signing key: %w", err)
+	}
+	commandPublicKey, err := marshalPublicKey(commandSigner.Public())
+	if err != nil {
+		return nil, fmt.Errorf("marshal command public key: %w", err)
+	}
+	if bytes.Equal(agentCA.publicKey, gatewayCA.publicKey) {
+		return nil, fmt.Errorf("agent and gateway CA keys are reused")
+	}
+	if bytes.Equal(commandPublicKey, agentCA.publicKey) {
+		return nil, fmt.Errorf("command key reuses agent CA key")
+	}
+	if bytes.Equal(commandPublicKey, gatewayCA.publicKey) {
+		return nil, fmt.Errorf("command key reuses gateway CA key")
+	}
+	return &Authorities{
+		agentCA:       agentCA,
+		gatewayCA:     gatewayCA,
+		commandSigner: commandSigner,
+	}, nil
+}
+
+// SignCommand is control's sole command-signing chokepoint.
+func (a *Authorities) SignCommand(command *powermanagev1.SignedCommand) error {
+	if a == nil || a.commandSigner == nil {
+		return fmt.Errorf("command signer is not wired")
+	}
+	return sign.SignCommand(a.commandSigner, command)
+}
+
+// SignAgentRevocationList signs an agent CRL with the agent CA.
+func (a *Authorities) SignAgentRevocationList(template *x509.RevocationList) ([]byte, error) {
+	if a == nil || a.agentCA.certificate == nil || a.agentCA.signer == nil {
+		return nil, fmt.Errorf("agent CRL signer is not wired")
+	}
+	return a.agentCA.signRevocationList("agent", template)
+}
+
+// SignGatewayRevocationList signs a gateway CRL with the gateway CA.
+func (a *Authorities) SignGatewayRevocationList(template *x509.RevocationList) ([]byte, error) {
+	if a == nil || a.gatewayCA.certificate == nil || a.gatewayCA.signer == nil {
+		return nil, fmt.Errorf("gateway CRL signer is not wired")
+	}
+	return a.gatewayCA.signRevocationList("gateway", template)
+}
+
+func newCertificateAuthority(role string, certificateDER []byte, signer crypto.Signer) (certificateAuthority, error) {
+	certificate, err := parseExactCertificate(certificateDER)
+	if err != nil {
+		return certificateAuthority{}, fmt.Errorf("parse %s CA certificate: %w", role, err)
+	}
+	if !certificate.BasicConstraintsValid || !certificate.IsCA {
+		return certificateAuthority{}, fmt.Errorf("%s CA certificate is not a CA", role)
+	}
+	if certificate.KeyUsage&x509.KeyUsageCertSign == 0 {
+		return certificateAuthority{}, fmt.Errorf("%s CA certificate lacks certificate-signing key usage", role)
+	}
+	if certificate.KeyUsage&x509.KeyUsageCRLSign == 0 {
+		return certificateAuthority{}, fmt.Errorf("%s CA certificate lacks CRL-signing key usage", role)
+	}
+	if len(certificate.SubjectKeyId) == 0 {
+		return certificateAuthority{}, fmt.Errorf("%s CA certificate lacks subject key ID", role)
+	}
+	if err := sign.ValidateSigningKey(certificate.PublicKey); err != nil {
+		return certificateAuthority{}, fmt.Errorf("validate %s CA certificate key: %w", role, err)
+	}
+	if err := sign.ValidateSigningKey(signer); err != nil {
+		return certificateAuthority{}, fmt.Errorf("validate %s CA signer: %w", role, err)
+	}
+	certificatePublicKey, err := marshalPublicKey(certificate.PublicKey)
+	if err != nil {
+		return certificateAuthority{}, fmt.Errorf("marshal %s CA certificate public key: %w", role, err)
+	}
+	signerPublicKey, err := marshalPublicKey(signer.Public())
+	if err != nil {
+		return certificateAuthority{}, fmt.Errorf("marshal %s CA signer public key: %w", role, err)
+	}
+	if !bytes.Equal(certificatePublicKey, signerPublicKey) {
+		return certificateAuthority{}, fmt.Errorf("%s CA signer does not match certificate", role)
+	}
+	return certificateAuthority{
+		certificate: certificate,
+		signer:      signer,
+		publicKey:   certificatePublicKey,
+	}, nil
+}
+
+func (a certificateAuthority) signRevocationList(role string, template *x509.RevocationList) ([]byte, error) {
+	if template == nil {
+		return nil, fmt.Errorf("%s CRL template is nil", role)
+	}
+	for _, extension := range template.ExtraExtensions {
+		for _, reserved := range reservedCRLExtensions {
+			if extension.Id.Equal(reserved) {
+				return nil, fmt.Errorf("%s CRL template contains reserved CRL extension %s", role, extension.Id.String())
+			}
+		}
+	}
+	der, err := x509.CreateRevocationList(rand.Reader, template, a.certificate, a.signer)
+	if err != nil {
+		return nil, fmt.Errorf("sign %s revocation list: %w", role, err)
+	}
+	return der, nil
+}
+
+// DERResultVerifier is control's stateless device-result verification seam.
+// It parses the stored certificate DER on every call; no projected or cached
+// public key can become a second authority.
+type DERResultVerifier struct{}
+
+// VerifyResult verifies a result with the key derived from exact certificate
+// DER and returns only the payload bytes accepted by the shared verifier.
+func (DERResultVerifier) VerifyResult(
+	certificateDER []byte,
+	envelope *powermanagev1.DeviceSigned,
+	options sign.ResultVerifyOptions,
+) ([]byte, error) {
+	certificate, err := parseExactCertificate(certificateDER)
+	if err != nil {
+		return nil, fmt.Errorf("parse stored certificate DER: %w", err)
+	}
+	return sign.VerifyResult(certificate.PublicKey, envelope, options)
+}
+
+func parseExactCertificate(der []byte) (*x509.Certificate, error) {
+	ownedDER := append([]byte(nil), der...)
+	certificate, err := x509.ParseCertificate(ownedDER)
+	if err != nil {
+		return nil, err
+	}
+	if !bytes.Equal(certificate.Raw, ownedDER) {
+		return nil, fmt.Errorf("certificate DER contains trailing data")
+	}
+	return certificate, nil
+}
+
+func marshalPublicKey(key crypto.PublicKey) ([]byte, error) {
+	der, err := x509.MarshalPKIXPublicKey(key)
+	if err != nil {
+		return nil, err
+	}
+	return der, nil
+}

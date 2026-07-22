@@ -102,6 +102,28 @@ func ValidateSigningKey(key crypto.PublicKey) error {
 		return fmt.Errorf("nil command-signing key: a key must be wired before boot ([TM-5])")
 	}
 	switch k := key.(type) {
+	case *ecdsa.PrivateKey:
+		if k == nil {
+			return fmt.Errorf("nil ECDSA private key: typed-nil key material must never reach signing ([TM-5])")
+		}
+		if err := ValidateSigningKey(&k.PublicKey); err != nil {
+			return err
+		}
+		if err := validateECDSAPrivateKey(k); err != nil {
+			return err
+		}
+		return nil
+	case *rsa.PrivateKey:
+		if k == nil {
+			return fmt.Errorf("nil RSA private key: typed-nil key material must never reach signing ([TM-5])")
+		}
+		if err := ValidateSigningKey(&k.PublicKey); err != nil {
+			return err
+		}
+		if err := validateRSAPrivateKey(k); err != nil {
+			return err
+		}
+		return nil
 	case *ecdsa.PublicKey:
 		if k == nil {
 			return fmt.Errorf("nil ECDSA public key: typed-nil key material must never reach verification ([TM-5])")
@@ -132,6 +154,38 @@ func ValidateSigningKey(key crypto.PublicKey) error {
 	default:
 		return fmt.Errorf("unsupported command-signing key type %T: use ECDSA or RSA", key)
 	}
+}
+
+func validateECDSAPrivateKey(key *ecdsa.PrivateKey) (err error) {
+	defer func() {
+		if recover() != nil {
+			err = fmt.Errorf("invalid ECDSA private key: malformed private scalar")
+		}
+	}()
+	raw, err := key.Bytes()
+	if err != nil {
+		return fmt.Errorf("invalid ECDSA private key: %w", err)
+	}
+	parsed, err := ecdsa.ParseRawPrivateKey(key.Curve, raw)
+	if err != nil {
+		return fmt.Errorf("invalid ECDSA private key: %w", err)
+	}
+	if !parsed.PublicKey.Equal(&key.PublicKey) {
+		return fmt.Errorf("invalid ECDSA private key: private scalar does not match public point")
+	}
+	return nil
+}
+
+func validateRSAPrivateKey(key *rsa.PrivateKey) (err error) {
+	defer func() {
+		if recover() != nil {
+			err = fmt.Errorf("invalid RSA private key: malformed private components")
+		}
+	}()
+	if err := key.Validate(); err != nil {
+		return fmt.Errorf("invalid RSA private key: %w", err)
+	}
+	return nil
 }
 
 // validateECDSAPoint converts PublicKey.Bytes' nil-coordinate panic into the

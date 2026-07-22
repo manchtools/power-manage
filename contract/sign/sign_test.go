@@ -19,6 +19,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"math/big"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -680,7 +681,9 @@ func TestValidateSigningKey_RejectsWeakOrMalformedProfiles(t *testing.T) {
 		want string
 	}{
 		"P-224":            {&p224.PublicKey, "unsupported ECDSA curve"},
+		"P-224 signer":     {p224, "unsupported ECDSA curve"},
 		"RSA-1024":         {&rsa1024.PublicKey, "invalid RSA public key"},
+		"RSA-1024 signer":  {rsa1024, "invalid RSA public key"},
 		"RSA even modulus": {&rsa.PublicKey{N: evenModulus, E: 65537}, "invalid RSA public key"},
 		"missing ECDSA XY": {&ecdsa.PublicKey{Curve: elliptic.P256()}, "invalid ECDSA public key"},
 		"off-curve ECDSA":  {&ecdsa.PublicKey{Curve: elliptic.P256(), X: big.NewInt(1), Y: big.NewInt(1)}, "invalid ECDSA public key"},
@@ -696,6 +699,79 @@ func TestValidateSigningKey_RejectsWeakOrMalformedProfiles(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestValidateSigningKey_RejectsMalformedPrivateKeys proves a valid public
+// half cannot launder corrupt concrete signer state through the boot gate.
+// Every row must return a private-key category without panicking.
+func TestValidateSigningKey_RejectsMalformedPrivateKeys(t *testing.T) {
+	validECDSA := newECDSAKey(t)
+	validECDSAScalar, err := validECDSA.Bytes()
+	if err != nil {
+		t.Fatalf("encode valid ECDSA private scalar: %v", err)
+	}
+	mismatchedECDSAScalar := new(big.Int).Add(new(big.Int).SetBytes(validECDSAScalar), big.NewInt(1))
+	mismatchedECDSAScalar.Mod(mismatchedECDSAScalar, validECDSA.Curve.Params().N)
+	if mismatchedECDSAScalar.Sign() == 0 {
+		mismatchedECDSAScalar.SetInt64(1)
+	}
+	ecdsaNilD := ecdsaPrivateKeyWithScalar(t, validECDSA.PublicKey, nil)
+	ecdsaZeroD := ecdsaPrivateKeyWithScalar(t, validECDSA.PublicKey, []byte{})
+	ecdsaMismatchedD := ecdsaPrivateKeyWithScalar(t, validECDSA.PublicKey, mismatchedECDSAScalar.Bytes())
+
+	validRSA := newRSAKey(t)
+	rsaNilD := *validRSA
+	rsaNilD.D = nil
+	rsaZeroD := *validRSA
+	rsaZeroD.D = new(big.Int)
+	rsaMismatchedD := *validRSA
+	rsaMismatchedD.D = new(big.Int).Add(validRSA.D, big.NewInt(1))
+	rsaMissingPrimes := *validRSA
+	rsaMissingPrimes.Primes = nil
+	rsaBadPrime := *validRSA
+	rsaBadPrime.Primes = append([]*big.Int(nil), validRSA.Primes...)
+	rsaBadPrime.Primes[0] = big.NewInt(3)
+
+	tests := []struct {
+		name    string
+		key     crypto.Signer
+		wantErr string
+	}{
+		{name: "ECDSA nil D", key: ecdsaNilD, wantErr: "invalid ECDSA private key"},
+		{name: "ECDSA zero D", key: ecdsaZeroD, wantErr: "invalid ECDSA private key"},
+		{name: "ECDSA mismatched D", key: ecdsaMismatchedD, wantErr: "invalid ECDSA private key"},
+		{name: "RSA nil D", key: &rsaNilD, wantErr: "invalid RSA private key"},
+		{name: "RSA zero D", key: &rsaZeroD, wantErr: "invalid RSA private key"},
+		{name: "RSA mismatched D", key: &rsaMismatchedD, wantErr: "invalid RSA private key"},
+		{name: "RSA missing primes", key: &rsaMissingPrimes, wantErr: "invalid RSA private key"},
+		{name: "RSA invalid prime", key: &rsaBadPrime, wantErr: "invalid RSA private key"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := sign.ValidateSigningKey(test.key)
+			if err == nil {
+				t.Fatalf("ValidateSigningKey accepted %s with a valid public half", test.name)
+			}
+			if !strings.Contains(err.Error(), test.wantErr) {
+				t.Fatalf("ValidateSigningKey(%s) error = %q, want category %q", test.name, err, test.wantErr)
+			}
+		})
+	}
+}
+
+func ecdsaPrivateKeyWithScalar(t *testing.T, public ecdsa.PublicKey, scalar []byte) *ecdsa.PrivateKey {
+	t.Helper()
+	key := &ecdsa.PrivateKey{PublicKey: public}
+	field := reflect.ValueOf(key).Elem().FieldByName("D")
+	if !field.IsValid() || !field.CanSet() {
+		t.Fatal("ecdsa.PrivateKey scalar field D is unavailable to the adversarial test fixture")
+	}
+	if scalar == nil {
+		field.Set(reflect.Zero(field.Type()))
+	} else {
+		field.Set(reflect.ValueOf(new(big.Int).SetBytes(scalar)))
+	}
+	return key
 }
 
 func TestVerifyCommand_FutureIssuedAtSkew(t *testing.T) {

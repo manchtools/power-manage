@@ -5,6 +5,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -405,12 +406,9 @@ func TestAction_Shape(t *testing.T) {
 // command framing (SignCommand/VerifyCommand) AND the result framing
 // (SignResult/VerifyResult).
 //
-// INV-6 cross-repo-parity ceiling: this guard proves round-trip + isolation for
-// every domain, but INV-6 additionally requires >=1 sign site AND >=1
-// fail-closed verify site per domain OUTSIDE contract. At M3/M5 both sites are
-// contract/sign itself; the cross-repo half arms with the SPEC-013 agent
-// chokepoint (commands) and the SPEC-005/007 control result path (results) —
-// extend this guard there, never weaken it to backfill.
+// SPEC-006 M2 arms INV-6 cross-repo parity: the generic server/agent
+// chokepoints below are the sole out-of-contract sign and fail-closed verify
+// sites for the discovered command and result families.
 //
 // The pairwise matrices flip command_type / result_type, themselves covered
 // fields, so alone they prove type isolation; that the domain string is IN the
@@ -581,6 +579,159 @@ func TestGuard_SignatureDomains(t *testing.T) {
 			if payload != nil {
 				t.Errorf("cross-domain result verification %q->%q returned a non-nil payload on failure (G-5)", a, b)
 			}
+		}
+	}
+
+	// SPEC-006 GUARD-006-2 widens G-5 from the shared framing library to
+	// its four owning production chokepoints. The expected identities are
+	// the approved custody boundary: control signs commands and verifies
+	// results; the agent verifies commands and signs results.
+	var scanViolations []string
+	sites := Discover(t, "server/agent signature chokepoints", 4, func() ([]SignatureSite, error) {
+		sites, violations, err := ScanSignatureSites(archtestRepoRoot(t))
+		scanViolations = violations
+		return sites, err
+	})
+	for _, violation := range scanViolations {
+		t.Errorf("%s — call contract/sign directly only from the approved owning chokepoint (GUARD-006-2, SPEC-006)", violation)
+	}
+	requireSignatureSiteSet(t, sites, map[string]signatureSiteWant{
+		"SignCommand":   {file: "server/internal/pki/authorities.go", function: "Authorities.SignCommand"},
+		"VerifyResult":  {file: "server/internal/pki/authorities.go", function: "DERResultVerifier.VerifyResult"},
+		"VerifyCommand": {file: "agent/internal/signing/signing.go", function: "Profile.VerifyCommand"},
+		"SignResult":    {file: "agent/internal/signing/signing.go", function: "Profile.SignResult"},
+	})
+}
+
+type signatureSiteWant struct {
+	file     string
+	function string
+}
+
+// TestSignatureSiteScan_Liveness exercises the GUARD-006-2 matcher's threat
+// grammar: aliases count, while indirect references and dot imports fail.
+// Local shadows, comments, and strings never masquerade as shared sign calls.
+func TestSignatureSiteScan_Liveness(t *testing.T) {
+	fixtureRoot := filepath.Join(archtestRepoRoot(t), "contract", "archtest", "testdata", "signaturesites")
+	t.Run("aliased direct calls", func(t *testing.T) {
+		sites, violations, err := ScanSignatureSites(filepath.Join(fixtureRoot, "valid"))
+		if err != nil {
+			t.Fatalf("ScanSignatureSites(valid): %v", err)
+		}
+		if len(violations) != 0 {
+			t.Fatalf("valid alias fixture violations = %v", violations)
+		}
+		sites = Discover(t, "valid fixture signature chokepoints", 4, func() ([]SignatureSite, error) {
+			return sites, nil
+		})
+		requireSignatureSiteSet(t, sites, map[string]signatureSiteWant{
+			"SignCommand":   {file: "server/internal/pki/sites.go", function: "Authorities.SignCommand"},
+			"VerifyResult":  {file: "server/internal/pki/sites.go", function: "DERResultVerifier.VerifyResult"},
+			"VerifyCommand": {file: "agent/internal/signing/sites.go", function: "Profile.VerifyCommand"},
+			"SignResult":    {file: "agent/internal/signing/sites.go", function: "Profile.SignResult"},
+		})
+	})
+
+	tests := []struct {
+		name             string
+		fixture          string
+		wantCount        int
+		wantMarkerCounts map[string]int
+	}{
+		{name: "indirect and parenthesized references", fixture: "indirect", wantCount: 2, wantMarkerCounts: map[string]int{"indirect": 1, "parenthesized": 1}},
+		{name: "dot import", fixture: "dotimport", wantCount: 1, wantMarkerCounts: map[string]int{"dot import": 1}},
+		{name: "dot import does not hide later raw bypass", fixture: "dotimportbypass", wantCount: 2, wantMarkerCounts: map[string]int{
+			"dot import":                   1,
+			"raw ecdsa.signasn1 signature": 1,
+		}},
+		{name: "preimage domain and raw crypto bypasses", fixture: "rawbypass", wantCount: 16, wantMarkerCounts: map[string]int{
+			"contract/sign.commandpreimage":           1,
+			"contract/sign.resultpreimage":            1,
+			"contract/sign.commanddomain":             1,
+			"contract/sign.resultdomain":              1,
+			"actionsignaturedomain":                   1,
+			"raw ecdsa.signasn1 signature":            1,
+			"raw ecdsa.verifyasn1 signature":          1,
+			"raw ecdsa.sign signature":                1,
+			"raw ecdsa.verify signature":              1,
+			"raw rsa.signpkcs1v15 signature":          1,
+			"raw rsa.verifypkcs1v15 signature":        1,
+			"raw crypto.signer.sign reference":        2,
+			"raw crypto.signmessage":                  1,
+			"raw crypto.messagesigner.signmessage":    1,
+			"raw ed25519.verifywithoptions signature": 1,
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, violations, err := ScanSignatureSites(filepath.Join(fixtureRoot, test.fixture))
+			if err != nil {
+				t.Fatalf("ScanSignatureSites(%s): %v", test.fixture, err)
+			}
+			if len(violations) != test.wantCount {
+				t.Fatalf("%s fixture produced %d violations %v, want exactly %d planted bypasses", test.fixture, len(violations), violations, test.wantCount)
+			}
+			for marker, wantCount := range test.wantMarkerCounts {
+				gotCount := 0
+				for _, violation := range violations {
+					if strings.Contains(strings.ToLower(violation), marker) {
+						gotCount++
+					}
+				}
+				if gotCount != wantCount {
+					t.Errorf("%s fixture violations = %v; category %q appeared %d times, want %d", test.fixture, violations, marker, gotCount, wantCount)
+				}
+			}
+		})
+	}
+
+	t.Run("real import counts while local shadows stay ignored", func(t *testing.T) {
+		sites, violations, err := ScanSignatureSites(filepath.Join(fixtureRoot, "shadow"))
+		if err != nil {
+			t.Fatalf("ScanSignatureSites(shadow): %v", err)
+		}
+		if len(violations) != 0 {
+			t.Fatalf("shadow fixture violations = %v; local shadows and unrelated Sign methods are clean", violations)
+		}
+		sites = Discover(t, "shadow fixture real signature chokepoint", 1, func() ([]SignatureSite, error) {
+			return sites, nil
+		})
+		requireSignatureSiteSet(t, sites, map[string]signatureSiteWant{
+			"SignCommand": {file: "server/internal/pki/sites.go", function: "Authorities.SignCommand"},
+		})
+	})
+
+	t.Run("multi-file local Sign method stays clean", func(t *testing.T) {
+		sites, violations, err := ScanSignatureSites(filepath.Join(fixtureRoot, "multifileclean"))
+		if err != nil {
+			t.Fatalf("ScanSignatureSites(multifileclean): %v", err)
+		}
+		if len(sites) != 0 || len(violations) != 0 {
+			t.Fatalf("multi-file local Sign fixture = sites %v, violations %v; want neither", sites, violations)
+		}
+	})
+}
+
+func requireSignatureSiteSet(t *testing.T, got []SignatureSite, want map[string]signatureSiteWant) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("signature sites = %v, want exactly one owning site for each of %v", got, want)
+	}
+	seen := make(map[string]int, len(got))
+	for _, site := range got {
+		seen[site.Operation]++
+		expected, ok := want[site.Operation]
+		if !ok {
+			t.Errorf("unexpected shared signature operation %q at %s in %s — add no new path without a spec change", site.Operation, site.File, site.Function)
+			continue
+		}
+		if filepath.ToSlash(site.File) != expected.file || site.Function != expected.function {
+			t.Errorf("%s site = %s in %s, want %s in %s — signature custody belongs to the named chokepoint", site.Operation, filepath.ToSlash(site.File), site.Function, expected.file, expected.function)
+		}
+	}
+	for operation := range want {
+		if seen[operation] != 1 {
+			t.Errorf("%s discovered %d times, want exactly once — missing and duplicate signature paths both fail closed", operation, seen[operation])
 		}
 	}
 }
