@@ -94,6 +94,8 @@ SPEC-005 M3 — repeatable-read projection rebuild through the production projec
 
 SPEC-005 M4 — same-transaction durable work queue, bounded retry/backoff, SKIP LOCKED workers, and rebuild-safe work preservation (AC-12, SPEC-005) — PR #37
 
+SPEC-006 M1 — certificate identity profile, TLS 1.3 class enforcement, and self-asserted identity guard (AC-6, GUARD-006-3) — PR #39
+
 SPEC-005 M5 — exact storage classification and static guards, golden event corpus, version-guarded inventory snapshots, bounded operational output, and CLI-only recovery wiring (AC-5, SPEC-005), (AC-11, SPEC-005), (AC-13, SPEC-005), (AC-14, SPEC-005), (AC-15, SPEC-005) — PR #38
 
 ## Rules
