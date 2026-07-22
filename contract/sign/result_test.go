@@ -258,7 +258,10 @@ func TestResultPreimage_RejectsMalformedDeviceID(t *testing.T) {
 			env.DeviceId = id
 			got, err := sign.ResultPreimage(env)
 			if err == nil {
-				t.Errorf("ResultPreimage accepted device_id %q — a non-ULID reporter is never framed ([WIRE-18], ULID rule)", id)
+				t.Fatalf("ResultPreimage accepted device_id %q — a non-ULID reporter is never framed ([WIRE-18], ULID rule)", id)
+			}
+			if !strings.Contains(err.Error(), "device_id is not a ULID") {
+				t.Errorf("ResultPreimage error = %q; want malformed device_id reason", err)
 			}
 			if got != nil {
 				t.Errorf("ResultPreimage returned bytes for device_id %q, want nil on error", id)

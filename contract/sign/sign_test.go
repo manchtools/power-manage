@@ -597,7 +597,10 @@ func TestCommandPreimage_RejectsMalformedTarget(t *testing.T) {
 			cmd.TargetDeviceId = target
 			got, err := sign.CommandPreimage(cmd)
 			if err == nil {
-				t.Errorf("CommandPreimage accepted target_device_id %q — a non-ULID target must never be framed ([WIRE-18], ULID rule)", target)
+				t.Fatalf("CommandPreimage accepted target_device_id %q — a non-ULID target must never be framed ([WIRE-18], ULID rule)", target)
+			}
+			if !strings.Contains(err.Error(), "target_device_id is not a ULID") {
+				t.Errorf("CommandPreimage error = %q; want malformed target_device_id reason", err)
 			}
 			if got != nil {
 				t.Errorf("CommandPreimage returned bytes for target %q, want nil on error", target)

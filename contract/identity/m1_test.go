@@ -200,46 +200,47 @@ func TestStampCertificateIdentity_RejectsRawSANOverride(t *testing.T) {
 // query variants, and unknown classes cannot substitute for that profile.
 func TestParseCertificateIdentity_RejectsMalformedProfile(t *testing.T) {
 	tests := []struct {
-		name string
-		cert func(t *testing.T) *x509.Certificate
+		name    string
+		cert    func(t *testing.T) *x509.Certificate
+		wantErr string
 	}{
-		{name: "nil certificate"},
+		{name: "nil certificate", wantErr: "nil certificate"},
 		{name: "missing common name", cert: func(t *testing.T) *x509.Certificate {
 			cert := stampedProfile(t, identity.AgentClass, testAgentID)
 			cert.Subject.CommonName = ""
 			return cert
-		}},
+		}, wantErr: "certificate common name is not a canonical ULID"},
 		{name: "lowercase common name", cert: func(t *testing.T) *x509.Certificate {
 			cert := stampedProfile(t, identity.AgentClass, testAgentID)
 			cert.Subject.CommonName = "01arz3ndektsv4rrffq69g5fav"
 			return cert
-		}},
+		}, wantErr: "certificate common name is not a canonical ULID"},
 		{name: "missing URI SAN", cert: func(t *testing.T) *x509.Certificate {
 			cert := stampedProfile(t, identity.AgentClass, testAgentID)
 			cert.URIs = nil
 			cert.DNSNames = []string{"agent"}
 			return cert
-		}},
+		}, wantErr: "certificate must contain exactly one SPIFFE URI SAN"},
 		{name: "duplicate URI SAN", cert: func(t *testing.T) *x509.Certificate {
 			cert := stampedProfile(t, identity.AgentClass, testAgentID)
 			cert.URIs = append(cert.URIs, mustURL(t, identity.AgentSPIFFEURI))
 			return cert
-		}},
+		}, wantErr: "certificate must contain exactly one SPIFFE URI SAN"},
 		{name: "multiple classes", cert: func(t *testing.T) *x509.Certificate {
 			cert := stampedProfile(t, identity.AgentClass, testAgentID)
 			cert.URIs = append(cert.URIs, mustURL(t, identity.GatewaySPIFFEURI))
 			return cert
-		}},
+		}, wantErr: "certificate must contain exactly one SPIFFE URI SAN"},
 		{name: "unknown class", cert: func(t *testing.T) *x509.Certificate {
 			cert := stampedProfile(t, identity.AgentClass, testAgentID)
 			cert.URIs = []*url.URL{mustURL(t, "spiffe://power-manage/relay")}
 			return cert
-		}},
+		}, wantErr: `unsupported SPIFFE URI SAN "spiffe://power-manage/relay"`},
 		{name: "query variant", cert: func(t *testing.T) *x509.Certificate {
 			cert := stampedProfile(t, identity.AgentClass, testAgentID)
 			cert.URIs = []*url.URL{mustURL(t, identity.AgentSPIFFEURI+"?class=gateway")}
 			return cert
-		}},
+		}, wantErr: `unsupported SPIFFE URI SAN "spiffe://power-manage/agent?class=gateway"`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -247,8 +248,12 @@ func TestParseCertificateIdentity_RejectsMalformedProfile(t *testing.T) {
 			if test.cert != nil {
 				cert = test.cert(t)
 			}
-			if _, _, err := identity.ParseCertificateIdentity(cert); err == nil {
+			_, _, err := identity.ParseCertificateIdentity(cert)
+			if err == nil {
 				t.Fatal("ParseCertificateIdentity accepted a malformed certificate profile")
+			}
+			if !strings.Contains(err.Error(), test.wantErr) {
+				t.Fatalf("ParseCertificateIdentity error = %q; want substring %q", err, test.wantErr)
 			}
 		})
 	}
@@ -370,10 +375,12 @@ func TestServerTLSConfig_RejectsUnenrolledClientCA(t *testing.T) {
 		t.Fatalf("ServerTLSConfig: %v", err)
 	}
 
-	result := realTLSHandshake(t, standardClientConfig(foreignAgent, enrolled.pool, testGatewayDNS), serverConfig)
-	if result.serverErr == nil {
-		t.Fatal("server accepted the right certificate class from an unenrolled CA")
+	foreignClientConfig := standardClientConfig(foreignAgent, enrolled.pool, testGatewayDNS)
+	foreignClientConfig.GetClientCertificate = func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+		return &foreignAgent, nil
 	}
+	result := realTLSHandshake(t, foreignClientConfig, serverConfig)
+	assertErrorContains(t, result.serverErr, "certificate signed by unknown authority")
 }
 
 // TestClientTLSConfig_UsesEnrolledCAAndGatewayClass proves the client trusts
@@ -409,9 +416,7 @@ func TestClientTLSConfig_UsesEnrolledCAAndGatewayClass(t *testing.T) {
 
 	foreignGateway := foreign.issue(t, identity.GatewayClass, testGatewayID, []string{testGatewayDNS}, x509.ExtKeyUsageServerAuth)
 	untrusted := realTLSHandshake(t, clientConfig, standardServerConfig(foreignGateway, enrolled.pool))
-	if untrusted.clientErr == nil {
-		t.Fatal("client trusted a gateway certificate outside the enrolled CA")
-	}
+	assertErrorContains(t, untrusted.clientErr, "certificate signed by unknown authority")
 }
 
 // TestClientTLSConfig_RejectsWrongServerClass proves a DNS- and chain-valid
@@ -441,9 +446,7 @@ func TestClientTLSConfig_RejectsWrongDNSName(t *testing.T) {
 	}
 
 	result := realTLSHandshake(t, clientConfig, standardServerConfig(gatewayCert, ca.pool))
-	if result.clientErr == nil {
-		t.Fatal("client accepted a gateway certificate for the wrong DNS name")
-	}
+	assertErrorContains(t, result.clientErr, "certificate is valid for", "not other.internal.test")
 }
 
 func stampedProfile(t *testing.T, class identity.Class, id string) *x509.Certificate {
@@ -463,6 +466,18 @@ func assertClassMismatch(t *testing.T, err error, actual, required identity.Clas
 	}
 	if !strings.Contains(err.Error(), want) {
 		t.Fatalf("TLS handshake error = %q; want class mismatch substring %q", err, want)
+	}
+}
+
+func assertErrorContains(t *testing.T, err error, want ...string) {
+	t.Helper()
+	if err == nil {
+		t.Fatalf("TLS handshake returned nil error; want rejection containing %q", want)
+	}
+	for _, substring := range want {
+		if !strings.Contains(err.Error(), substring) {
+			t.Fatalf("TLS handshake error = %q; want substring %q", err, substring)
+		}
 	}
 }
 
