@@ -127,6 +127,8 @@ regression test proven red first.
 - **For repository work, keep `workdir` at the repository root.** Format with
   root-relative paths and run module checks with `go ... -C <module>`; never
   combine `gofmt` and a module-local Go command under one module workdir.
+- When a Go command combines `-C` with flags such as `-race` or `-run`, place
+  `-C <module>` first in the Go subcommand's flag list.
 - Run repository-wide CLIs, including `docref`, from the repository root with
   repository-relative paths; do not rewrite those paths with `../` from a
   module working directory.
@@ -135,7 +137,8 @@ regression test proven red first.
   sibling filename to an otherwise verified command.
 - Review an uncommitted milestone with
   `coderabbit review --base main --include-untracked`; plain text is the
-  default in the installed CLI, so do not pass the removed `--plain` flag.
+  default in the installed CLI, so do not pass the removed `--plain` or
+  `--type` flags.
 - After editing a shell file containing heredocs, inspect the numbered changed
   region; `bash -n` cannot detect code accidentally swallowed as fixture text.
 - Negative tests assert the intended failure message, never only a nonzero exit.
