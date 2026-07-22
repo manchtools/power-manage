@@ -390,6 +390,45 @@ func TestRegistrationTokens_MintFailureWritesNothing(t *testing.T) {
 	}
 }
 
+func TestRegistrationTokens_MintGatewayWithoutDNSRejectsAtPKIBoundary(t *testing.T) {
+	clock := newMutableClock(time.Date(2026, time.July, 22, 9, 0, 0, 0, time.UTC))
+	random := &countingRandomReader{}
+	service, pool := newTestRegistrationTokens(t, random, clock, noWait)
+	minted, err := service.Mint(context.Background(), RegistrationTokenOptions{
+		Purpose:   RegistrationTokenPurposeGateway,
+		MaxUses:   1,
+		ExpiresAt: clock.Now().Add(time.Hour),
+		DNSNames:  []string{},
+	})
+	if err == nil {
+		t.Fatal("Mint accepted a gateway registration token without DNS names")
+	}
+	message := strings.ToLower(err.Error())
+	if !strings.Contains(message, "pki:") ||
+		!strings.Contains(message, "gateway registration token") ||
+		!strings.Contains(message, "dns name") {
+		t.Errorf("Mint error = %q; want friendly PKI gateway-DNS validation category", err)
+	}
+	for _, leakedLayer := range []string{"store:", "sqlstate", "constraint", "registration_tokens_dns_names_check"} {
+		if strings.Contains(message, leakedLayer) {
+			t.Errorf("Mint error = %q; must not expose lower-layer category %q", err, leakedLayer)
+		}
+	}
+	if minted.TokenID != "" || minted.Token != "" || random.readCalls != 0 {
+		t.Fatalf("rejected Mint returned/consumed token material = (%q, %q, %d random reads); want none", minted.TokenID, minted.Token, random.readCalls)
+	}
+	if events := allEventCount(t, pool); events != 0 {
+		t.Fatalf("events after rejected gateway Mint = %d; want zero", events)
+	}
+	var projections int
+	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM registration_tokens`).Scan(&projections); err != nil {
+		t.Fatalf("count registration-token projections: %v", err)
+	}
+	if projections != 0 {
+		t.Fatalf("registration-token projections after rejected gateway Mint = %d; want zero", projections)
+	}
+}
+
 func TestNewRegistrationTokens_RejectsNilStore(t *testing.T) {
 	service, err := NewRegistrationTokens(nil)
 	if err == nil || service != nil || !strings.Contains(err.Error(), "nil registration-token event store") {
@@ -553,3 +592,13 @@ func noWait(context.Context, time.Time) error { return nil }
 type errorReader struct{ err error }
 
 func (r errorReader) Read([]byte) (int, error) { return 0, r.err }
+
+type countingRandomReader struct{ readCalls int }
+
+func (r *countingRandomReader) Read(buffer []byte) (int, error) {
+	r.readCalls++
+	for index := range buffer {
+		buffer[index] = byte(index + 1)
+	}
+	return len(buffer), nil
+}

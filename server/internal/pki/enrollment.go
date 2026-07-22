@@ -154,18 +154,7 @@ func (s *EnrollmentService) EnrollAgent(
 	}
 	grant, err := s.tokens.Consume(ctx, source, request.Msg.GetRegistrationToken(), RegistrationTokenPurposeAgent)
 	if err != nil {
-		switch {
-		case errors.Is(err, ErrRegistrationRateLimited):
-			return nil, connect.NewError(connect.CodeResourceExhausted, errEnrollmentRateLimited)
-		case errors.Is(err, ErrInvalidRegistrationToken):
-			return nil, connect.NewError(connect.CodeUnauthenticated, errEnrollmentAuthRejected)
-		case errors.Is(err, context.Canceled):
-			return nil, connect.NewError(connect.CodeCanceled, context.Canceled)
-		case errors.Is(err, context.DeadlineExceeded):
-			return nil, connect.NewError(connect.CodeDeadlineExceeded, context.DeadlineExceeded)
-		default:
-			return nil, connect.NewError(connect.CodeInternal, errEnrollmentTemporarilyFailed)
-		}
+		return nil, mapEnrollmentTokenError(err)
 	}
 
 	deviceID, err := newEnrollmentDeviceID(s.now(), s.random)

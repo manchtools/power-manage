@@ -260,6 +260,9 @@ func registrationTokenMintedEvent(
 			options.Owner,
 		)
 	case RegistrationTokenPurposeGateway:
+		if len(options.DNSNames) == 0 {
+			return store.Event{}, errors.New("pki: gateway registration token must contain at least one DNS name")
+		}
 		return store.GatewayRegistrationTokenMintedEvent(
 			tokenID,
 			hash,

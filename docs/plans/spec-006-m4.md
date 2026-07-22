@@ -5,7 +5,7 @@ AC-1/AC-2/AC-16; GUARD-006-1).
 
 ## Scope
 
-<!-- docref: begin src=contract/proto/powermanage/v1/pki.proto#PkiService.EnrollAgent:d1089b10,server/internal/pki/enrollment.go#EnrollmentService.EnrollAgent:fba05a9e,server/internal/pki/server.go#NewServer:252d1c8f,server/internal/pki/server.go#Server.ListenAndServe:7b018804,server/internal/pki/procedures.go#PublicProcedureLimits:648fb4f4 -->
+<!-- docref: begin src=contract/proto/powermanage/v1/pki.proto#PkiService.EnrollAgent:d1089b10,server/internal/pki/enrollment.go#EnrollmentService.EnrollAgent:93dab761,server/internal/pki/server.go#NewServer:252d1c8f,server/internal/pki/server.go#Server.ListenAndServe:7b018804,server/internal/pki/procedures.go#PublicProcedureLimits:648fb4f4 -->
 - Add one `PkiService.EnrollAgent` Connect RPC. The request carries only a
   registration token, exact DER PKCS#10 CSR, and a 32-byte X25519 public key.
   The response carries the exact DER agent certificate and issuing agent CA.

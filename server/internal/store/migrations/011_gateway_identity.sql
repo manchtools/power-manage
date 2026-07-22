@@ -11,13 +11,13 @@ ADD COLUMN dns_names text[] NOT NULL DEFAULT '{}';
 ALTER TABLE registration_tokens
 ADD CONSTRAINT registration_tokens_purpose_check CHECK (
     purpose IN ('agent', 'gateway')
-);
+) NOT VALID;
 
 ALTER TABLE registration_tokens
 ADD CONSTRAINT registration_tokens_dns_names_check CHECK (
     (purpose = 'agent' AND cardinality(dns_names) = 0)
     OR (purpose = 'gateway' AND cardinality(dns_names) > 0)
-);
+) NOT VALID;
 
 CREATE TABLE gateways (
     gateway_id text PRIMARY KEY CHECK (
