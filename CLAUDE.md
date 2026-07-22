@@ -72,9 +72,9 @@ regression test proven red first.
 ## Commands
 
 - Verify gate (before every commit): `./scripts/verify.sh`
-- Build: server/agent binary targets are planned but do not exist yet; their
-  commands land with SPEC-005/012/013. Verify the current libraries with the
-  canonical gate.
+- Build: recovery and agent-enrollment CLI binaries exist; networked control,
+  gateway, and full agent-daemon commands land with SPEC-012/013. Verify the
+  repository with the canonical gate.
 - Test one module: `go test -C <module> ./... -count=1 -race`
 - Protos: `cd contract && buf lint && buf generate`
 
@@ -104,9 +104,18 @@ regression test proven red first.
   kept 1 of 7 review findings and forced a full re-run -->
 - `docref suggest` is repository-wide and verbose: always tee its full output
   to a file before filtering for the touched documentation.
+- With docref 0.1.1, generate marker blocks with `docref claim` and record
+  reviewed prose with `docref approve`; there is no `docref fix` command.
 - Judge test runs by grepping the FULL output for `FAIL`, not the last lines.
 - Before accepting a version correction or changing a pin, verify the upstream
   release/tag and installable artifact; a claimed version is not availability.
+- For a new direct dependency, select the newest verified stable version that
+  supports the repository toolchain unless a documented compatibility bound
+  requires an older one; transitive-version alignment alone is not a reason.
+- Before `go mod tidy` in a multi-module workspace, inspect the repository's
+  existing local-module requirement convention. Do not persist pseudo-version
+  requirements for workspace-local modules when sibling manifests deliberately
+  rely on `go.work`.
 - For a newly published release, treat an initial 404 as potentially transient:
   re-check the release assets before proposing a downgrade.
 - Multi-step validation commands use `set -e -o pipefail` unless each failure
@@ -118,6 +127,9 @@ regression test proven red first.
   invocations, each with an explicit working directory.
 - For a command that formats repository paths and runs module-local Go checks,
   format from the repository root first; never combine the two path contexts.
+- Before the canonical gate, derive the full modified/untracked non-generated
+  Go-file inventory from Git and run gofmt over that set; formatting only the
+  most recently edited package can leave registry edits behind.
 - **Before every command, compare `workdir` with every explicit path.** When
   `workdir` is any module directory (`contract/`, `agent/`, `server/`, or
   `sdk/`), arguments must be module-relative and must not name that module or
@@ -140,7 +152,13 @@ regression test proven red first.
   generating a claim.
 - After discovering files with `rg --files` or `find`, build follow-up reads
   only from paths that discovery actually returned; never append a guessed
-  sibling filename to an otherwise verified command.
+  sibling filename or substitute a conventional-looking basename in an
+  otherwise verified command. A known directory is not a file inventory: run
+  `rg --files <directory>` and paste only returned paths into multi-file reads.
+- If an inventory and a follow-up read share one shell command, the read list
+  must still be a literal subset of the inventory output known before that
+  command; do not use a same-command discovery as justification for a guessed
+  trailing path.
 - Before patching an escaping-sensitive literal, inspect its exact current
   bytes and match that observed form; do not reconstruct it through an extra
   shell, JSON, or JavaScript escaping layer.
@@ -149,13 +167,22 @@ regression test proven red first.
   an otherwise independent multi-file correction fail wholesale.
 - After adding a call site, resolve every new identifier against an existing
   declaration or add that declaration in the same patch; reuse values already
-  returned by test factories instead of inventing accessor helpers.
+  returned by test factories instead of inventing accessor helpers. Before
+  adding a package-level test helper, search the package for that name. After
+  code generation, inspect generated field/method spelling before referencing it;
+  when handwritten and generated types differ only by casing, verify each use
+  against its receiver type after patching.
+- Build listener-boundary registration keys from `guardtest.ListenerSites`
+  output after the production call sites exist; do not infer receiver syntax.
 - In PostgreSQL migrations, explicitly name table-level constraints so they
   cannot collide with PostgreSQL's `<table>_<column>_check` names for
   column-level checks; exercise every new migration from an empty database.
 - Projection-corruption fixtures must write constraint-valid but semantically
   wrong values unless the schema constraint itself is under test; compare the
   fixture mutation against the current migration before running it.
+- A unit test for behavior behind a root-owned-parent precondition must either
+  use a root-owned container path or isolate that precondition through the
+  package seam; `t.TempDir()` is not root-owned under normal development.
 - Before adding an importable test-support package with dynamic database calls,
   inspect repository static-SQL guards; any necessary exemption must be keyed
   to the exact file and method with a matches-zero-protected call count.
@@ -173,6 +200,12 @@ regression test proven red first.
   re-authorization with backoff and a finite internal retry budget; caller
   cancellation alone is not a bound because production callers may use a
   context without a deadline.
+- On public credential-gated paths, perform structural validation first,
+  authorize second, and invoke private-key signing only after authorization;
+  never let invalid credentials drive a signer as pre-authentication work.
+- When a stream server sends an early response after the client has already
+  written a bounded request, drain that bounded request before close; unread
+  bytes can convert a valid response into a trailing connection reset.
 - Preserve stable multiword error categories as contiguous phrases; place
   operation-specific qualifiers after the category so callers and negative
   tests do not lose the recognizer text.
