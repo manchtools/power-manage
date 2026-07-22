@@ -21,6 +21,17 @@ without a guard is a wish.
    convention silently disarms an unprotected guard; the empty-set failure is
    the tripwire.
 
+## Integrate new surfaces at creation time
+
+Run the shared guard that owns each new surface when that surface is created:
+
+- proto message pair → contract near-copy guard;
+- sqlc projection mutator → server projection-owner guard;
+- Go test importing generated protobufs → workspace protojson guard.
+
+Record any required reviewed rationale or owner in the relevant registry in
+the same patch; never defer this integration to the full suite.
+
 ## Canonical shapes
 
 - **Descriptor walk**: every RPC is classified (public / permission-gated /

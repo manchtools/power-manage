@@ -1154,3 +1154,83 @@ closed; no new standing rule is needed.
 **Prevention**: Dependency manifests and sums are finalized first, then every
 affected claim diff is reviewed and approved immediately before the final
 canonical gate.
+
+## 2026-07-22 — SPEC filename was inferred instead of discovered
+
+**What happened**: The M5 review searched the SPEC-006 directory successfully,
+then tried to read an inferred `006-pki-and-lifecycle.md` path. The actual file
+is `006-pki-and-identity.md`, so the command failed before the intended source
+and test reads ran.
+
+**What the user said**: Not user-initiated; the missing-path error was visible
+during the implementation pass.
+
+**Root cause**: A content-search result was treated as a file inventory even
+though it did not print the matched filename in the captured output.
+
+**Harness fix**: The verification skill now requires an immediate fresh
+`rg --files` inventory after any missing-path error before another read is
+attempted.
+
+**Prevention**: Complete file discovery as its own command and paste the exact
+returned path into the next read.
+
+## 2026-07-22 — Unsupported docref help flags were retried
+
+**What happened**: The documentation pass invoked `docref --help` and chained
+subcommand help probes even though this installed CLI prints usage from bare
+`docref` and treats subcommand arguments as paths. The first unsupported flag
+stopped the remaining probes.
+
+**What the user said**: Earlier feedback established docref 0.1.1 as the
+installed release; this pass's usage output confirmed its command shape.
+
+**Root cause**: Conventional CLI help syntax was assumed instead of following
+the repository's already-recorded docref workflow.
+
+**Harness fix**: The verification skill now states that bare `docref` is the
+only help/usage probe and that `--help` must not be passed to its subcommands.
+
+**Prevention**: Use the documented `claim`, `diff`, `approve`, and `check`
+forms directly, and use bare `docref` only when the command list is needed.
+
+## 2026-07-22 — M5 surfaces omitted three shared guard integrations
+
+**What happened**: The first full race sweep found that the two certificate
+response messages had no reviewed near-copy rationale, the renewal projection
+query had no projector owner in the root guard, and the renewal handler test
+mixed stdlib JSON with generated protobuf imports.
+
+**What the user said**: Not user-initiated; the repository-wide guard suites
+failed before the canonical gate.
+
+**Root cause**: Focused package tests were used while adding the new contract,
+sqlc mutator, and handler test, but their cross-module guards were not run at
+the moment each surface was introduced.
+
+**Harness fix**: The guards skill now requires the near-copy,
+projection-owner, and protojson guards to run when their corresponding surface
+is created, with registry ownership or rationale recorded in the same patch.
+
+**Prevention**: New RPC messages carry a deliberate near-copy decision, every
+projection mutation names its projector owner and raises the discovery floor,
+and JSON event decoding lives in a test file that does not import generated
+protobufs.
+
+## 2026-07-22 — M5 plan duplicated normative spec detail
+
+**What happened**: The pre-commit review found that the initial M5 plan copied
+behavioral requirements, security ordering, acceptance narratives, and
+out-of-scope policy instead of remaining a delta-only implementation index.
+
+**What the user said**: Not user-initiated; the required local review caught
+the documentation scope before commit.
+
+**Root cause**: The implementation plan was written as a self-contained design
+document even though SPEC-006 already owns those approved requirements.
+
+**Harness fix**: The spec-development skill now repeats the delta-only plan
+boundary at the session step where the spec and touched code are read.
+
+**Prevention**: Milestone plans list only changed files, symbols, test names,
+and verification commands; normative prose remains in the approved spec.
