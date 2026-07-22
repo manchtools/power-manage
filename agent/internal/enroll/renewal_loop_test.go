@@ -98,6 +98,35 @@ func TestRenewalLoop_CancellationInterruptsInFlightRenewal(t *testing.T) {
 	}
 }
 
+func TestRenewalLoop_RejectsConcurrentRunExactly(t *testing.T) {
+	start := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
+	loader := &sequenceCredentialLoader{bundles: []CredentialBundle{renewalLoopBundleFixture(t, start, start.Add(time.Hour), 4)}}
+	renewer := &cancelAwareRenewer{entered: make(chan struct{})}
+	loop, err := NewRenewalLoop(renewer, loader, func(error) {})
+	if err != nil {
+		t.Fatalf("NewRenewalLoop: %v", err)
+	}
+	loop.now = func() time.Time { return start.Add(time.Hour) }
+	loop.wait = func(context.Context, time.Duration) error { return nil }
+	ctx, cancel := context.WithCancel(context.Background())
+	firstDone := make(chan error, 1)
+	go func() { firstDone <- loop.Run(ctx) }()
+	<-renewer.entered
+
+	if err := loop.Run(context.Background()); err == nil || err.Error() != "enroll: renewal loop is already running" {
+		t.Fatalf("concurrent Run error = %v; want exact already-running rejection", err)
+	}
+	cancel()
+	select {
+	case err := <-firstDone:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("first Run error = %v; want cancellation", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("first renewal loop did not stop after cancellation")
+	}
+}
+
 type sequenceCredentialLoader struct {
 	bundles []CredentialBundle
 	calls   int

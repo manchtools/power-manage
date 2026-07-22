@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 )
 
@@ -22,6 +23,8 @@ type CredentialLoader interface {
 
 // RenewalLoop serially schedules agent renewal and reports every retry cause.
 type RenewalLoop struct {
+	mu          sync.Mutex
+	running     bool
 	renewer     Renewer
 	credentials CredentialLoader
 	report      func(error)
@@ -56,6 +59,18 @@ func (l *RenewalLoop) Run(ctx context.Context) error {
 	if ctx == nil {
 		return errors.New("enroll: nil renewal-loop context")
 	}
+	l.mu.Lock()
+	if l.running {
+		l.mu.Unlock()
+		return errors.New("enroll: renewal loop is already running")
+	}
+	l.running = true
+	l.mu.Unlock()
+	defer func() {
+		l.mu.Lock()
+		l.running = false
+		l.mu.Unlock()
+	}()
 	certificate, err := l.loadCertificate(ctx)
 	if err != nil {
 		return err

@@ -92,7 +92,7 @@ func validateRootOnlyFileInfo(path string, info os.FileInfo, maxBytes int64, mod
 	if stat.Uid != 0 {
 		return fmt.Errorf("root-only file %s is not root-owned", path)
 	}
-	if info.Mode().Perm() != mode.Perm() {
+	if info.Mode() != mode.Perm() {
 		return fmt.Errorf("root-only file %s must have mode %04o", path, mode.Perm())
 	}
 	if info.Size() < 0 {
