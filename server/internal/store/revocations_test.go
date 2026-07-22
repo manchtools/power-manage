@@ -132,6 +132,24 @@ func TestCRLStateSchema_RejectsIncompletePublicationSource(t *testing.T) {
 	}
 }
 
+func TestCertificateRevocationsSchema_IndexesClassOrderedScan(t *testing.T) {
+	pool := testPostgres(t)
+	var definition string
+	if err := pool.QueryRow(
+		context.Background(),
+		`SELECT indexdef FROM pg_indexes
+		 WHERE schemaname = 'public'
+		   AND tablename = 'certificate_revocations'
+		   AND indexname = 'certificate_revocations_class_scan_idx'`,
+	).Scan(&definition); err != nil {
+		t.Fatalf("read certificate-revocation scan index: %v", err)
+	}
+	const orderedColumns = "(certificate_class, revoked_at, certificate_fingerprint)"
+	if !strings.Contains(definition, orderedColumns) {
+		t.Fatalf("certificate-revocation scan index = %q; want ordered columns %q", definition, orderedColumns)
+	}
+}
+
 func TestDeviceProjection_RevocationAndForceRenewRebuildExactState(t *testing.T) {
 	pool := testPostgres(t)
 	eventStore, err := NewProduction(pool)
@@ -235,6 +253,59 @@ func TestDeviceRebuild_PreservesGatewayRevocations(t *testing.T) {
 	}
 	if len(gatewayRevocations) != 1 || !bytes.Equal(gatewayRevocations[0].CertificateDER, gatewayDER) {
 		t.Fatalf("gateway revocations after device rebuild = %+v; want exact preserved row", gatewayRevocations)
+	}
+}
+
+func TestDeviceProjection_ExactRevocationReplayDoesNotReenqueueCRLWork(t *testing.T) {
+	pool := testPostgres(t)
+	eventStore, err := NewProduction(pool)
+	if err != nil {
+		t.Fatalf("create production event store: %v", err)
+	}
+	key := newDeviceSigningKeyFixture(t)
+	certificateDER := newDeviceCertificateWithKeyFixture(t, identity.AgentClass, testEnrolledDeviceID, key, 7)
+	appendEnrollmentFixture(t, eventStore, certificateDER)
+	revoke, err := AgentCertificateRevokedEvent(testEnrolledDeviceID, certificateDER)
+	if err != nil {
+		t.Fatalf("create revoke event: %v", err)
+	}
+	appendLifecycleEventFixture(t, eventStore, revoke, 1)
+	if got := crlWorkCount(t, pool); got != 1 {
+		t.Fatalf("initial CRL work count = %d; want one", got)
+	}
+
+	var createdAt time.Time
+	if err := pool.QueryRow(
+		context.Background(),
+		`SELECT created_at FROM events WHERE stream_type = $1 AND stream_id = $2 AND stream_version = $3`,
+		revoke.StreamType,
+		revoke.StreamID,
+		int64(2),
+	).Scan(&createdAt); err != nil {
+		t.Fatalf("read persisted revoke event time: %v", err)
+	}
+	persisted := PersistedEvent{Event: revoke, StreamVersion: 2, CreatedAt: createdAt}
+	tx, err := pool.Begin(context.Background())
+	if err != nil {
+		t.Fatalf("begin exact replay transaction: %v", err)
+	}
+	defer func() {
+		if rollbackErr := rollbackTx(context.Background(), tx); rollbackErr != nil {
+			t.Fatalf("rollback exact replay transaction: %v", rollbackErr)
+		}
+	}()
+	if err := projectAgentCertificateRevocation(
+		context.Background(),
+		projectionTx{DBTX: tx, sourceEvent: &persisted},
+		persisted,
+	); err != nil {
+		t.Fatalf("replay exact revocation event: %v", err)
+	}
+	if err := tx.Commit(context.Background()); err != nil {
+		t.Fatalf("commit exact revocation replay: %v", err)
+	}
+	if got := crlWorkCount(t, pool); got != 1 {
+		t.Fatalf("CRL work count after exact replay = %d; want unchanged one", got)
 	}
 }
 
