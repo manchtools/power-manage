@@ -119,8 +119,8 @@ func TestFileCredentialStore_ReplaceValidatesBeforeAtomicMode0600Write(t *testin
 	}
 	invalid := bundle
 	invalid.PrivateKey = nil
-	if err := store.Replace(context.Background(), invalid); err == nil {
-		t.Fatal("Replace accepted an invalid credential bundle")
+	if err := store.Replace(context.Background(), invalid); err == nil || !strings.Contains(err.Error(), "credential bundle has a nil private key") {
+		t.Fatalf("Replace error = %v; want nil-private-key rejection", err)
 	}
 	if writes != 1 {
 		t.Fatalf("atomic writes = %d; want only the valid replacement", writes)

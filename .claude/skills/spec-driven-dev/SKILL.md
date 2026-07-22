@@ -20,8 +20,10 @@ order; `docs/content/01-specs/00-index.md` is the status ledger.
 2. **Read** the whole spec, its "Context capsule", and the capsules of every
    spec in its `Builds on:` header. Read the existing code the milestone
    touches. Never start from memory or assumption. The milestone plan records
-   only changed files, symbols, and test names; behavioral requirements and
-   security rationale stay in the approved spec rather than being duplicated.
+   only changed files, symbols, and test names. Behavioral requirements,
+   security rationale, verification commands, and process notes stay in their
+   owning spec or skill rather than being duplicated. Reject review suggestions
+   that would move those details back into the milestone plan.
 3. **Red**: write tests from the acceptance criteria and rejection-path table.
    Run them. Every new test must FAIL, and fail for the right reason (assert on
    the failure message, not just the exit code). A test that passes before the

@@ -29,7 +29,7 @@ Run the shared guard that owns each new surface when that surface is created:
 - sqlc projection mutator → server projection-owner guard;
 - Go test importing generated protobufs → workspace protojson guard.
 
-Record any required reviewed rationale or owner in the relevant registry in
+Record any required rationale or owner review in the relevant registry in
 the same patch; never defer this integration to the full suite.
 
 ## Canonical shapes

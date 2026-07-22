@@ -1232,5 +1232,26 @@ document even though SPEC-006 already owns those approved requirements.
 **Harness fix**: The spec-development skill now repeats the delta-only plan
 boundary at the session step where the spec and touched code are read.
 
-**Prevention**: Milestone plans list only changed files, symbols, test names,
-and verification commands; normative prose remains in the approved spec.
+**Prevention**: Milestone plans list only changed files, symbols, and test
+names; normative prose and execution details remain in their owning spec or
+skill.
+
+## 2026-07-22 — A review suggestion bypassed the plan-scope rule
+
+**What happened**: A local review requested explicit verification commands in
+the M5 milestone plan. The suggestion was applied even though the repository's
+delta-only rule excludes commands and process notes; the remote review caught
+the contradiction.
+
+**What the user said**: Not user-initiated; the conflicting review findings
+made the rule violation visible before merge.
+
+**Root cause**: The suggested patch was checked for reproducibility but not
+reconciled with the plan's governing scope rule before application.
+
+**Harness fix**: The spec-development skill now explicitly names verification
+commands and process notes as excluded and requires conflicting review advice
+to be rejected.
+
+**Prevention**: Validate every review suggestion against the owning repository
+rule before applying it, even when the suggestion is otherwise reasonable.
