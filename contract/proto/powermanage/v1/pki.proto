@@ -11,6 +11,7 @@ option go_package = "github.com/manchtools/power-manage/contract/gen/go/powerman
 
 service PkiService {
   rpc EnrollAgent(EnrollAgentRequest) returns (EnrollAgentResponse);
+  rpc RenewAgent(RenewAgentRequest) returns (RenewAgentResponse);
 }
 
 // EnrollAgentRequest carries proof generated entirely on the device. The
@@ -30,6 +31,34 @@ message EnrollAgentRequest {
 // EnrollAgentResponse returns public material only. The private mTLS and
 // sealing keys remain on the device that generated the request.
 message EnrollAgentResponse {
+  bytes certificate_der = 1 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 65536
+  }];
+  bytes certificate_authority_der = 2 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 65536
+  }];
+}
+
+// RenewAgentRequest proves continuity from the current exact certificate to a
+// CSR signed by the same device-held key. Control derives device identity from
+// the certificate; no caller-asserted identity field exists.
+message RenewAgentRequest {
+  bytes certificate_der = 1 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 65536
+  }];
+  bytes certificate_signing_request_der = 2 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 65536
+  }];
+  bytes sealing_public_key = 3 [(buf.validate.field).bytes.len = 32];
+}
+
+// RenewAgentResponse returns public replacement material only. Device private
+// keys remain local and the enrolled CA remains the trust anchor.
+message RenewAgentResponse {
   bytes certificate_der = 1 [(buf.validate.field).bytes = {
     min_len: 1
     max_len: 65536

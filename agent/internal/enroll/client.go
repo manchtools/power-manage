@@ -44,9 +44,12 @@ type CredentialBundle struct {
 	SealingPrivateKey       *ecdh.PrivateKey
 }
 
-// CredentialStore creates the first local identity without overwriting one.
+// CredentialStore owns first publication, strict loading, and atomic renewal
+// replacement for the agent's single local identity.
 type CredentialStore interface {
 	Create(context.Context, CredentialBundle) error
+	Load(context.Context) (CredentialBundle, error)
+	Replace(context.Context, CredentialBundle) error
 }
 
 // Client generates local keys, submits their public proof, validates TOFU/pin
@@ -131,6 +134,73 @@ func (c *Client) Enroll(ctx context.Context, token, caFingerprint string) (strin
 		return "", fmt.Errorf("enroll: store credentials: %w", err)
 	}
 	return deviceID, nil
+}
+
+// Renew proves possession of the enrolled mTLS key, rotates the sealing key,
+// verifies identity and CA continuity, and atomically replaces credentials.
+func (c *Client) Renew(ctx context.Context) error {
+	if c == nil || isNilEnrollmentDependency(c.remote) || isNilEnrollmentDependency(c.store) || c.now == nil {
+		return errors.New("enroll: client is not wired")
+	}
+	if ctx == nil {
+		return errors.New("enroll: nil context")
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	current, err := c.store.Load(ctx)
+	if err != nil {
+		return fmt.Errorf("enroll: load credentials for renewal: %w", err)
+	}
+	if err := validateStoredCredentialBundle(current); err != nil {
+		return fmt.Errorf("enroll: validate credentials for renewal: %w", err)
+	}
+	csrDER, err := x509.CreateCertificateRequest(rand.Reader, &x509.CertificateRequest{}, current.PrivateKey)
+	if err != nil {
+		return fmt.Errorf("enroll: create renewal certificate signing request: %w", err)
+	}
+	sealingPrivateKey, err := ecdh.X25519().GenerateKey(rand.Reader)
+	if err != nil {
+		return fmt.Errorf("enroll: generate renewed sealing private key: %w", err)
+	}
+	response, err := c.remote.RenewAgent(ctx, connect.NewRequest(&powermanagev1.RenewAgentRequest{
+		CertificateDer:               bytes.Clone(current.CertificateDER),
+		CertificateSigningRequestDer: csrDER,
+		SealingPublicKey:             sealingPrivateKey.PublicKey().Bytes(),
+	}))
+	if err != nil {
+		return fmt.Errorf("enroll: PkiService renewal: %w", err)
+	}
+	if response == nil || response.Msg == nil {
+		return errors.New("enroll: PkiService returned an empty renewal response")
+	}
+	deviceID, err := validateEnrollmentResponse(
+		response.Msg.GetCertificateDer(),
+		response.Msg.GetCertificateAuthorityDer(),
+		current.PrivateKey.Public(),
+		nil,
+		c.now(),
+	)
+	if err != nil {
+		return fmt.Errorf("enroll: validate renewal response: %w", err)
+	}
+	if deviceID != current.DeviceID {
+		return errors.New("enroll: renewed certificate device ID mismatch")
+	}
+	if !bytes.Equal(response.Msg.GetCertificateAuthorityDer(), current.CertificateAuthorityDER) {
+		return errors.New("enroll: renewed certificate authority differs from enrolled authority")
+	}
+	replacement := CredentialBundle{
+		DeviceID:                current.DeviceID,
+		CertificateDER:          bytes.Clone(response.Msg.GetCertificateDer()),
+		CertificateAuthorityDER: bytes.Clone(response.Msg.GetCertificateAuthorityDer()),
+		PrivateKey:              current.PrivateKey,
+		SealingPrivateKey:       sealingPrivateKey,
+	}
+	if err := c.store.Replace(ctx, replacement); err != nil {
+		return fmt.Errorf("enroll: replace renewed credentials: %w", err)
+	}
+	return nil
 }
 
 func validateEnrollmentResponse(
@@ -262,6 +332,51 @@ func validateCredentialBundle(bundle CredentialBundle, now time.Time) error {
 	}
 	if err := seal.ValidateX25519PublicKey(bundle.SealingPrivateKey.PublicKey().Bytes()); err != nil {
 		return fmt.Errorf("enroll: validate sealing private key: %w", err)
+	}
+	return nil
+}
+
+func validateStoredCredentialBundle(bundle CredentialBundle) error {
+	if isNilEnrollmentDependency(bundle.PrivateKey) || bundle.SealingPrivateKey == nil {
+		return errors.New("enroll: credential bundle has a nil private key")
+	}
+	if err := sign.ValidateSigningKey(bundle.PrivateKey); err != nil {
+		return fmt.Errorf("enroll: validate credential private key: %w", err)
+	}
+	certificateAuthority, err := parseExactCertificate(bundle.CertificateAuthorityDER)
+	if err != nil {
+		return fmt.Errorf("enroll: parse stored certificate authority: %w", err)
+	}
+	if !certificateAuthority.IsCA || !certificateAuthority.BasicConstraintsValid || certificateAuthority.KeyUsage&x509.KeyUsageCertSign == 0 {
+		return errors.New("enroll: stored certificate authority has an invalid profile")
+	}
+	if err := sign.ValidateSigningKey(certificateAuthority.PublicKey); err != nil {
+		return fmt.Errorf("enroll: validate stored certificate authority key: %w", err)
+	}
+	certificate, err := parseExactCertificate(bundle.CertificateDER)
+	if err != nil {
+		return fmt.Errorf("enroll: parse stored certificate: %w", err)
+	}
+	if !publicKeysEqual(certificate.PublicKey, bundle.PrivateKey.Public()) {
+		return errors.New("enroll: stored certificate public key mismatch")
+	}
+	class, deviceID, err := identity.ParseCertificateIdentity(certificate)
+	if err != nil {
+		return fmt.Errorf("enroll: parse stored certificate identity: %w", err)
+	}
+	if class != identity.AgentClass || deviceID != bundle.DeviceID {
+		return errors.New("enroll: stored certificate identity mismatch")
+	}
+	if certificate.IsCA || !certificate.BasicConstraintsValid || certificate.KeyUsage&x509.KeyUsageDigitalSignature == 0 ||
+		len(certificate.ExtKeyUsage) != 1 || certificate.ExtKeyUsage[0] != x509.ExtKeyUsageClientAuth ||
+		certificate.NotAfter.Sub(certificate.NotBefore) != agentCertificateLifetime {
+		return errors.New("enroll: stored certificate has an invalid agent profile")
+	}
+	if err := certificate.CheckSignatureFrom(certificateAuthority); err != nil {
+		return fmt.Errorf("enroll: verify stored certificate authority: %w", err)
+	}
+	if err := seal.ValidateX25519PublicKey(bundle.SealingPrivateKey.PublicKey().Bytes()); err != nil {
+		return fmt.Errorf("enroll: validate stored sealing private key: %w", err)
 	}
 	return nil
 }

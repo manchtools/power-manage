@@ -145,6 +145,123 @@ func (x *EnrollAgentResponse) GetCertificateAuthorityDer() []byte {
 	return nil
 }
 
+// RenewAgentRequest proves continuity from the current exact certificate to a
+// CSR signed by the same device-held key. Control derives device identity from
+// the certificate; no caller-asserted identity field exists.
+type RenewAgentRequest struct {
+	state                        protoimpl.MessageState `protogen:"open.v1"`
+	CertificateDer               []byte                 `protobuf:"bytes,1,opt,name=certificate_der,json=certificateDer,proto3" json:"certificate_der,omitempty"`
+	CertificateSigningRequestDer []byte                 `protobuf:"bytes,2,opt,name=certificate_signing_request_der,json=certificateSigningRequestDer,proto3" json:"certificate_signing_request_der,omitempty"`
+	SealingPublicKey             []byte                 `protobuf:"bytes,3,opt,name=sealing_public_key,json=sealingPublicKey,proto3" json:"sealing_public_key,omitempty"`
+	unknownFields                protoimpl.UnknownFields
+	sizeCache                    protoimpl.SizeCache
+}
+
+func (x *RenewAgentRequest) Reset() {
+	*x = RenewAgentRequest{}
+	mi := &file_powermanage_v1_pki_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RenewAgentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RenewAgentRequest) ProtoMessage() {}
+
+func (x *RenewAgentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_v1_pki_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RenewAgentRequest.ProtoReflect.Descriptor instead.
+func (*RenewAgentRequest) Descriptor() ([]byte, []int) {
+	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *RenewAgentRequest) GetCertificateDer() []byte {
+	if x != nil {
+		return x.CertificateDer
+	}
+	return nil
+}
+
+func (x *RenewAgentRequest) GetCertificateSigningRequestDer() []byte {
+	if x != nil {
+		return x.CertificateSigningRequestDer
+	}
+	return nil
+}
+
+func (x *RenewAgentRequest) GetSealingPublicKey() []byte {
+	if x != nil {
+		return x.SealingPublicKey
+	}
+	return nil
+}
+
+// RenewAgentResponse returns public replacement material only. Device private
+// keys remain local and the enrolled CA remains the trust anchor.
+type RenewAgentResponse struct {
+	state                   protoimpl.MessageState `protogen:"open.v1"`
+	CertificateDer          []byte                 `protobuf:"bytes,1,opt,name=certificate_der,json=certificateDer,proto3" json:"certificate_der,omitempty"`
+	CertificateAuthorityDer []byte                 `protobuf:"bytes,2,opt,name=certificate_authority_der,json=certificateAuthorityDer,proto3" json:"certificate_authority_der,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
+}
+
+func (x *RenewAgentResponse) Reset() {
+	*x = RenewAgentResponse{}
+	mi := &file_powermanage_v1_pki_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RenewAgentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RenewAgentResponse) ProtoMessage() {}
+
+func (x *RenewAgentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_v1_pki_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RenewAgentResponse.ProtoReflect.Descriptor instead.
+func (*RenewAgentResponse) Descriptor() ([]byte, []int) {
+	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *RenewAgentResponse) GetCertificateDer() []byte {
+	if x != nil {
+		return x.CertificateDer
+	}
+	return nil
+}
+
+func (x *RenewAgentResponse) GetCertificateAuthorityDer() []byte {
+	if x != nil {
+		return x.CertificateAuthorityDer
+	}
+	return nil
+}
+
 var File_powermanage_v1_pki_proto protoreflect.FileDescriptor
 
 const file_powermanage_v1_pki_proto_rawDesc = "" +
@@ -156,10 +273,19 @@ const file_powermanage_v1_pki_proto_rawDesc = "" +
 	"\x12sealing_public_key\x18\x03 \x01(\fB\a\xbaH\x04z\x02h R\x10sealingPublicKey\"\x94\x01\n" +
 	"\x13EnrollAgentResponse\x124\n" +
 	"\x0fcertificate_der\x18\x01 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x0ecertificateDer\x12G\n" +
-	"\x19certificate_authority_der\x18\x02 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x17certificateAuthorityDer2d\n" +
+	"\x19certificate_authority_der\x18\x02 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x17certificateAuthorityDer\"\xd4\x01\n" +
+	"\x11RenewAgentRequest\x124\n" +
+	"\x0fcertificate_der\x18\x01 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x0ecertificateDer\x12R\n" +
+	"\x1fcertificate_signing_request_der\x18\x02 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x1ccertificateSigningRequestDer\x125\n" +
+	"\x12sealing_public_key\x18\x03 \x01(\fB\a\xbaH\x04z\x02h R\x10sealingPublicKey\"\x93\x01\n" +
+	"\x12RenewAgentResponse\x124\n" +
+	"\x0fcertificate_der\x18\x01 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x0ecertificateDer\x12G\n" +
+	"\x19certificate_authority_der\x18\x02 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x17certificateAuthorityDer2\xb9\x01\n" +
 	"\n" +
 	"PkiService\x12V\n" +
-	"\vEnrollAgent\x12\".powermanage.v1.EnrollAgentRequest\x1a#.powermanage.v1.EnrollAgentResponseBQZOgithub.com/manchtools/power-manage/contract/gen/go/powermanage/v1;powermanagev1b\x06proto3"
+	"\vEnrollAgent\x12\".powermanage.v1.EnrollAgentRequest\x1a#.powermanage.v1.EnrollAgentResponse\x12S\n" +
+	"\n" +
+	"RenewAgent\x12!.powermanage.v1.RenewAgentRequest\x1a\".powermanage.v1.RenewAgentResponseBQZOgithub.com/manchtools/power-manage/contract/gen/go/powermanage/v1;powermanagev1b\x06proto3"
 
 var (
 	file_powermanage_v1_pki_proto_rawDescOnce sync.Once
@@ -173,16 +299,20 @@ func file_powermanage_v1_pki_proto_rawDescGZIP() []byte {
 	return file_powermanage_v1_pki_proto_rawDescData
 }
 
-var file_powermanage_v1_pki_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_powermanage_v1_pki_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_powermanage_v1_pki_proto_goTypes = []any{
 	(*EnrollAgentRequest)(nil),  // 0: powermanage.v1.EnrollAgentRequest
 	(*EnrollAgentResponse)(nil), // 1: powermanage.v1.EnrollAgentResponse
+	(*RenewAgentRequest)(nil),   // 2: powermanage.v1.RenewAgentRequest
+	(*RenewAgentResponse)(nil),  // 3: powermanage.v1.RenewAgentResponse
 }
 var file_powermanage_v1_pki_proto_depIdxs = []int32{
 	0, // 0: powermanage.v1.PkiService.EnrollAgent:input_type -> powermanage.v1.EnrollAgentRequest
-	1, // 1: powermanage.v1.PkiService.EnrollAgent:output_type -> powermanage.v1.EnrollAgentResponse
-	1, // [1:2] is the sub-list for method output_type
-	0, // [0:1] is the sub-list for method input_type
+	2, // 1: powermanage.v1.PkiService.RenewAgent:input_type -> powermanage.v1.RenewAgentRequest
+	1, // 2: powermanage.v1.PkiService.EnrollAgent:output_type -> powermanage.v1.EnrollAgentResponse
+	3, // 3: powermanage.v1.PkiService.RenewAgent:output_type -> powermanage.v1.RenewAgentResponse
+	2, // [2:4] is the sub-list for method output_type
+	0, // [0:2] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -199,7 +329,7 @@ func file_powermanage_v1_pki_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_powermanage_v1_pki_proto_rawDesc), len(file_powermanage_v1_pki_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -13,6 +13,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -171,12 +172,23 @@ func TestFileCredentialStore_EncodesRootOnlyNoOverwriteBundle(t *testing.T) {
 }
 
 type capturingCredentialStore struct {
-	calls  int
-	bundle CredentialBundle
+	calls        int
+	replaceCalls int
+	bundle       CredentialBundle
 }
 
 func (s *capturingCredentialStore) Create(_ context.Context, bundle CredentialBundle) error {
 	s.calls++
+	s.bundle = bundle
+	return nil
+}
+
+func (s *capturingCredentialStore) Load(context.Context) (CredentialBundle, error) {
+	return s.bundle, nil
+}
+
+func (s *capturingCredentialStore) Replace(_ context.Context, bundle CredentialBundle) error {
+	s.replaceCalls++
 	s.bundle = bundle
 	return nil
 }
@@ -196,6 +208,10 @@ type clientRemoteHandler struct {
 	calls          int
 	request        *powermanagev1.EnrollAgentRequest
 	certificateDER []byte
+}
+
+func (h *clientRemoteHandler) RenewAgent(context.Context, *connect.Request[powermanagev1.RenewAgentRequest]) (*connect.Response[powermanagev1.RenewAgentResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("renewal not configured in enrollment fixture"))
 }
 
 func (h *clientRemoteHandler) EnrollAgent(_ context.Context, request *connect.Request[powermanagev1.EnrollAgentRequest]) (*connect.Response[powermanagev1.EnrollAgentResponse], error) {

@@ -69,10 +69,11 @@ func TestGuard_ProjectionWritesOnlyFromProjectors(t *testing.T) {
 		"ProjectRegistrationTokenDisable": "projectRegistrationTokenDisable",
 		"ResetRegistrationTokens":         "resetRegistrationTokens",
 		"UpsertDeviceEnrollment":          "projectAgentEnrollment",
+		"UpdateDeviceRenewal":             "projectAgentCertificateRenewal",
 		"ResetDevices":                    "resetDevices",
 	}
 	var violations []string
-	guardtest.Discover(t, "projection mutation call sites", 9, func() ([]string, error) {
+	guardtest.Discover(t, "projection mutation call sites", 10, func() ([]string, error) {
 		var discovered int
 		var err error
 		violations, discovered, err = scanProjectionWrites(

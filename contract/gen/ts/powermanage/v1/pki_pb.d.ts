@@ -72,6 +72,60 @@ export declare type EnrollAgentResponse = Message<"powermanage.v1.EnrollAgentRes
 export declare const EnrollAgentResponseSchema: GenMessage<EnrollAgentResponse>;
 
 /**
+ * RenewAgentRequest proves continuity from the current exact certificate to a
+ * CSR signed by the same device-held key. Control derives device identity from
+ * the certificate; no caller-asserted identity field exists.
+ *
+ * @generated from message powermanage.v1.RenewAgentRequest
+ */
+export declare type RenewAgentRequest = Message<"powermanage.v1.RenewAgentRequest"> & {
+  /**
+   * @generated from field: bytes certificate_der = 1;
+   */
+  certificateDer: Uint8Array;
+
+  /**
+   * @generated from field: bytes certificate_signing_request_der = 2;
+   */
+  certificateSigningRequestDer: Uint8Array;
+
+  /**
+   * @generated from field: bytes sealing_public_key = 3;
+   */
+  sealingPublicKey: Uint8Array;
+};
+
+/**
+ * Describes the message powermanage.v1.RenewAgentRequest.
+ * Use `create(RenewAgentRequestSchema)` to create a new message.
+ */
+export declare const RenewAgentRequestSchema: GenMessage<RenewAgentRequest>;
+
+/**
+ * RenewAgentResponse returns public replacement material only. Device private
+ * keys remain local and the enrolled CA remains the trust anchor.
+ *
+ * @generated from message powermanage.v1.RenewAgentResponse
+ */
+export declare type RenewAgentResponse = Message<"powermanage.v1.RenewAgentResponse"> & {
+  /**
+   * @generated from field: bytes certificate_der = 1;
+   */
+  certificateDer: Uint8Array;
+
+  /**
+   * @generated from field: bytes certificate_authority_der = 2;
+   */
+  certificateAuthorityDer: Uint8Array;
+};
+
+/**
+ * Describes the message powermanage.v1.RenewAgentResponse.
+ * Use `create(RenewAgentResponseSchema)` to create a new message.
+ */
+export declare const RenewAgentResponseSchema: GenMessage<RenewAgentResponse>;
+
+/**
  * @generated from service powermanage.v1.PkiService
  */
 export declare const PkiService: GenService<{
@@ -82,6 +136,14 @@ export declare const PkiService: GenService<{
     methodKind: "unary";
     input: typeof EnrollAgentRequestSchema;
     output: typeof EnrollAgentResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.PkiService.RenewAgent
+   */
+  renewAgent: {
+    methodKind: "unary";
+    input: typeof RenewAgentRequestSchema;
+    output: typeof RenewAgentResponseSchema;
   },
 }>;
 

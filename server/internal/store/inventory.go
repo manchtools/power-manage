@@ -92,7 +92,7 @@ func productionRebuildTargets() map[string]RebuildTarget {
 		DeviceRebuildTarget: {
 			Tables:      []string{"devices"},
 			StreamTypes: []string{deviceStreamType},
-			EventTypes:  []string{agentEnrolledEventType},
+			EventTypes:  []string{agentEnrolledEventType, agentCertificateRenewedEventType},
 			Reset:       resetDevices,
 		},
 	}
