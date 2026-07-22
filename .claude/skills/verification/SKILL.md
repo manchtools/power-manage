@@ -77,6 +77,11 @@ because it keeps printing OK. In verify/CI/guard scripts:
 - Follow-up reads use only paths actually returned by prior `rg --files` or
   `find` discovery. A known directory is not a file inventory; never append a
   guessed sibling filename, including inside the same shell command.
+- If a read reports a missing path, stop that inspection and complete a fresh
+  `rg --files` inventory of the parent before retrying; do not correct the name
+  from memory.
+- Use bare `docref` to print the installed CLI usage. Do not pass `--help` to a
+  docref subcommand; this release treats subcommand arguments as paths.
 
 ## Red checks
 
