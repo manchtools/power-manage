@@ -183,6 +183,13 @@ message FixturePkiIdentityRequest {
   string device_id = 1 [(buf.validate.field).string.len = 26];
   string auth_token = 2 [(buf.validate.field).string.min_len = 1];
   FixturePkiIdentityNested identity_nested = 3 [(buf.validate.field).required = true];
+  FixturePkiJSONAlias identity_alias = 4 [(buf.validate.field).required = true];
+}
+
+message FixturePkiJSONAlias {
+  // GUARD-006-3 matcher-grammar fixture: the proto name looks harmless, but
+  // its explicit JSON spelling recreates the banned device_id input.
+  string claimed_identity = 1 [json_name = "deviceId", (buf.validate.field).string.len = 26];
 }
 
 message FixturePkiIdentityNested {

@@ -377,3 +377,24 @@ paths from the root before running module-local checks separately.
 
 **Prevention**: Run `gofmt` from the repository root, then run `go test` and
 `staticcheck` from the module directory in a separate command.
+
+## 2026-07-22 — Repeated path context: combined formatting ignored the rule
+
+**What happened**: During the review-fix pass, another command ran from the
+`contract` module while asking `gofmt` to open
+`contract/archtest/denylist_test.go`. It failed before formatting or testing.
+
+**What the user said**: Not user-initiated; this repeated an earlier internal
+path-resolution mistake despite the first harness entry.
+
+**Root cause**: The earlier rule described the two path contexts but did not
+provide a concrete preflight that made the invalid argument obvious at command
+construction time.
+
+**Harness fix**: `CLAUDE.md` now states the literal invariant: a command whose
+working directory is `/contract` cannot receive a `contract/`-prefixed file
+argument, and formatting must be split from module checks.
+
+**Prevention**: Before executing a module-local command, compare its workdir
+suffix with every explicit path prefix; run repository-path formatting in its
+own root-scoped command.

@@ -8,9 +8,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/asn1"
 	"math/big"
 	"net"
 	"net/url"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -83,6 +85,113 @@ func TestStampCertificateIdentity_RejectsInvalidInput(t *testing.T) {
 				t.Fatalf("StampCertificateIdentity error = %q; want substring %q", err, test.wantErr)
 			}
 		})
+	}
+}
+
+// TestStampCertificateIdentity_RejectsRawCommonNameOverride pins the raw-DER
+// bypass: pkix.Name.ExtraNames can replace Subject.CommonName during X.509
+// serialization, so stamping must reject it before mutating the template.
+func TestStampCertificateIdentity_RejectsRawCommonNameOverride(t *testing.T) {
+	template := &x509.Certificate{
+		Subject: pkix.Name{
+			CommonName: "before-stamp",
+			ExtraNames: []pkix.AttributeTypeAndValue{{
+				Type:  asn1.ObjectIdentifier{2, 5, 4, 3},
+				Value: testControlID,
+			}},
+		},
+	}
+	proof := *template
+	proof.Subject.CommonName = testAgentID
+	proof.URIs = []*url.URL{mustURL(t, identity.AgentSPIFFEURI)}
+	parsed := serializeCertificateTemplate(t, &proof)
+	if parsed.Subject.CommonName != testControlID {
+		t.Fatalf("raw-CN fixture parsed common name = %q; want override %q", parsed.Subject.CommonName, testControlID)
+	}
+
+	before := *template
+	err := identity.StampCertificateIdentity(template, identity.AgentClass, testAgentID)
+	if !reflect.DeepEqual(template, &before) {
+		t.Errorf("StampCertificateIdentity mutated template before rejecting raw common-name override")
+	}
+	if err == nil {
+		t.Fatal("StampCertificateIdentity accepted Subject.ExtraNames common-name override")
+	}
+	if !strings.Contains(err.Error(), "Subject.ExtraNames overrides common name") {
+		t.Fatalf("StampCertificateIdentity error = %q; want raw common-name override reason", err)
+	}
+}
+
+// TestStampCertificateIdentity_RejectsRawSubjectOverride pins the broader
+// raw-DER bypass: Certificate.RawSubject takes precedence over every parsed
+// Subject field during serialization, including the stamped common name.
+func TestStampCertificateIdentity_RejectsRawSubjectOverride(t *testing.T) {
+	rawSubject, err := asn1.Marshal(pkix.Name{CommonName: testControlID}.ToRDNSequence())
+	if err != nil {
+		t.Fatalf("marshal raw-subject fixture: %v", err)
+	}
+	template := &x509.Certificate{
+		Subject:    pkix.Name{CommonName: "before-stamp"},
+		RawSubject: rawSubject,
+	}
+	proof := *template
+	proof.Subject.CommonName = testAgentID
+	proof.URIs = []*url.URL{mustURL(t, identity.AgentSPIFFEURI)}
+	parsed := serializeCertificateTemplate(t, &proof)
+	if parsed.Subject.CommonName != testControlID {
+		t.Fatalf("raw-subject fixture parsed common name = %q; want override %q", parsed.Subject.CommonName, testControlID)
+	}
+
+	before := *template
+	err = identity.StampCertificateIdentity(template, identity.AgentClass, testAgentID)
+	if !reflect.DeepEqual(template, &before) {
+		t.Errorf("StampCertificateIdentity mutated template before rejecting RawSubject override")
+	}
+	if err == nil {
+		t.Fatal("StampCertificateIdentity accepted RawSubject override")
+	}
+	if !strings.Contains(err.Error(), "RawSubject overrides subject") {
+		t.Fatalf("StampCertificateIdentity error = %q; want RawSubject override reason", err)
+	}
+}
+
+// TestStampCertificateIdentity_RejectsRawSANOverride pins the sibling raw-DER
+// bypass: ExtraExtensions subjectAltName replaces template.URIs during X.509
+// serialization, so stamping must reject it before mutating the template.
+func TestStampCertificateIdentity_RejectsRawSANOverride(t *testing.T) {
+	sanDER, err := asn1.Marshal([]asn1.RawValue{{
+		Class: asn1.ClassContextSpecific,
+		Tag:   6,
+		Bytes: []byte(identity.GatewaySPIFFEURI),
+	}})
+	if err != nil {
+		t.Fatalf("marshal raw SAN fixture: %v", err)
+	}
+	template := &x509.Certificate{
+		Subject: pkix.Name{CommonName: "before-stamp"},
+		ExtraExtensions: []pkix.Extension{{
+			Id:    asn1.ObjectIdentifier{2, 5, 29, 17},
+			Value: sanDER,
+		}},
+	}
+	proof := *template
+	proof.Subject.CommonName = testAgentID
+	proof.URIs = []*url.URL{mustURL(t, identity.AgentSPIFFEURI)}
+	parsed := serializeCertificateTemplate(t, &proof)
+	if len(parsed.URIs) != 1 || parsed.URIs[0].String() != identity.GatewaySPIFFEURI {
+		t.Fatalf("raw-SAN fixture parsed URIs = %v; want override %q", parsed.URIs, identity.GatewaySPIFFEURI)
+	}
+
+	before := *template
+	err = identity.StampCertificateIdentity(template, identity.AgentClass, testAgentID)
+	if !reflect.DeepEqual(template, &before) {
+		t.Errorf("StampCertificateIdentity mutated template before rejecting raw SAN override")
+	}
+	if err == nil {
+		t.Fatal("StampCertificateIdentity accepted ExtraExtensions subjectAltName override")
+	}
+	if !strings.Contains(err.Error(), "ExtraExtensions overrides subjectAltName") {
+		t.Fatalf("StampCertificateIdentity error = %q; want raw SAN override reason", err)
 	}
 }
 
@@ -364,6 +473,28 @@ func mustURL(t *testing.T, raw string) *url.URL {
 		t.Fatalf("parse test URI %q: %v", raw, err)
 	}
 	return u
+}
+
+func serializeCertificateTemplate(t *testing.T, template *x509.Certificate) *x509.Certificate {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("generate raw-override fixture key: %v", err)
+	}
+	copy := *template
+	copy.SerialNumber = big.NewInt(99)
+	copy.NotBefore = time.Now().Add(-time.Hour)
+	copy.NotAfter = time.Now().Add(time.Hour)
+	copy.KeyUsage = x509.KeyUsageDigitalSignature
+	der, err := x509.CreateCertificate(rand.Reader, &copy, &copy, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("serialize raw-override fixture certificate: %v", err)
+	}
+	cert, err := x509.ParseCertificate(der)
+	if err != nil {
+		t.Fatalf("parse raw-override fixture certificate: %v", err)
+	}
+	return cert
 }
 
 type testCA struct {

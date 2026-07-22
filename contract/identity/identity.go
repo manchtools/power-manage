@@ -5,6 +5,7 @@ package identity
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/asn1"
 	"fmt"
 	"net/url"
 )
@@ -52,6 +53,19 @@ func IsCanonicalULID(id string) bool {
 func StampCertificateIdentity(template *x509.Certificate, class Class, instanceID string) error {
 	if template == nil {
 		return fmt.Errorf("identity: nil certificate template")
+	}
+	if len(template.RawSubject) != 0 {
+		return fmt.Errorf("identity: RawSubject overrides subject")
+	}
+	for _, name := range template.Subject.ExtraNames {
+		if name.Type.Equal(asn1.ObjectIdentifier{2, 5, 4, 3}) {
+			return fmt.Errorf("identity: Subject.ExtraNames overrides common name")
+		}
+	}
+	for _, extension := range template.ExtraExtensions {
+		if extension.Id.Equal(asn1.ObjectIdentifier{2, 5, 29, 17}) {
+			return fmt.Errorf("identity: ExtraExtensions overrides subjectAltName")
+		}
 	}
 	uri, err := classURI(class)
 	if err != nil {
