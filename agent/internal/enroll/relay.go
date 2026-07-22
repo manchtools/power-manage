@@ -327,12 +327,25 @@ func validateRelayParent(path string) error {
 	if err != nil {
 		return fmt.Errorf("enroll: inspect relay socket parent: %w", err)
 	}
+	if err := validateRelayParentInfo(info); err != nil {
+		return fmt.Errorf("enroll: relay socket parent is unsafe: %s: %w", resolved, err)
+	}
+	return nil
+}
+
+func validateRelayParentInfo(info os.FileInfo) error {
+	if info == nil {
+		return errors.New("parent metadata is unavailable")
+	}
 	stat, ok := info.Sys().(*syscall.Stat_t)
 	if !ok || stat == nil {
-		return errors.New("enroll: relay socket parent ownership is unavailable")
+		return errors.New("parent ownership is unavailable")
 	}
-	if stat.Uid != 0 || info.Mode().Perm()&0o022 != 0 {
-		return fmt.Errorf("enroll: relay socket parent is unsafe: %s", resolved)
+	if stat.Uid != 0 {
+		return errors.New("parent is not root-owned")
+	}
+	if info.Mode().Perm()&0o022 != 0 {
+		return errors.New("parent is group- or other-writable")
 	}
 	return nil
 }

@@ -41,6 +41,43 @@ because it keeps printing OK. In verify/CI/guard scripts:
   <!-- lesson: the scaffold's gofmt stage swallowed parse errors via
        2>/dev/null + || true; caught only in PR #1 review -->
 
+## Command and dependency hygiene
+
+- `docref suggest` is repository-wide and verbose: tee its full output before
+  filtering. With docref 0.1.1, use `docref claim` for marker blocks and
+  `docref approve` for reviewed prose; there is no `docref fix` command.
+- Before accepting a version correction or pin change, verify the upstream
+  release/tag and installable artifact. Treat a newly published release's
+  initial 404 as potentially transient and re-check its assets before
+  proposing a downgrade.
+- A new direct dependency uses the newest verified stable version supported by
+  the toolchain unless a documented compatibility bound requires otherwise.
+  Transitive alignment alone is not a reason to select an older version.
+- Before `go mod tidy` in this multi-module workspace, inspect the local-module
+  requirement convention. Do not persist workspace-local pseudo-versions when
+  sibling manifests deliberately rely on `go.work`.
+- Multi-step validation commands use `set -e -o pipefail` unless each failure
+  is deliberately captured; later success must not mask an earlier failure.
+- Resolve every path against the command's declared working directory before
+  running or rerunning it. Keep checks requiring different working directories
+  in separate invocations.
+- Keep repository work at the repository root. Format root-relative paths and
+  run module checks with `go ... -C <module>`; do not combine root-relative
+  formatting with a module-local command.
+- When `workdir` is a module directory, arguments are module-relative and do
+  not name that module or a sibling as their first path component. Cross-module
+  scans and repository-wide CLIs run from the repository root.
+- `staticcheck` gets its own module-scoped command. When a Go command combines
+  `-C` with flags such as `-race` or `-run`, put `-C <module>` first.
+- Before the canonical gate, derive the complete modified/untracked,
+  non-generated Go-file inventory from Git and run gofmt over that set.
+- Run repository-wide `docref` commands from the root with root-relative paths.
+  Go symbol references use `path#Symbol`; named regions use `path#@region` and
+  are confirmed with `docref anchors` before claiming.
+- Follow-up reads use only paths actually returned by prior `rg --files` or
+  `find` discovery. A known directory is not a file inventory; never append a
+  guessed sibling filename, including inside the same shell command.
+
 ## Red checks
 
 - Prove a test can fail: neutralize the code under test with a scoped edit

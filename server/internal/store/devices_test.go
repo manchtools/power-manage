@@ -60,9 +60,11 @@ func TestDeviceProjection_RebuildsEnrollmentState(t *testing.T) {
 
 	if _, err := pool.Exec(context.Background(), `
 		UPDATE devices
-		SET certificate_der = $2,
+		SET projection_version = 9,
+		    certificate_der = $2,
 		    certificate_fingerprint = $3,
 		    sealing_public_key = $4,
+		    registration_token_id = '01ARZ3NDEKTSV4RRFFQ69G5FAX',
 		    owner = 'corrupt'
 		WHERE device_id = $1`,
 		testEnrolledDeviceID,
@@ -79,7 +81,9 @@ func TestDeviceProjection_RebuildsEnrollmentState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read rebuilt device projection: %v", err)
 	}
-	if !bytes.Equal(rebuilt.CertificateDER, certificateDER) || rebuilt.CertificateFingerprint != wantFingerprint || !bytes.Equal(rebuilt.SealingPublicKey, sealingKey) || rebuilt.Owner != "owner@example.com" {
+	if !bytes.Equal(rebuilt.CertificateDER, certificateDER) || rebuilt.CertificateFingerprint != wantFingerprint ||
+		!bytes.Equal(rebuilt.SealingPublicKey, sealingKey) || rebuilt.RegistrationTokenID != testEnrollmentTokenID ||
+		rebuilt.Owner != "owner@example.com" || rebuilt.ProjectionVersion != 1 {
 		t.Fatalf("rebuilt device projection = %+v; want event-derived enrollment state", rebuilt)
 	}
 }
@@ -98,15 +102,15 @@ func TestDeviceProjection_RejectsInvalidEnrollmentEvents(t *testing.T) {
 		owner       string
 		want        string
 	}{
-		{name: "invalid device ID", deviceID: "not-ulid", certificate: validCertificate, sealingKey: bytes.Repeat([]byte{1}, 32), tokenID: testEnrollmentTokenID, want: "device ID"},
-		{name: "malformed certificate", deviceID: testEnrolledDeviceID, certificate: []byte("bad"), sealingKey: bytes.Repeat([]byte{1}, 32), tokenID: testEnrollmentTokenID, want: "certificate DER"},
-		{name: "trailing certificate data", deviceID: testEnrolledDeviceID, certificate: append(append([]byte(nil), validCertificate...), 0), sealingKey: bytes.Repeat([]byte{1}, 32), tokenID: testEnrollmentTokenID, want: "trailing data"},
-		{name: "wrong certificate class", deviceID: testEnrolledDeviceID, certificate: wrongClass, sealingKey: bytes.Repeat([]byte{1}, 32), tokenID: testEnrollmentTokenID, want: "agent"},
-		{name: "certificate identity mismatch", deviceID: "01ARZ3NDEKTSV4RRFFQ69G5FAX", certificate: validCertificate, sealingKey: bytes.Repeat([]byte{1}, 32), tokenID: testEnrollmentTokenID, want: "mismatched"},
-		{name: "short sealing key", deviceID: testEnrolledDeviceID, certificate: validCertificate, sealingKey: bytes.Repeat([]byte{1}, 31), tokenID: testEnrollmentTokenID, want: "32 bytes"},
-		{name: "zero sealing key", deviceID: testEnrolledDeviceID, certificate: validCertificate, sealingKey: make([]byte, 32), tokenID: testEnrollmentTokenID, want: "low-order"},
-		{name: "invalid token ID", deviceID: testEnrolledDeviceID, certificate: validCertificate, sealingKey: bytes.Repeat([]byte{1}, 32), tokenID: "bad", want: "token ID"},
-		{name: "oversized owner", deviceID: testEnrolledDeviceID, certificate: validCertificate, sealingKey: bytes.Repeat([]byte{1}, 32), tokenID: testEnrollmentTokenID, owner: strings.Repeat("x", 257), want: "owner"},
+		{name: "invalid device ID", deviceID: "not-ulid", certificate: validCertificate, sealingKey: bytes.Repeat([]byte{1}, 32), tokenID: testEnrollmentTokenID, want: "store: invalid device ID"},
+		{name: "malformed certificate", deviceID: testEnrolledDeviceID, certificate: []byte("bad"), sealingKey: bytes.Repeat([]byte{1}, 32), tokenID: testEnrollmentTokenID, want: "store: parse certificate DER"},
+		{name: "trailing certificate data", deviceID: testEnrolledDeviceID, certificate: append(append([]byte(nil), validCertificate...), 0), sealingKey: bytes.Repeat([]byte{1}, 32), tokenID: testEnrollmentTokenID, want: "store: parse certificate DER"},
+		{name: "wrong certificate class", deviceID: testEnrolledDeviceID, certificate: wrongClass, sealingKey: bytes.Repeat([]byte{1}, 32), tokenID: testEnrollmentTokenID, want: `store: certificate class "gateway" is not agent`},
+		{name: "certificate identity mismatch", deviceID: "01ARZ3NDEKTSV4RRFFQ69G5FAX", certificate: validCertificate, sealingKey: bytes.Repeat([]byte{1}, 32), tokenID: testEnrollmentTokenID, want: "store: certificate identity is mismatched with device ID"},
+		{name: "short sealing key", deviceID: testEnrolledDeviceID, certificate: validCertificate, sealingKey: bytes.Repeat([]byte{1}, 31), tokenID: testEnrollmentTokenID, want: "seal: invalid X25519 public key"},
+		{name: "zero sealing key", deviceID: testEnrolledDeviceID, certificate: validCertificate, sealingKey: make([]byte, 32), tokenID: testEnrollmentTokenID, want: "seal: X25519 public key is low-order"},
+		{name: "invalid token ID", deviceID: testEnrolledDeviceID, certificate: validCertificate, sealingKey: bytes.Repeat([]byte{1}, 32), tokenID: "bad", want: "store: invalid registration token ID"},
+		{name: "oversized owner", deviceID: testEnrolledDeviceID, certificate: validCertificate, sealingKey: bytes.Repeat([]byte{1}, 32), tokenID: testEnrollmentTokenID, owner: strings.Repeat("x", 257), want: "store: invalid device owner"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
