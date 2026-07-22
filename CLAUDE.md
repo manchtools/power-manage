@@ -140,6 +140,8 @@ regression test proven red first.
 - Before the local review gate, scan every changed negative-test branch,
   including table subtests, and pair each `err != nil` expectation with the
   exact intended sentinel or stable error category.
+- Bound every concurrent-test channel wait with a timeout, including setup and
+  readiness receives; a completion timeout does not protect an earlier hang.
 - Every optimistic-conflict retry loop must combine fresh-state
   re-authorization with backoff and a finite internal retry budget; caller
   cancellation alone is not a bound because production callers may use a

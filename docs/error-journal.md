@@ -1348,3 +1348,62 @@ shape with `set -o pipefail` as a mandatory prefix.
 
 **Prevention**: Every canonical gate piped through `tee` uses the recorded
 literal command shape so the tool result and the gate summary agree.
+
+## 2026-07-22 — Manual formatting rule ambiguously covered the gate
+
+**What happened**: The strengthened formatting rule said every `gofmt`
+invocation must be a separate tool call, which could be read as forbidding the
+canonical verification script from running formatting and tests as internal
+stages.
+
+**What the user said**: Not user-initiated; the remote review identified the
+scope ambiguity before merge.
+
+**Root cause**: The rule described the executor boundary without distinguishing
+ad hoc commands from commands orchestrated inside the repository gate.
+
+**Harness fix**: The verification skill now scopes separate-call and workdir
+requirements to manually issued commands and explicitly exempts
+`verify.sh`'s internal stages.
+
+**Prevention**: Tooling rules name their execution layer so they cannot
+accidentally constrain the canonical script they are intended to protect.
+
+## 2026-07-22 — Logged gate example used shell metasyntax
+
+**What happened**: The verification skill presented `tee <log>` as a literal
+command even though angle brackets are shell redirection syntax, so copying the
+example could fail instead of preserving the gate output.
+
+**What the user said**: Not user-initiated; the final local review caught the
+non-executable placeholder before commit.
+
+**Root cause**: A prose placeholder was embedded inside a command explicitly
+described as literal and copyable.
+
+**Harness fix**: The logged canonical gate now uses the concrete path
+`/tmp/verify.log`.
+
+**Prevention**: Literal command examples contain only executable shell tokens;
+variable placeholders are defined separately before use.
+
+## 2026-07-22 — Renewal-loop tests had unbounded readiness waits
+
+**What happened**: Two concurrent renewal-loop tests bounded completion but
+used bare channel receives while waiting for the renewer to start, so a setup
+regression could hang the suite indefinitely. The retry-observability test also
+accepted any non-nil reported error instead of the configured cause.
+
+**What the user said**: Not user-initiated; the final local review found both
+test-quality gaps before publication.
+
+**Root cause**: Completion synchronization received careful timeout coverage,
+but readiness synchronization and the wrapped sentinel assertion were not
+audited with the same intent-level standard.
+
+**Harness fix**: `CLAUDE.md` now requires timeout bounds on every
+concurrent-test channel wait, including readiness. The retry test retains and
+asserts its configured sentinel through the reporting wrapper.
+
+**Prevention**: Concurrent tests cannot hang before their completion select,
+and negative observability checks prove the exact intended cause.
