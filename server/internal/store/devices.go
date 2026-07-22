@@ -512,6 +512,14 @@ func projectCertificateRevocation(
 			!compatibleRevocationReason(existing.ReasonCode, int16(reasonCode)) {
 			return errors.New("store: certificate revocation conflicts with existing material")
 		}
+		if existing.SourceStreamType == event.StreamType &&
+			existing.SourceStreamID == event.StreamID &&
+			existing.SourceStreamVersion == event.StreamVersion {
+			if existing.ReasonCode != int16(reasonCode) {
+				return errors.New("store: certificate revocation source event has a mismatched reason")
+			}
+			return nil
+		}
 	} else if affected != 1 {
 		return fmt.Errorf("store: certificate revocation affected %d rows; want one", affected)
 	}

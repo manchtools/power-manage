@@ -50,6 +50,13 @@ CREATE TABLE certificate_revocations (
     ) REFERENCES events (stream_type, stream_id, stream_version)
 );
 
+CREATE INDEX certificate_revocations_class_scan_idx
+ON certificate_revocations (
+    certificate_class,
+    revoked_at,
+    certificate_fingerprint
+);
+
 CREATE TABLE crl_state (
     certificate_class text PRIMARY KEY CHECK (
         certificate_class IN ('agent', 'gateway')
