@@ -22,7 +22,7 @@ spec's own header, which is authoritative.
 | 003 | [wire-contract](003-wire-contract.md) | 000–002 | contract | Implemented |
 | 004 | [sdk-core](004-sdk-core.md) | 000–002 | sdk | Implemented |
 | 005 | [event-store](005-event-store.md) | 000–003 | server | Implemented |
-| 006 | [pki-and-identity](006-pki-and-identity.md) | 003, 005 | contract, server, agent | In progress (M6 done) |
+| 006 | [pki-and-identity](006-pki-and-identity.md) | 003, 005 | contract, server, agent | In progress (M7 done) |
 | 007 | [authentication](007-authentication.md) | 003, 005 | server | Spec ready |
 | 008 | [authorization](008-authorization.md) | 005, 007 | server | Spec ready |
 | 009 | [crud-kernel-search-and-domains](009-crud-kernel-search-and-domains.md) | 005, 007, 008 | server | Spec ready |
@@ -110,6 +110,8 @@ SPEC-006 M4 — TLS 1.3 PkiService enrollment, CSR SAN refusal, token-authorized
 SPEC-006 M5 — fingerprint- and possession-bound agent renewal, per-device transaction locking, exact supersession state, atomic sealing-key rotation, and the 80%-lifetime hourly-retry loop (AC-4, SPEC-006), (AC-5, SPEC-006), (GUARD-006-4, SPEC-006) — PR #43
 
 SPEC-006 M6 — control-side exact-certificate revoke and force-renew operations, event-derived revocation projections, class-separated monotonic signed CRLs, durable publication retry receipts, and bounded current-on-connect/change distribution (AC-12, SPEC-006), (GUARD-006-1, SPEC-006), (GUARD-006-4, SPEC-006) — PR #44
+
+SPEC-006 M7 — gateway-purpose enrollment, dual-EKU gateway identity renewal/revocation, class-separated CRL work, rebuildable gateway projections, and agent-held gateway trust anchor (AC-10, SPEC-006), (GUARD-006-1, SPEC-006), (GUARD-006-3, SPEC-006), (GUARD-006-4, SPEC-006) — PR #45
 
 ## Rules
 
