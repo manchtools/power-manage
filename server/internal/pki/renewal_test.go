@@ -223,8 +223,9 @@ func TestRenewalHandler_AppendFailureReturnsNoCertificateAndRollsBack(t *testing
 		CertificateSigningRequestDer: newEnrollmentCSR(t, currentKey, pkix.Name{}, nil),
 		SealingPublicKey:             newEnrollmentSealingKey(t),
 	}))
-	if response != nil || connect.CodeOf(err) != connect.CodeInternal {
-		t.Fatalf("RenewAgent = (%v, %v); want no certificate and internal failure", response, err)
+	wantError := connect.CodeInternal.String() + ": " + errRenewalTemporarilyFailed.Error()
+	if err == nil || response != nil || connect.CodeOf(err) != connect.CodeInternal || err.Error() != wantError {
+		t.Fatalf("RenewAgent = (%v, %v); want no certificate and %q", response, err, wantError)
 	}
 	assertRenewalStateUnchanged(t, fixture, deviceID, before)
 }
@@ -246,11 +247,14 @@ func TestRenewalHandler_RateLimitsNetworkSource(t *testing.T) {
 			continue
 		}
 		want := connect.CodeUnauthenticated
+		wantReason := errRenewalAuthRejected
 		if attempt == 6 {
 			want = connect.CodeResourceExhausted
+			wantReason = errRenewalRateLimited
 		}
-		if connect.CodeOf(err) != want {
-			t.Fatalf("attempt %d code = %v (error %v); want %v", attempt, connect.CodeOf(err), err, want)
+		wantError := want.String() + ": " + wantReason.Error()
+		if err == nil || connect.CodeOf(err) != want || err.Error() != wantError {
+			t.Fatalf("attempt %d error = %v; want %q", attempt, err, wantError)
 		}
 	}
 }
