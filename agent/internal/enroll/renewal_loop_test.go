@@ -34,7 +34,8 @@ func TestRenewalLoop_RetriesHourlyThenReschedulesFromReplacement(t *testing.T) {
 	replacementStart := start.Add(81 * time.Hour)
 	replacement := renewalLoopBundleFixture(t, replacementStart, replacementStart.Add(100*time.Hour), 2)
 	loader := &sequenceCredentialLoader{bundles: []CredentialBundle{current, replacement}}
-	renewer := &sequenceRenewer{errors: []error{errors.New("control unavailable"), nil}}
+	retryCause := errors.New("control unavailable")
+	renewer := &sequenceRenewer{errors: []error{retryCause, nil}}
 	var reports []error
 	loop, err := NewRenewalLoop(renewer, loader, func(err error) { reports = append(reports, err) })
 	if err != nil {
@@ -68,7 +69,7 @@ func TestRenewalLoop_RetriesHourlyThenReschedulesFromReplacement(t *testing.T) {
 	if renewer.calls != 2 || renewer.maxInFlight != 1 || loader.calls != 2 {
 		t.Fatalf("loop effects = %d renewals, max %d in flight, %d loads; want 2, 1, 2", renewer.calls, renewer.maxInFlight, loader.calls)
 	}
-	if len(reports) != 1 || reports[0] == nil {
+	if len(reports) != 1 || !errors.Is(reports[0], retryCause) {
 		t.Fatalf("renewal failure reports = %v; want one observable retry cause", reports)
 	}
 }
@@ -86,7 +87,7 @@ func TestRenewalLoop_CancellationInterruptsInFlightRenewal(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() { done <- loop.Run(ctx) }()
-	<-renewer.entered
+	awaitRenewalEntered(t, renewer.entered)
 	cancel()
 	select {
 	case err := <-done:
@@ -111,7 +112,7 @@ func TestRenewalLoop_RejectsConcurrentRunExactly(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	firstDone := make(chan error, 1)
 	go func() { firstDone <- loop.Run(ctx) }()
-	<-renewer.entered
+	awaitRenewalEntered(t, renewer.entered)
 
 	if err := loop.Run(context.Background()); err == nil || err.Error() != "enroll: renewal loop is already running" {
 		t.Fatalf("concurrent Run error = %v; want exact already-running rejection", err)
@@ -124,6 +125,15 @@ func TestRenewalLoop_RejectsConcurrentRunExactly(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("first renewal loop did not stop after cancellation")
+	}
+}
+
+func awaitRenewalEntered(t *testing.T, entered <-chan struct{}) {
+	t.Helper()
+	select {
+	case <-entered:
+	case <-time.After(5 * time.Second):
+		t.Fatal("renewal did not begin")
 	}
 }
 
