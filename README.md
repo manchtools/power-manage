@@ -46,7 +46,7 @@ Verification gate (run before every commit):
 
 ## Binaries
 
-<!-- docref: begin src=server/cmd/power-manage-recovery/main.go#main:603fb0f9,server/cmd/power-manage-recovery/main.go#run:31fa3fca -->
+<!-- docref: begin src=server/cmd/power-manage-recovery/main.go#main:603fb0f9,server/cmd/power-manage-recovery/main.go#run:f60ffb8b -->
 The server module includes the CLI-only projection recovery binary delivered by
 SPEC-005. The networked control, gateway, and agent binaries remain planned for
 their owning milestones; use the verification gate above until they land.

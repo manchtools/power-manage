@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"slices"
 	"strings"
 	"syscall"
 
@@ -32,7 +33,7 @@ type recoveryDatabaseConfig struct {
 }
 
 type recoveryRebuildConfig struct {
-	Target string `doc:"Registered projection target to rebuild; currently inventory."`
+	Target string `doc:"Registered production projection target to rebuild."`
 }
 
 func main() {
@@ -70,7 +71,7 @@ func run(ctx context.Context, args []string, rebuild rebuildFunc) error {
 	if err := config.Load(*configPath, &settings); err != nil {
 		return fmt.Errorf("recovery: load configuration: %w", err)
 	}
-	if settings.Rebuild.Target != store.InventoryRebuildTarget {
+	if !slices.Contains(store.ProductionRebuildTargetNames(), settings.Rebuild.Target) {
 		return fmt.Errorf("recovery: target %q is not registered", settings.Rebuild.Target)
 	}
 	if strings.TrimSpace(settings.Database.DSNFile) == "" {

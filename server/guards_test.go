@@ -61,17 +61,21 @@ func TestGuard_ProjectionWritesOnlyFromProjectors(t *testing.T) {
 	// These are the only generated projection mutations sanctioned by ES-2;
 	// each owner is the projector or reset function that may call it.
 	allowed := map[string]string{
-		"UpsertInventorySnapshot":  "projectInventorySnapshot",
-		"UpsertInventoryTombstone": "projectInventoryTombstone",
-		"ResetInventorySnapshots":  "resetInventorySnapshots",
+		"UpsertInventorySnapshot":         "projectInventorySnapshot",
+		"UpsertInventoryTombstone":        "projectInventoryTombstone",
+		"ResetInventorySnapshots":         "resetInventorySnapshots",
+		"UpsertRegistrationToken":         "projectRegistrationTokenMint",
+		"ProjectRegistrationTokenConsume": "projectRegistrationTokenConsume",
+		"ProjectRegistrationTokenDisable": "projectRegistrationTokenDisable",
+		"ResetRegistrationTokens":         "resetRegistrationTokens",
 	}
 	var violations []string
-	guardtest.Discover(t, "projection mutation call sites", 3, func() ([]string, error) {
+	guardtest.Discover(t, "projection mutation call sites", 7, func() ([]string, error) {
 		var discovered int
 		var err error
 		violations, discovered, err = scanProjectionWrites(
 			".",
-			map[string]bool{"inventory_snapshots": true},
+			map[string]bool{"inventory_snapshots": true, "registration_tokens": true},
 			allowed,
 		)
 		return make([]string, discovered), err
@@ -144,7 +148,7 @@ func TestGuard_StaticSQLInventory(t *testing.T) {
 	guardtest.Discover(t, "static sqlc queries", 1, func() ([]string, error) {
 		var queries int
 		var err error
-		violations, queries, err = scanDirectDatabaseCalls(".")
+		violations, queries, err = scanDirectDatabaseCalls(".", directDatabaseCallAllowlist)
 		return make([]string, queries), err
 	})
 	if len(violations) > 0 {
@@ -154,15 +158,35 @@ func TestGuard_StaticSQLInventory(t *testing.T) {
 
 func TestStaticSQLGuard_FixtureDetected(t *testing.T) {
 	guardtest.RequireViolation(t, "static SQL inventory", func(root string) ([]string, error) {
-		violations, _, err := scanDirectDatabaseCalls(root)
+		violations, _, err := scanDirectDatabaseCalls(root, nil)
 		return violations, err
 	}, "testdata/guards/dynamic_sql")
-	violations, _, err := scanDirectDatabaseCalls("testdata/guards/dynamic_sql")
+	violations, _, err := scanDirectDatabaseCalls("testdata/guards/dynamic_sql", nil)
 	if err != nil {
 		t.Fatalf("scan planted dynamic-SQL fixture: %v", err)
 	}
 	if len(violations) != 1 {
 		t.Fatalf("planted dynamic-SQL violations = %v; want exactly one", violations)
+	}
+}
+
+func TestStaticSQLGuard_AllowlistIsExact(t *testing.T) {
+	const root = "testdata/guards/dynamic_sql"
+	violations, _, err := scanDirectDatabaseCalls(root, map[string]int{"bad.go:Exec": 1})
+	if err != nil {
+		t.Fatalf("scan exact direct-database exemption: %v", err)
+	}
+	if len(violations) != 0 {
+		t.Fatalf("exact direct-database exemption violations = %v; want none", violations)
+	}
+
+	violations, _, err = scanDirectDatabaseCalls(root, map[string]int{"bad.go:Exec": 2})
+	if err != nil {
+		t.Fatalf("scan mismatched direct-database exemption: %v", err)
+	}
+	const want = "direct-database allowlist bad.go:Exec matched 1 calls; want 2"
+	if len(violations) != 1 || violations[0] != want {
+		t.Fatalf("mismatched direct-database exemption violations = %v; want %q", violations, want)
 	}
 }
 
@@ -212,8 +236,14 @@ func countRecognizerCalls(t *testing.T, root string) int {
 }
 
 var (
-	queryHeaderPattern = regexp.MustCompile(`(?m)^-- name: ([A-Za-z][A-Za-z0-9_]*)\s+:[a-z]+\s*$`)
-	mutationPattern    = regexp.MustCompile(`(?i)\b(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+(?:"?public"?\.)?"?([a-z_][a-z0-9_]*)"?`)
+	queryHeaderPattern          = regexp.MustCompile(`(?m)^-- name: ([A-Za-z][A-Za-z0-9_]*)\s+:[a-z]+\s*$`)
+	mutationPattern             = regexp.MustCompile(`(?i)\b(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+(?:"?public"?\.)?"?([a-z_][a-z0-9_]*)"?`)
+	directDatabaseCallAllowlist = map[string]int{
+		// Template-cloned test databases require dynamically named CREATE and
+		// DROP statements. The exact two Exec sites are test infrastructure,
+		// not production persistence.
+		"internal/testpostgres/harness.go:Exec": 2,
+	}
 )
 
 func scanProjectionWrites(
@@ -469,7 +499,7 @@ func scanWorkerDiscipline(
 	return violations, discovered, nil
 }
 
-func scanDirectDatabaseCalls(root string) ([]string, int, error) {
+func scanDirectDatabaseCalls(root string, allowlist map[string]int) ([]string, int, error) {
 	queries := 0
 	queryDir := filepath.Join(root, "internal", "store", "queries")
 	entries, err := os.ReadDir(queryDir)
@@ -496,6 +526,7 @@ func scanDirectDatabaseCalls(root string) ([]string, int, error) {
 		"QueryRowContext": true,
 	}
 	var violations []string
+	allowlistHits := make(map[string]int, len(allowlist))
 	err = filepath.WalkDir(root, func(filePath string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -527,6 +558,11 @@ func scanDirectDatabaseCalls(root string) ([]string, int, error) {
 			if !ok || !databaseMethods[selector.Sel.Name] {
 				return true
 			}
+			key := filepath.ToSlash(rel) + ":" + selector.Sel.Name
+			if _, ok := allowlist[key]; ok {
+				allowlistHits[key]++
+				return true
+			}
 			violations = append(violations, fmt.Sprintf(
 				"%s:%d: direct %s call bypasses the static sqlc query inventory",
 				filepath.ToSlash(rel),
@@ -539,6 +575,16 @@ func scanDirectDatabaseCalls(root string) ([]string, int, error) {
 	})
 	if err != nil {
 		return nil, 0, err
+	}
+	for key, want := range allowlist {
+		if got := allowlistHits[key]; got != want {
+			violations = append(violations, fmt.Sprintf(
+				"direct-database allowlist %s matched %d calls; want %d",
+				key,
+				got,
+				want,
+			))
+		}
 	}
 	sort.Strings(violations)
 	return violations, queries, nil
