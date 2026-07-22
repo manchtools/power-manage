@@ -495,6 +495,197 @@ Formatting and Go checks cannot share a module-local workdir.
 **Prevention**: Root-relative file paths and module selection are now
 orthogonal: `gofmt` runs from root, while Go selects its module with `-C`.
 
+## 2026-07-22 — Repeated root-path formatting under the server workdir
+
+**What happened**: A combined command used `server/` as its working directory,
+then passed `server/internal/testpostgres/harness.go` to `gofmt` before running
+module-local staticcheck. Formatting failed on the nonexistent
+`server/server/...` path, so staticcheck did not run.
+
+**What the user said**: Not user-initiated; `gofmt` reported the invalid path.
+
+**Root cause**: The existing root-workdir rule was again bypassed to combine a
+root-relative formatting step with a tool that expects a module workdir.
+
+**Harness fix**: `CLAUDE.md` now explicitly gives staticcheck its own
+module-scoped command and forbids sharing that command with root-path
+formatting.
+
+**Prevention**: Formatting always runs from the repository root; staticcheck
+runs separately from its module without explicit repository paths.
+
+## 2026-07-22 — Capitalized Go error string in shared test infrastructure
+
+**What happened**: The shared Postgres harness wrapped a connection failure
+with `Postgres connection string`, beginning the error text with a capital
+letter. Staticcheck rejected it under ST1005.
+
+**What the user said**: Not user-initiated; the required staticcheck pass named
+the exact line and rule.
+
+**Root cause**: Product-name capitalization was carried into an error prefix
+instead of following Go's lowercase composable-error convention.
+
+**Harness fix**: `CLAUDE.md` now explicitly requires lowercase, unpunctuated Go
+error strings.
+
+**Prevention**: New error prefixes are read as fragments that may follow other
+wrapping context, not as standalone prose sentences.
+
+## 2026-07-22 — Docref region referenced as a symbol
+
+**What happened**: A schema claim used
+`005_registration_tokens.sql#registration-tokens-schema`. Docref interpreted
+the suffix as a symbol path and rejected it even though the named region marker
+existed.
+
+**What the user said**: Not user-initiated; docref reported that the suffix was
+not a symbol and requested a region marker.
+
+**Root cause**: The `#@region` form was not checked against `docref anchors`
+before constructing the claim.
+
+**Harness fix**: `CLAUDE.md` now distinguishes `path#Symbol` from
+`path#@region` and requires region discovery before claim generation.
+
+**Prevention**: Schema and shell regions are copied from `docref anchors`, so
+claim commands cannot silently fall back to symbol syntax.
+
+## 2026-07-22 — Shared Postgres test harness tripped the static-SQL guard
+
+**What happened**: Moving template-database creation into an importable
+test-support package changed it from `_test.go` code to a normal Go package.
+The server's static-SQL guard correctly discovered its dynamic `CREATE` and
+`DROP DATABASE` `Exec` calls.
+
+**What the user said**: Not user-initiated; the server guard named both direct
+database call sites.
+
+**Root cause**: The test-helper refactor considered code reuse and package
+visibility but did not include the repository's production-file SQL scanner in
+its initial design.
+
+**Harness fix**: The guard now permits exactly two `Exec` calls at the exact
+test-harness file/method key and fails if that allowance matches any other
+count. `CLAUDE.md` requires this preflight for importable database test support.
+
+**Prevention**: Dynamic test-only DDL remains visible and narrowly justified;
+new or orphaned direct database calls still fail the exact-count guard.
+
+## 2026-07-22 — Stable error category split by an operation qualifier
+
+**What happened**: The registration-token nil-context error was written as
+`nil registration-token context`, so the red-first test could not recognize
+the intended stable category `nil context`.
+
+**What the user said**: Not user-initiated; the focused acceptance test exposed
+the message-contract mismatch.
+
+**Root cause**: Operation detail was inserted inside a multiword error category
+instead of following it.
+
+**Harness fix**: `CLAUDE.md` now requires stable multiword error categories to
+remain contiguous, with qualifiers appended afterward.
+
+**Prevention**: Validation errors lead with their reusable category (for
+example, `nil context`) before naming the affected operation.
+
+## 2026-07-22 — Projection-corruption fixture violated the schema
+
+**What happened**: The registration-token rebuild test tried to corrupt the
+optional owner by storing SQL `NULL`, but the projection represents absence as
+the non-null empty string. PostgreSQL rejected the fixture before rebuild ran.
+
+**What the user said**: Not user-initiated; PostgreSQL returned SQLSTATE 23502
+for the test setup.
+
+**Root cause**: The adversarial fixture was written from the domain-level idea
+of an optional owner without checking the projection's concrete non-null
+representation.
+
+**Harness fix**: `CLAUDE.md` now requires projection-corruption fixtures to
+remain constraint-valid unless they are specifically testing constraint
+enforcement.
+
+**Prevention**: Rebuild tests corrupt values within the schema's accepted
+domain, ensuring the projector—not an earlier constraint failure—is what the
+test exercises.
+
+## 2026-07-22 — PostgreSQL check-constraint name collision
+
+**What happened**: The registration-token migration combined a column-level
+`uses >= 0` check with an explicitly named table-level upper-bound check. The
+explicit name matched PostgreSQL's generated `<table>_<column>_check` name, so
+the clean migration failed before creating the table.
+
+**What the user said**: Not user-initiated; PostgreSQL returned SQLSTATE 42710
+for the duplicate constraint name.
+
+**Root cause**: The explicit table constraint was named without accounting for
+PostgreSQL's automatic naming convention for the earlier column constraint.
+
+**Harness fix**: `CLAUDE.md` now requires collision-safe explicit names for
+table-level checks and an empty-database migration run for every new schema.
+
+**Prevention**: Multi-column checks use a semantic suffix such as
+`_use_bound_check`, while column checks retain PostgreSQL's generated names.
+
+## 2026-07-22 — Unnecessary undefined test accessor introduced
+
+**What happened**: An idempotence assertion called a new `servicePool` helper
+that did not exist, even though the test factory already returned the required
+Postgres pool.
+
+**What the user said**: Not user-initiated; immediate post-patch inspection
+caught the unresolved identifier before compilation.
+
+**Root cause**: The new assertion was written around the service value alone
+without reusing the factory's second return value.
+
+**Harness fix**: `CLAUDE.md` now requires every new call-site identifier to
+resolve in the same patch and prefers existing factory returns over invented
+accessors.
+
+**Prevention**: Test setup retains every resource needed by later assertions;
+new helper names are not introduced speculatively.
+
+## 2026-07-22 — Repeated patch mismatch in a distant multi-hunk edit
+
+**What happened**: A single patch attempted to change guard call sites, guard
+implementation, harness guidance, and the journal together. One stale guard
+context caused the entire otherwise-independent correction to fail.
+
+**What the user said**: Not user-initiated; `apply_patch` rejected the combined
+hunk before writing anything.
+
+**Root cause**: Earlier excerpts were reused for a large patch instead of
+re-reading every distant target and applying file-local changes.
+
+**Harness fix**: `CLAUDE.md` now requires small file-local patches when a
+change spans distant hunks or multiple files.
+
+**Prevention**: Each target file is inspected immediately before its patch;
+unrelated corrections no longer share one all-or-nothing context match.
+
+## 2026-07-22 — Patch mismatch from an unnecessary escaping layer
+
+**What happened**: A corrective patch expected backslash-escaped JSON inside a
+Go raw string, but the file already contained the correct unescaped literal.
+The hunk failed before changing the file.
+
+**What the user said**: Not user-initiated; `apply_patch` reported that the
+expected escaped lines did not exist.
+
+**Root cause**: The literal was reconstructed through the surrounding
+JavaScript patch string instead of matching the exact current file content.
+
+**Harness fix**: `CLAUDE.md` now requires inspecting and matching the observed
+bytes before patching escaping-sensitive literals.
+
+**Prevention**: Raw strings, regular strings, and nested tool-call strings are
+kept as separate escaping layers; a patch is based on the file's displayed
+form, not a mentally re-encoded form.
+
 ## 2026-07-22 — Repeated CLI misuse: multiple symbols in one `go doc`
 
 **What happened**: A standard-library probe again passed three independent
@@ -531,3 +722,42 @@ actually returned by `rg --files` or `find`; guessed siblings are forbidden.
 
 **Prevention**: Repository inventories are the source of truth for subsequent
 file reads, so a valid discovery cannot be undermined by an unverified suffix.
+
+## 2026-07-22 — Negative transition tests accepted any error
+
+**What happened**: The first registration-token transition tests proved that
+invalid events failed, but did not prove that the mint-order invariant caused
+the failure. The nil-store constructor test had the same weak shape.
+
+**What the user said**: Not user-initiated; the local CodeRabbit gate found the
+test-quality gap before publication.
+
+**Root cause**: The general negative-test rule was applied to table-driven
+validation cases but missed standalone constructor and transition branches.
+
+**Harness fix**: `CLAUDE.md` now requires a pre-review scan of every changed
+negative branch, including table subtests, for a sentinel or stable category
+assertion.
+
+**Prevention**: Failure tests now distinguish the intended invariant from
+unrelated database, validation, or wiring errors.
+
+## 2026-07-22 — Token CAS retries had no operational bound
+
+**What happened**: Registration-token consume and disable correctly re-read
+and re-authorized after expected-version conflicts, but retried immediately
+and relied only on caller cancellation to terminate.
+
+**What the user said**: Not user-initiated; the local CodeRabbit gate identified
+the availability risk before publication.
+
+**Root cause**: The bounded-use correctness analysis counted committed state
+progress but did not account for sustained contention, corrupted projections,
+or callers using a context without a deadline.
+
+**Harness fix**: `CLAUDE.md` now requires optimistic-conflict loops to have
+fresh-state authorization, backoff, and a finite internal retry budget.
+
+**Prevention**: Token CAS retries use short jittered waits, stop after a fixed
+production budget, and have a real-Postgres regression for stale projection
+state.
