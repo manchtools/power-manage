@@ -200,6 +200,8 @@ type clientRemoteFixture struct {
 }
 
 type clientRemoteHandler struct {
+	powermanagev1connect.UnimplementedPkiServiceHandler
+
 	ca             *x509.Certificate
 	caSigner       crypto.Signer
 	class          identity.Class

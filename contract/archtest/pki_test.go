@@ -7,9 +7,10 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-// TestPkiServiceShape pins the M5 public enrollment and renewal wire surface.
-// Requests carry authorization proof, never a self-asserted device identity,
-// and responses cannot carry private key material.
+// TestPkiServiceShape pins the public certificate-lifecycle wire surface.
+// Requests carry operation-specific authorization inputs, never a
+// self-asserted device identity, and responses cannot carry private key
+// material.
 func TestPkiServiceShape(t *testing.T) {
 	files := packageFiles(ContractPackage)
 	service, err := findService(files, "PkiService")
@@ -17,12 +18,14 @@ func TestPkiServiceShape(t *testing.T) {
 		t.Fatalf("find PkiService: %v", err)
 	}
 	methods := service.Methods()
-	if methods.Len() != 2 {
-		t.Fatalf("PkiService methods = %d; want EnrollAgent and RenewAgent", methods.Len())
+	if methods.Len() != 4 {
+		t.Fatalf("PkiService methods = %d; want four lifecycle methods", methods.Len())
 	}
 	enroll := methods.ByName("EnrollAgent")
 	renew := methods.ByName("RenewAgent")
-	for _, method := range []protoreflect.MethodDescriptor{enroll, renew} {
+	revoke := methods.ByName("RevokeAgent")
+	forceRenew := methods.ByName("ForceRenewAgent")
+	for _, method := range []protoreflect.MethodDescriptor{enroll, renew, revoke, forceRenew} {
 		if method == nil || method.IsStreamingClient() || method.IsStreamingServer() {
 			t.Fatalf("PkiService method = %v; want a unary method", method)
 		}
@@ -55,6 +58,12 @@ func TestPkiServiceShape(t *testing.T) {
 	assertBytesBounds(t, renew.Input().Fields().ByName("certificate_signing_request_der"), 1, 65536)
 	assertBytesLen(t, renew.Input().Fields().ByName("sealing_public_key"), 32)
 	assertCertificateResponseBounds(t, renew.Output())
+
+	for _, method := range []protoreflect.MethodDescriptor{revoke, forceRenew} {
+		assertMessageFields(t, method.Input(), []string{"certificate_der"})
+		assertBytesBounds(t, method.Input().Fields().ByName("certificate_der"), 1, 65536)
+		assertMessageFields(t, method.Output(), nil)
+	}
 }
 
 func assertCertificateResponseBounds(t *testing.T, message protoreflect.MessageDescriptor) {

@@ -70,10 +70,14 @@ func (s *EnrollmentService) RenewAgent(
 			}
 			return readErr
 		}
+		if current.LifecycleState == store.DeviceLifecycleRevoked {
+			return errRenewalAuthRejected
+		}
 		if subtle.ConstantTimeCompare(current.CertificateFingerprint[:], presentedFingerprint[:]) != 1 ||
 			!bytes.Equal(current.CertificateDER, presented.Raw) {
 			currentFingerprint := sha256.Sum256(current.CertificateDER)
-			if subtle.ConstantTimeCompare(current.CertificateFingerprint[:], currentFingerprint[:]) != 1 ||
+			if current.LifecycleState != store.DeviceLifecycleActive ||
+				subtle.ConstantTimeCompare(current.CertificateFingerprint[:], currentFingerprint[:]) != 1 ||
 				!bytes.Equal(current.PreviousCertificateDER, presented.Raw) ||
 				!bytes.Equal(current.SealingPublicKey, request.Msg.GetSealingPublicKey()) {
 				return errRenewalAuthRejected

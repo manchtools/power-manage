@@ -41,12 +41,19 @@ const (
 	PkiServiceEnrollAgentProcedure = "/powermanage.v1.PkiService/EnrollAgent"
 	// PkiServiceRenewAgentProcedure is the fully-qualified name of the PkiService's RenewAgent RPC.
 	PkiServiceRenewAgentProcedure = "/powermanage.v1.PkiService/RenewAgent"
+	// PkiServiceRevokeAgentProcedure is the fully-qualified name of the PkiService's RevokeAgent RPC.
+	PkiServiceRevokeAgentProcedure = "/powermanage.v1.PkiService/RevokeAgent"
+	// PkiServiceForceRenewAgentProcedure is the fully-qualified name of the PkiService's
+	// ForceRenewAgent RPC.
+	PkiServiceForceRenewAgentProcedure = "/powermanage.v1.PkiService/ForceRenewAgent"
 )
 
 // PkiServiceClient is a client for the powermanage.v1.PkiService service.
 type PkiServiceClient interface {
 	EnrollAgent(context.Context, *connect.Request[v1.EnrollAgentRequest]) (*connect.Response[v1.EnrollAgentResponse], error)
 	RenewAgent(context.Context, *connect.Request[v1.RenewAgentRequest]) (*connect.Response[v1.RenewAgentResponse], error)
+	RevokeAgent(context.Context, *connect.Request[v1.RevokeAgentRequest]) (*connect.Response[v1.RevokeAgentResponse], error)
+	ForceRenewAgent(context.Context, *connect.Request[v1.ForceRenewAgentRequest]) (*connect.Response[v1.ForceRenewAgentResponse], error)
 }
 
 // NewPkiServiceClient constructs a client for the powermanage.v1.PkiService service. By default, it
@@ -72,13 +79,27 @@ func NewPkiServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(pkiServiceMethods.ByName("RenewAgent")),
 			connect.WithClientOptions(opts...),
 		),
+		revokeAgent: connect.NewClient[v1.RevokeAgentRequest, v1.RevokeAgentResponse](
+			httpClient,
+			baseURL+PkiServiceRevokeAgentProcedure,
+			connect.WithSchema(pkiServiceMethods.ByName("RevokeAgent")),
+			connect.WithClientOptions(opts...),
+		),
+		forceRenewAgent: connect.NewClient[v1.ForceRenewAgentRequest, v1.ForceRenewAgentResponse](
+			httpClient,
+			baseURL+PkiServiceForceRenewAgentProcedure,
+			connect.WithSchema(pkiServiceMethods.ByName("ForceRenewAgent")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // pkiServiceClient implements PkiServiceClient.
 type pkiServiceClient struct {
-	enrollAgent *connect.Client[v1.EnrollAgentRequest, v1.EnrollAgentResponse]
-	renewAgent  *connect.Client[v1.RenewAgentRequest, v1.RenewAgentResponse]
+	enrollAgent     *connect.Client[v1.EnrollAgentRequest, v1.EnrollAgentResponse]
+	renewAgent      *connect.Client[v1.RenewAgentRequest, v1.RenewAgentResponse]
+	revokeAgent     *connect.Client[v1.RevokeAgentRequest, v1.RevokeAgentResponse]
+	forceRenewAgent *connect.Client[v1.ForceRenewAgentRequest, v1.ForceRenewAgentResponse]
 }
 
 // EnrollAgent calls powermanage.v1.PkiService.EnrollAgent.
@@ -91,10 +112,22 @@ func (c *pkiServiceClient) RenewAgent(ctx context.Context, req *connect.Request[
 	return c.renewAgent.CallUnary(ctx, req)
 }
 
+// RevokeAgent calls powermanage.v1.PkiService.RevokeAgent.
+func (c *pkiServiceClient) RevokeAgent(ctx context.Context, req *connect.Request[v1.RevokeAgentRequest]) (*connect.Response[v1.RevokeAgentResponse], error) {
+	return c.revokeAgent.CallUnary(ctx, req)
+}
+
+// ForceRenewAgent calls powermanage.v1.PkiService.ForceRenewAgent.
+func (c *pkiServiceClient) ForceRenewAgent(ctx context.Context, req *connect.Request[v1.ForceRenewAgentRequest]) (*connect.Response[v1.ForceRenewAgentResponse], error) {
+	return c.forceRenewAgent.CallUnary(ctx, req)
+}
+
 // PkiServiceHandler is an implementation of the powermanage.v1.PkiService service.
 type PkiServiceHandler interface {
 	EnrollAgent(context.Context, *connect.Request[v1.EnrollAgentRequest]) (*connect.Response[v1.EnrollAgentResponse], error)
 	RenewAgent(context.Context, *connect.Request[v1.RenewAgentRequest]) (*connect.Response[v1.RenewAgentResponse], error)
+	RevokeAgent(context.Context, *connect.Request[v1.RevokeAgentRequest]) (*connect.Response[v1.RevokeAgentResponse], error)
+	ForceRenewAgent(context.Context, *connect.Request[v1.ForceRenewAgentRequest]) (*connect.Response[v1.ForceRenewAgentResponse], error)
 }
 
 // NewPkiServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -116,12 +149,28 @@ func NewPkiServiceHandler(svc PkiServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(pkiServiceMethods.ByName("RenewAgent")),
 		connect.WithHandlerOptions(opts...),
 	)
+	pkiServiceRevokeAgentHandler := connect.NewUnaryHandler(
+		PkiServiceRevokeAgentProcedure,
+		svc.RevokeAgent,
+		connect.WithSchema(pkiServiceMethods.ByName("RevokeAgent")),
+		connect.WithHandlerOptions(opts...),
+	)
+	pkiServiceForceRenewAgentHandler := connect.NewUnaryHandler(
+		PkiServiceForceRenewAgentProcedure,
+		svc.ForceRenewAgent,
+		connect.WithSchema(pkiServiceMethods.ByName("ForceRenewAgent")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/powermanage.v1.PkiService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case PkiServiceEnrollAgentProcedure:
 			pkiServiceEnrollAgentHandler.ServeHTTP(w, r)
 		case PkiServiceRenewAgentProcedure:
 			pkiServiceRenewAgentHandler.ServeHTTP(w, r)
+		case PkiServiceRevokeAgentProcedure:
+			pkiServiceRevokeAgentHandler.ServeHTTP(w, r)
+		case PkiServiceForceRenewAgentProcedure:
+			pkiServiceForceRenewAgentHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -137,4 +186,12 @@ func (UnimplementedPkiServiceHandler) EnrollAgent(context.Context, *connect.Requ
 
 func (UnimplementedPkiServiceHandler) RenewAgent(context.Context, *connect.Request[v1.RenewAgentRequest]) (*connect.Response[v1.RenewAgentResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.PkiService.RenewAgent is not implemented"))
+}
+
+func (UnimplementedPkiServiceHandler) RevokeAgent(context.Context, *connect.Request[v1.RevokeAgentRequest]) (*connect.Response[v1.RevokeAgentResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.PkiService.RevokeAgent is not implemented"))
+}
+
+func (UnimplementedPkiServiceHandler) ForceRenewAgent(context.Context, *connect.Request[v1.ForceRenewAgentRequest]) (*connect.Response[v1.ForceRenewAgentResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.PkiService.ForceRenewAgent is not implemented"))
 }

@@ -27,9 +27,9 @@ type TableClassification struct {
 func ProductionTableClassification() TableClassification {
 	return TableClassification{
 		Events:      []string{"events"},
-		Projections: []string{"devices", "inventory_snapshots", "registration_tokens"},
+		Projections: []string{"certificate_revocations", "devices", "inventory_snapshots", "registration_tokens"},
 		Work:        []string{"work_items"},
-		Operational: []string{"execution_output_chunks", "execution_outputs"},
+		Operational: []string{"crl_state", "crl_work_receipts", "execution_output_chunks", "execution_outputs"},
 		Migrations:  []string{"goose_db_version"},
 		Exceptions:  []string{"user_encryption_keys"},
 	}
