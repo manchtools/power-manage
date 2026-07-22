@@ -63,14 +63,33 @@ func NewProduction(pool *pgxpool.Pool) (*Store, error) {
 		}
 		projectors[eventType] = definition.Projector
 	}
-	return New(pool, projectors, map[string]RebuildTarget{
+	return New(pool, projectors, productionRebuildTargets())
+}
+
+// ProductionRebuildTargetNames returns the exact CLI recovery-target set.
+func ProductionRebuildTargetNames() []string {
+	return slices.Sorted(maps.Keys(productionRebuildTargets()))
+}
+
+func productionRebuildTargets() map[string]RebuildTarget {
+	return map[string]RebuildTarget{
 		InventoryRebuildTarget: {
 			Tables:      []string{"inventory_snapshots"},
 			StreamTypes: []string{inventoryStreamType},
-			EventTypes:  slices.Sorted(maps.Keys(definitions)),
+			EventTypes:  []string{inventorySnapshotEventType, inventoryTombstoneEventType},
 			Reset:       resetInventorySnapshots,
 		},
-	})
+		RegistrationTokenRebuildTarget: {
+			Tables:      []string{"registration_tokens"},
+			StreamTypes: []string{registrationTokenStreamType},
+			EventTypes: []string{
+				registrationTokenMintedEventType,
+				registrationTokenConsumedEventType,
+				registrationTokenDisabledEventType,
+			},
+			Reset: resetRegistrationTokens,
+		},
+	}
 }
 
 // InventorySnapshotEvent returns a latest-state inventory event.
@@ -121,7 +140,7 @@ func InventoryTombstoneEvent(agentID string) (Event, error) {
 }
 
 func productionEventDefinitions() map[string]eventDefinition {
-	return map[string]eventDefinition{
+	definitions := map[string]eventDefinition{
 		inventorySnapshotEventType: {
 			PayloadVersion: inventoryPayloadVersion,
 			PayloadType:    inventorySnapshotPayload{},
@@ -139,10 +158,14 @@ func productionEventDefinitions() map[string]eventDefinition {
 			Projector: projectInventoryTombstone,
 		},
 	}
+	for eventType, definition := range registrationTokenEventDefinitions() {
+		definitions[eventType] = definition
+	}
+	return definitions
 }
 
 func goldenEventCorpus() map[string]goldenEvent {
-	return map[string]goldenEvent{
+	corpus := map[string]goldenEvent{
 		inventorySnapshotEventType: {
 			PayloadVersion: inventoryPayloadVersion,
 			Payload:        []byte(`{"snapshot":"AQID"}`),
@@ -152,6 +175,10 @@ func goldenEventCorpus() map[string]goldenEvent {
 			Payload:        []byte(`{}`),
 		},
 	}
+	for eventType, event := range registrationTokenGoldenCorpus() {
+		corpus[eventType] = event
+	}
+	return corpus
 }
 
 func validateGoldenEventCorpus(

@@ -18,8 +18,9 @@ Milestone: SPEC-005 §9 M1, AC-1..4.
 - `server/internal/store/store.go`: `Event`, `PersistedEvent`, `ProjectionTx`,
   `Projector`, `Store`, `New`, `Migrate`, and `AppendEvent`.
 <!-- docref: end -->
-<!-- docref: begin src=server/internal/store/postgres_test.go#testPostgres:b0de0c7c -->
-- `server/internal/store/postgres_test.go`, `server/internal/store/store_test.go`:
+<!-- docref: begin src=server/internal/testpostgres/harness.go#Run:fc59d866,server/internal/testpostgres/harness.go#Database:9fb07883 -->
+- `server/internal/testpostgres/harness.go`,
+  `server/internal/store/postgres_test.go`, `server/internal/store/store_test.go`:
   one shared Postgres testcontainer, template-cloned databases, and the M1
   acceptance tests below.
 <!-- docref: end -->

@@ -13,12 +13,21 @@ import (
 )
 
 func TestRecoveryCLI_RebuildsRegisteredInventoryTarget(t *testing.T) {
+	testRecoveryCLIRegisteredTarget(t, store.InventoryRebuildTarget)
+}
+
+func TestRecoveryCLI_RebuildsRegisteredTokenTarget(t *testing.T) {
+	testRecoveryCLIRegisteredTarget(t, store.RegistrationTokenRebuildTarget)
+}
+
+func testRecoveryCLIRegisteredTarget(t *testing.T, target string) {
+	t.Helper()
 	dsnPath := filepath.Join(t.TempDir(), "database.dsn")
 	const wantDSN = "postgres://operator:secret@database.example/power_manage"
 	if err := os.WriteFile(dsnPath, []byte(wantDSN+"\n"), 0o600); err != nil {
 		t.Fatalf("write DSN file: %v", err)
 	}
-	configPath := writeRecoveryConfig(t, dsnPath, "inventory")
+	configPath := writeRecoveryConfig(t, dsnPath, target)
 	var gotDSN, gotTarget string
 	err := run(context.Background(), []string{
 		"rebuild",
@@ -29,10 +38,10 @@ func TestRecoveryCLI_RebuildsRegisteredInventoryTarget(t *testing.T) {
 		return nil
 	})
 	if err != nil {
-		t.Fatalf("run inventory recovery: %v", err)
+		t.Fatalf("run %s recovery: %v", target, err)
 	}
-	if gotDSN != wantDSN || gotTarget != "inventory" {
-		t.Fatalf("rebuild call = (%q, %q); want bounded DSN and inventory target", gotDSN, gotTarget)
+	if gotDSN != wantDSN || gotTarget != target {
+		t.Fatalf("rebuild call = (%q, %q); want (%q, %q)", gotDSN, gotTarget, wantDSN, target)
 	}
 }
 

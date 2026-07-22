@@ -44,6 +44,18 @@ type InventorySnapshot struct {
 	UpdatedAt         time.Time
 }
 
+type RegistrationToken struct {
+	TokenID           string
+	ProjectionVersion int64
+	TokenHash         []byte
+	MaxUses           int32
+	Uses              int32
+	ExpiresAt         time.Time
+	Owner             string
+	Disabled          bool
+	UpdatedAt         time.Time
+}
+
 type WorkItem struct {
 	SourceStreamType    string
 	SourceStreamID      string
