@@ -46,8 +46,8 @@ because it keeps printing OK. In verify/CI/guard scripts:
 - `docref suggest` is repository-wide and verbose: tee its full output before
   filtering. With docref 0.1.1, use `docref claim` for marker blocks and
   `docref approve` for reviewed prose; there is no `docref fix` command.
-- Commit-range lint uses `./scripts/check-conventions.sh ci-commits <base>
-  <head>`; both revisions are mandatory.
+- Commit-range lint requires a head revision. Its base value may be empty or
+  unknown, in which case `ci-commits` deliberately checks the head fallback.
 - Before accepting a version correction or pin change, verify the upstream
   release/tag and installable artifact. Treat a newly published release's
   initial 404 as potentially transient and re-check its assets before

@@ -65,8 +65,10 @@ func TestClient_RenewReusesPendingSealingKeyAfterRemoteFailure(t *testing.T) {
 	fixture := newRenewalClientFixture(t)
 	fixture.handler.failAfterIssue = 1
 
-	if err := fixture.client.Renew(context.Background()); err == nil {
-		t.Fatal("first Renew error = nil; want lost-response failure")
+	if err := fixture.client.Renew(context.Background()); err == nil ||
+		connect.CodeOf(err) != connect.CodeUnavailable ||
+		!strings.Contains(err.Error(), "response lost after issuance") {
+		t.Fatalf("first Renew error = %v; want unavailable response-lost-after-issuance failure", err)
 	}
 	if fixture.store.replaceCalls != 0 {
 		t.Fatalf("replace calls after lost response = %d; want 0", fixture.store.replaceCalls)

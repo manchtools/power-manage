@@ -1,9 +1,15 @@
 -- +goose Up
 
--- docref: begin device-renewal-retry-schema
+-- docref: begin device-renewal-retry-validation
+ALTER TABLE devices
+VALIDATE CONSTRAINT devices_previous_certificate_der_check;
+-- docref: end device-renewal-retry-validation
+
+-- +goose Down
+
 -- +goose StatementBegin
 ALTER TABLE devices
-ADD COLUMN previous_certificate_der bytea;
+DROP CONSTRAINT devices_previous_certificate_der_check;
 
 ALTER TABLE devices
 ADD CONSTRAINT devices_previous_certificate_der_check CHECK (
@@ -11,8 +17,3 @@ ADD CONSTRAINT devices_previous_certificate_der_check CHECK (
     OR octet_length(previous_certificate_der) BETWEEN 1 AND 65536
 ) NOT VALID;
 -- +goose StatementEnd
--- docref: end device-renewal-retry-schema
-
--- +goose Down
-
-ALTER TABLE devices DROP COLUMN previous_certificate_der;
