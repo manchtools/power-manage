@@ -24,6 +24,7 @@ import (
 	"time"
 
 	powermanagev1 "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1"
+	"github.com/manchtools/power-manage/contract/identity"
 )
 
 // The [WIRE-14] signature domains, one per closed §3.4 command type:
@@ -165,7 +166,7 @@ func CommandPreimage(cmd *powermanagev1.SignedCommand) ([]byte, error) {
 	if cmd.GetIssuedAt() == nil || cmd.GetExpiresAt() == nil {
 		return nil, fmt.Errorf("issued_at and expires_at are required covered fields")
 	}
-	if !isULID(cmd.GetTargetDeviceId()) {
+	if !identity.IsCanonicalULID(cmd.GetTargetDeviceId()) {
 		return nil, fmt.Errorf("target_device_id is not a ULID: a malformed address is never framed, signed, or verified ([WIRE-18])")
 	}
 	var buf bytes.Buffer
@@ -176,28 +177,6 @@ func CommandPreimage(cmd *powermanagev1.SignedCommand) ([]byte, error) {
 	lp(&buf, tsBytes(cmd.GetExpiresAt().GetSeconds(), cmd.GetExpiresAt().GetNanos()))
 	lp(&buf, cmd.GetPayload())
 	return buf.Bytes(), nil
-}
-
-// isULID reports whether s is a canonical 26-character Crockford-base32 ULID
-// (the contract's predefined ULID rule: first char 0-7, no I/L/O/U,
-// uppercase only) — defense in depth beneath the proto boundary's tag.
-func isULID(s string) bool {
-	if len(s) != 26 {
-		return false
-	}
-	if s[0] < '0' || s[0] > '7' {
-		return false
-	}
-	for i := 1; i < 26; i++ {
-		c := s[i]
-		switch {
-		case c >= '0' && c <= '9':
-		case c >= 'A' && c <= 'Z' && c != 'I' && c != 'L' && c != 'O' && c != 'U':
-		default:
-			return false
-		}
-	}
-	return true
 }
 
 func lp(buf *bytes.Buffer, x []byte) {

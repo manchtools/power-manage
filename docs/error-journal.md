@@ -263,3 +263,117 @@ and falling back to the GitHub API for nested job-step inspection.
 
 **Prevention**: Status polling uses run-level fields for completion and the
 Actions jobs API only when individual step state is needed.
+
+## 2026-07-22 — Hidden mutation: Go documentation probe expanded workspace sums
+
+**What happened**: A standard-library `go doc` probe ran from a workspace
+module and rewrote `go.work.sum` with unrelated transitive module hashes.
+
+**What the user said**: Not user-initiated; the unexpected lockfile diff was
+caught during the next worktree inspection.
+
+**Root cause**: The probe needed only standard-library documentation but
+inherited workspace module resolution, allowing the Go command to update the
+workspace checksum file.
+
+**Harness fix**: `CLAUDE.md` now requires `GOWORK=off` for standard-library
+documentation probes when workspace resolution is unnecessary and a checksum
+inspection afterward.
+
+**Prevention**: Documentation-only Go probes run outside workspace resolution;
+any checksum change without a dependency change is removed before proceeding.
+
+## 2026-07-22 — Misread output: overlapping ranges looked like duplicate source
+
+**What happened**: Two consecutive file reads used ranges `1,360` and
+`360,760`. Both printed line 360, which contained a struct field declaration;
+the repeated output was incorrectly diagnosed as a duplicate declaration in
+the file.
+
+**What the user said**: Not user-initiated; the test-writer checked the shared
+file and confirmed that the declaration occurred exactly once.
+
+**Root cause**: The diagnostic output was read as one continuous source stream
+without noticing that the split ranges overlapped at their boundary.
+
+**Harness fix**: `CLAUDE.md` now requires non-overlapping split ranges and line
+numbers at joins before apparent duplicate source text is diagnosed.
+
+**Prevention**: Large-file reads use `1,360` followed by `361,760`, or numbered
+output is checked against the actual file before reporting duplication.
+
+## 2026-07-22 — Masked rejection: TLS test peer waited on an open pipe
+
+**What happened**: Real TLS rejection tests reached the expected class or trust
+failure on one endpoint, but the test helper left the in-memory connection open.
+The peer remained blocked until the five-second context deadline, masking the
+real rejection as a timeout.
+
+**What the user said**: Not user-initiated; the first implementation test run
+showed every rejecting server handshake timing out in the shared helper.
+
+**Root cause**: The concurrent handshake helper waited for both results but did
+not close or cancel the peer transport after the first endpoint failed.
+
+**Harness fix**: The test-writer instructions now require concurrent protocol
+helpers to unblock both endpoints as soon as either side rejects.
+
+**Prevention**: Real-handshake rejection helpers close the shared transport on
+the first error and assert the protocol error rather than accepting a timeout.
+
+## 2026-07-22 — Truncated inspection: docref suggestions were not logged first
+
+**What happened**: A repository-wide `docref suggest` ran directly alongside
+the focused approval and check commands. Its large existing suggestion set
+exceeded the direct output limit, so the command's only complete output was not
+preserved.
+
+**What the user said**: Not user-initiated; the tool reported that its output
+had been truncated.
+
+**Root cause**: The suggestion command was treated like the compact docref
+check even though it scans and reports prose across the entire repository.
+
+**Harness fix**: `CLAUDE.md` now names `docref suggest` as an always-tee command
+whose saved output is filtered only after completion.
+
+**Prevention**: Docref suggestion passes write their complete report to a log,
+then inspect entries for the documentation changed by the current milestone.
+
+## 2026-07-22 — Deprecated API: certificate-pool size inferred via Subjects
+
+**What happened**: The initial TLS builders and their test helper used
+`x509.CertPool.Subjects` to detect or compare trust roots. Staticcheck rejected
+the call because it is deprecated and incomplete for system pools.
+
+**What the user said**: Not user-initiated; the canonical verification gate
+reported SA1019 before the change was committed.
+
+**Root cause**: A list-returning method was used as a convenient size/equality
+proxy without checking its deprecation contract; the supported `Equal` method
+already expressed both needs.
+
+**Harness fix**: The Go rules now prohibit deprecated APIs and direct work
+toward the supported standard-library replacement.
+
+**Prevention**: Certificate-pool emptiness and equality use `CertPool.Equal`;
+staticcheck remains the pre-commit enforcement layer.
+
+## 2026-07-22 — Wrong path context: root-relative files from a module directory
+
+**What happened**: A combined formatting and verification command ran from the
+`contract` module but passed repository-root paths such as
+`contract/identity/identity.go`. `gofmt` failed immediately because those paths
+resolved to a nonexistent nested `contract/contract` tree.
+
+**What the user said**: Not user-initiated; the command failed before editing
+or testing any files.
+
+**Root cause**: Repository-wide formatting and module-local Go checks were
+combined under one working directory even though their path conventions differ.
+
+**Harness fix**: `CLAUDE.md` now explicitly requires formatting repository
+paths from the root before running module-local checks separately.
+
+**Prevention**: Run `gofmt` from the repository root, then run `go test` and
+`staticcheck` from the module directory in a separate command.

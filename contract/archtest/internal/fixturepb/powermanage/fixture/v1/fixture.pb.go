@@ -1230,6 +1230,167 @@ func (x *FixtureDenyCamel) GetAuthToken() string {
 	return ""
 }
 
+// GUARD-006-3 liveness: device_id and auth_token are planted on a service
+// request, while gateway_id is one request-closure hop away. All carry
+// validation rules so this fixture does not perturb the G-1 want-set.
+type FixturePkiIdentityRequest struct {
+	state          protoimpl.MessageState    `protogen:"open.v1"`
+	DeviceId       string                    `protobuf:"bytes,1,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"`
+	AuthToken      string                    `protobuf:"bytes,2,opt,name=auth_token,json=authToken,proto3" json:"auth_token,omitempty"`
+	IdentityNested *FixturePkiIdentityNested `protobuf:"bytes,3,opt,name=identity_nested,json=identityNested,proto3" json:"identity_nested,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *FixturePkiIdentityRequest) Reset() {
+	*x = FixturePkiIdentityRequest{}
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FixturePkiIdentityRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FixturePkiIdentityRequest) ProtoMessage() {}
+
+func (x *FixturePkiIdentityRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FixturePkiIdentityRequest.ProtoReflect.Descriptor instead.
+func (*FixturePkiIdentityRequest) Descriptor() ([]byte, []int) {
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *FixturePkiIdentityRequest) GetDeviceId() string {
+	if x != nil {
+		return x.DeviceId
+	}
+	return ""
+}
+
+func (x *FixturePkiIdentityRequest) GetAuthToken() string {
+	if x != nil {
+		return x.AuthToken
+	}
+	return ""
+}
+
+func (x *FixturePkiIdentityRequest) GetIdentityNested() *FixturePkiIdentityNested {
+	if x != nil {
+		return x.IdentityNested
+	}
+	return nil
+}
+
+type FixturePkiIdentityNested struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	GatewayId     string                 `protobuf:"bytes,1,opt,name=gateway_id,json=gatewayId,proto3" json:"gateway_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FixturePkiIdentityNested) Reset() {
+	*x = FixturePkiIdentityNested{}
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FixturePkiIdentityNested) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FixturePkiIdentityNested) ProtoMessage() {}
+
+func (x *FixturePkiIdentityNested) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FixturePkiIdentityNested.ProtoReflect.Descriptor instead.
+func (*FixturePkiIdentityNested) Descriptor() ([]byte, []int) {
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *FixturePkiIdentityNested) GetGatewayId() string {
+	if x != nil {
+		return x.GatewayId
+	}
+	return ""
+}
+
+// The same device/gateway field names remain legitimate outside a PkiService
+// request closure: they are addressing fields, not authentication inputs.
+type FixtureAddressingFields struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DeviceId      string                 `protobuf:"bytes,1,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"`
+	GatewayId     string                 `protobuf:"bytes,2,opt,name=gateway_id,json=gatewayId,proto3" json:"gateway_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FixtureAddressingFields) Reset() {
+	*x = FixtureAddressingFields{}
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FixtureAddressingFields) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FixtureAddressingFields) ProtoMessage() {}
+
+func (x *FixtureAddressingFields) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FixtureAddressingFields.ProtoReflect.Descriptor instead.
+func (*FixtureAddressingFields) Descriptor() ([]byte, []int) {
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *FixtureAddressingFields) GetDeviceId() string {
+	if x != nil {
+		return x.DeviceId
+	}
+	return ""
+}
+
+func (x *FixtureAddressingFields) GetGatewayId() string {
+	if x != nil {
+		return x.GatewayId
+	}
+	return ""
+}
+
 // G-8 near-copy liveness: an exact structural twin pair — identical
 // field-name+type multiset {twin_id: string}. The near-copy walk must flag
 // exactly this pair. Service-UNREACHABLE (does not perturb other want-sets);
@@ -1244,7 +1405,7 @@ type FixtureTwinA struct {
 
 func (x *FixtureTwinA) Reset() {
 	*x = FixtureTwinA{}
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[18]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1256,7 +1417,7 @@ func (x *FixtureTwinA) String() string {
 func (*FixtureTwinA) ProtoMessage() {}
 
 func (x *FixtureTwinA) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[18]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1269,7 +1430,7 @@ func (x *FixtureTwinA) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FixtureTwinA.ProtoReflect.Descriptor instead.
 func (*FixtureTwinA) Descriptor() ([]byte, []int) {
-	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{18}
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *FixtureTwinA) GetTwinId() string {
@@ -1288,7 +1449,7 @@ type FixtureTwinB struct {
 
 func (x *FixtureTwinB) Reset() {
 	*x = FixtureTwinB{}
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[19]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1300,7 +1461,7 @@ func (x *FixtureTwinB) String() string {
 func (*FixtureTwinB) ProtoMessage() {}
 
 func (x *FixtureTwinB) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[19]
+	mi := &file_powermanage_fixture_v1_fixture_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1313,7 +1474,7 @@ func (x *FixtureTwinB) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FixtureTwinB.ProtoReflect.Descriptor instead.
 func (*FixtureTwinB) Descriptor() ([]byte, []int) {
-	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{19}
+	return file_powermanage_fixture_v1_fixture_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *FixtureTwinB) GetTwinId() string {
@@ -1393,7 +1554,19 @@ const file_powermanage_fixture_v1_fixture_proto_rawDesc = "" +
 	"\vclean_token\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\n" +
 	"cleanToken\"9\n" +
 	"\x10FixtureDenyCamel\x12%\n" +
-	"\tauthToken\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\tauthToken\"0\n" +
+	"\tauthToken\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\tauthToken\"\xcd\x01\n" +
+	"\x19FixturePkiIdentityRequest\x12%\n" +
+	"\tdevice_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\x98\x01\x1aR\bdeviceId\x12&\n" +
+	"\n" +
+	"auth_token\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\tauthToken\x12a\n" +
+	"\x0fidentity_nested\x18\x03 \x01(\v20.powermanage.fixture.v1.FixturePkiIdentityNestedB\x06\xbaH\x03\xc8\x01\x01R\x0eidentityNested\"C\n" +
+	"\x18FixturePkiIdentityNested\x12'\n" +
+	"\n" +
+	"gateway_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\x98\x01\x1aR\tgatewayId\"i\n" +
+	"\x17FixtureAddressingFields\x12%\n" +
+	"\tdevice_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\x98\x01\x1aR\bdeviceId\x12'\n" +
+	"\n" +
+	"gateway_id\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x98\x01\x1aR\tgatewayId\"0\n" +
 	"\fFixtureTwinA\x12 \n" +
 	"\atwin_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x06twinId\"0\n" +
 	"\fFixtureTwinB\x12 \n" +
@@ -1404,10 +1577,11 @@ const file_powermanage_fixture_v1_fixture_proto_rawDesc = "" +
 	"\x1fFIXTURE_BAD_ENUM_BACKEND_OPENRC\x10\x02*N\n" +
 	"\x0fFixtureGoodEnum\x12!\n" +
 	"\x1dFIXTURE_GOOD_ENUM_UNSPECIFIED\x10\x00\x12\x18\n" +
-	"\x14FIXTURE_GOOD_ENUM_ON\x10\x012\xce\x01\n" +
+	"\x14FIXTURE_GOOD_ENUM_ON\x10\x012\xbe\x02\n" +
 	"\x0eFixtureService\x12U\n" +
 	"\x02Do\x12&.powermanage.fixture.v1.FixtureRequest\x1a'.powermanage.fixture.v1.FixtureResponse\x12e\n" +
-	"\x12TriggerAgentUpdate\x12&.powermanage.fixture.v1.FixtureRequest\x1a'.powermanage.fixture.v1.FixtureResponseBjZhgithub.com/manchtools/power-manage/contract/archtest/internal/fixturepb/powermanage/fixture/v1;fixturepbb\x06proto3"
+	"\x12TriggerAgentUpdate\x12&.powermanage.fixture.v1.FixtureRequest\x1a'.powermanage.fixture.v1.FixtureResponse\x12n\n" +
+	"\x10PkiIdentityProbe\x121.powermanage.fixture.v1.FixturePkiIdentityRequest\x1a'.powermanage.fixture.v1.FixtureResponseBjZhgithub.com/manchtools/power-manage/contract/archtest/internal/fixturepb/powermanage/fixture/v1;fixturepbb\x06proto3"
 
 var (
 	file_powermanage_fixture_v1_fixture_proto_rawDescOnce sync.Once
@@ -1422,36 +1596,39 @@ func file_powermanage_fixture_v1_fixture_proto_rawDescGZIP() []byte {
 }
 
 var file_powermanage_fixture_v1_fixture_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_powermanage_fixture_v1_fixture_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
+var file_powermanage_fixture_v1_fixture_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
 var file_powermanage_fixture_v1_fixture_proto_goTypes = []any{
-	(FixtureBadEnum)(0),            // 0: powermanage.fixture.v1.FixtureBadEnum
-	(FixtureGoodEnum)(0),           // 1: powermanage.fixture.v1.FixtureGoodEnum
-	(*FixtureRequest)(nil),         // 2: powermanage.fixture.v1.FixtureRequest
-	(*NestedParams)(nil),           // 3: powermanage.fixture.v1.NestedParams
-	(*FixtureFrameCarrier)(nil),    // 4: powermanage.fixture.v1.FixtureFrameCarrier
-	(*FixtureResponse)(nil),        // 5: powermanage.fixture.v1.FixtureResponse
-	(*UnreachableLoose)(nil),       // 6: powermanage.fixture.v1.UnreachableLoose
-	(*FixtureActionParams)(nil),    // 7: powermanage.fixture.v1.FixtureActionParams
-	(*FixtureAParams)(nil),         // 8: powermanage.fixture.v1.FixtureAParams
-	(*FixtureBParams)(nil),         // 9: powermanage.fixture.v1.FixtureBParams
-	(*FixtureBoolParams)(nil),      // 10: powermanage.fixture.v1.FixtureBoolParams
-	(*FixtureOptBoolParams)(nil),   // 11: powermanage.fixture.v1.FixtureOptBoolParams
-	(*FixtureDirectEmbed)(nil),     // 12: powermanage.fixture.v1.FixtureDirectEmbed
-	(*FixtureSecondOneof)(nil),     // 13: powermanage.fixture.v1.FixtureSecondOneof
-	(*FixtureConformingEmbed)(nil), // 14: powermanage.fixture.v1.FixtureConformingEmbed
-	(*FixtureEnumCarrier)(nil),     // 15: powermanage.fixture.v1.FixtureEnumCarrier
-	(*FixtureManifest)(nil),        // 16: powermanage.fixture.v1.FixtureManifest
-	(*FixtureManifestEntry)(nil),   // 17: powermanage.fixture.v1.FixtureManifestEntry
-	(*FixtureDenyFields)(nil),      // 18: powermanage.fixture.v1.FixtureDenyFields
-	(*FixtureDenyCamel)(nil),       // 19: powermanage.fixture.v1.FixtureDenyCamel
-	(*FixtureTwinA)(nil),           // 20: powermanage.fixture.v1.FixtureTwinA
-	(*FixtureTwinB)(nil),           // 21: powermanage.fixture.v1.FixtureTwinB
-	(*timestamppb.Timestamp)(nil),  // 22: google.protobuf.Timestamp
-	(*wrapperspb.BoolValue)(nil),   // 23: google.protobuf.BoolValue
+	(FixtureBadEnum)(0),               // 0: powermanage.fixture.v1.FixtureBadEnum
+	(FixtureGoodEnum)(0),              // 1: powermanage.fixture.v1.FixtureGoodEnum
+	(*FixtureRequest)(nil),            // 2: powermanage.fixture.v1.FixtureRequest
+	(*NestedParams)(nil),              // 3: powermanage.fixture.v1.NestedParams
+	(*FixtureFrameCarrier)(nil),       // 4: powermanage.fixture.v1.FixtureFrameCarrier
+	(*FixtureResponse)(nil),           // 5: powermanage.fixture.v1.FixtureResponse
+	(*UnreachableLoose)(nil),          // 6: powermanage.fixture.v1.UnreachableLoose
+	(*FixtureActionParams)(nil),       // 7: powermanage.fixture.v1.FixtureActionParams
+	(*FixtureAParams)(nil),            // 8: powermanage.fixture.v1.FixtureAParams
+	(*FixtureBParams)(nil),            // 9: powermanage.fixture.v1.FixtureBParams
+	(*FixtureBoolParams)(nil),         // 10: powermanage.fixture.v1.FixtureBoolParams
+	(*FixtureOptBoolParams)(nil),      // 11: powermanage.fixture.v1.FixtureOptBoolParams
+	(*FixtureDirectEmbed)(nil),        // 12: powermanage.fixture.v1.FixtureDirectEmbed
+	(*FixtureSecondOneof)(nil),        // 13: powermanage.fixture.v1.FixtureSecondOneof
+	(*FixtureConformingEmbed)(nil),    // 14: powermanage.fixture.v1.FixtureConformingEmbed
+	(*FixtureEnumCarrier)(nil),        // 15: powermanage.fixture.v1.FixtureEnumCarrier
+	(*FixtureManifest)(nil),           // 16: powermanage.fixture.v1.FixtureManifest
+	(*FixtureManifestEntry)(nil),      // 17: powermanage.fixture.v1.FixtureManifestEntry
+	(*FixtureDenyFields)(nil),         // 18: powermanage.fixture.v1.FixtureDenyFields
+	(*FixtureDenyCamel)(nil),          // 19: powermanage.fixture.v1.FixtureDenyCamel
+	(*FixturePkiIdentityRequest)(nil), // 20: powermanage.fixture.v1.FixturePkiIdentityRequest
+	(*FixturePkiIdentityNested)(nil),  // 21: powermanage.fixture.v1.FixturePkiIdentityNested
+	(*FixtureAddressingFields)(nil),   // 22: powermanage.fixture.v1.FixtureAddressingFields
+	(*FixtureTwinA)(nil),              // 23: powermanage.fixture.v1.FixtureTwinA
+	(*FixtureTwinB)(nil),              // 24: powermanage.fixture.v1.FixtureTwinB
+	(*timestamppb.Timestamp)(nil),     // 25: google.protobuf.Timestamp
+	(*wrapperspb.BoolValue)(nil),      // 26: google.protobuf.BoolValue
 }
 var file_powermanage_fixture_v1_fixture_proto_depIdxs = []int32{
 	3,  // 0: powermanage.fixture.v1.FixtureRequest.nested:type_name -> powermanage.fixture.v1.NestedParams
-	22, // 1: powermanage.fixture.v1.FixtureRequest.stamped_at:type_name -> google.protobuf.Timestamp
+	25, // 1: powermanage.fixture.v1.FixtureRequest.stamped_at:type_name -> google.protobuf.Timestamp
 	15, // 2: powermanage.fixture.v1.FixtureRequest.enum_carrier:type_name -> powermanage.fixture.v1.FixtureEnumCarrier
 	4,  // 3: powermanage.fixture.v1.FixtureRequest.frame_carrier:type_name -> powermanage.fixture.v1.FixtureFrameCarrier
 	3,  // 4: powermanage.fixture.v1.FixtureFrameCarrier.credited_member:type_name -> powermanage.fixture.v1.NestedParams
@@ -1459,7 +1636,7 @@ var file_powermanage_fixture_v1_fixture_proto_depIdxs = []int32{
 	9,  // 6: powermanage.fixture.v1.FixtureActionParams.b:type_name -> powermanage.fixture.v1.FixtureBParams
 	10, // 7: powermanage.fixture.v1.FixtureActionParams.c:type_name -> powermanage.fixture.v1.FixtureBoolParams
 	11, // 8: powermanage.fixture.v1.FixtureActionParams.d:type_name -> powermanage.fixture.v1.FixtureOptBoolParams
-	23, // 9: powermanage.fixture.v1.FixtureBParams.wrapped:type_name -> google.protobuf.BoolValue
+	26, // 9: powermanage.fixture.v1.FixtureBParams.wrapped:type_name -> google.protobuf.BoolValue
 	8,  // 10: powermanage.fixture.v1.FixtureDirectEmbed.direct:type_name -> powermanage.fixture.v1.FixtureAParams
 	8,  // 11: powermanage.fixture.v1.FixtureSecondOneof.a2:type_name -> powermanage.fixture.v1.FixtureAParams
 	9,  // 12: powermanage.fixture.v1.FixtureSecondOneof.b2:type_name -> powermanage.fixture.v1.FixtureBParams
@@ -1467,15 +1644,18 @@ var file_powermanage_fixture_v1_fixture_proto_depIdxs = []int32{
 	1,  // 14: powermanage.fixture.v1.FixtureEnumCarrier.untagged_enum:type_name -> powermanage.fixture.v1.FixtureGoodEnum
 	1,  // 15: powermanage.fixture.v1.FixtureEnumCarrier.tagged_enum:type_name -> powermanage.fixture.v1.FixtureGoodEnum
 	17, // 16: powermanage.fixture.v1.FixtureManifest.entry:type_name -> powermanage.fixture.v1.FixtureManifestEntry
-	2,  // 17: powermanage.fixture.v1.FixtureService.Do:input_type -> powermanage.fixture.v1.FixtureRequest
-	2,  // 18: powermanage.fixture.v1.FixtureService.TriggerAgentUpdate:input_type -> powermanage.fixture.v1.FixtureRequest
-	5,  // 19: powermanage.fixture.v1.FixtureService.Do:output_type -> powermanage.fixture.v1.FixtureResponse
-	5,  // 20: powermanage.fixture.v1.FixtureService.TriggerAgentUpdate:output_type -> powermanage.fixture.v1.FixtureResponse
-	19, // [19:21] is the sub-list for method output_type
-	17, // [17:19] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	21, // 17: powermanage.fixture.v1.FixturePkiIdentityRequest.identity_nested:type_name -> powermanage.fixture.v1.FixturePkiIdentityNested
+	2,  // 18: powermanage.fixture.v1.FixtureService.Do:input_type -> powermanage.fixture.v1.FixtureRequest
+	2,  // 19: powermanage.fixture.v1.FixtureService.TriggerAgentUpdate:input_type -> powermanage.fixture.v1.FixtureRequest
+	20, // 20: powermanage.fixture.v1.FixtureService.PkiIdentityProbe:input_type -> powermanage.fixture.v1.FixturePkiIdentityRequest
+	5,  // 21: powermanage.fixture.v1.FixtureService.Do:output_type -> powermanage.fixture.v1.FixtureResponse
+	5,  // 22: powermanage.fixture.v1.FixtureService.TriggerAgentUpdate:output_type -> powermanage.fixture.v1.FixtureResponse
+	5,  // 23: powermanage.fixture.v1.FixtureService.PkiIdentityProbe:output_type -> powermanage.fixture.v1.FixtureResponse
+	21, // [21:24] is the sub-list for method output_type
+	18, // [18:21] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_powermanage_fixture_v1_fixture_proto_init() }
@@ -1506,7 +1686,7 @@ func file_powermanage_fixture_v1_fixture_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_powermanage_fixture_v1_fixture_proto_rawDesc), len(file_powermanage_fixture_v1_fixture_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   20,
+			NumMessages:   23,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

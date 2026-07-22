@@ -34,6 +34,8 @@ Procedure:
 4. Run them. Confirm each fails RED for the right reason: a missing symbol or
    a failed assertion on the behavior under test — not a typo, a broken
    fixture, or an import cycle.
+   Concurrent protocol helpers must close or cancel both endpoints when either
+   side rejects, so the intended error cannot be masked by a peer timeout.
 
 Report back: the test files written, and per test its name → the AC or
 rejection row it pins → the observed failure reason. Flag any acceptance
