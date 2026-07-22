@@ -22,7 +22,7 @@ spec's own header, which is authoritative.
 | 003 | [wire-contract](003-wire-contract.md) | 000–002 | contract | Implemented |
 | 004 | [sdk-core](004-sdk-core.md) | 000–002 | sdk | Implemented |
 | 005 | [event-store](005-event-store.md) | 000–003 | server | Implemented |
-| 006 | [pki-and-identity](006-pki-and-identity.md) | 003, 005 | server | In progress (M2 done) |
+| 006 | [pki-and-identity](006-pki-and-identity.md) | 003, 005 | server | In progress (M3 done) |
 | 007 | [authentication](007-authentication.md) | 003, 005 | server | Spec ready |
 | 008 | [authorization](008-authorization.md) | 005, 007 | server | Spec ready |
 | 009 | [crud-kernel-search-and-domains](009-crud-kernel-search-and-domains.md) | 005, 007, 008 | server | Spec ready |
@@ -99,6 +99,8 @@ SPEC-006 M1 — certificate identity profile, TLS 1.3 class enforcement, and sel
 SPEC-005 M5 — exact storage classification and static guards, golden event corpus, version-guarded inventory snapshots, bounded operational output, and CLI-only recovery wiring (AC-5, SPEC-005), (AC-11, SPEC-005), (AC-13, SPEC-005), (AC-14, SPEC-005), (AC-15, SPEC-005) — PR #38
 
 SPEC-006 M2 — control-only agent CA, gateway CA, and command-key custody; approved-key boot gates; DER-derived result verification; agent/control signing chokepoints; fail-closed control dependencies; cross-module signature-domain parity (AC-11, SPEC-006), (AC-14, SPEC-006), (AC-15, SPEC-006), (GUARD-006-2, SPEC-006), (GUARD-006-6, SPEC-006) — PR #40
+
+SPEC-006 M3 — hash-only registration-token minting, constant-time admission, bounded-use expected-version CAS, durable disable, five-per-minute source limiting, and rebuildable Postgres projection (AC-2, SPEC-006), (AC-3, SPEC-006) — PR #41
 
 ## Rules
 
