@@ -398,3 +398,99 @@ argument, and formatting must be split from module checks.
 **Prevention**: Before executing a module-local command, compare its workdir
 suffix with every explicit path prefix; run repository-path formatting in its
 own root-scoped command.
+
+## 2026-07-22 — Stale CLI option: CodeRabbit `--plain`
+
+**What happened**: The local review command passed the removed `--plain`
+option and omitted the now-explicit flag that includes untracked milestone
+files, so CodeRabbit exited at argument parsing without reviewing the change.
+
+**What the user said**: Not user-initiated; the installed CLI reported the
+unsupported option and its current working-tree flags.
+
+**Root cause**: The review invocation was reused from an older CLI contract
+without checking it against the installed command help.
+
+**Harness fix**: `CLAUDE.md` now records the supported pre-commit invocation:
+`coderabbit review --base main --include-untracked`, with plain text as the
+default.
+
+**Prevention**: Local reviews include new test and production files and avoid
+the removed option, so the mandatory pre-commit review actually runs.
+
+## 2026-07-22 — Third path-context failure: sibling modules from `contract/`
+
+**What happened**: A source probe ran with `contract/` as its working directory
+but asked `rg` to scan sibling paths `agent/` and `server/`. The scan failed
+before producing the evidence it was meant to collect.
+
+**What the user said**: Not user-initiated; `rg` reported that both paths did
+not exist under the selected working directory.
+
+**Root cause**: The previous strengthened rule still named the narrow
+`contract/contract` example, so command construction did not apply the same
+preflight to sibling-module paths.
+
+**Harness fix**: `CLAUDE.md` now makes the preflight mandatory before every
+command and generalizes it to all module workdirs: module-local arguments stay
+relative, while sibling or cross-module paths require the repository root.
+
+**Prevention**: Every explicit path is checked against the declared workdir;
+cross-module scans cannot be launched from a module directory.
+
+## 2026-07-22 — Fourth path-context failure: mixed formatting and module test
+
+**What happened**: A command again ran from `contract/`, passed the
+root-relative path `contract/sign/sign.go` to `gofmt`, and therefore failed
+before reaching the focused test.
+
+**What the user said**: Not user-initiated; `gofmt` reported the nonexistent
+`contract/contract/sign/sign.go` path.
+
+**Root cause**: Despite the generalized preflight rule, mixed formatting and
+module-testing operations still encouraged switching workdirs and carrying
+the wrong path convention into the combined command.
+
+**Harness fix**: `CLAUDE.md` now makes the repository root the default workdir
+for task commands and requires `go ... -C <module>` for module checks.
+Formatting and Go checks cannot share a module-local workdir.
+
+**Prevention**: Root-relative file paths and module selection are now
+orthogonal: `gofmt` runs from root, while Go selects its module with `-C`.
+
+## 2026-07-22 — Repeated CLI misuse: multiple symbols in one `go doc`
+
+**What happened**: A standard-library probe again passed three independent
+symbols to one `go doc` invocation, which printed usage instead of the needed
+API documentation.
+
+**What the user said**: Not user-initiated; `go doc` rejected the command
+shape.
+
+**Root cause**: The existing probe rule covered workspace isolation but did
+not state that this CLI accepts only one symbol query per invocation.
+
+**Harness fix**: `CLAUDE.md` now requires one symbol per `go doc` invocation.
+
+**Prevention**: Multi-symbol research runs as separate explicit probes, so a
+usage error cannot replace all requested documentation.
+
+## 2026-07-22 — Guessed source path after an authoritative inventory
+
+**What happened**: A read command first listed the real files under
+`server/internal`, then appended a guessed `server/internal/store/projector.go`
+path that was not in that inventory. The valid read completed, but the command
+still exited with a nonexistent-file error.
+
+**What the user said**: Not user-initiated; `sed` reported that the guessed
+file did not exist.
+
+**Root cause**: File discovery and file selection were treated as separate
+mental steps, allowing a conventional-looking filename to bypass the evidence
+already returned by the repository.
+
+**Harness fix**: `CLAUDE.md` now requires follow-up reads to use only paths
+actually returned by `rg --files` or `find`; guessed siblings are forbidden.
+
+**Prevention**: Repository inventories are the source of truth for subsequent
+file reads, so a valid discovery cannot be undermined by an unverified suffix.

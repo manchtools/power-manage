@@ -382,7 +382,7 @@ SPEC-010), the relay in (GW-3, SPEC-012), and the verification chokepoint in
   passes. `buf breaking` is deliberately NOT a gate: proto evolution re-tags in
   place with no `reserved` markers (recorded decision), which is exactly what a
   breaking-change gate would reject.
-<!-- docref: begin src=contract/sign/sign.go#ValidateSigningKey:831dab75 -->
+<!-- docref: begin src=contract/sign/sign.go#ValidateSigningKey:cfd68404 -->
 - **AC-14** The verification helper's key-load path accepts only ECDSA
   P-256/P-384/P-521 or RSA ≥2048 bits; Ed25519, other curves, malformed keys,
   and weaker RSA keys are refused at boot.

@@ -118,11 +118,24 @@ regression test proven red first.
   invocations, each with an explicit working directory.
 - For a command that formats repository paths and runs module-local Go checks,
   format from the repository root first; never combine the two path contexts.
-- Concrete path preflight: when `workdir` ends in `/contract`, no file argument
-  may still start with `contract/`; split root formatting from module checks.
+- **Before every command, compare `workdir` with every explicit path.** When
+  `workdir` is any module directory (`contract/`, `agent/`, `server/`, or
+  `sdk/`), arguments must be module-relative and must not name that module or
+  a sibling module as their first path component. Run cross-module scans and
+  repository-relative formatting from the repository root; split them from
+  module-local checks.
+- **For repository work, keep `workdir` at the repository root.** Format with
+  root-relative paths and run module checks with `go ... -C <module>`; never
+  combine `gofmt` and a module-local Go command under one module workdir.
 - Run repository-wide CLIs, including `docref`, from the repository root with
   repository-relative paths; do not rewrite those paths with `../` from a
   module working directory.
+- After discovering files with `rg --files` or `find`, build follow-up reads
+  only from paths that discovery actually returned; never append a guessed
+  sibling filename to an otherwise verified command.
+- Review an uncommitted milestone with
+  `coderabbit review --base main --include-untracked`; plain text is the
+  default in the installed CLI, so do not pass the removed `--plain` flag.
 - After editing a shell file containing heredocs, inspect the numbered changed
   region; `bash -n` cannot detect code accidentally swallowed as fixture text.
 - Negative tests assert the intended failure message, never only a nonzero exit.
@@ -131,7 +144,8 @@ regression test proven red first.
 - For `gh --json` status inspection, use only fields listed by that command;
   query the GitHub API when nested job-step data is required.
 - Run standard-library `go doc` probes with `GOWORK=off` when workspace
-  resolution is unnecessary, and inspect module/workspace sums afterward.
+  resolution is unnecessary, one symbol per invocation, and inspect
+  module/workspace sums afterward.
 - Split file reads use non-overlapping ranges; include line numbers at joins
   before diagnosing apparent duplicate source text.
 - No-self-mention instructions for publication apply to commit and PR text;
