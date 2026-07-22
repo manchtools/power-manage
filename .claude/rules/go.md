@@ -37,6 +37,8 @@ paths:
 ## Hygiene
 
 - `gofmt -w` on touched files before committing.
+- No deprecated APIs; use the supported stdlib replacement and let
+  `staticcheck` reject compatibility shims around obsolete calls.
 - New dependencies need operator sign-off — stdlib or an already-imported
   dep first.
 - Comments state constraints the code can't express, not narration; match

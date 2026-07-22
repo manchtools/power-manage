@@ -1,10 +1,13 @@
-// Package identity carries the certificate-profile constants of SPEC-003
-// §3.5 ([WIRE-18]): identity at every seam is the mTLS certificate — SPIFFE
-// URI SAN = class, CN = instance ULID, DNS SAN = server name only. No
-// message anywhere in the contract carries a self-asserted identity field.
-// Parsing and enforcement live with PKI issuance (SPEC-006) and
-// authentication (SPEC-007); this package only fixes the profile values.
+// Package identity implements the certificate identity profile of SPEC-006:
+// SPIFFE URI SAN = class, CN = instance ULID, and DNS SAN = server name only.
 package identity
+
+import (
+	"crypto/tls"
+	"crypto/x509"
+	"fmt"
+	"net/url"
+)
 
 const (
 	// SPIFFETrustDomain is the single trust domain of the deployment.
@@ -16,3 +19,180 @@ const (
 	GatewaySPIFFEURI = "spiffe://power-manage/gateway"
 	ControlSPIFFEURI = "spiffe://power-manage/control"
 )
+
+// Class is one of the three closed certificate identity classes.
+type Class string
+
+const (
+	AgentClass   Class = "agent"
+	GatewayClass Class = "gateway"
+	ControlClass Class = "control"
+)
+
+// IsCanonicalULID reports whether id is a canonical uppercase Crockford ULID.
+func IsCanonicalULID(id string) bool {
+	if len(id) != 26 || id[0] < '0' || id[0] > '7' {
+		return false
+	}
+	for i := 1; i < len(id); i++ {
+		c := id[i]
+		switch {
+		case c >= '0' && c <= '9':
+		case c >= 'A' && c <= 'Z' && c != 'I' && c != 'L' && c != 'O' && c != 'U':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// StampCertificateIdentity replaces template's certificate identity with the
+// control-authored class and instance ID. DNS names remain caller-owned server
+// names and are not used as identity.
+func StampCertificateIdentity(template *x509.Certificate, class Class, instanceID string) error {
+	if template == nil {
+		return fmt.Errorf("identity: nil certificate template")
+	}
+	uri, err := classURI(class)
+	if err != nil {
+		return err
+	}
+	if !IsCanonicalULID(instanceID) {
+		return fmt.Errorf("identity: instance ID is not a canonical ULID")
+	}
+	parsedURI, err := url.Parse(uri)
+	if err != nil {
+		return fmt.Errorf("identity: parse class URI: %w", err)
+	}
+	template.Subject.CommonName = instanceID
+	template.URIs = []*url.URL{parsedURI}
+	return nil
+}
+
+// ParseCertificateIdentity returns the exact class and instance ID stamped in
+// cert, rejecting ambiguous or non-canonical profiles.
+func ParseCertificateIdentity(cert *x509.Certificate) (Class, string, error) {
+	if cert == nil {
+		return "", "", fmt.Errorf("identity: nil certificate")
+	}
+	if !IsCanonicalULID(cert.Subject.CommonName) {
+		return "", "", fmt.Errorf("identity: certificate common name is not a canonical ULID")
+	}
+	if len(cert.URIs) != 1 || cert.URIs[0] == nil {
+		return "", "", fmt.Errorf("identity: certificate must contain exactly one SPIFFE URI SAN")
+	}
+	class, err := classFromURI(cert.URIs[0].String())
+	if err != nil {
+		return "", "", err
+	}
+	return class, cert.Subject.CommonName, nil
+}
+
+// RequireCertificateClass rejects cert unless its exact identity profile has
+// the expected class.
+func RequireCertificateClass(cert *x509.Certificate, expected Class) error {
+	if _, err := classURI(expected); err != nil {
+		return err
+	}
+	actual, _, err := ParseCertificateIdentity(cert)
+	if err != nil {
+		return err
+	}
+	if actual != expected {
+		return fmt.Errorf("identity: certificate class %q is not required class %q", actual, expected)
+	}
+	return nil
+}
+
+// ServerTLSConfig builds a TLS 1.3 mutual-TLS server configuration that
+// verifies client chains against clientCAs and enforces the expected class.
+func ServerTLSConfig(certificate tls.Certificate, clientCAs *x509.CertPool, clientClass Class) (*tls.Config, error) {
+	if err := validateTLSCertificate(certificate); err != nil {
+		return nil, err
+	}
+	if certPoolEmpty(clientCAs) {
+		return nil, fmt.Errorf("identity: client CA pool is empty")
+	}
+	if _, err := classURI(clientClass); err != nil {
+		return nil, err
+	}
+	return &tls.Config{
+		MinVersion:   tls.VersionTLS13,
+		Certificates: []tls.Certificate{certificate},
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		ClientCAs:    clientCAs.Clone(),
+		VerifyConnection: func(state tls.ConnectionState) error {
+			return requirePeerClass(state, clientClass)
+		},
+	}, nil
+}
+
+// ClientTLSConfig builds a TLS 1.3 mutual-TLS client configuration that uses
+// only rootCAs, retains standard DNS verification, and enforces serverClass.
+func ClientTLSConfig(certificate tls.Certificate, rootCAs *x509.CertPool, serverName string, serverClass Class) (*tls.Config, error) {
+	if err := validateTLSCertificate(certificate); err != nil {
+		return nil, err
+	}
+	if certPoolEmpty(rootCAs) {
+		return nil, fmt.Errorf("identity: root CA pool is empty")
+	}
+	if serverName == "" {
+		return nil, fmt.Errorf("identity: TLS server name is empty")
+	}
+	if _, err := classURI(serverClass); err != nil {
+		return nil, err
+	}
+	return &tls.Config{
+		MinVersion:   tls.VersionTLS13,
+		Certificates: []tls.Certificate{certificate},
+		RootCAs:      rootCAs.Clone(),
+		ServerName:   serverName,
+		VerifyConnection: func(state tls.ConnectionState) error {
+			return requirePeerClass(state, serverClass)
+		},
+	}, nil
+}
+
+func classURI(class Class) (string, error) {
+	switch class {
+	case AgentClass:
+		return AgentSPIFFEURI, nil
+	case GatewayClass:
+		return GatewaySPIFFEURI, nil
+	case ControlClass:
+		return ControlSPIFFEURI, nil
+	default:
+		return "", fmt.Errorf("identity: unsupported certificate class %q", class)
+	}
+}
+
+func classFromURI(uri string) (Class, error) {
+	switch uri {
+	case AgentSPIFFEURI:
+		return AgentClass, nil
+	case GatewaySPIFFEURI:
+		return GatewayClass, nil
+	case ControlSPIFFEURI:
+		return ControlClass, nil
+	default:
+		return "", fmt.Errorf("identity: unsupported SPIFFE URI SAN %q", uri)
+	}
+}
+
+func validateTLSCertificate(certificate tls.Certificate) error {
+	if len(certificate.Certificate) == 0 || certificate.PrivateKey == nil {
+		return fmt.Errorf("identity: TLS certificate or private key is missing")
+	}
+	return nil
+}
+
+func certPoolEmpty(pool *x509.CertPool) bool {
+	return pool == nil || pool.Equal(x509.NewCertPool())
+}
+
+func requirePeerClass(state tls.ConnectionState, expected Class) error {
+	if len(state.PeerCertificates) == 0 {
+		return fmt.Errorf("identity: peer certificate is missing")
+	}
+	return RequireCertificateClass(state.PeerCertificates[0], expected)
+}

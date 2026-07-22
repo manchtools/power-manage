@@ -16,6 +16,7 @@ import (
 	"fmt"
 
 	powermanagev1 "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1"
+	"github.com/manchtools/power-manage/contract/identity"
 )
 
 // The [WIRE-20a] signature domains, one per closed §3.6 result type:
@@ -103,7 +104,7 @@ func ResultPreimage(env *powermanagev1.DeviceSigned) ([]byte, error) {
 	if env.GetIssuedAt() == nil {
 		return nil, fmt.Errorf("issued_at is a required covered field")
 	}
-	if !isULID(env.GetDeviceId()) {
+	if !identity.IsCanonicalULID(env.GetDeviceId()) {
 		return nil, fmt.Errorf("device_id is not a ULID: a malformed reporter identity is never framed, signed, or verified ([WIRE-18])")
 	}
 	var buf bytes.Buffer

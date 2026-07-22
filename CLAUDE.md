@@ -102,6 +102,8 @@ regression test proven red first.
 - Never truncate a command's only copy of its output: `cmd 2>&1 | tee` to a
   file first, then grep the file; `set -o pipefail`. <!-- a tail -30 once
   kept 1 of 7 review findings and forced a full re-run -->
+- `docref suggest` is repository-wide and verbose: always tee its full output
+  to a file before filtering for the touched documentation.
 - Judge test runs by grepping the FULL output for `FAIL`, not the last lines.
 - Before accepting a version correction or changing a pin, verify the upstream
   release/tag and installable artifact; a claimed version is not availability.
@@ -114,6 +116,8 @@ regression test proven red first.
   verbatim.
 - Keep checks that require different working directories in separate command
   invocations, each with an explicit working directory.
+- For a command that formats repository paths and runs module-local Go checks,
+  format from the repository root first; never combine the two path contexts.
 - Run repository-wide CLIs, including `docref`, from the repository root with
   repository-relative paths; do not rewrite those paths with `../` from a
   module working directory.
@@ -124,6 +128,10 @@ regression test proven red first.
   immediately.
 - For `gh --json` status inspection, use only fields listed by that command;
   query the GitHub API when nested job-step data is required.
+- Run standard-library `go doc` probes with `GOWORK=off` when workspace
+  resolution is unnecessary, and inspect module/workspace sums afterward.
+- Split file reads use non-overlapping ranges; include line numbers at joins
+  before diagnosing apparent duplicate source text.
 - No-self-mention instructions for publication apply to commit and PR text;
   do not rewrite unrelated project prose unless requested. The repository-wide
   no-attribution rule above remains unconditional.

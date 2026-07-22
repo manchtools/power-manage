@@ -38,6 +38,16 @@ var bannedFieldNames = map[string]bool{
 	"params_canonical": true, // a second representation lets executed bytes diverge from verified ([WIRE-14])
 }
 
+// pkiAuthenticationFieldNames are forbidden throughout every PkiService
+// request closure (GUARD-006-3). device_id and gateway_id remain legal as
+// addressing fields elsewhere; on the unauthenticated PKI boundary they would
+// be self-asserted identity inputs.
+var pkiAuthenticationFieldNames = map[string]bool{
+	"auth_token": true,
+	"device_id":  true,
+	"gateway_id": true,
+}
+
 // bannedRPCNames are the [WIRE-30] RPC bans. The sole agent-upgrade path is the
 // signed AGENT_UPDATE action (AG-16); a dedicated trigger RPC is one of the
 // drifting update paths the deny-list deletes.
@@ -85,8 +95,18 @@ func TestGuard_DenyList(t *testing.T) {
 	files := Discover(t, "contract proto files", 11, func() ([]protoreflect.FileDescriptor, error) {
 		return packageFiles(ContractPackage), nil
 	})
+	Discover(t, "contract messages visited by the identity-field deny-list", 1, func() ([]protoreflect.MessageDescriptor, error) {
+		return allMessages(files), nil
+	})
 	for _, v := range bannedFieldNameViolations(files) {
 		t.Errorf("%s (G-7, [WIRE-30], SPEC-003)", v)
+	}
+	pkiViolations, err := pkiAuthenticationFieldViolations(files, "PkiService")
+	if err != nil {
+		t.Fatalf("GUARD-006-3 PkiService request discovery: %v", err)
+	}
+	for _, v := range pkiViolations {
+		t.Errorf("%s (GUARD-006-3, [WIRE-18], SPEC-006)", v)
 	}
 	for _, v := range bannedRPCViolations(files) {
 		t.Errorf("%s (G-7, [WIRE-30], SPEC-003)", v)
@@ -123,7 +143,18 @@ func TestGuard_DenyList_Liveness(t *testing.T) {
 		"powermanage.fixture.v1.FixtureDenyCamel.authToken",
 		"powermanage.fixture.v1.FixtureDenyFields.auth_token",
 		"powermanage.fixture.v1.FixtureDenyFields.params_canonical",
+		"powermanage.fixture.v1.FixturePkiIdentityRequest.auth_token",
 	}, []string{"clean_token"})
+
+	pkiViolations, err := pkiAuthenticationFieldViolations(files, "FixtureService")
+	if err != nil {
+		t.Fatalf("GUARD-006-3 fixture service discovery: %v", err)
+	}
+	requireExactPrefixes(t, "PkiService authentication fields", pkiViolations, []string{
+		"powermanage.fixture.v1.FixturePkiIdentityNested.gateway_id",
+		"powermanage.fixture.v1.FixturePkiIdentityRequest.auth_token",
+		"powermanage.fixture.v1.FixturePkiIdentityRequest.device_id",
+	}, []string{"FixtureAddressingFields", "tagged_id", "clean_token"})
 
 	requireExactPrefixes(t, "banned RPC names", bannedRPCViolations(files), []string{
 		"powermanage.fixture.v1.FixtureService.TriggerAgentUpdate",
@@ -157,7 +188,7 @@ func TestGuard_DenyList_ImportLiveness(t *testing.T) {
 // prefixes classify each banned family while leaving the sanctioned Postgres /
 // stdlib replacements clean.
 func TestDenyListSets_ThreatModel(t *testing.T) {
-	if len(bannedFieldNames) == 0 || len(bannedRPCNames) == 0 || len(reservedBackendTokens) == 0 || len(bannedImportPrefixes) == 0 {
+	if len(bannedFieldNames) == 0 || len(pkiAuthenticationFieldNames) == 0 || len(bannedRPCNames) == 0 || len(reservedBackendTokens) == 0 || len(bannedImportPrefixes) == 0 {
 		t.Fatal("a deny-list ban set is empty — the threat model lost its subjects (G-7)")
 	}
 	// The component matcher flags real backend values...
@@ -218,6 +249,38 @@ func bannedFieldNameViolations(files []protoreflect.FileDescriptor) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func pkiAuthenticationFieldViolations(files []protoreflect.FileDescriptor, serviceName protoreflect.Name) ([]string, error) {
+	service, err := findService(files, serviceName)
+	if err != nil {
+		return nil, err
+	}
+
+	seen := make(map[protoreflect.FullName]protoreflect.MessageDescriptor)
+	methods := service.Methods()
+	for i := 0; i < methods.Len(); i++ {
+		for _, message := range messageClosure(files, methods.Get(i).Input()) {
+			seen[message.FullName()] = message
+		}
+	}
+
+	canon := make(map[string]bool, len(pkiAuthenticationFieldNames))
+	for name := range pkiAuthenticationFieldNames {
+		canon[canonicalFieldToken(name)] = true
+	}
+	var out []string
+	for _, message := range seen {
+		fields := message.Fields()
+		for i := 0; i < fields.Len(); i++ {
+			field := fields.Get(i)
+			if canon[canonicalFieldToken(string(field.Name()))] {
+				out = append(out, fmt.Sprintf("%s: PkiService request field self-asserts authentication identity — authorization comes from the operation credential and issued certificate, never device_id, gateway_id, or auth_token", field.FullName()))
+			}
+		}
+	}
+	sort.Strings(out)
+	return out, nil
 }
 
 func bannedRPCViolations(files []protoreflect.FileDescriptor) []string {

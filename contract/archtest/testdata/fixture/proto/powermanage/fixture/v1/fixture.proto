@@ -18,6 +18,9 @@ service FixtureService {
   // joins the service-reachable set — the G-1/enum-bounds want-sets are
   // untouched; the deny-list RPC scan finds this by name.
   rpc TriggerAgentUpdate(FixtureRequest) returns (FixtureResponse);
+  // GUARD-006-3 liveness: this method's request closure plants all three
+  // authentication-input field families forbidden on PkiService requests.
+  rpc PkiIdentityProbe(FixturePkiIdentityRequest) returns (FixtureResponse);
 }
 
 message FixtureRequest {
@@ -171,6 +174,26 @@ message FixtureDenyFields {
 // collide with auth_token's JSON name.
 message FixtureDenyCamel {
   string authToken = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// GUARD-006-3 liveness: device_id and auth_token are planted on a service
+// request, while gateway_id is one request-closure hop away. All carry
+// validation rules so this fixture does not perturb the G-1 want-set.
+message FixturePkiIdentityRequest {
+  string device_id = 1 [(buf.validate.field).string.len = 26];
+  string auth_token = 2 [(buf.validate.field).string.min_len = 1];
+  FixturePkiIdentityNested identity_nested = 3 [(buf.validate.field).required = true];
+}
+
+message FixturePkiIdentityNested {
+  string gateway_id = 1 [(buf.validate.field).string.len = 26];
+}
+
+// The same device/gateway field names remain legitimate outside a PkiService
+// request closure: they are addressing fields, not authentication inputs.
+message FixtureAddressingFields {
+  string device_id = 1 [(buf.validate.field).string.len = 26];
+  string gateway_id = 2 [(buf.validate.field).string.len = 26];
 }
 
 // G-8 near-copy liveness: an exact structural twin pair — identical
