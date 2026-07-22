@@ -761,3 +761,396 @@ fresh-state authorization, backoff, and a finite internal retry budget.
 **Prevention**: Token CAS retries use short jittered waits, stop after a fixed
 production budget, and have a real-Postgres regression for stale projection
 state.
+
+## 2026-07-22 — Repeated guessed-path read despite the inventory rule
+
+**What happened**: A SPEC-006 inspection command guessed
+`docs/content/01-specs/006-pki-lifecycle.md` even though the repository had not
+returned that basename. The actual file is `006-pki-and-identity.md`; the
+failed reads added noise while the remaining verified reads completed.
+
+**What the user said**: Not user-initiated; `sed` reported the nonexistent
+path during the autonomous milestone inspection.
+
+**Root cause**: The prior rule prohibited appending a guessed sibling after
+discovery, but the same failure mode slipped through as substitution of a
+conventional-looking spec basename before using the discovery result.
+
+**Harness fix**: `CLAUDE.md` now explicitly forbids conventional basename
+substitution as well as guessed sibling paths.
+
+**Prevention**: Spec and plan reads are built directly from `rg --files`
+output. A remembered number or naming convention may filter the inventory,
+but it never constructs the path.
+
+## 2026-07-22 — New descriptor test collided with existing helpers
+
+**What happened**: The first SPEC-006 M4 contract red test declared
+`findService` and `fieldRules`, names already defined in another test file in
+the same package. The intended absent-RPC failure was masked by compile-time
+redeclaration and call-shape errors.
+
+**What the user said**: Not user-initiated; the focused red run reported the
+helper collisions.
+
+**Root cause**: Production identifiers were searched before the patch, but
+the package's existing test helpers were not included in that symbol check.
+
+**Harness fix**: `CLAUDE.md` now requires a package-wide name search before a
+new package-level test helper is introduced.
+
+**Prevention**: Descriptor tests reuse the shared package helpers and give
+new assertion-only helpers domain-specific names.
+
+## 2026-07-22 — Assumed acronym casing in sqlc output
+
+**What happened**: The first device projector compile referenced
+`CertificateDER`, but sqlc generated `CertificateDer` for the
+`certificate_der` column.
+
+**What the user said**: Not user-initiated; the focused store build reported
+the unknown generated field.
+
+**Root cause**: The handwritten projector was completed before the newly
+generated sqlc structs were inspected, and Go acronym style was assumed to
+match the generator's casing policy.
+
+**Harness fix**: `CLAUDE.md` now requires inspecting generated identifier
+spelling immediately after generation and before adding call sites.
+
+**Prevention**: Generated structs and parameter types are the source of truth
+for all handwritten query-layer references.
+
+## 2026-07-22 — Casing fix crossed handwritten/generated struct boundaries
+
+**What happened**: The first `CertificateDer` correction changed the return
+literal for the handwritten `Device` type while leaving `CertificateDER` in
+the sqlc parameter literal. The follow-up compile therefore reported both
+opposite casing errors.
+
+**What the user said**: Not user-initiated; the focused store build exposed
+the mis-targeted replacement.
+
+**Root cause**: A repeated field label was patched by text shape without
+checking the enclosing struct type at both sites.
+
+**Harness fix**: `CLAUDE.md` now requires receiver-type verification when
+handwritten and generated identifiers differ only by casing.
+
+**Prevention**: Casing fixes use numbered, enclosing-type contexts and are
+checked at every remaining spelling before recompilation.
+
+## 2026-07-22 — Enrollment plan placed CA signing before authorization
+
+**What happened**: The first M4 security-ordering plan placed certificate
+construction after CSR validation but before registration-token admission.
+That would let unauthenticated callers repeatedly invoke the private CA signer
+even though no certificate was returned.
+
+**What the user said**: Not user-initiated; the issue was caught while mapping
+the red handler tests to the implementation order.
+
+**Root cause**: Avoiding token consumption on a rare signer failure was given
+priority over keeping expensive private-key operations behind authorization.
+
+**Harness fix**: `CLAUDE.md` now states that public credential-gated paths
+authorize before invoking a private-key signer.
+
+**Prevention**: Enrollment validates hostile structure first, consumes the
+token second, and only then signs and persists the issued identity. Post-auth
+infrastructure failures fail closed without returning certificate material.
+
+## 2026-07-22 — Inferred listener registry receiver syntax
+
+**What happened**: The M4 B10 registrations used `(Server)` keys, while the
+listener discovery guard represents pointer receivers as `(*Server)`. The
+guard correctly reported two orphan registrations and the real sites as
+unregistered.
+
+**What the user said**: Not user-initiated; the focused boundary join exposed
+the exact-key mismatch.
+
+**Root cause**: The registration keys were transcribed from a prior summary
+instead of being copied from the discovery mechanism after the call sites
+existed.
+
+**Harness fix**: `CLAUDE.md` now requires listener keys to come from
+`guardtest.ListenerSites` output rather than inferred receiver formatting.
+
+**Prevention**: New listener code lands first, discovery supplies its exact
+keys, and only those keys enter the boundary registry.
+
+## 2026-07-22 — No-clobber test accidentally exercised root ownership
+
+**What happened**: The first `WriteFileNew` behavior tests used `t.TempDir()`
+without isolating the existing privileged-parent gate. Under the normal
+unprivileged test user, the create was correctly refused before reaching the
+atomic no-overwrite behavior the tests intended to cover.
+
+**What the user said**: Not user-initiated; the focused SDK test reported
+`ErrUnsafeParentDir`.
+
+**Root cause**: The fixture assumed mode `0700` was sufficient and overlooked
+that the production primitive deliberately also requires uid 0 ownership.
+
+**Harness fix**: `CLAUDE.md` now states how unit tests behind root-owned-parent
+preconditions must isolate or reproduce that prerequisite.
+
+**Prevention**: No-clobber tests stub only the established parent-ownership
+seam; the existing parent-safety tests continue to prove the production gate.
+
+## 2026-07-22 — Initially selected an older available x/term release
+
+**What happened**: Dependency setup first selected `golang.org/x/term` v0.39.0
+to align with an existing transitive `x/sys` version even though the version
+inventory showed the compatible stable v0.45.0 release.
+
+**What the user said**: Earlier feedback explicitly challenged using an older
+available CI/tool release; the same principle applies to a new library pin.
+
+**Root cause**: Minimizing transitive upgrades was treated as sufficient reason
+to choose a stale direct dependency without an actual compatibility bound.
+
+**Harness fix**: `CLAUDE.md` now requires the newest verified stable compatible
+version for new direct dependencies unless a documented bound says otherwise.
+
+**Prevention**: Version inventory and toolchain compatibility are checked
+before `go get`; transitive alignment does not override an available current
+release.
+
+## 2026-07-22 — Guessed config companion file after prior path corrections
+
+**What happened**: A config-guard inspection read the verified
+`sdk/config/config.go` and then appended a conventional `sdk/config/doc.go`
+path that does not exist; the documentation generator lives in `config.go`.
+
+**What the user said**: Not user-initiated; `sed` reported the nonexistent
+companion during autonomous guard remediation.
+
+**Root cause**: Knowing the package directory was incorrectly treated as an
+inventory of conventional source filenames, repeating the earlier guessed
+basename failure in a different subtree.
+
+**Harness fix**: `CLAUDE.md` now explicitly says a known directory is not a
+file inventory and requires `rg --files` output for multi-file reads.
+
+**Prevention**: Every path in a multi-file inspection is pasted from the
+immediately preceding subtree inventory; conventional companion names are not
+inferred.
+
+## 2026-07-22 — Module tidy rewrote workspace-local dependencies
+
+**What happened**: Running `go mod tidy` inside the agent and server modules
+added pseudo-version requirements and checksums for the workspace-local
+contract and SDK modules, and expanded `go.work.sum` with unrelated graph
+entries, contrary to the repository's established `go.work` convention.
+
+**What the user said**: Not user-initiated; manifest review caught the
+requirements early and final staged review caught the residual sum noise
+before commit.
+
+**Root cause**: Dependency cleanup was run without first comparing the target
+manifests with sibling-module conventions and the pre-change files.
+
+**Harness fix**: `CLAUDE.md` now requires that convention check before module
+tidying in a multi-module workspace.
+
+**Prevention**: Add and verify only the external requirements needed by the
+change; inspect manifests and all module/workspace sums for workspace-local
+pseudo-versions or unrelated expansion before accepting a tidy diff.
+
+## 2026-07-22 — Combined cleanup patch used stale manifest context
+
+**What happened**: A single cleanup patch mixed module, test, harness, and
+journal edits after `go mod tidy` had changed the manifest layout, so one stale
+context rejected the entire patch.
+
+**What the user said**: Not user-initiated; the patch failure was detected
+immediately and changed no files.
+
+**Root cause**: An existing small-patch rule was not followed during cleanup
+of files with different change histories.
+
+**Harness fix**: The existing rule to keep patches small and local already
+covers this failure; no additional standing rule is needed.
+
+**Prevention**: Split cleanup by concern and re-read any generated or
+tool-rewritten file immediately before patching it.
+
+## 2026-07-22 — Symbol search result was replaced with an inferred filename
+
+**What happened**: An fsafe review found `replaceFileFrom` in
+`replace_linux.go`, but the follow-up read named an inferred `write_linux.go`.
+Because the inspection used fail-fast command sequencing, the remaining reads
+did not run.
+
+**What the user said**: Not user-initiated; the missing-file error exposed the
+mistake during the pre-commit review.
+
+**Root cause**: The exact symbol-search result was not carried into the next
+command, despite an existing rule requiring discovered paths to be reused.
+
+**Harness fix**: The existing `CLAUDE.md` path-inventory rule already covers
+this case; no new standing rule is needed.
+
+**Prevention**: Run `rg --files` for the subtree and paste the returned path
+verbatim before any multi-file inspection.
+
+## 2026-07-22 — Nonexistent top-level SDK test glob stopped a review read
+
+**What happened**: A guard review used `sdk/*_test.go`, but SDK tests live in
+subpackage directories. `rg` reported the nonexistent path and fail-fast
+sequencing prevented the intended fsafe source read.
+
+**What the user said**: Not user-initiated; the command error was caught
+during the same pre-commit review.
+
+**Root cause**: A shell glob was used as a substitute for the repository file
+inventory immediately after the prior path correction.
+
+**Harness fix**: The existing discovered-path rule remains sufficient; the
+problem was adherence, not missing guidance.
+
+**Prevention**: Search from a verified directory root with `--glob` filters,
+and use exact returned files for subsequent reads.
+
+## 2026-07-22 — Docref treated `--help` as a path
+
+**What happened**: A help probe used `docref suggest --help` and
+`docref check --help`. This CLI accepts path positionals rather than those
+subcommand help flags, so it ran an uncaptured suggestion discovery instead
+of the required tee-backed scan and then failed trying to open a literal
+`--help` path.
+
+**What the user said**: Not user-initiated; the installed CLI's output made
+the argument interpretation clear during documentation preparation.
+
+**Root cause**: A conventional flag shape was assumed instead of using the
+already-established repository invocation forms, and the help assumption was
+allowed to bypass the standing full-output capture rule.
+
+**Harness fix**: `CLAUDE.md` already documents the supported docref workflow
+and full-output capture requirement; no new standing rule is needed.
+
+**Prevention**: Invoke only the repository's known `docref suggest`,
+`docref claim`, `docref approve`, and `docref check --strict` forms and capture
+repository-wide scan output before filtering.
+
+## 2026-07-22 — Used a removed docref `fix` command
+
+**What happened**: After the suggestion scan, `docref fix` was invoked to
+insert a marker. Docref 0.1.1 has no such command; its supported flow is
+`claim` to generate marker blocks and `approve` after reviewing prose. The
+failed invocation made no edits.
+
+**What the user said**: Earlier feedback established that docref 0.1.1 is the
+available release; the local usage output supplied its exact command set.
+
+**Root cause**: A command from an older or assumed CLI shape was used without
+checking it against the installed release's usage output.
+
+**Harness fix**: `CLAUDE.md` now records the 0.1.1 `claim`/`approve` workflow
+and explicitly rules out `fix`.
+
+**Prevention**: Generate paste-ready markers with `docref claim <ref...>`,
+place them around reviewed prose, and run `docref approve` followed by strict
+check.
+
+## 2026-07-22 — Early relay rejection closed with unread request bytes
+
+**What happened**: The agent race suite observed the sixth rate-limited local
+enrollment response as valid JSON followed by a connection-reset error. The
+relay responded without reading the request that `Submit` had already sent.
+
+**What the user said**: Not user-initiated; the required full race suite
+exposed the protocol-level failure before commit.
+
+**Root cause**: Exact response decoding was added without making the server's
+early-rejection close behavior compatible with a client that writes and
+half-closes before reading.
+
+**Harness fix**: `CLAUDE.md` now records that bounded stream requests must be
+drained before an early response is closed.
+
+**Prevention**: The rate-limit path drains at most one local protocol frame,
+then emits its generic response; the real Unix-socket sixth-attempt test runs
+under the race detector.
+
+## 2026-07-22 — Repeated nonexistent Makefile path after inventory output
+
+**What happened**: A generation-gate inspection listed the contract's actual
+Buf configuration files, then the same command named `contract/Makefile`,
+which was absent from that inventory. `rg` reported the missing path while
+still showing useful matches from the verified files.
+
+**What the user said**: Not user-initiated; the pre-commit inspection exposed
+the recurrence.
+
+**Root cause**: Same-command discovery was incorrectly treated as permission
+to include a conventional trailing path that had not been discovered.
+
+**Harness fix**: `CLAUDE.md` now makes explicit that even a combined inventory
+and read command may use only paths known before that command begins.
+
+**Prevention**: Use the canonical verification script for Buf/sqlc drift and
+keep any ad hoc inspection to exact files returned by a prior completed
+inventory command.
+
+## 2026-07-22 — Listener registry was omitted from the gofmt set
+
+**What happened**: The first canonical M4 gate found
+`sdk/guardtest/listeners.go` unformatted. Earlier formatting commands named the
+new enrollment packages but omitted this modified shared registry.
+
+**What the user said**: Not user-initiated; the canonical gofmt stage failed
+closed before commit.
+
+**Root cause**: Formatting scope followed the most recent implementation
+files instead of the complete Git change inventory.
+
+**Harness fix**: `CLAUDE.md` now requires deriving all modified and untracked
+Go files from Git before the canonical gate and formatting that set.
+
+**Prevention**: The milestone's full changed-Go inventory is formatted in one
+repository-root pass before verification is rerun.
+
+## 2026-07-22 — Local review found four minor completion gaps
+
+**What happened**: The pre-commit review found that the M4 status update lacked
+its milestone ledger row, X25519 negative tests used string fragments instead
+of stable sentinels, and two TLS/local-protocol negative tests accepted any
+error rather than the intended failure category.
+
+**What the user said**: Not user-initiated; the required local review reported
+four minor findings after the canonical gate was green.
+
+**Root cause**: The existing ledger-parity and changed-negative-test review
+rules were not applied exhaustively before invoking the reviewer.
+
+**Harness fix**: Existing `CLAUDE.md` rules already require the ledger update
+and an exact sentinel or stable category for every changed negative-test
+branch; no additional standing rule is needed.
+
+**Prevention**: M4 now has a ledger row, X25519 exposes malformed/low-order
+sentinels, TLS 1.2 pins the protocol-version failure, and trailing local JSON
+pins its internal sentinel before the local review is rerun.
+
+## 2026-07-22 — Dependency cleanup happened after docref approval
+
+**What happened**: Restoring the server module's pre-existing indirect
+protobuf requirement after sum cleanup changed the `server/go.mod` anchor, so
+the next canonical gate correctly reported the historical SPEC-005 M1 claim
+as stale.
+
+**What the user said**: Not user-initiated; strict docref caught the ordering
+mistake before the feature commit.
+
+**Root cause**: Docref was approved before the final dependency-manifest
+cleanup instead of after every anchor-affecting edit was complete.
+
+**Harness fix**: The existing strict docref gate is sufficient and failed
+closed; no new standing rule is needed.
+
+**Prevention**: Dependency manifests and sums are finalized first, then every
+affected claim diff is reviewed and approved immediately before the final
+canonical gate.
