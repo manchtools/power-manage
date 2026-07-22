@@ -10,8 +10,11 @@ package powermanagev1connect
 
 import (
 	connect "connectrpc.com/connect"
-	_ "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1"
+	context "context"
+	errors "errors"
+	v1 "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1"
 	http "net/http"
+	strings "strings"
 )
 
 // This is a compile-time assertion to ensure that this generated file and the connect package are
@@ -26,8 +29,21 @@ const (
 	PkiServiceName = "powermanage.v1.PkiService"
 )
 
+// These constants are the fully-qualified names of the RPCs defined in this package. They're
+// exposed at runtime as Spec.Procedure and as the final two segments of the HTTP route.
+//
+// Note that these are different from the fully-qualified method names used by
+// google.golang.org/protobuf/reflect/protoreflect. To convert from these constants to
+// reflection-formatted method names, remove the leading slash and convert the remaining slash to a
+// period.
+const (
+	// PkiServiceEnrollAgentProcedure is the fully-qualified name of the PkiService's EnrollAgent RPC.
+	PkiServiceEnrollAgentProcedure = "/powermanage.v1.PkiService/EnrollAgent"
+)
+
 // PkiServiceClient is a client for the powermanage.v1.PkiService service.
 type PkiServiceClient interface {
+	EnrollAgent(context.Context, *connect.Request[v1.EnrollAgentRequest]) (*connect.Response[v1.EnrollAgentResponse], error)
 }
 
 // NewPkiServiceClient constructs a client for the powermanage.v1.PkiService service. By default, it
@@ -38,15 +54,31 @@ type PkiServiceClient interface {
 // The URL supplied here should be the base URL for the Connect or gRPC server (for example,
 // http://api.acme.com or https://acme.com/grpc).
 func NewPkiServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) PkiServiceClient {
-	return &pkiServiceClient{}
+	baseURL = strings.TrimRight(baseURL, "/")
+	pkiServiceMethods := v1.File_powermanage_v1_pki_proto.Services().ByName("PkiService").Methods()
+	return &pkiServiceClient{
+		enrollAgent: connect.NewClient[v1.EnrollAgentRequest, v1.EnrollAgentResponse](
+			httpClient,
+			baseURL+PkiServiceEnrollAgentProcedure,
+			connect.WithSchema(pkiServiceMethods.ByName("EnrollAgent")),
+			connect.WithClientOptions(opts...),
+		),
+	}
 }
 
 // pkiServiceClient implements PkiServiceClient.
 type pkiServiceClient struct {
+	enrollAgent *connect.Client[v1.EnrollAgentRequest, v1.EnrollAgentResponse]
+}
+
+// EnrollAgent calls powermanage.v1.PkiService.EnrollAgent.
+func (c *pkiServiceClient) EnrollAgent(ctx context.Context, req *connect.Request[v1.EnrollAgentRequest]) (*connect.Response[v1.EnrollAgentResponse], error) {
+	return c.enrollAgent.CallUnary(ctx, req)
 }
 
 // PkiServiceHandler is an implementation of the powermanage.v1.PkiService service.
 type PkiServiceHandler interface {
+	EnrollAgent(context.Context, *connect.Request[v1.EnrollAgentRequest]) (*connect.Response[v1.EnrollAgentResponse], error)
 }
 
 // NewPkiServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -55,8 +87,17 @@ type PkiServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewPkiServiceHandler(svc PkiServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	pkiServiceMethods := v1.File_powermanage_v1_pki_proto.Services().ByName("PkiService").Methods()
+	pkiServiceEnrollAgentHandler := connect.NewUnaryHandler(
+		PkiServiceEnrollAgentProcedure,
+		svc.EnrollAgent,
+		connect.WithSchema(pkiServiceMethods.ByName("EnrollAgent")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/powermanage.v1.PkiService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
+		case PkiServiceEnrollAgentProcedure:
+			pkiServiceEnrollAgentHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -65,3 +106,7 @@ func NewPkiServiceHandler(svc PkiServiceHandler, opts ...connect.HandlerOption) 
 
 // UnimplementedPkiServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedPkiServiceHandler struct{}
+
+func (UnimplementedPkiServiceHandler) EnrollAgent(context.Context, *connect.Request[v1.EnrollAgentRequest]) (*connect.Response[v1.EnrollAgentResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.PkiService.EnrollAgent is not implemented"))
+}

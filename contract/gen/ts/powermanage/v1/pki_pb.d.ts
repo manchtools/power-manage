@@ -6,7 +6,8 @@
 // @generated from file powermanage/v1/pki.proto (package powermanage.v1, syntax proto3)
 /* eslint-disable */
 
-import type { GenFile, GenService } from "@bufbuild/protobuf/codegenv2";
+import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
+import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file powermanage/v1/pki.proto.
@@ -14,8 +15,73 @@ import type { GenFile, GenService } from "@bufbuild/protobuf/codegenv2";
 export declare const file_powermanage_v1_pki: GenFile;
 
 /**
+ * EnrollAgentRequest carries proof generated entirely on the device. The
+ * registration token is the sole authorization; no claimed device identity is
+ * accepted from the caller.
+ *
+ * @generated from message powermanage.v1.EnrollAgentRequest
+ */
+export declare type EnrollAgentRequest = Message<"powermanage.v1.EnrollAgentRequest"> & {
+  /**
+   * The token grammar is deliberately checked by the constant-time admission
+   * service so malformed and unknown tokens share one rejection path.
+   *
+   * @generated from field: string registration_token = 1;
+   */
+  registrationToken: string;
+
+  /**
+   * @generated from field: bytes certificate_signing_request_der = 2;
+   */
+  certificateSigningRequestDer: Uint8Array;
+
+  /**
+   * @generated from field: bytes sealing_public_key = 3;
+   */
+  sealingPublicKey: Uint8Array;
+};
+
+/**
+ * Describes the message powermanage.v1.EnrollAgentRequest.
+ * Use `create(EnrollAgentRequestSchema)` to create a new message.
+ */
+export declare const EnrollAgentRequestSchema: GenMessage<EnrollAgentRequest>;
+
+/**
+ * EnrollAgentResponse returns public material only. The private mTLS and
+ * sealing keys remain on the device that generated the request.
+ *
+ * @generated from message powermanage.v1.EnrollAgentResponse
+ */
+export declare type EnrollAgentResponse = Message<"powermanage.v1.EnrollAgentResponse"> & {
+  /**
+   * @generated from field: bytes certificate_der = 1;
+   */
+  certificateDer: Uint8Array;
+
+  /**
+   * @generated from field: bytes certificate_authority_der = 2;
+   */
+  certificateAuthorityDer: Uint8Array;
+};
+
+/**
+ * Describes the message powermanage.v1.EnrollAgentResponse.
+ * Use `create(EnrollAgentResponseSchema)` to create a new message.
+ */
+export declare const EnrollAgentResponseSchema: GenMessage<EnrollAgentResponse>;
+
+/**
  * @generated from service powermanage.v1.PkiService
  */
 export declare const PkiService: GenService<{
+  /**
+   * @generated from rpc powermanage.v1.PkiService.EnrollAgent
+   */
+  enrollAgent: {
+    methodKind: "unary";
+    input: typeof EnrollAgentRequestSchema;
+    output: typeof EnrollAgentResponseSchema;
+  },
 }>;
 

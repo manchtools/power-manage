@@ -89,6 +89,12 @@ func productionRebuildTargets() map[string]RebuildTarget {
 			},
 			Reset: resetRegistrationTokens,
 		},
+		DeviceRebuildTarget: {
+			Tables:      []string{"devices"},
+			StreamTypes: []string{deviceStreamType},
+			EventTypes:  []string{agentEnrolledEventType},
+			Reset:       resetDevices,
+		},
 	}
 }
 
@@ -161,6 +167,9 @@ func productionEventDefinitions() map[string]eventDefinition {
 	for eventType, definition := range registrationTokenEventDefinitions() {
 		definitions[eventType] = definition
 	}
+	for eventType, definition := range deviceEventDefinitions() {
+		definitions[eventType] = definition
+	}
 	return definitions
 }
 
@@ -176,6 +185,9 @@ func goldenEventCorpus() map[string]goldenEvent {
 		},
 	}
 	for eventType, event := range registrationTokenGoldenCorpus() {
+		corpus[eventType] = event
+	}
+	for eventType, event := range deviceGoldenCorpus() {
 		corpus[eventType] = event
 	}
 	return corpus

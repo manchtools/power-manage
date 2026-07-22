@@ -11,9 +11,11 @@
 package powermanagev1
 
 import (
+	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
+	sync "sync"
 	unsafe "unsafe"
 )
 
@@ -24,18 +26,163 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// EnrollAgentRequest carries proof generated entirely on the device. The
+// registration token is the sole authorization; no claimed device identity is
+// accepted from the caller.
+type EnrollAgentRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The token grammar is deliberately checked by the constant-time admission
+	// service so malformed and unknown tokens share one rejection path.
+	RegistrationToken            string `protobuf:"bytes,1,opt,name=registration_token,json=registrationToken,proto3" json:"registration_token,omitempty"`
+	CertificateSigningRequestDer []byte `protobuf:"bytes,2,opt,name=certificate_signing_request_der,json=certificateSigningRequestDer,proto3" json:"certificate_signing_request_der,omitempty"`
+	SealingPublicKey             []byte `protobuf:"bytes,3,opt,name=sealing_public_key,json=sealingPublicKey,proto3" json:"sealing_public_key,omitempty"`
+	unknownFields                protoimpl.UnknownFields
+	sizeCache                    protoimpl.SizeCache
+}
+
+func (x *EnrollAgentRequest) Reset() {
+	*x = EnrollAgentRequest{}
+	mi := &file_powermanage_v1_pki_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EnrollAgentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EnrollAgentRequest) ProtoMessage() {}
+
+func (x *EnrollAgentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_v1_pki_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EnrollAgentRequest.ProtoReflect.Descriptor instead.
+func (*EnrollAgentRequest) Descriptor() ([]byte, []int) {
+	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *EnrollAgentRequest) GetRegistrationToken() string {
+	if x != nil {
+		return x.RegistrationToken
+	}
+	return ""
+}
+
+func (x *EnrollAgentRequest) GetCertificateSigningRequestDer() []byte {
+	if x != nil {
+		return x.CertificateSigningRequestDer
+	}
+	return nil
+}
+
+func (x *EnrollAgentRequest) GetSealingPublicKey() []byte {
+	if x != nil {
+		return x.SealingPublicKey
+	}
+	return nil
+}
+
+// EnrollAgentResponse returns public material only. The private mTLS and
+// sealing keys remain on the device that generated the request.
+type EnrollAgentResponse struct {
+	state                   protoimpl.MessageState `protogen:"open.v1"`
+	CertificateDer          []byte                 `protobuf:"bytes,1,opt,name=certificate_der,json=certificateDer,proto3" json:"certificate_der,omitempty"`
+	CertificateAuthorityDer []byte                 `protobuf:"bytes,2,opt,name=certificate_authority_der,json=certificateAuthorityDer,proto3" json:"certificate_authority_der,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
+}
+
+func (x *EnrollAgentResponse) Reset() {
+	*x = EnrollAgentResponse{}
+	mi := &file_powermanage_v1_pki_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EnrollAgentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EnrollAgentResponse) ProtoMessage() {}
+
+func (x *EnrollAgentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_v1_pki_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EnrollAgentResponse.ProtoReflect.Descriptor instead.
+func (*EnrollAgentResponse) Descriptor() ([]byte, []int) {
+	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *EnrollAgentResponse) GetCertificateDer() []byte {
+	if x != nil {
+		return x.CertificateDer
+	}
+	return nil
+}
+
+func (x *EnrollAgentResponse) GetCertificateAuthorityDer() []byte {
+	if x != nil {
+		return x.CertificateAuthorityDer
+	}
+	return nil
+}
+
 var File_powermanage_v1_pki_proto protoreflect.FileDescriptor
 
 const file_powermanage_v1_pki_proto_rawDesc = "" +
 	"\n" +
-	"\x18powermanage/v1/pki.proto\x12\x0epowermanage.v12\f\n" +
+	"\x18powermanage/v1/pki.proto\x12\x0epowermanage.v1\x1a\x1bbuf/validate/validate.proto\"\xd8\x01\n" +
+	"\x12EnrollAgentRequest\x127\n" +
+	"\x12registration_token\x18\x01 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x04R\x11registrationToken\x12R\n" +
+	"\x1fcertificate_signing_request_der\x18\x02 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x1ccertificateSigningRequestDer\x125\n" +
+	"\x12sealing_public_key\x18\x03 \x01(\fB\a\xbaH\x04z\x02h R\x10sealingPublicKey\"\x94\x01\n" +
+	"\x13EnrollAgentResponse\x124\n" +
+	"\x0fcertificate_der\x18\x01 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x0ecertificateDer\x12G\n" +
+	"\x19certificate_authority_der\x18\x02 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x17certificateAuthorityDer2d\n" +
 	"\n" +
-	"PkiServiceBQZOgithub.com/manchtools/power-manage/contract/gen/go/powermanage/v1;powermanagev1b\x06proto3"
+	"PkiService\x12V\n" +
+	"\vEnrollAgent\x12\".powermanage.v1.EnrollAgentRequest\x1a#.powermanage.v1.EnrollAgentResponseBQZOgithub.com/manchtools/power-manage/contract/gen/go/powermanage/v1;powermanagev1b\x06proto3"
 
-var file_powermanage_v1_pki_proto_goTypes = []any{}
+var (
+	file_powermanage_v1_pki_proto_rawDescOnce sync.Once
+	file_powermanage_v1_pki_proto_rawDescData []byte
+)
+
+func file_powermanage_v1_pki_proto_rawDescGZIP() []byte {
+	file_powermanage_v1_pki_proto_rawDescOnce.Do(func() {
+		file_powermanage_v1_pki_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_powermanage_v1_pki_proto_rawDesc), len(file_powermanage_v1_pki_proto_rawDesc)))
+	})
+	return file_powermanage_v1_pki_proto_rawDescData
+}
+
+var file_powermanage_v1_pki_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_powermanage_v1_pki_proto_goTypes = []any{
+	(*EnrollAgentRequest)(nil),  // 0: powermanage.v1.EnrollAgentRequest
+	(*EnrollAgentResponse)(nil), // 1: powermanage.v1.EnrollAgentResponse
+}
 var file_powermanage_v1_pki_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
+	0, // 0: powermanage.v1.PkiService.EnrollAgent:input_type -> powermanage.v1.EnrollAgentRequest
+	1, // 1: powermanage.v1.PkiService.EnrollAgent:output_type -> powermanage.v1.EnrollAgentResponse
+	1, // [1:2] is the sub-list for method output_type
+	0, // [0:1] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -52,12 +199,13 @@ func file_powermanage_v1_pki_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_powermanage_v1_pki_proto_rawDesc), len(file_powermanage_v1_pki_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   0,
+			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_powermanage_v1_pki_proto_goTypes,
 		DependencyIndexes: file_powermanage_v1_pki_proto_depIdxs,
+		MessageInfos:      file_powermanage_v1_pki_proto_msgTypes,
 	}.Build()
 	File_powermanage_v1_pki_proto = out.File
 	file_powermanage_v1_pki_proto_goTypes = nil
