@@ -418,6 +418,43 @@ default.
 **Prevention**: Local reviews include new test and production files and avoid
 the removed option, so the mandatory pre-commit review actually runs.
 
+## 2026-07-22 — Repeated stale CodeRabbit invocation despite corrected guidance
+
+**What happened**: The local review again used the obsolete
+`coderabbit review --plain --type uncommitted` form even though the repository
+harness already recorded the installed CLI's supported invocation.
+
+**What the user said**: Not user-initiated; the installed CLI rejected both
+removed options before reviewing the change.
+
+**Root cause**: A prior conversational summary was trusted over the current
+repository guidance, so the earlier correction was not applied at execution
+time.
+
+**Harness fix**: `CLAUDE.md` now explicitly bans both removed flags, `--plain`
+and `--type`, alongside the exact supported command.
+
+**Prevention**: Copy the repository's literal review command; do not reconstruct
+it from remembered or summarized CLI syntax.
+
+## 2026-07-22 — Go `-C` ordered after another build flag
+
+**What happened**: A supplementary race test invoked `go test -race -C server`.
+The Go command requires `-C` to be its first build flag, so argument parsing
+failed before the test ran.
+
+**What the user said**: Not user-initiated; the Go CLI reported the ordering
+constraint.
+
+**Root cause**: The existing root-workdir rule required `-C` but did not state
+its ordering when combined with other build flags.
+
+**Harness fix**: `CLAUDE.md` now requires `-C <module>` before `-race`, `-run`,
+and other Go subcommand flags.
+
+**Prevention**: Compose module checks as `go test -C <module> ...` before adding
+any remaining flags.
+
 ## 2026-07-22 — Third path-context failure: sibling modules from `contract/`
 
 **What happened**: A source probe ran with `contract/` as its working directory
