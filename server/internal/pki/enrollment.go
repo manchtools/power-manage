@@ -15,6 +15,7 @@ import (
 	"math/big"
 	"net"
 	"net/http"
+	"reflect"
 	"slices"
 	"time"
 
@@ -44,21 +45,24 @@ var (
 	errEnrollmentTemporarilyFailed = errors.New("enrollment temporarily unavailable")
 )
 
-// EnrollmentService is the public CSR-only PkiService implementation.
+// EnrollmentService implements the public certificate-lifecycle service.
 type EnrollmentService struct {
-	tokens         *RegistrationTokens
-	eventStore     *store.Store
-	authorities    *Authorities
-	renewalLimiter *registrationRateLimiter
-	random         io.Reader
-	now            func() time.Time
+	tokens              *RegistrationTokens
+	eventStore          *store.Store
+	authorities         *Authorities
+	renewalLimiter      *registrationRateLimiter
+	lifecycleAuthorizer LifecycleAuthorizer
+	lifecycleLimiter    *registrationRateLimiter
+	random              io.Reader
+	now                 func() time.Time
 }
 
-// NewEnrollmentService validates the complete M4 enrollment dependency set.
+// NewEnrollmentService validates every enrollment and lifecycle dependency.
 func NewEnrollmentService(
 	tokens *RegistrationTokens,
 	eventStore *store.Store,
 	authorities *Authorities,
+	lifecycleAuthorizer LifecycleAuthorizer,
 ) (*EnrollmentService, error) {
 	if tokens == nil {
 		return nil, errors.New("pki: nil enrollment token service")
@@ -72,13 +76,18 @@ func NewEnrollmentService(
 	if authorities == nil || authorities.agentCA.certificate == nil || authorities.agentCA.signer == nil {
 		return nil, errors.New("pki: agent certificate authority is not wired")
 	}
+	if interfaceNil(lifecycleAuthorizer) {
+		return nil, errors.New("pki: lifecycle authorizer is not wired")
+	}
 	return &EnrollmentService{
-		tokens:         tokens,
-		eventStore:     eventStore,
-		authorities:    authorities,
-		renewalLimiter: newRegistrationRateLimiter(),
-		random:         cryptorand.Reader,
-		now:            time.Now,
+		tokens:              tokens,
+		eventStore:          eventStore,
+		authorities:         authorities,
+		renewalLimiter:      newRegistrationRateLimiter(),
+		lifecycleAuthorizer: lifecycleAuthorizer,
+		lifecycleLimiter:    newRegistrationRateLimiter(),
+		random:              cryptorand.Reader,
+		now:                 time.Now,
 	}, nil
 }
 
@@ -95,13 +104,27 @@ func NewEnrollmentHTTPHandler(service *EnrollmentService) (string, http.Handler)
 }
 
 func (s *EnrollmentService) validateWiring() error {
-	if s == nil || s.tokens == nil || s.eventStore == nil || s.authorities == nil || s.renewalLimiter == nil || s.random == nil || s.now == nil {
+	if s == nil || s.tokens == nil || s.eventStore == nil || s.authorities == nil || s.renewalLimiter == nil ||
+		interfaceNil(s.lifecycleAuthorizer) || s.lifecycleLimiter == nil || s.random == nil || s.now == nil {
 		return errors.New("pki: enrollment service is not wired")
 	}
 	if s.tokens.eventStore != s.eventStore || s.authorities.agentCA.certificate == nil || s.authorities.agentCA.signer == nil {
 		return errors.New("pki: enrollment service dependencies are inconsistent")
 	}
 	return nil
+}
+
+func interfaceNil(value any) bool {
+	if value == nil {
+		return true
+	}
+	reflected := reflect.ValueOf(value)
+	switch reflected.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return reflected.IsNil()
+	default:
+		return false
+	}
 }
 
 // EnrollAgent validates device-generated proof, authorizes the registration

@@ -126,6 +126,70 @@ export declare type RenewAgentResponse = Message<"powermanage.v1.RenewAgentRespo
 export declare const RenewAgentResponseSchema: GenMessage<RenewAgentResponse>;
 
 /**
+ * RevokeAgentRequest identifies the currently stored certificate exactly.
+ * Operator authorization is transport metadata, never a protobuf identity
+ * claim. Control derives the device identity from this certificate.
+ *
+ * @generated from message powermanage.v1.RevokeAgentRequest
+ */
+export declare type RevokeAgentRequest = Message<"powermanage.v1.RevokeAgentRequest"> & {
+  /**
+   * @generated from field: bytes certificate_der = 1;
+   */
+  certificateDer: Uint8Array;
+};
+
+/**
+ * Describes the message powermanage.v1.RevokeAgentRequest.
+ * Use `create(RevokeAgentRequestSchema)` to create a new message.
+ */
+export declare const RevokeAgentRequestSchema: GenMessage<RevokeAgentRequest>;
+
+/**
+ * ForceRenewAgentRequest identifies the currently stored certificate exactly.
+ * It remains distinct because this operation may gain renewal policy without
+ * changing terminal revocation.
+ *
+ * @generated from message powermanage.v1.ForceRenewAgentRequest
+ */
+export declare type ForceRenewAgentRequest = Message<"powermanage.v1.ForceRenewAgentRequest"> & {
+  /**
+   * @generated from field: bytes certificate_der = 1;
+   */
+  certificateDer: Uint8Array;
+};
+
+/**
+ * Describes the message powermanage.v1.ForceRenewAgentRequest.
+ * Use `create(ForceRenewAgentRequestSchema)` to create a new message.
+ */
+export declare const ForceRenewAgentRequestSchema: GenMessage<ForceRenewAgentRequest>;
+
+/**
+ * @generated from message powermanage.v1.RevokeAgentResponse
+ */
+export declare type RevokeAgentResponse = Message<"powermanage.v1.RevokeAgentResponse"> & {
+};
+
+/**
+ * Describes the message powermanage.v1.RevokeAgentResponse.
+ * Use `create(RevokeAgentResponseSchema)` to create a new message.
+ */
+export declare const RevokeAgentResponseSchema: GenMessage<RevokeAgentResponse>;
+
+/**
+ * @generated from message powermanage.v1.ForceRenewAgentResponse
+ */
+export declare type ForceRenewAgentResponse = Message<"powermanage.v1.ForceRenewAgentResponse"> & {
+};
+
+/**
+ * Describes the message powermanage.v1.ForceRenewAgentResponse.
+ * Use `create(ForceRenewAgentResponseSchema)` to create a new message.
+ */
+export declare const ForceRenewAgentResponseSchema: GenMessage<ForceRenewAgentResponse>;
+
+/**
  * @generated from service powermanage.v1.PkiService
  */
 export declare const PkiService: GenService<{
@@ -144,6 +208,22 @@ export declare const PkiService: GenService<{
     methodKind: "unary";
     input: typeof RenewAgentRequestSchema;
     output: typeof RenewAgentResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.PkiService.RevokeAgent
+   */
+  revokeAgent: {
+    methodKind: "unary";
+    input: typeof RevokeAgentRequestSchema;
+    output: typeof RevokeAgentResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.PkiService.ForceRenewAgent
+   */
+  forceRenewAgent: {
+    methodKind: "unary";
+    input: typeof ForceRenewAgentRequestSchema;
+    output: typeof ForceRenewAgentResponseSchema;
   },
 }>;
 

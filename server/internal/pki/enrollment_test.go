@@ -12,6 +12,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"errors"
 	"math/big"
 	"net"
 	"net/http"
@@ -258,6 +259,7 @@ type enrollmentHandlerFixture struct {
 	agentCA    *x509.Certificate
 	tokenID    string
 	token      string
+	authorizer *testLifecycleAuthorizer
 }
 
 func newEnrollmentHandlerFixture(t *testing.T, maxUses int32) enrollmentHandlerFixture {
@@ -285,7 +287,8 @@ func newEnrollmentHandlerFixture(t *testing.T, maxUses int32) enrollmentHandlerF
 	if err != nil {
 		t.Fatalf("create authorities: %v", err)
 	}
-	service, err := NewEnrollmentService(tokens, eventStore, authorities)
+	authorizer := &testLifecycleAuthorizer{allow: true}
+	service, err := NewEnrollmentService(tokens, eventStore, authorities, authorizer)
 	if err != nil {
 		t.Fatalf("create enrollment service: %v", err)
 	}
@@ -303,7 +306,31 @@ func newEnrollmentHandlerFixture(t *testing.T, maxUses int32) enrollmentHandlerF
 		agentCA:    agentCA,
 		tokenID:    minted.TokenID,
 		token:      minted.Token,
+		authorizer: authorizer,
 	}
+}
+
+type testLifecycleAuthorizer struct {
+	mu          sync.Mutex
+	allow       bool
+	credentials []string
+	procedures  []string
+	deviceIDs   []string
+}
+
+func (a *testLifecycleAuthorizer) AuthorizeCertificateLifecycle(_ context.Context, credential, procedure, deviceID string) error {
+	if a == nil {
+		return errors.New("nil test lifecycle authorizer")
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.credentials = append(a.credentials, credential)
+	a.procedures = append(a.procedures, procedure)
+	a.deviceIDs = append(a.deviceIDs, deviceID)
+	if !a.allow {
+		return errors.New("test lifecycle authorization denied")
+	}
+	return nil
 }
 
 func newEnrollmentCA(t *testing.T, name string) (*x509.Certificate, crypto.Signer) {

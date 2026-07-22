@@ -16,7 +16,7 @@ import (
 // discovered PkiService procedure must have exactly one public limit policy.
 func TestGuard_PkiPublicRateLimitRegistration(t *testing.T) {
 	service := powermanagev1.File_powermanage_v1_pki_proto.Services().ByName("PkiService")
-	discovered := guardtest.Discover(t, "PkiService procedures", 1, func() ([]string, error) {
+	discovered := guardtest.Discover(t, "PkiService procedures", 4, func() ([]string, error) {
 		if service == nil {
 			return nil, errors.New("PkiService descriptor is absent")
 		}
@@ -39,6 +39,8 @@ func TestGuard_PkiPublicRateLimitRegistration(t *testing.T) {
 	for _, procedure := range []string{
 		powermanagev1connect.PkiServiceEnrollAgentProcedure,
 		powermanagev1connect.PkiServiceRenewAgentProcedure,
+		powermanagev1connect.PkiServiceRevokeAgentProcedure,
+		powermanagev1connect.PkiServiceForceRenewAgentProcedure,
 	} {
 		limit := registered[procedure]
 		if limit.Attempts != 5 || limit.Window != time.Minute {

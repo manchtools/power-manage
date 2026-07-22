@@ -28,8 +28,9 @@ import (
 // Every entry is a deliberate, reviewable decision that these two identical
 // shapes are NOT a [WIRE-1] mirrored copy.
 var nearCopyAllowlist = map[string]string{
-	"powermanage.v1.DeviceConnected|powermanage.v1.DeviceDisconnected":     "two distinct lifecycle events sharing the minimal addressing-only shape {device_id: ULID}; the discriminant is the frame-oneof tag, not a drifted payload field (GW-3.1)",
-	"powermanage.v1.EnrollAgentResponse|powermanage.v1.RenewAgentResponse": "operation-specific RPC results currently share public certificate/CA fields, while renewal alone gains CA-continuity material in SPEC-006 M8; distinct descriptors keep that evolution out of fresh enrollment",
+	"powermanage.v1.DeviceConnected|powermanage.v1.DeviceDisconnected":        "two distinct lifecycle events sharing the minimal addressing-only shape {device_id: ULID}; the discriminant is the frame-oneof tag, not a drifted payload field (GW-3.1)",
+	"powermanage.v1.EnrollAgentResponse|powermanage.v1.RenewAgentResponse":    "operation-specific RPC results currently share public certificate/CA fields, while renewal alone gains CA-continuity material in SPEC-006 M8; distinct descriptors keep that evolution out of fresh enrollment",
+	"powermanage.v1.ForceRenewAgentRequest|powermanage.v1.RevokeAgentRequest": "Buf requires operation-specific unary request types; both identify the exact current certificate, while force-renew may gain renewal policy independently of terminal revocation (PKI-6)",
 }
 
 // TestGuard_NearCopies is G-8 over the real contract: no two messages share an

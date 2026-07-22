@@ -90,10 +90,15 @@ func productionRebuildTargets() map[string]RebuildTarget {
 			Reset: resetRegistrationTokens,
 		},
 		DeviceRebuildTarget: {
-			Tables:      []string{"devices"},
+			Tables:      []string{"certificate_revocations", "devices"},
 			StreamTypes: []string{deviceStreamType},
-			EventTypes:  []string{agentEnrolledEventType, agentCertificateRenewedEventType},
-			Reset:       resetDevices,
+			EventTypes: []string{
+				agentEnrolledEventType,
+				agentCertificateRenewedEventType,
+				agentCertificateRevokedEventType,
+				agentForceRenewalRequiredEventType,
+			},
+			Reset: resetDevices,
 		},
 	}
 }

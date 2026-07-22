@@ -10,6 +10,36 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type CertificateRevocation struct {
+	CertificateClass       string
+	CertificateFingerprint []byte
+	CertificateDer         []byte
+	SerialNumber           []byte
+	RevokedAt              time.Time
+	ReasonCode             int16
+	SourceStreamType       string
+	SourceStreamID         string
+	SourceStreamVersion    int64
+}
+
+type CrlState struct {
+	CertificateClass    string
+	Sequence            int64
+	CrlDer              []byte
+	IssuedAt            pgtype.Timestamptz
+	SourceStreamType    pgtype.Text
+	SourceStreamID      pgtype.Text
+	SourceStreamVersion pgtype.Int8
+}
+
+type CrlWorkReceipt struct {
+	CertificateClass    string
+	SourceStreamType    string
+	SourceStreamID      string
+	SourceStreamVersion int64
+	PublicationSequence int64
+}
+
 type Device struct {
 	DeviceID               string
 	ProjectionVersion      int64
@@ -20,6 +50,7 @@ type Device struct {
 	Owner                  string
 	UpdatedAt              time.Time
 	PreviousCertificateDer []byte
+	LifecycleState         string
 }
 
 type Event struct {

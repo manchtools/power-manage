@@ -22,14 +22,28 @@ func (q *Queries) AcquireDeviceLifecycleLock(ctx context.Context, deviceID strin
 const getDevice = `-- name: GetDevice :one
 SELECT device_id, projection_version, certificate_der,
        certificate_fingerprint, sealing_public_key,
-       registration_token_id, owner, updated_at, previous_certificate_der
+       registration_token_id, owner, lifecycle_state, updated_at,
+       previous_certificate_der
 FROM devices
 WHERE device_id = $1
 `
 
-func (q *Queries) GetDevice(ctx context.Context, deviceID string) (Device, error) {
+type GetDeviceRow struct {
+	DeviceID               string
+	ProjectionVersion      int64
+	CertificateDer         []byte
+	CertificateFingerprint []byte
+	SealingPublicKey       []byte
+	RegistrationTokenID    string
+	Owner                  string
+	LifecycleState         string
+	UpdatedAt              time.Time
+	PreviousCertificateDer []byte
+}
+
+func (q *Queries) GetDevice(ctx context.Context, deviceID string) (GetDeviceRow, error) {
 	row := q.db.QueryRow(ctx, getDevice, deviceID)
-	var i Device
+	var i GetDeviceRow
 	err := row.Scan(
 		&i.DeviceID,
 		&i.ProjectionVersion,
@@ -38,6 +52,7 @@ func (q *Queries) GetDevice(ctx context.Context, deviceID string) (Device, error
 		&i.SealingPublicKey,
 		&i.RegistrationTokenID,
 		&i.Owner,
+		&i.LifecycleState,
 		&i.UpdatedAt,
 		&i.PreviousCertificateDer,
 	)
@@ -53,6 +68,51 @@ func (q *Queries) ResetDevices(ctx context.Context) error {
 	return err
 }
 
+const updateDeviceLifecycleState = `-- name: UpdateDeviceLifecycleState :execrows
+UPDATE devices
+SET projection_version = $1,
+    lifecycle_state = $2,
+    updated_at = $3
+WHERE device_id = $4
+  AND projection_version = $5
+  AND certificate_der = $6
+  AND (
+      lifecycle_state = $7
+      OR (
+          $8::boolean
+          AND lifecycle_state = 'force_renewal'
+      )
+  )
+`
+
+type UpdateDeviceLifecycleStateParams struct {
+	ProjectionVersion         int64
+	LifecycleState            string
+	UpdatedAt                 time.Time
+	DeviceID                  string
+	PreviousProjectionVersion int64
+	CertificateDer            []byte
+	PreviousLifecycleState    string
+	AllowForceRenewal         bool
+}
+
+func (q *Queries) UpdateDeviceLifecycleState(ctx context.Context, arg UpdateDeviceLifecycleStateParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateDeviceLifecycleState,
+		arg.ProjectionVersion,
+		arg.LifecycleState,
+		arg.UpdatedAt,
+		arg.DeviceID,
+		arg.PreviousProjectionVersion,
+		arg.CertificateDer,
+		arg.PreviousLifecycleState,
+		arg.AllowForceRenewal,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const updateDeviceRenewal = `-- name: UpdateDeviceRenewal :execrows
 UPDATE devices
 SET projection_version = $1,
@@ -60,10 +120,12 @@ SET projection_version = $1,
     certificate_fingerprint = $3,
     sealing_public_key = $4,
     previous_certificate_der = $5,
+    lifecycle_state = 'active',
     updated_at = $6
 WHERE device_id = $7
   AND projection_version = $8
   AND certificate_der = $5
+  AND lifecycle_state IN ('active', 'force_renewal')
 `
 
 type UpdateDeviceRenewalParams struct {

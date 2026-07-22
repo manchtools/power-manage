@@ -129,6 +129,8 @@ type renewalClientFixture struct {
 }
 
 type renewalClientHandler struct {
+	powermanagev1connect.UnimplementedPkiServiceHandler
+
 	ca                  *x509.Certificate
 	caSigner            crypto.Signer
 	class               identity.Class

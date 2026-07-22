@@ -124,7 +124,7 @@ func TestInventoryEvents_CanonicalizeAgentID(t *testing.T) {
 // Guards: INV-12.
 func TestGuard_GoldenEventCorpus(t *testing.T) {
 	definitions := productionEventDefinitions()
-	guardtest.Discover(t, "production event types", 5, func() ([]string, error) {
+	guardtest.Discover(t, "production event types", 8, func() ([]string, error) {
 		return slices.Sorted(maps.Keys(definitions)), nil
 	})
 	if err := validateGoldenEventCorpus(definitions, goldenEventCorpus()); err != nil {
@@ -159,7 +159,7 @@ func TestGoldenEventCorpusGuard_RejectsChangedSerialization(t *testing.T) {
 
 func TestGuard_EventPayloadBodiesExcluded(t *testing.T) {
 	definitions := productionEventDefinitions()
-	guardtest.Discover(t, "production event payload types", 5, func() ([]string, error) {
+	guardtest.Discover(t, "production event payload types", 8, func() ([]string, error) {
 		return slices.Sorted(maps.Keys(definitions)), nil
 	})
 	if err := validateEventPayloadTypes(definitions); err != nil {

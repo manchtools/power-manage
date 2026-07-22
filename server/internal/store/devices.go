@@ -19,15 +19,33 @@ import (
 )
 
 const (
-	deviceStreamType                 = "device"
-	agentEnrolledEventType           = "AgentEnrolled"
-	agentCertificateRenewedEventType = "AgentCertificateRenewed"
-	devicePayloadVersion             = 1
-	maxCertificateDERBytes           = 65536
+	deviceStreamType                   = "device"
+	agentEnrolledEventType             = "AgentEnrolled"
+	agentCertificateRenewedEventType   = "AgentCertificateRenewed"
+	agentCertificateRevokedEventType   = "AgentCertificateRevoked"
+	agentForceRenewalRequiredEventType = "AgentCertificateForceRenewalRequired"
+	devicePayloadVersion               = 1
+	maxCertificateDERBytes             = 65536
+	reasonCodeUnspecified              = 0
+	reasonCodeSuperseded               = 4
 )
 
 // DeviceRebuildTarget is the CLI-only device projection recovery target.
 const DeviceRebuildTarget = "devices"
+
+// PublishAgentCRLWorkKind is durable CRL-publication work derived from a
+// certificate revocation projection.
+const PublishAgentCRLWorkKind = "publish-agent-crl"
+
+// DeviceLifecycleState is the authoritative renewal eligibility projected
+// from one device's lifecycle events.
+type DeviceLifecycleState string
+
+const (
+	DeviceLifecycleActive       DeviceLifecycleState = "active"
+	DeviceLifecycleForceRenewal DeviceLifecycleState = "force_renewal"
+	DeviceLifecycleRevoked      DeviceLifecycleState = "revoked"
+)
 
 // Device is the DER-authoritative enrolled agent state. Public key material is
 // always re-derived from CertificateDER by its consumers.
@@ -39,6 +57,7 @@ type Device struct {
 	PreviousCertificateDER []byte
 	RegistrationTokenID    string
 	Owner                  string
+	LifecycleState         DeviceLifecycleState
 	ProjectionVersion      int64
 }
 
@@ -53,6 +72,10 @@ type agentCertificateRenewedPayload struct {
 	CertificateDER           []byte `json:"certificate_der"`
 	SealingPublicKey         []byte `json:"sealing_public_key"`
 	SupersededCertificateDER []byte `json:"superseded_certificate_der"`
+}
+
+type agentCertificateLifecyclePayload struct {
+	CertificateDER []byte `json:"certificate_der"`
 }
 
 // AgentEnrolledEvent binds issued certificate DER and an X25519 sealing key to
@@ -119,6 +142,36 @@ func AgentCertificateRenewedEvent(
 	}, nil
 }
 
+// AgentCertificateRevokedEvent terminates the exact currently stored agent
+// certificate. The projector rejects stale or substituted predecessors.
+func AgentCertificateRevokedEvent(deviceID string, certificateDER []byte) (Event, error) {
+	return agentCertificateLifecycleEvent(deviceID, certificateDER, agentCertificateRevokedEventType)
+}
+
+// AgentCertificateForceRenewalRequiredEvent revokes the exact current
+// certificate but leaves one proof-of-possession renewal path available.
+func AgentCertificateForceRenewalRequiredEvent(deviceID string, certificateDER []byte) (Event, error) {
+	return agentCertificateLifecycleEvent(deviceID, certificateDER, agentForceRenewalRequiredEventType)
+}
+
+func agentCertificateLifecycleEvent(deviceID string, certificateDER []byte, eventType string) (Event, error) {
+	deviceID, certificateDER, _, err := validateAgentCertificate(deviceID, certificateDER)
+	if err != nil {
+		return Event{}, err
+	}
+	payload, err := json.Marshal(agentCertificateLifecyclePayload{CertificateDER: certificateDER})
+	if err != nil {
+		return Event{}, fmt.Errorf("store: encode agent certificate lifecycle event: %w", err)
+	}
+	return Event{
+		StreamType:     deviceStreamType,
+		StreamID:       deviceID,
+		EventType:      eventType,
+		PayloadVersion: devicePayloadVersion,
+		Payload:        payload,
+	}, nil
+}
+
 // Device reads one enrolled agent projection and validates every trust-bearing
 // field before returning it.
 func (s *Store) Device(ctx context.Context, deviceID string) (Device, error) {
@@ -139,11 +192,11 @@ func (s *Store) Device(ctx context.Context, deviceID string) (Device, error) {
 	return deviceFromRow(deviceID, row)
 }
 
-func deviceFromRow(deviceID string, row generated.Device) (Device, error) {
+func deviceFromRow(deviceID string, row generated.GetDeviceRow) (Device, error) {
 	return deviceFromRowWithFingerprintPolicy(deviceID, row, true)
 }
 
-func deviceFromRowWithFingerprintPolicy(deviceID string, row generated.Device, requireDerivedFingerprint bool) (Device, error) {
+func deviceFromRowWithFingerprintPolicy(deviceID string, row generated.GetDeviceRow, requireDerivedFingerprint bool) (Device, error) {
 	if row.ProjectionVersion <= 0 {
 		return Device{}, errors.New("store: device projection has an invalid version")
 	}
@@ -161,6 +214,10 @@ func deviceFromRowWithFingerprintPolicy(deviceID string, row generated.Device, r
 	}
 	if len(row.CertificateFingerprint) != sha256.Size {
 		return Device{}, errors.New("store: device projection has an invalid certificate fingerprint")
+	}
+	lifecycleState := DeviceLifecycleState(row.LifecycleState)
+	if !validDeviceLifecycleState(lifecycleState) {
+		return Device{}, errors.New("store: device projection has an invalid lifecycle state")
 	}
 	var storedFingerprint [sha256.Size]byte
 	copy(storedFingerprint[:], row.CertificateFingerprint)
@@ -188,6 +245,7 @@ func deviceFromRowWithFingerprintPolicy(deviceID string, row generated.Device, r
 		PreviousCertificateDER: previousCertificateDER,
 		RegistrationTokenID:    payload.RegistrationTokenID,
 		Owner:                  payload.Owner,
+		LifecycleState:         lifecycleState,
 		ProjectionVersion:      row.ProjectionVersion,
 	}, nil
 }
@@ -219,6 +277,22 @@ func deviceEventDefinitions() map[string]eventDefinition {
 			},
 			Projector: projectAgentCertificateRenewal,
 		},
+		agentCertificateRevokedEventType: {
+			PayloadVersion: devicePayloadVersion,
+			PayloadType:    agentCertificateLifecyclePayload{},
+			GoldenPayload: func() ([]byte, error) {
+				return json.Marshal(agentCertificateLifecyclePayload{CertificateDER: []byte{1, 2, 3}})
+			},
+			Projector: projectAgentCertificateRevocation,
+		},
+		agentForceRenewalRequiredEventType: {
+			PayloadVersion: devicePayloadVersion,
+			PayloadType:    agentCertificateLifecyclePayload{},
+			GoldenPayload: func() ([]byte, error) {
+				return json.Marshal(agentCertificateLifecyclePayload{CertificateDER: []byte{1, 2, 3}})
+			},
+			Projector: projectAgentForceRenewal,
+		},
 	}
 }
 
@@ -235,6 +309,14 @@ func deviceGoldenCorpus() map[string]goldenEvent {
 			Payload: []byte(
 				`{"certificate_der":"AQID","sealing_public_key":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","superseded_certificate_der":"BAUG"}`,
 			),
+		},
+		agentCertificateRevokedEventType: {
+			PayloadVersion: devicePayloadVersion,
+			Payload:        []byte(`{"certificate_der":"AQID"}`),
+		},
+		agentForceRenewalRequiredEventType: {
+			PayloadVersion: devicePayloadVersion,
+			Payload:        []byte(`{"certificate_der":"AQID"}`),
 		},
 	}
 }
@@ -281,7 +363,7 @@ func projectAgentEnrollment(ctx context.Context, tx ProjectionTx, event Persiste
 		bytes.Equal(row.SealingPublicKey, payload.SealingPublicKey) &&
 		len(row.PreviousCertificateDer) == 0 &&
 		row.RegistrationTokenID == payload.RegistrationTokenID &&
-		row.Owner == payload.Owner {
+		row.Owner == payload.Owner && row.LifecycleState == string(DeviceLifecycleActive) {
 		return nil
 	}
 	return errors.New("store: agent enrollment conflicts with the current device projection")
@@ -314,7 +396,7 @@ func projectAgentCertificateRenewal(ctx context.Context, tx ProjectionTx, event 
 		return fmt.Errorf("store: project agent certificate renewal: %w", err)
 	}
 	if affected == 1 {
-		return nil
+		return projectCertificateRevocation(ctx, tx, event, payload.SupersededCertificateDER, reasonCodeSuperseded)
 	}
 	if affected != 0 {
 		return fmt.Errorf("store: agent certificate renewal affected %d rows; want one", affected)
@@ -327,17 +409,137 @@ func projectAgentCertificateRenewal(ctx context.Context, tx ProjectionTx, event 
 		bytes.Equal(row.CertificateDer, payload.CertificateDER) &&
 		bytes.Equal(row.CertificateFingerprint, fingerprint[:]) &&
 		bytes.Equal(row.SealingPublicKey, payload.SealingPublicKey) &&
-		bytes.Equal(row.PreviousCertificateDer, payload.SupersededCertificateDER) {
-		return nil
+		bytes.Equal(row.PreviousCertificateDer, payload.SupersededCertificateDER) &&
+		row.LifecycleState == string(DeviceLifecycleActive) {
+		return projectCertificateRevocation(ctx, tx, event, payload.SupersededCertificateDER, reasonCodeSuperseded)
 	}
 	return errors.New("store: agent certificate renewal conflicts with the current device projection")
 }
 
+func projectAgentCertificateRevocation(ctx context.Context, tx ProjectionTx, event PersistedEvent) error {
+	return projectAgentLifecycleState(ctx, tx, event, DeviceLifecycleRevoked, reasonCodeUnspecified, true)
+}
+
+func projectAgentForceRenewal(ctx context.Context, tx ProjectionTx, event PersistedEvent) error {
+	return projectAgentLifecycleState(ctx, tx, event, DeviceLifecycleForceRenewal, reasonCodeSuperseded, false)
+}
+
+func projectAgentLifecycleState(
+	ctx context.Context,
+	tx ProjectionTx,
+	event PersistedEvent,
+	nextState DeviceLifecycleState,
+	reasonCode int,
+	allowForceRenewal bool,
+) error {
+	if event.StreamVersion <= 1 {
+		return fmt.Errorf("store: agent certificate lifecycle event must follow enrollment, got stream version %d", event.StreamVersion)
+	}
+	payload, err := decodeEventPayload[agentCertificateLifecyclePayload](event, devicePayloadVersion)
+	if err != nil {
+		return err
+	}
+	deviceID, certificateDER, _, err := validateAgentCertificate(event.StreamID, payload.CertificateDER)
+	if err != nil {
+		return err
+	}
+	affected, err := generated.New(tx).UpdateDeviceLifecycleState(ctx, generated.UpdateDeviceLifecycleStateParams{
+		ProjectionVersion:         event.StreamVersion,
+		LifecycleState:            string(nextState),
+		UpdatedAt:                 event.CreatedAt,
+		DeviceID:                  deviceID,
+		PreviousProjectionVersion: event.StreamVersion - 1,
+		CertificateDer:            certificateDER,
+		PreviousLifecycleState:    string(DeviceLifecycleActive),
+		AllowForceRenewal:         allowForceRenewal,
+	})
+	if err != nil {
+		return fmt.Errorf("store: project agent lifecycle state: %w", err)
+	}
+	if affected != 0 && affected != 1 {
+		return fmt.Errorf("store: agent lifecycle state affected %d rows; want one", affected)
+	}
+	if affected == 0 {
+		row, readErr := generated.New(tx).GetDevice(ctx, deviceID)
+		if readErr != nil {
+			return fmt.Errorf("store: inspect agent lifecycle projection: %w", readErr)
+		}
+		if row.ProjectionVersion != event.StreamVersion || row.LifecycleState != string(nextState) ||
+			!bytes.Equal(row.CertificateDer, certificateDER) {
+			return errors.New("store: agent certificate lifecycle event conflicts with the current device projection")
+		}
+	}
+	return projectCertificateRevocation(ctx, tx, event, certificateDER, reasonCode)
+}
+
+func projectCertificateRevocation(
+	ctx context.Context,
+	tx ProjectionTx,
+	event PersistedEvent,
+	certificateDER []byte,
+	reasonCode int,
+) error {
+	certificate, err := x509.ParseCertificate(certificateDER)
+	if err != nil || !bytes.Equal(certificate.Raw, certificateDER) || certificate.SerialNumber == nil || certificate.SerialNumber.Sign() <= 0 {
+		return errors.New("store: revoked certificate DER is invalid")
+	}
+	fingerprint := sha256.Sum256(certificateDER)
+	queries := generated.New(tx)
+	affected, err := queries.InsertCertificateRevocation(ctx, generated.InsertCertificateRevocationParams{
+		CertificateClass:       string(CertificateClassAgent),
+		CertificateFingerprint: fingerprint[:],
+		CertificateDer:         certificateDER,
+		SerialNumber:           certificate.SerialNumber.Bytes(),
+		RevokedAt:              event.CreatedAt,
+		ReasonCode:             int16(reasonCode),
+		SourceStreamType:       event.StreamType,
+		SourceStreamID:         event.StreamID,
+		SourceStreamVersion:    event.StreamVersion,
+	})
+	if err != nil {
+		return fmt.Errorf("store: project certificate revocation: %w", err)
+	}
+	if affected == 0 {
+		existing, readErr := queries.GetCertificateRevocation(ctx, generated.GetCertificateRevocationParams{
+			CertificateClass:       string(CertificateClassAgent),
+			CertificateFingerprint: fingerprint[:],
+		})
+		if readErr != nil {
+			return fmt.Errorf("store: inspect certificate revocation: %w", readErr)
+		}
+		if !bytes.Equal(existing.CertificateDer, certificateDER) ||
+			!bytes.Equal(existing.SerialNumber, certificate.SerialNumber.Bytes()) ||
+			!compatibleRevocationReason(existing.ReasonCode, int16(reasonCode)) {
+			return errors.New("store: certificate revocation conflicts with existing material")
+		}
+	} else if affected != 1 {
+		return fmt.Errorf("store: certificate revocation affected %d rows; want one", affected)
+	}
+	return tx.EnqueueWork(ctx, Work{
+		Kind:           PublishAgentCRLWorkKind,
+		PayloadVersion: 1,
+		Payload:        []byte(`{}`),
+		RunAt:          event.CreatedAt,
+		MaxAttempts:    maxWorkAttempts,
+	})
+}
+
+func compatibleRevocationReason(existing, next int16) bool {
+	return existing == next || existing == reasonCodeSuperseded && next == reasonCodeUnspecified
+}
+
 func resetDevices(ctx context.Context, tx ProjectionTx) error {
+	if err := generated.New(tx).ResetAgentCertificateRevocations(ctx); err != nil {
+		return fmt.Errorf("store: reset agent certificate revocations: %w", err)
+	}
 	if err := generated.New(tx).ResetDevices(ctx); err != nil {
 		return fmt.Errorf("store: reset devices: %w", err)
 	}
 	return nil
+}
+
+func validDeviceLifecycleState(state DeviceLifecycleState) bool {
+	return state == DeviceLifecycleActive || state == DeviceLifecycleForceRenewal || state == DeviceLifecycleRevoked
 }
 
 func validateAgentEnrollment(deviceID string, payload agentEnrolledPayload) (string, agentEnrolledPayload, error) {

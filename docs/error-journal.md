@@ -1407,3 +1407,100 @@ asserts its configured sentinel through the reporting wrapper.
 
 **Prevention**: Concurrent tests cannot hang before their completion select,
 and negative observability checks prove the exact intended cause.
+
+## 2026-07-22 — The recorded docref help rule was repeated
+
+**What happened**: The M6 documentation pass invoked `docref approve --help`
+even though an earlier same-day journal entry and the verification skill state
+that docref 0.1.1 treats subcommand arguments as paths.
+
+**What the user said**: Earlier feedback established that docref 0.1.1 is the
+installed system version.
+
+**Root cause**: Generic CLI help habits were followed without checking the
+repository's already-recorded command rule.
+
+**Harness fix**: The prohibition now also appears in the session-wide
+verification-honesty rules, next to the exact supported usage probe.
+
+**Prevention**: Run bare `docref` for usage and invoke known subcommands
+directly; never probe docref subcommands with `--help`.
+
+## 2026-07-22 — Verification paths did not match the working directory
+
+**What happened**: A compound verification command selected `server/` as its
+working directory while still passing repository-root-relative paths such as
+`server` and `server/internal/...`; `make` rejected the nonexistent nested
+path before any check ran.
+
+**What the user said**: Not user-initiated; the command failed immediately
+during the M6 pre-publication checks.
+
+**Root cause**: The command list was composed for the repository root and its
+working directory was changed independently.
+
+**Harness fix**: The session-wide verification rules now require choosing one
+working directory and resolving every path in a compound command against it.
+
+**Prevention**: Keep repository-wide commands at the repository root, and use
+module-relative arguments only when intentionally running from a module.
+
+## 2026-07-22 — A stale multi-file patch rule was repeated
+
+**What happened**: The first M6 connected-CRL integration-test patch combined
+code and plan edits while assuming imports that the test file already carried.
+The stale import context caused the patch tool to reject every hunk without
+changing files.
+
+**What the user said**: Not user-initiated; the patch failed during the M6
+acceptance-path test addition.
+
+**Root cause**: The plan context was inspected, but the code import block was
+reconstructed from memory instead of copied from the current file, repeating
+an already-recorded patch-context mistake.
+
+**Harness fix**: A context failure now activates a strict single-file patch
+rule for the rest of the turn, with freshly printed surrounding lines required
+before each patch.
+
+**Prevention**: Patch the code and documentation separately, and never include
+an already-present import in an additive import hunk.
+
+## 2026-07-22 — Linked-worktree merge cleanup obscured remote success
+
+**What happened**: `gh pr merge --rebase --delete-branch` was run from a
+feature worktree while `main` was checked out in the primary worktree. The
+remote merge succeeded, but the command then failed during local base-branch
+checkout and cleanup, making the successful remote mutation initially unclear.
+
+**What the user said**: Not user-initiated; the post-merge state check showed
+that the PR had merged before the local worktree error was reported.
+
+**Root cause**: The merge command was launched from the changed worktree
+instead of the worktree that already owned the base branch, and the local
+cleanup failure was read before checking the remote PR state.
+
+**Harness fix**: `CLAUDE.md` now requires PR merges to run from the clean
+worktree that owns the base branch and requires a remote state check before any
+retry after a merge-command error.
+
+**Prevention**: Linked-worktree merges avoid an unnecessary checkout conflict,
+and an ambiguous post-merge error can never cause a duplicate merge attempt.
+
+## 2026-07-22 — Parameterized fixture combined multiple SQL commands
+
+**What happened**: A scoped projection-corruption fixture combined an
+argument-bearing `UPDATE` and a `DELETE` in one pgx `Exec`. The extended query
+protocol rejected the prepared statement before either mutation ran.
+
+**What the user said**: Not user-initiated; the affected store package test
+reported SQLSTATE 42601 during the M6 rebase verification.
+
+**Root cause**: A formerly argument-free multi-command fixture gained a bound
+device ID without being split at the prepared-statement boundary.
+
+**Harness fix**: `CLAUDE.md` now requires parameterized pgx `Exec` calls to
+contain exactly one SQL statement.
+
+**Prevention**: Scoped fixture mutations retain their predicates while each
+prepared call remains valid under pgx's extended protocol.

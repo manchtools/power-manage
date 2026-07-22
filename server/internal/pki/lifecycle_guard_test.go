@@ -20,7 +20,7 @@ import (
 // transaction-scoped device advisory-lock capability.
 func TestGuard_PkiLifecycleHandlersUseDeviceLock(t *testing.T) {
 	service := powermanagev1.File_powermanage_v1_pki_proto.Services().ByName("PkiService")
-	discovered := guardtest.Discover(t, "PkiService lifecycle handlers", 2, func() ([]string, error) {
+	discovered := guardtest.Discover(t, "PkiService lifecycle handlers", 4, func() ([]string, error) {
 		if service == nil {
 			return nil, errors.New("PkiService descriptor is absent")
 		}

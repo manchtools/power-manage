@@ -12,6 +12,8 @@ option go_package = "github.com/manchtools/power-manage/contract/gen/go/powerman
 service PkiService {
   rpc EnrollAgent(EnrollAgentRequest) returns (EnrollAgentResponse);
   rpc RenewAgent(RenewAgentRequest) returns (RenewAgentResponse);
+  rpc RevokeAgent(RevokeAgentRequest) returns (RevokeAgentResponse);
+  rpc ForceRenewAgent(ForceRenewAgentRequest) returns (ForceRenewAgentResponse);
 }
 
 // EnrollAgentRequest carries proof generated entirely on the device. The
@@ -68,3 +70,27 @@ message RenewAgentResponse {
     max_len: 65536
   }];
 }
+
+// RevokeAgentRequest identifies the currently stored certificate exactly.
+// Operator authorization is transport metadata, never a protobuf identity
+// claim. Control derives the device identity from this certificate.
+message RevokeAgentRequest {
+  bytes certificate_der = 1 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 65536
+  }];
+}
+
+// ForceRenewAgentRequest identifies the currently stored certificate exactly.
+// It remains distinct because this operation may gain renewal policy without
+// changing terminal revocation.
+message ForceRenewAgentRequest {
+  bytes certificate_der = 1 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 65536
+  }];
+}
+
+message RevokeAgentResponse {}
+
+message ForceRenewAgentResponse {}

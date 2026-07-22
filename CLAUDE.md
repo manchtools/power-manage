@@ -50,6 +50,8 @@ Merge only after re-checking, at merge time, that every check is green and
 every review finding is addressed — never chain watch-and-merge. Review
 fixes land as their own commit naming the findings; a fixed defect gets its
 regression test proven red first.
+In linked-worktree checkouts, merge from the clean worktree that owns the base
+branch; after any merge-command error, check remote PR state before retrying.
 
 ## Test authorship and planning
 
@@ -102,12 +104,20 @@ regression test proven red first.
 - Load the `verification` skill before every commit or push. It owns the
   canonical gate, full-output handling, dependency checks, and command/path
   hygiene; keep those process rules out of this session-wide index.
+- Before running a compound verification command, choose its working directory
+  once and resolve every command/path argument against that directory; do not
+  mix a module workdir with repository-root-relative paths.
+- For docref 0.1.1, use bare `docref` to print usage. Never pass `--help` to
+  `docref` or its subcommands because subcommand arguments are treated as paths.
 - Before patching an escaping-sensitive literal, inspect its exact current
   bytes and match that observed form; do not reconstruct it through an extra
   shell, JSON, or JavaScript escaping layer.
 - When a patch touches several distant hunks or files, inspect every current
   target and apply small file-local patches; do not let one stale context make
   an otherwise independent multi-file correction fail wholesale.
+- After any `apply_patch` context failure, every remaining patch in that turn
+  is single-file and based on freshly printed surrounding lines; do not retry a
+  combined code-and-documentation patch.
 - After adding a call site, resolve every new identifier against an existing
   declaration or add that declaration in the same patch; reuse values already
   returned by test factories instead of inventing accessor helpers. Before
@@ -120,6 +130,8 @@ regression test proven red first.
 - In PostgreSQL migrations, explicitly name table-level constraints so they
   cannot collide with PostgreSQL's `<table>_<column>_check` names for
   column-level checks; exercise every new migration from an empty database.
+- Parameterized pgx `Exec` calls carry one SQL statement; split test-fixture
+  mutations instead of sending multiple commands through the prepared path.
 - Projection-corruption fixtures must write constraint-valid but semantically
   wrong values unless the schema constraint itself is under test; compare the
   fixture mutation against the current migration before running it.
