@@ -78,7 +78,7 @@ branch; after any merge-command error, check remote PR state before retrying.
 - Build: recovery and agent-enrollment CLI binaries exist; networked control,
   gateway, and full agent-daemon commands land with SPEC-012/013. Verify the
   repository with the canonical gate.
-- Test one module: `go test -C <module> ./... -count=1 -race`
+- Test one module: `go -C <module> test ./... -count=1 -race`.
 - Protos: `cd contract && buf lint && buf generate`; guards accept Buf's canonical tags (exact bytes use `len`).
 
 ## Always / never
@@ -108,8 +108,8 @@ branch; after any merge-command error, check remote PR state before retrying.
 - Before running a compound verification command, choose its working directory
   once and resolve every command/path argument against that directory; do not
   mix a module workdir with repository-root-relative paths.
-- For docref 0.1.1, use bare `docref` to print usage. Never pass `--help` to
-  `docref` or its subcommands because subcommand arguments are treated as paths.
+- For docref 0.1.1, `--help` is unsupported: top-level it is an unknown
+  command; after a subcommand it is a positional path. Use bare `docref`.
 - Before patching an escaping-sensitive literal, inspect its exact current
   bytes and match that observed form; do not reconstruct it through an extra
   shell, JSON, or JavaScript escaping layer.
@@ -144,8 +144,8 @@ branch; after any merge-command error, check remote PR state before retrying.
   static-SQL guards; any exemption is exact and matches-zero-protected;
   blocking and observer fixtures stay outside the application pool, and synthetic triggers exclude follow-on work.
 - Review uncommitted work against main with the installed local review tool,
-  including untracked files and no removed output flags. Before completion,
-  query unresolved PR threads even when the newest-head check is rate-limited;
+  including untracked files; reconcile its reviewed-file list with `git status`.
+  Before completion, query unresolved PR threads even when review is rate-limited;
   a head status does not summarize earlier reviews.
 - After editing a shell file containing heredocs, inspect the numbered changed
   region; `bash -n` cannot detect code accidentally swallowed as fixture text.

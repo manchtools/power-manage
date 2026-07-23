@@ -9,16 +9,24 @@ import (
 	"connectrpc.com/connect"
 
 	powermanagev1 "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1"
+	"github.com/manchtools/power-manage/contract/gen/go/powermanage/v1/powermanagev1connect"
 	"github.com/manchtools/power-manage/contract/sign"
 	"github.com/manchtools/power-manage/server/internal/store"
 )
+
+var errTrustConfirmationRateLimited = errors.New("trust confirmation rate limited")
 
 // ConfirmAgentTrustState accepts signed receipts only from an active agent certificate.
 func (s *EnrollmentService) ConfirmAgentTrustState(
 	ctx context.Context,
 	request *connect.Request[powermanagev1.ConfirmTrustStateRequest],
 ) (*connect.Response[powermanagev1.ConfirmTrustStateResponse], error) {
-	return s.confirmTrustState(ctx, store.CertificateClassAgent, request)
+	return s.confirmTrustState(
+		ctx,
+		store.CertificateClassAgent,
+		powermanagev1connect.PkiServiceConfirmAgentTrustStateProcedure,
+		request,
+	)
 }
 
 // ConfirmGatewayTrustState accepts signed receipts only from an active gateway certificate.
@@ -26,20 +34,43 @@ func (s *EnrollmentService) ConfirmGatewayTrustState(
 	ctx context.Context,
 	request *connect.Request[powermanagev1.ConfirmTrustStateRequest],
 ) (*connect.Response[powermanagev1.ConfirmTrustStateResponse], error) {
-	return s.confirmTrustState(ctx, store.CertificateClassGateway, request)
+	return s.confirmTrustState(
+		ctx,
+		store.CertificateClassGateway,
+		powermanagev1connect.PkiServiceConfirmGatewayTrustStateProcedure,
+		request,
+	)
 }
 
 func (s *EnrollmentService) confirmTrustState(
 	ctx context.Context,
 	reporterClass store.CertificateClass,
+	procedure string,
 	request *connect.Request[powermanagev1.ConfirmTrustStateRequest],
-) (*connect.Response[powermanagev1.ConfirmTrustStateResponse], error) {
-	if s == nil || s.rotationManager == nil || s.eventStore == nil || ctx == nil || request == nil || request.Msg == nil {
+) (response *connect.Response[powermanagev1.ConfirmTrustStateResponse], resultErr error) {
+	if s == nil || s.rotationManager == nil || s.eventStore == nil || s.failureLadder == nil ||
+		s.clientIPResolver == nil || s.now == nil || ctx == nil || request == nil || request.Msg == nil {
 		return nil, connect.NewError(connect.CodeInternal, errors.New("trust confirmation unavailable"))
 	}
+	clientIP, err := s.resolvePublicClientIP(
+		request.Peer().Addr,
+		request.Header().Values("X-Forwarded-For"),
+	)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("trust confirmation unavailable"))
+	}
+	defer func() {
+		resultErr = s.applyPublicAuthenticationLimit(
+			procedure,
+			clientIP,
+			certificateAccountKey(reporterClass, request.Msg.GetCertificateDer()),
+			resultErr,
+			errTrustConfirmationRateLimited,
+		)
+	}()
 	confirmation := trustStateConfirmationFromRequest(reporterClass, request.Msg)
 	claimedClass := store.CertificateClass(request.Msg.GetClaimedClass())
-	err := s.rotationManager.withTrustStateFences(ctx, reporterClass, claimedClass, func() error {
+	err = s.rotationManager.withTrustStateFences(ctx, reporterClass, claimedClass, func() error {
 		leaf, consumer, validatedReporterClass, validatedClass, err := s.rotationManager.validateTrustStateConfirmation(ctx, confirmation)
 		if err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {

@@ -13,6 +13,7 @@ import (
 	"connectrpc.com/connect"
 
 	powermanagev1 "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1"
+	"github.com/manchtools/power-manage/contract/gen/go/powermanage/v1/powermanagev1connect"
 	"github.com/manchtools/power-manage/contract/identity"
 	"github.com/manchtools/power-manage/contract/seal"
 	"github.com/manchtools/power-manage/contract/sign"
@@ -31,7 +32,7 @@ var (
 func (s *EnrollmentService) RenewAgent(
 	ctx context.Context,
 	request *connect.Request[powermanagev1.RenewAgentRequest],
-) (*connect.Response[powermanagev1.RenewAgentResponse], error) {
+) (response *connect.Response[powermanagev1.RenewAgentResponse], resultErr error) {
 	if err := s.validateWiring(); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, errRenewalTemporarilyFailed)
 	}
@@ -49,15 +50,24 @@ func (s *EnrollmentService) RenewAgent(
 	if err := seal.ValidateX25519PublicKey(request.Msg.GetSealingPublicKey()); err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errRenewalRequestRejected)
 	}
-	if !renewalPublicKeysEqual(presented.PublicKey, csr.PublicKey) {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errRenewalAuthRejected)
-	}
-	source, err := enrollmentSource(request.Peer().Addr)
+	clientIP, err := s.resolvePublicClientIP(
+		request.Peer().Addr,
+		request.Header().Values("X-Forwarded-For"),
+	)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, errRenewalTemporarilyFailed)
 	}
-	if !s.renewalLimiter.Allow(source, s.now()) {
-		return nil, connect.NewError(connect.CodeResourceExhausted, errRenewalRateLimited)
+	defer func() {
+		resultErr = s.applyPublicAuthenticationLimit(
+			powermanagev1connect.PkiServiceRenewAgentProcedure,
+			clientIP,
+			"agent:"+deviceID,
+			resultErr,
+			errRenewalRateLimited,
+		)
+	}()
+	if !renewalPublicKeysEqual(presented.PublicKey, csr.PublicKey) {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errRenewalAuthRejected)
 	}
 
 	presentedFingerprint := sha256.Sum256(presented.Raw)

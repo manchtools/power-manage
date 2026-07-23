@@ -11,7 +11,8 @@ and AC-2/AC-3:
   projection and a registered rebuild target;
 - authenticate with a constant-time hash comparison;
 - consume with expected-version CAS under real concurrency;
-- apply a five-attempt sliding-minute server limiter; and
+- leave network failure limiting to the public handler's independent per-IP
+  and per-account ladder; and
 - make invalid, malformed, expired, disabled, exhausted, and losing-race
   token failures indistinguishable to the enrollment caller.
 
@@ -62,19 +63,18 @@ representation, a durable disabled bit, and a positive projection version.
    the same minimum rejection deadline captured at admission. The clock and
    waiter are injectable in package tests so equality is deterministic rather
    than asserted with flaky wall-clock thresholds. Infrastructure and caller
-   cancellation errors remain operational errors, and the explicit
-   rate-limit rejection remains its own category.
-7. **Rate limiting.** Admission keys are supplied by the future network
-   adapter, never by the request body. A mutex-protected sliding window counts
-   all attempts, successful or not, and allows at most five in any minute per
-   non-empty source key. Expired source entries are pruned.
+   cancellation errors remain operational errors.
+7. **Rate limiting ownership.** The token component verifies and consumes
+   credentials without counting successful uses. The real public handler owns
+   the failure-only per-IP and per-account ladder delivered by SPEC-007 M3, so
+   repeated failures never lock out a subsequent correct token.
 8. **No new dependency.** Randomness, SHA-256, constant-time comparison,
    base64url encoding, ULID encoding, synchronization, and timing use the Go
    standard library. Existing pgx/sqlc/testcontainer infrastructure is reused.
 
 ## Acceptance criteria
 
-<!-- docref: begin src=server/internal/pki/registration_tokens_test.go#TestRegistrationTokens_MintStoresOnlyHash:89c8b475,server/internal/pki/registration_tokens_test.go#TestRegistrationTokens_ConcurrentConsumeHonorsMaxUses:0a131179,server/internal/pki/registration_tokens_test.go#TestRegistrationTokens_CASRetriesAreBoundedAndBackedOff:6f063ca8,server/internal/pki/registration_tokens_test.go#TestRegistrationTokens_RejectionsAreUniform:861057e1,server/internal/pki/registration_tokens_test.go#TestRegistrationTokens_RateLimitsFiveAttemptsPerSlidingMinute:030d3bfc,server/internal/pki/registration_tokens_test.go#TestRegistrationTokens_MintFailureWritesNothing:bbb2974c,server/internal/pki/registration_tokens_test.go#TestRegistrationTokens_ConstantTimeHashGate:d7cf6207,server/internal/pki/registration_tokens_test.go#TestRegistrationRateLimiter_BoundsTrackedSources:ea9ab8cb,server/internal/store/registration_tokens_test.go#TestRegistrationTokenProjection_RebuildsCompleteState:d58eb145,server/internal/store/registration_tokens_test.go#TestRegistrationTokenProjection_RejectsInvalidTransitions:1845167b,server/cmd/power-manage-recovery/main_test.go#TestRecoveryCLI_RebuildsRegisteredTokenTarget:f4dfc3f6 -->
+<!-- docref: begin src=server/internal/pki/registration_tokens_test.go#TestRegistrationTokens_MintStoresOnlyHash:89c8b475,server/internal/pki/registration_tokens_test.go#TestRegistrationTokens_ConcurrentConsumeHonorsMaxUses:6a8d48c3,server/internal/pki/registration_tokens_test.go#TestRegistrationTokens_CASRetriesAreBoundedAndBackedOff:c51621ed,server/internal/pki/registration_tokens_test.go#TestRegistrationTokens_RejectionsAreUniform:c7a34554,server/internal/pki/registration_tokens_test.go#TestRegistrationTokens_SuccessfulUsesAreNotRateLimited:4fbb2a1e,server/internal/pki/registration_tokens_test.go#TestRegistrationTokens_MintFailureWritesNothing:bbb2974c,server/internal/pki/registration_tokens_test.go#TestRegistrationTokens_ConstantTimeHashGate:d7cf6207,server/internal/store/registration_tokens_test.go#TestRegistrationTokenProjection_RebuildsCompleteState:d58eb145,server/internal/store/registration_tokens_test.go#TestRegistrationTokenProjection_RejectsInvalidTransitions:1845167b,server/cmd/power-manage-recovery/main_test.go#TestRecoveryCLI_RebuildsRegisteredTokenTarget:f4dfc3f6 -->
 - **AC-M3-1 — Mint and hash at rest.** A successful mint returns a canonical
   locator and a 32-byte secret, persists exactly the secret's SHA-256 digest,
   and leaves no raw token bytes in either the event payload or projection.
@@ -94,10 +94,9 @@ representation, a durable disabled bit, and a positive projection version.
 - **AC-M3-5 — Kill switch.** Disable is durable and idempotent. A disabled
   token never consumes again, and rebuild reproduces its hash, bounds, owner,
   use count, expiry, and disabled state byte-for-byte.
-- **AC-M3-6 — Server rate.** The first five attempts for one source in a
-  sliding minute reach token admission; the sixth is rate-limited before a
-  database lookup. A distinct source is independent, and the original source
-  is admitted after its window expires.
+- **AC-M3-6 — No success lockout.** Every permitted successful token consume
+  reaches its version-pinned admission regardless of earlier successful uses.
+  Network failure limiting is applied by the shared public-handler ladder.
 - **AC-M3-7 — Store discipline.** All three event types have golden payloads,
   exactly one projector, one rebuild target, and only sqlc-inventoried
   projection mutations. The new table is classified exactly once and is
@@ -112,12 +111,12 @@ representation, a durable disabled bit, and a positive projection version.
 2. Add uniform-rejection tests with an injected clock/waiter, including wrong
    secrets differing at opposite ends and disabled+expired state. Confirm the
    service API is absent.
-3. Add the five-per-minute sliding-window matrix and RNG/option failure tests.
+3. Add the successful-use no-lockout matrix and RNG/option failure tests.
 4. Add registry, golden-corpus, projection-write, table-classification, and
    recovery-target expectations. Confirm their exact-set floors fail before
    implementation.
 5. Implement migration and static queries, regenerate sqlc output, wire event
-   projectors/rebuild metadata, then implement the token service and limiter.
+   projectors/rebuild metadata, then implement the token service.
 6. Run focused race tests, the full server race suite, strict docref, the full
    repository verification gate, and CodeRabbit review before publishing.
 
@@ -129,5 +128,5 @@ representation, a durable disabled bit, and a positive projection version.
   limiter (M4).
 - Renewal, revocation, CRL distribution, gateway enrollment, and CA rotation
   (M5–M8).
-- The reusable public authentication rate-limit ladder (SPEC-007). M3 owns
-  only the registration-token server admission limit required by [PKI-2].
+- The reusable public authentication rate-limit ladder (SPEC-007). M3 leaves
+  network admission to the public handler that owns the client-IP boundary.

@@ -32,7 +32,7 @@ const gatewayCertificateLifetime = 45 * 24 * time.Hour
 func (s *EnrollmentService) EnrollGateway(
 	ctx context.Context,
 	request *connect.Request[powermanagev1.EnrollGatewayRequest],
-) (*connect.Response[powermanagev1.EnrollGatewayResponse], error) {
+) (response *connect.Response[powermanagev1.EnrollGatewayResponse], resultErr error) {
 	if err := s.validateWiring(); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, errEnrollmentTemporarilyFailed)
 	}
@@ -43,10 +43,23 @@ func (s *EnrollmentService) EnrollGateway(
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errEnrollmentRequestRejected)
 	}
-	source, err := enrollmentSource(request.Peer().Addr)
+	clientIP, err := s.resolvePublicClientIP(
+		request.Peer().Addr,
+		request.Header().Values("X-Forwarded-For"),
+	)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, errEnrollmentTemporarilyFailed)
 	}
+	accountKey := registrationTokenAccountKey(request.Msg.GetRegistrationToken())
+	defer func() {
+		resultErr = s.applyPublicAuthenticationLimit(
+			powermanagev1connect.PkiServiceEnrollGatewayProcedure,
+			clientIP,
+			accountKey,
+			resultErr,
+			errEnrollmentRateLimited,
+		)
+	}()
 	var grant RegistrationTokenGrant
 	var gatewayID string
 	var certificateDER, certificateAuthorityDER []byte
@@ -54,7 +67,11 @@ func (s *EnrollmentService) EnrollGateway(
 	err = s.withIssuanceFences(ctx, func(agent, gateway AuthoritySnapshot) error {
 		agentTrust, gatewayTrust = agent, gateway
 		var consumeErr error
-		grant, consumeErr = s.tokens.Consume(ctx, source, request.Msg.GetRegistrationToken(), RegistrationTokenPurposeGateway)
+		grant, consumeErr = s.tokens.Consume(
+			ctx,
+			request.Msg.GetRegistrationToken(),
+			RegistrationTokenPurposeGateway,
+		)
 		if consumeErr != nil {
 			return consumeErr
 		}
@@ -101,7 +118,7 @@ func (s *EnrollmentService) EnrollGateway(
 func (s *EnrollmentService) RenewGateway(
 	ctx context.Context,
 	request *connect.Request[powermanagev1.RenewGatewayRequest],
-) (*connect.Response[powermanagev1.RenewGatewayResponse], error) {
+) (response *connect.Response[powermanagev1.RenewGatewayResponse], resultErr error) {
 	if err := s.validateWiring(); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, errRenewalTemporarilyFailed)
 	}
@@ -116,15 +133,24 @@ func (s *EnrollmentService) RenewGateway(
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errRenewalRequestRejected)
 	}
-	if !renewalPublicKeysEqual(presented.PublicKey, csr.PublicKey) {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errRenewalAuthRejected)
-	}
-	source, err := enrollmentSource(request.Peer().Addr)
+	clientIP, err := s.resolvePublicClientIP(
+		request.Peer().Addr,
+		request.Header().Values("X-Forwarded-For"),
+	)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, errRenewalTemporarilyFailed)
 	}
-	if !s.renewalLimiter.Allow(source+"\x00gateway", s.now()) {
-		return nil, connect.NewError(connect.CodeResourceExhausted, errRenewalRateLimited)
+	defer func() {
+		resultErr = s.applyPublicAuthenticationLimit(
+			powermanagev1connect.PkiServiceRenewGatewayProcedure,
+			clientIP,
+			"gateway:"+gatewayID,
+			resultErr,
+			errRenewalRateLimited,
+		)
+	}()
+	if !renewalPublicKeysEqual(presented.PublicKey, csr.PublicKey) {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errRenewalAuthRejected)
 	}
 	presentedFingerprint := sha256.Sum256(presented.Raw)
 	var certificateDER, certificateAuthorityDER []byte
@@ -198,14 +224,35 @@ func (s *EnrollmentService) RenewGateway(
 func (s *EnrollmentService) RevokeGateway(
 	ctx context.Context,
 	request *connect.Request[powermanagev1.RevokeGatewayRequest],
-) (*connect.Response[powermanagev1.RevokeGatewayResponse], error) {
+) (response *connect.Response[powermanagev1.RevokeGatewayResponse], resultErr error) {
 	if request == nil || request.Msg == nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errLifecycleRequestRejected)
 	}
+	if ctx == nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errLifecycleAuthRejected)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, mapLifecycleError(err)
+	}
+	clientIP, err := s.resolvePublicClientIP(
+		request.Peer().Addr,
+		request.Header().Values("X-Forwarded-For"),
+	)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, errLifecycleTemporarilyFailed)
+	}
+	defer func() {
+		resultErr = s.applyPublicAuthenticationLimit(
+			powermanagev1connect.PkiServiceRevokeGatewayProcedure,
+			clientIP,
+			certificateAccountKey(store.CertificateClassGateway, request.Msg.GetCertificateDer()),
+			resultErr,
+			errLifecycleRateLimited,
+		)
+	}()
 	presented, gatewayID, err := s.authorizeGatewayLifecycle(
 		ctx,
 		request.Header().Values("Authorization"),
-		request.Peer().Addr,
 		request.Msg.GetCertificateDer(),
 	)
 	if err != nil {
@@ -240,7 +287,6 @@ func (s *EnrollmentService) RevokeGateway(
 func (s *EnrollmentService) authorizeGatewayLifecycle(
 	ctx context.Context,
 	authorizationHeaders []string,
-	peerAddress string,
 	certificateDER []byte,
 ) (*x509.Certificate, string, error) {
 	if err := s.validateWiring(); err != nil {
@@ -252,14 +298,7 @@ func (s *EnrollmentService) authorizeGatewayLifecycle(
 	if err := ctx.Err(); err != nil {
 		return nil, "", mapLifecycleError(err)
 	}
-	source, err := enrollmentSource(peerAddress)
-	if err != nil {
-		return nil, "", connect.NewError(connect.CodeInternal, errLifecycleTemporarilyFailed)
-	}
 	procedure := powermanagev1connect.PkiServiceRevokeGatewayProcedure
-	if !s.lifecycleLimiter.Allow(source+"\x00"+procedure, s.now()) {
-		return nil, "", connect.NewError(connect.CodeResourceExhausted, errLifecycleRateLimited)
-	}
 	presented, gatewayID, err := parseGatewayRenewalCertificate(certificateDER)
 	if err != nil {
 		return nil, "", connect.NewError(connect.CodeInvalidArgument, errLifecycleRequestRejected)
@@ -275,8 +314,6 @@ func (s *EnrollmentService) authorizeGatewayLifecycle(
 
 func mapEnrollmentTokenError(err error) error {
 	switch {
-	case errors.Is(err, ErrRegistrationRateLimited):
-		return connect.NewError(connect.CodeResourceExhausted, errEnrollmentRateLimited)
 	case errors.Is(err, ErrInvalidRegistrationToken):
 		return connect.NewError(connect.CodeUnauthenticated, errEnrollmentAuthRejected)
 	case errors.Is(err, context.Canceled):

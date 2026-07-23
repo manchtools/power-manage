@@ -5,16 +5,17 @@ AC-1/AC-2/AC-16; GUARD-006-1).
 
 ## Scope
 
-<!-- docref: begin src=contract/proto/powermanage/v1/pki.proto#PkiService.EnrollAgent:d1089b10,server/internal/pki/enrollment.go#EnrollmentService.EnrollAgent:cf461f0c,server/internal/pki/server.go#NewServer:252d1c8f,server/internal/pki/server.go#Server.ListenAndServe:7b018804,server/internal/pki/procedures.go#PublicProcedureLimits:648fb4f4 -->
+<!-- docref: begin src=contract/proto/powermanage/v1/pki.proto#PkiService.EnrollAgent:d1089b10,server/internal/pki/enrollment.go#EnrollmentService.EnrollAgent:319a7e9f,server/internal/pki/server.go#NewServer:252d1c8f,server/internal/pki/server.go#Server.ListenAndServe:7b018804,server/internal/pki/procedures.go#PublicProcedureLimits:648fb4f4 -->
 - Add one `PkiService.EnrollAgent` Connect RPC. The request carries only a
   registration token, exact DER PKCS#10 CSR, and a 32-byte X25519 public key.
   The response carries the exact DER agent certificate and issuing agent CA.
   Every field has a bounded Protovalidate rule; malformed token shapes still
   reach the uniform token-admission path.
 - Add the real Connect handler and server-auth-only TLS 1.3 listener on the
-  default `:8083` address. The network source is derived from the HTTP peer,
-  never request data. The existing registration-token service remains the
-  sole authorization and server-side five-per-minute admission gate.
+  default `:8083` address. The client IP is derived from the HTTP peer plus the
+  trusted-proxy walk, never request data. The registration-token service
+  remains the sole enrollment authorization; SPEC-007's public-handler ladder
+  owns the failure-only per-IP and per-account admission gate.
 - Parse the CSR as exact DER, verify its signature, reject every form of SAN
   request before token consumption, and accept only the existing approved
   ECDSA/RSA key profile. Control ignores the CSR subject, mints a fresh ULID,
@@ -76,7 +77,7 @@ device ID; a ULID collision is rejected by the version-zero device stream.
    without durable change.
 4. **Admission behavior.** Absent, malformed, unknown, expired, disabled,
    exhausted, and losing-race tokens receive the established uniform
-   rejection. Six requests from one source are rate-limited; independent
+   rejection. Six failed requests from one source are rate-limited; independent
    sources do not share capacity. With `max_uses=N`, `N+k` real concurrent RPCs
    against Postgres produce exactly N returned certificates and N device rows.
 5. **TLS boundary.** TLS below 1.3 fails, a client certificate is not required,
@@ -125,7 +126,8 @@ source address, or certificate bytes.
 - CRL issuance/distribution, gateway identity, and CA continuity (M6–M8).
 - Gateway enrollment and DNS SAN issuance (M7).
 - The reusable cross-service rate-limit implementation (SPEC-007). M4 owns the
-  Pki procedure registry and the two required enrollment admission limits.
+  Pki procedure registry and local-relay admission limit; SPEC-007 composes the
+  public handler's failure-only ladder.
 - `install.sh --reset`, full agent daemon lifecycle, and credential loading by
   the runtime (SPEC-013). M4 preserves the no-overwrite boundary they consume.
 - Compose/deployment E2E wiring (SPEC-017); no deployment artifacts exist yet.

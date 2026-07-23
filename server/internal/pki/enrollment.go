@@ -13,8 +13,8 @@ import (
 	"fmt"
 	"io"
 	"math/big"
-	"net"
 	"net/http"
+	"net/netip"
 	"slices"
 	"time"
 
@@ -27,6 +27,7 @@ import (
 	"github.com/manchtools/power-manage/contract/seal"
 	"github.com/manchtools/power-manage/contract/sign"
 	"github.com/manchtools/power-manage/sdk/nilcheck"
+	"github.com/manchtools/power-manage/server/internal/auth"
 	"github.com/manchtools/power-manage/server/internal/store"
 )
 
@@ -50,9 +51,9 @@ type EnrollmentService struct {
 	tokens              *RegistrationTokens
 	eventStore          *store.Store
 	authorities         *Authorities
-	renewalLimiter      *registrationRateLimiter
+	failureLadder       *auth.FailureLadder
+	clientIPResolver    *auth.ClientIPResolver
 	lifecycleAuthorizer LifecycleAuthorizer
-	lifecycleLimiter    *registrationRateLimiter
 	rotationManager     *RotationManager
 	random              io.Reader
 	now                 func() time.Time
@@ -64,6 +65,24 @@ func NewEnrollmentService(
 	eventStore *store.Store,
 	authorities *Authorities,
 	lifecycleAuthorizer LifecycleAuthorizer,
+) (*EnrollmentService, error) {
+	return NewEnrollmentServiceWithTrustedProxies(
+		tokens,
+		eventStore,
+		authorities,
+		lifecycleAuthorizer,
+		nil,
+	)
+}
+
+// NewEnrollmentServiceWithTrustedProxies validates the enrollment dependencies
+// and accepts already parsed trusted-proxy prefixes for client IP resolution.
+func NewEnrollmentServiceWithTrustedProxies(
+	tokens *RegistrationTokens,
+	eventStore *store.Store,
+	authorities *Authorities,
+	lifecycleAuthorizer LifecycleAuthorizer,
+	trustedProxies []netip.Prefix,
 ) (*EnrollmentService, error) {
 	if tokens == nil {
 		return nil, errors.New("pki: nil enrollment token service")
@@ -81,13 +100,21 @@ func NewEnrollmentService(
 	if nilcheck.Interface(lifecycleAuthorizer) {
 		return nil, errors.New("pki: lifecycle authorizer is not wired")
 	}
+	failureLadder, err := newPublicFailureLadder()
+	if err != nil {
+		return nil, fmt.Errorf("pki: create public authentication ladder: %w", err)
+	}
+	clientIPResolver, err := auth.NewClientIPResolver(trustedProxies)
+	if err != nil {
+		return nil, fmt.Errorf("pki: create client IP resolver: %w", err)
+	}
 	return &EnrollmentService{
 		tokens:              tokens,
 		eventStore:          eventStore,
 		authorities:         authorities,
-		renewalLimiter:      newRegistrationRateLimiter(),
+		failureLadder:       failureLadder,
+		clientIPResolver:    clientIPResolver,
 		lifecycleAuthorizer: lifecycleAuthorizer,
-		lifecycleLimiter:    newRegistrationRateLimiter(),
 		random:              cryptorand.Reader,
 		now:                 time.Now,
 	}, nil
@@ -106,8 +133,8 @@ func NewEnrollmentHTTPHandler(service *EnrollmentService) (string, http.Handler)
 }
 
 func (s *EnrollmentService) validateWiring() error {
-	if s == nil || s.tokens == nil || s.eventStore == nil || s.authorities == nil || s.renewalLimiter == nil ||
-		nilcheck.Interface(s.lifecycleAuthorizer) || s.lifecycleLimiter == nil || s.random == nil || s.now == nil {
+	if s == nil || s.tokens == nil || s.eventStore == nil || s.authorities == nil || s.failureLadder == nil ||
+		s.clientIPResolver == nil || nilcheck.Interface(s.lifecycleAuthorizer) || s.random == nil || s.now == nil {
 		return errors.New("pki: enrollment service is not wired")
 	}
 	if s.tokens.eventStore != s.eventStore || s.authorities.agentCA.certificate == nil || s.authorities.agentCA.signer == nil ||
@@ -122,7 +149,7 @@ func (s *EnrollmentService) validateWiring() error {
 func (s *EnrollmentService) EnrollAgent(
 	ctx context.Context,
 	request *connect.Request[powermanagev1.EnrollAgentRequest],
-) (*connect.Response[powermanagev1.EnrollAgentResponse], error) {
+) (response *connect.Response[powermanagev1.EnrollAgentResponse], resultErr error) {
 	if err := s.validateWiring(); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, errEnrollmentTemporarilyFailed)
 	}
@@ -136,10 +163,23 @@ func (s *EnrollmentService) EnrollAgent(
 	if err := seal.ValidateX25519PublicKey(request.Msg.GetSealingPublicKey()); err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errEnrollmentRequestRejected)
 	}
-	source, err := enrollmentSource(request.Peer().Addr)
+	clientIP, err := s.resolvePublicClientIP(
+		request.Peer().Addr,
+		request.Header().Values("X-Forwarded-For"),
+	)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, errEnrollmentTemporarilyFailed)
 	}
+	accountKey := registrationTokenAccountKey(request.Msg.GetRegistrationToken())
+	defer func() {
+		resultErr = s.applyPublicAuthenticationLimit(
+			powermanagev1connect.PkiServiceEnrollAgentProcedure,
+			clientIP,
+			accountKey,
+			resultErr,
+			errEnrollmentRateLimited,
+		)
+	}()
 	var grant RegistrationTokenGrant
 	var deviceID string
 	var certificateDER, certificateAuthorityDER []byte
@@ -147,7 +187,11 @@ func (s *EnrollmentService) EnrollAgent(
 	err = s.withIssuanceFences(ctx, func(agent, gateway AuthoritySnapshot) error {
 		agentTrust, gatewayTrust = agent, gateway
 		var consumeErr error
-		grant, consumeErr = s.tokens.Consume(ctx, source, request.Msg.GetRegistrationToken(), RegistrationTokenPurposeAgent)
+		grant, consumeErr = s.tokens.Consume(
+			ctx,
+			request.Msg.GetRegistrationToken(),
+			RegistrationTokenPurposeAgent,
+		)
 		if consumeErr != nil {
 			return consumeErr
 		}
@@ -222,18 +266,6 @@ func enrollmentCSRHasSAN(request *x509.CertificateRequest) bool {
 		}
 	}
 	return false
-}
-
-func enrollmentSource(address string) (string, error) {
-	host, _, err := net.SplitHostPort(address)
-	if err != nil {
-		return "", fmt.Errorf("pki: parse enrollment peer address: %w", err)
-	}
-	ip := net.ParseIP(host)
-	if ip == nil {
-		return "", errors.New("pki: enrollment peer address is not an IP")
-	}
-	return ip.String(), nil
 }
 
 func newEnrollmentDeviceID(now time.Time, random io.Reader) (string, error) {

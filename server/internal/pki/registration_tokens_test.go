@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -116,11 +115,10 @@ func TestGatewayRegistrationToken_CrossPurposeUseRejectsWithoutConsumption(t *te
 		{name: "agent token on gateway enrollment", token: agent, expectedPurpose: RegistrationTokenPurposeGateway},
 		{name: "gateway token on agent enrollment", token: gateway, expectedPurpose: RegistrationTokenPurposeAgent},
 	}
-	for index, test := range tests {
+	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			grant, err := service.Consume(
 				context.Background(),
-				fmt.Sprintf("cross-purpose-%d", index),
 				test.token.Token,
 				test.expectedPurpose,
 			)
@@ -138,14 +136,14 @@ func TestGatewayRegistrationToken_CrossPurposeUseRejectsWithoutConsumption(t *te
 		})
 	}
 
-	agentGrant, err := service.Consume(context.Background(), "agent-purpose", agent.Token, RegistrationTokenPurposeAgent)
+	agentGrant, err := service.Consume(context.Background(), agent.Token, RegistrationTokenPurposeAgent)
 	if err != nil {
 		t.Fatalf("consume matching agent token: %v", err)
 	}
 	if agentGrant.Purpose != RegistrationTokenPurposeAgent || len(agentGrant.DNSNames) != 0 {
 		t.Fatalf("agent grant = %+v; want agent purpose without DNS names", agentGrant)
 	}
-	gatewayGrant, err := service.Consume(context.Background(), "gateway-purpose", gateway.Token, RegistrationTokenPurposeGateway)
+	gatewayGrant, err := service.Consume(context.Background(), gateway.Token, RegistrationTokenPurposeGateway)
 	if err != nil {
 		t.Fatalf("consume matching gateway token: %v", err)
 	}
@@ -171,12 +169,10 @@ func TestRegistrationTokens_ConcurrentConsumeHonorsMaxUses(t *testing.T) {
 	}
 	start := make(chan struct{})
 	results := make(chan error, callers)
-	for caller := range callers {
+	for range callers {
 		go func() {
 			<-start
-			_, err := service.Consume(
-				context.Background(), fmt.Sprintf("source-%d", caller), minted.Token, RegistrationTokenPurposeAgent,
-			)
+			_, err := service.Consume(context.Background(), minted.Token, RegistrationTokenPurposeAgent)
 			results <- err
 		}()
 	}
@@ -220,7 +216,7 @@ func TestRegistrationTokens_CASRetriesAreBoundedAndBackedOff(t *testing.T) {
 	if err != nil {
 		t.Fatalf("mint CAS-retry fixture: %v", err)
 	}
-	if _, err := service.Consume(context.Background(), "primer", minted.Token, RegistrationTokenPurposeAgent); err != nil {
+	if _, err := service.Consume(context.Background(), minted.Token, RegistrationTokenPurposeAgent); err != nil {
 		t.Fatalf("consume CAS-retry fixture: %v", err)
 	}
 	if _, err := pool.Exec(context.Background(), `
@@ -230,7 +226,7 @@ func TestRegistrationTokens_CASRetriesAreBoundedAndBackedOff(t *testing.T) {
 		t.Fatalf("stale registration-token projection: %v", err)
 	}
 
-	grant, err := service.Consume(context.Background(), "bounded-retry", minted.Token, RegistrationTokenPurposeAgent)
+	grant, err := service.Consume(context.Background(), minted.Token, RegistrationTokenPurposeAgent)
 	assertEmptyRegistrationTokenGrant(t, grant)
 	if err == nil || !strings.Contains(err.Error(), "consume exceeded CAS retry limit") {
 		t.Fatalf("CAS retry exhaustion error = %v; want consume retry-limit category", err)
@@ -283,7 +279,7 @@ func TestRegistrationTokens_RejectionsAreUniform(t *testing.T) {
 	if err != nil {
 		t.Fatalf("mint exhausted fixture: %v", err)
 	}
-	if _, err := service.Consume(context.Background(), "exhaust-primer", exhausted.Token, RegistrationTokenPurposeAgent); err != nil {
+	if _, err := service.Consume(context.Background(), exhausted.Token, RegistrationTokenPurposeAgent); err != nil {
 		t.Fatalf("consume exhaustion fixture: %v", err)
 	}
 
@@ -305,9 +301,9 @@ func TestRegistrationTokens_RejectionsAreUniform(t *testing.T) {
 		{name: "disabled and expired", token: disabled.Token},
 		{name: "exhausted and expired", token: exhausted.Token},
 	}
-	for index, test := range cases {
+	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			grant, err := service.Consume(context.Background(), fmt.Sprintf("reject-%d", index), test.token, RegistrationTokenPurposeAgent)
+			grant, err := service.Consume(context.Background(), test.token, RegistrationTokenPurposeAgent)
 			assertEmptyRegistrationTokenGrant(t, grant)
 			if !errors.Is(err, ErrInvalidRegistrationToken) || err.Error() != ErrInvalidRegistrationToken.Error() {
 				t.Fatalf("rejection = %v; want byte-identical invalid-token sentinel", err)
@@ -332,29 +328,30 @@ func TestRegistrationTokens_RejectionsAreUniform(t *testing.T) {
 	}
 }
 
-func TestRegistrationTokens_RateLimitsFiveAttemptsPerSlidingMinute(t *testing.T) {
+func TestRegistrationTokens_SuccessfulUsesAreNotRateLimited(t *testing.T) {
 	clock := newMutableClock(time.Date(2026, time.July, 22, 9, 0, 0, 0, time.UTC))
 	service, _ := newTestRegistrationTokens(t, deterministicRandom(1), clock, noWait)
 	minted, err := service.Mint(context.Background(), RegistrationTokenOptions{
-		Purpose: RegistrationTokenPurposeAgent, MaxUses: 10, ExpiresAt: clock.Now().Add(time.Hour),
+		Purpose: RegistrationTokenPurposeAgent, MaxUses: 6, ExpiresAt: clock.Now().Add(time.Hour),
 	})
 	if err != nil {
-		t.Fatalf("mint rate-limit fixture: %v", err)
+		t.Fatalf("mint successful-use fixture: %v", err)
 	}
-	for attempt := range 5 {
-		if _, err := service.Consume(context.Background(), "same-source", minted.Token, RegistrationTokenPurposeAgent); err != nil {
-			t.Fatalf("allowed attempt %d: %v", attempt+1, err)
+	for attempt := range 6 {
+		grant, err := service.Consume(context.Background(), minted.Token, RegistrationTokenPurposeAgent)
+		if err != nil {
+			t.Fatalf("successful use %d: %v", attempt+1, err)
+		}
+		if grant.TokenID != minted.TokenID {
+			t.Fatalf("successful use %d token ID = %q; want %q", attempt+1, grant.TokenID, minted.TokenID)
 		}
 	}
-	if _, err := service.Consume(context.Background(), "same-source", minted.Token, RegistrationTokenPurposeAgent); !errors.Is(err, ErrRegistrationRateLimited) {
-		t.Fatalf("sixth attempt error = %v; want rate-limit sentinel", err)
+	state, err := service.eventStore.RegistrationToken(context.Background(), minted.TokenID)
+	if err != nil {
+		t.Fatalf("read registration token after successful uses: %v", err)
 	}
-	if _, err := service.Consume(context.Background(), "different-source", minted.Token, RegistrationTokenPurposeAgent); err != nil {
-		t.Fatalf("independent source rejected: %v", err)
-	}
-	clock.Advance(time.Minute + time.Nanosecond)
-	if _, err := service.Consume(context.Background(), "same-source", minted.Token, RegistrationTokenPurposeAgent); err != nil {
-		t.Fatalf("source rejected after sliding window elapsed: %v", err)
+	if state.Uses != 6 {
+		t.Fatalf("registration token uses = %d; want all six successful uses", state.Uses)
 	}
 }
 
@@ -460,25 +457,6 @@ func TestRegistrationTokens_ConstantTimeHashGate(t *testing.T) {
 	})
 	if constantTimeCalls != 1 {
 		t.Fatalf("subtle.ConstantTimeCompare call sites = %d; want sole hash-authentication chokepoint", constantTimeCalls)
-	}
-}
-
-func TestRegistrationRateLimiter_BoundsTrackedSources(t *testing.T) {
-	limiter := newRegistrationRateLimiter()
-	now := time.Date(2026, time.July, 22, 9, 0, 0, 0, time.UTC)
-	for source := range maxTrackedRegistrationSources {
-		if !limiter.Allow(fmt.Sprintf("source-%d", source), now) {
-			t.Fatalf("source %d rejected below tracker bound", source)
-		}
-	}
-	if limiter.Allow("overflow-source", now) {
-		t.Fatal("source tracker accepted an unbounded new entry")
-	}
-	if len(limiter.attempts) != maxTrackedRegistrationSources {
-		t.Fatalf("tracked sources = %d; want bound %d", len(limiter.attempts), maxTrackedRegistrationSources)
-	}
-	if !limiter.Allow("overflow-source", now.Add(time.Minute+time.Nanosecond)) {
-		t.Fatal("expired sources were not pruned for a new admission")
 	}
 }
 
