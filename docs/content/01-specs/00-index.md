@@ -23,7 +23,7 @@ spec's own header, which is authoritative.
 | 004 | [sdk-core](004-sdk-core.md) | 000–002 | sdk | Implemented |
 | 005 | [event-store](005-event-store.md) | 000–003 | server | Implemented |
 | 006 | [pki-and-identity](006-pki-and-identity.md) | 003, 005 | contract, server, agent | In progress (M8 done) |
-| 007 | [authentication](007-authentication.md) | 003, 005 | server | In progress (M2 done) |
+| 007 | [authentication](007-authentication.md) | 003, 005 | server | In progress (M3 done) |
 | 008 | [authorization](008-authorization.md) | 005, 007 | server | Spec ready |
 | 009 | [crud-kernel-search-and-domains](009-crud-kernel-search-and-domains.md) | 005, 007, 008 | server | Spec ready |
 | 010 | [artifact-store](010-artifact-store.md) | 003, 005 | server | Spec ready |
@@ -118,6 +118,8 @@ SPEC-006 M8 — independent agent/gateway CA rotation, proof-only cross-sign con
 SPEC-007 M1 — setup-time ES256 key generation, purpose-pinned access and refresh JWTs, access-only expiry distinction, and descriptor-wide local-credential refusal (AC-1, SPEC-007), (AC-2, SPEC-007), (AC-3, SPEC-007), (GUARD-007-6, SPEC-007) — PR #47
 
 SPEC-007 M2 — total descriptor-driven RPC classification, fixed validate/authenticate/rate-limit/authorize interceptor ordering, fail-closed Control handler wiring, and no-cookie handler-surface guard (AC-16, SPEC-007), (GUARD-007-1, SPEC-007), (GUARD-007-5, SPEC-007) — PR #48
+
+SPEC-007 M3 — bounded per-node failed-authentication ladder with independent client-IP and account dimensions, correct-credential lockout refusal, trusted-proxy right-to-left XFF resolution, exact public-procedure policy coverage, and real PkiService handler integration (AC-15, SPEC-007), (GUARD-007-2, SPEC-007), (LIM-4, SPEC-009) — PR #49
 
 ## Rules
 

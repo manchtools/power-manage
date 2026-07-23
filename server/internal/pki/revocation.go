@@ -36,14 +36,35 @@ type LifecycleAuthorizer interface {
 func (s *EnrollmentService) RevokeAgent(
 	ctx context.Context,
 	request *connect.Request[powermanagev1.RevokeAgentRequest],
-) (*connect.Response[powermanagev1.RevokeAgentResponse], error) {
+) (response *connect.Response[powermanagev1.RevokeAgentResponse], resultErr error) {
 	if request == nil || request.Msg == nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errLifecycleRequestRejected)
 	}
+	if ctx == nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errLifecycleAuthRejected)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, mapLifecycleError(err)
+	}
+	clientIP, err := s.resolvePublicClientIP(
+		request.Peer().Addr,
+		request.Header().Values("X-Forwarded-For"),
+	)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, errLifecycleTemporarilyFailed)
+	}
+	defer func() {
+		resultErr = s.applyPublicAuthenticationLimit(
+			powermanagev1connect.PkiServiceRevokeAgentProcedure,
+			clientIP,
+			certificateAccountKey(store.CertificateClassAgent, request.Msg.GetCertificateDer()),
+			resultErr,
+			errLifecycleRateLimited,
+		)
+	}()
 	presented, deviceID, err := s.authorizeAgentCertificateLifecycle(
 		ctx,
 		request.Header().Values("Authorization"),
-		request.Peer().Addr,
 		request.Msg.GetCertificateDer(),
 		powermanagev1connect.PkiServiceRevokeAgentProcedure,
 	)
@@ -64,14 +85,35 @@ func (s *EnrollmentService) RevokeAgent(
 func (s *EnrollmentService) ForceRenewAgent(
 	ctx context.Context,
 	request *connect.Request[powermanagev1.ForceRenewAgentRequest],
-) (*connect.Response[powermanagev1.ForceRenewAgentResponse], error) {
+) (response *connect.Response[powermanagev1.ForceRenewAgentResponse], resultErr error) {
 	if request == nil || request.Msg == nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errLifecycleRequestRejected)
 	}
+	if ctx == nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errLifecycleAuthRejected)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, mapLifecycleError(err)
+	}
+	clientIP, err := s.resolvePublicClientIP(
+		request.Peer().Addr,
+		request.Header().Values("X-Forwarded-For"),
+	)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, errLifecycleTemporarilyFailed)
+	}
+	defer func() {
+		resultErr = s.applyPublicAuthenticationLimit(
+			powermanagev1connect.PkiServiceForceRenewAgentProcedure,
+			clientIP,
+			certificateAccountKey(store.CertificateClassAgent, request.Msg.GetCertificateDer()),
+			resultErr,
+			errLifecycleRateLimited,
+		)
+	}()
 	presented, deviceID, err := s.authorizeAgentCertificateLifecycle(
 		ctx,
 		request.Header().Values("Authorization"),
-		request.Peer().Addr,
 		request.Msg.GetCertificateDer(),
 		powermanagev1connect.PkiServiceForceRenewAgentProcedure,
 	)
@@ -90,7 +132,6 @@ func (s *EnrollmentService) ForceRenewAgent(
 func (s *EnrollmentService) authorizeAgentCertificateLifecycle(
 	ctx context.Context,
 	authorizationHeaders []string,
-	peerAddress string,
 	certificateDER []byte,
 	procedure string,
 ) (*x509.Certificate, string, error) {
@@ -103,13 +144,6 @@ func (s *EnrollmentService) authorizeAgentCertificateLifecycle(
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, "", mapLifecycleError(err)
-	}
-	source, err := enrollmentSource(peerAddress)
-	if err != nil {
-		return nil, "", connect.NewError(connect.CodeInternal, errLifecycleTemporarilyFailed)
-	}
-	if !s.lifecycleLimiter.Allow(source+"\x00"+procedure, s.now()) {
-		return nil, "", connect.NewError(connect.CodeResourceExhausted, errLifecycleRateLimited)
 	}
 	presented, deviceID, err := parseRenewalCertificate(certificateDER)
 	if err != nil {

@@ -12,11 +12,13 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/base64"
 	"errors"
 	"math/big"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"net/url"
 	"sync"
 	"testing"
@@ -253,6 +255,108 @@ func TestEnrollmentHandler_RateLimitsNetworkSource(t *testing.T) {
 	}
 }
 
+func TestEnrollmentHandler_FailureLadderDoesNotLockOutCorrectToken(t *testing.T) {
+	fixture := newEnrollmentHandlerFixture(t, 1)
+	tokenID, secret := decodeMintedToken(t, fixture.token)
+	secret[0] ^= 0xff
+	wrongToken := tokenID + "." + base64.RawURLEncoding.EncodeToString(secret)
+	request := &powermanagev1.EnrollAgentRequest{
+		RegistrationToken:            wrongToken,
+		CertificateSigningRequestDer: newEnrollmentCSR(t, newEnrollmentSigningKey(t), pkix.Name{}, nil),
+		SealingPublicKey:             newEnrollmentSealingKey(t),
+	}
+	wantRejection := connect.CodeUnauthenticated.String() + ": " + errEnrollmentAuthRejected.Error()
+	for attempt := 1; attempt <= 5; attempt++ {
+		_, err := fixture.client.EnrollAgent(
+			context.Background(),
+			connect.NewRequest(proto.Clone(request).(*powermanagev1.EnrollAgentRequest)),
+		)
+		if connect.CodeOf(err) != connect.CodeUnauthenticated || err.Error() != wantRejection {
+			t.Fatalf("wrong-secret attempt %d error = %v; want %q", attempt, err, wantRejection)
+		}
+	}
+
+	request.RegistrationToken = fixture.token
+	response, err := fixture.client.EnrollAgent(context.Background(), connect.NewRequest(request))
+	if err != nil {
+		t.Fatalf("correct token after five failures: %v", err)
+	}
+	if response == nil || len(response.Msg.GetCertificateDer()) == 0 {
+		t.Fatal("correct token after five failures returned no certificate")
+	}
+}
+
+func TestEnrollmentHandler_UsesTrustedProxyClientIP(t *testing.T) {
+	fixture := newEnrollmentHandlerFixtureWithTrustedProxies(t, 1, []netip.Prefix{
+		netip.MustParsePrefix("127.0.0.0/8"),
+		netip.MustParsePrefix("::1/128"),
+	})
+	request := &powermanagev1.EnrollAgentRequest{
+		CertificateSigningRequestDer: newEnrollmentCSR(t, newEnrollmentSigningKey(t), pkix.Name{}, nil),
+		SealingPublicKey:             newEnrollmentSealingKey(t),
+	}
+	wantRejection := connect.CodeUnauthenticated.String() + ": " + errEnrollmentAuthRejected.Error()
+	for attempt := 1; attempt <= 6; attempt++ {
+		minted, err := fixture.service.tokens.Mint(context.Background(), RegistrationTokenOptions{
+			Purpose:   RegistrationTokenPurposeAgent,
+			MaxUses:   1,
+			ExpiresAt: time.Now().Add(time.Hour),
+		})
+		if err != nil {
+			t.Fatalf("mint proxy attempt %d token: %v", attempt, err)
+		}
+		tokenID, secret := decodeMintedToken(t, minted.Token)
+		secret[0] ^= 0xff
+		request.RegistrationToken = tokenID + "." + base64.RawURLEncoding.EncodeToString(secret)
+		connectRequest := connect.NewRequest(proto.Clone(request).(*powermanagev1.EnrollAgentRequest))
+		connectRequest.Header().Set(
+			"X-Forwarded-For",
+			netip.AddrFrom4([4]byte{198, 51, 100, byte(attempt)}).String(),
+		)
+		_, err = fixture.client.EnrollAgent(context.Background(), connectRequest)
+		if connect.CodeOf(err) != connect.CodeUnauthenticated || err.Error() != wantRejection {
+			t.Fatalf("trusted-proxy attempt %d error = %v; want independent-client rejection %q", attempt, err, wantRejection)
+		}
+	}
+}
+
+func TestEnrollmentHandler_UsesAllForwardedForHeaderValues(t *testing.T) {
+	fixture := newEnrollmentHandlerFixtureWithTrustedProxies(t, 1, []netip.Prefix{
+		netip.MustParsePrefix("127.0.0.0/8"),
+		netip.MustParsePrefix("::1/128"),
+		netip.MustParsePrefix("10.0.0.0/8"),
+	})
+	request := &powermanagev1.EnrollAgentRequest{
+		CertificateSigningRequestDer: newEnrollmentCSR(t, newEnrollmentSigningKey(t), pkix.Name{}, nil),
+		SealingPublicKey:             newEnrollmentSealingKey(t),
+	}
+	wantRejection := connect.CodeUnauthenticated.String() + ": " + errEnrollmentAuthRejected.Error()
+	for attempt := 1; attempt <= 6; attempt++ {
+		minted, err := fixture.service.tokens.Mint(context.Background(), RegistrationTokenOptions{
+			Purpose:   RegistrationTokenPurposeAgent,
+			MaxUses:   1,
+			ExpiresAt: time.Now().Add(time.Hour),
+		})
+		if err != nil {
+			t.Fatalf("mint multi-value X-Forwarded-For attempt %d token: %v", attempt, err)
+		}
+		tokenID, secret := decodeMintedToken(t, minted.Token)
+		secret[0] ^= 0xff
+		request.RegistrationToken = tokenID + "." + base64.RawURLEncoding.EncodeToString(secret)
+		connectRequest := connect.NewRequest(proto.Clone(request).(*powermanagev1.EnrollAgentRequest))
+		connectRequest.Header().Add("X-Forwarded-For", "10.0.0.2")
+		connectRequest.Header().Add(
+			"X-Forwarded-For",
+			netip.AddrFrom4([4]byte{198, 51, 100, byte(attempt)}).String(),
+		)
+		_, err = fixture.client.EnrollAgent(context.Background(), connectRequest)
+		if connect.CodeOf(err) != connect.CodeUnauthenticated || err.Error() != wantRejection {
+			t.Fatalf("multi-value X-Forwarded-For attempt %d error = %v; want independent-client rejection %q",
+				attempt, err, wantRejection)
+		}
+	}
+}
+
 type enrollmentHandlerFixture struct {
 	client     powermanagev1connect.PkiServiceClient
 	service    *EnrollmentService
@@ -276,6 +380,20 @@ func newEnrollmentHandlerFixture(t *testing.T, maxUses int32) enrollmentHandlerF
 	})
 }
 
+func newEnrollmentHandlerFixtureWithTrustedProxies(
+	t *testing.T,
+	maxUses int32,
+	trustedProxies []netip.Prefix,
+) enrollmentHandlerFixture {
+	t.Helper()
+	return newEnrollmentHandlerFixtureForTokenWithTrustedProxies(t, RegistrationTokenOptions{
+		Purpose:   RegistrationTokenPurposeAgent,
+		MaxUses:   maxUses,
+		ExpiresAt: time.Now().Add(time.Hour),
+		Owner:     "owner@example.com",
+	}, trustedProxies)
+}
+
 func newGatewayEnrollmentHandlerFixture(t *testing.T, maxUses int32, dnsNames []string) enrollmentHandlerFixture {
 	t.Helper()
 	return newEnrollmentHandlerFixtureForToken(t, RegistrationTokenOptions{
@@ -288,6 +406,15 @@ func newGatewayEnrollmentHandlerFixture(t *testing.T, maxUses int32, dnsNames []
 }
 
 func newEnrollmentHandlerFixtureForToken(t *testing.T, options RegistrationTokenOptions) enrollmentHandlerFixture {
+	t.Helper()
+	return newEnrollmentHandlerFixtureForTokenWithTrustedProxies(t, options, nil)
+}
+
+func newEnrollmentHandlerFixtureForTokenWithTrustedProxies(
+	t *testing.T,
+	options RegistrationTokenOptions,
+	trustedProxies []netip.Prefix,
+) enrollmentHandlerFixture {
 	t.Helper()
 	pool := registrationPostgres.Database(t, store.Migrate)
 	eventStore, err := store.NewProduction(pool)
@@ -309,7 +436,18 @@ func newEnrollmentHandlerFixtureForToken(t *testing.T, options RegistrationToken
 		t.Fatalf("create authorities: %v", err)
 	}
 	authorizer := &testLifecycleAuthorizer{allow: true}
-	service, err := NewEnrollmentService(tokens, eventStore, authorities, authorizer)
+	var service *EnrollmentService
+	if trustedProxies == nil {
+		service, err = NewEnrollmentService(tokens, eventStore, authorities, authorizer)
+	} else {
+		service, err = NewEnrollmentServiceWithTrustedProxies(
+			tokens,
+			eventStore,
+			authorities,
+			authorizer,
+			trustedProxies,
+		)
+	}
 	if err != nil {
 		t.Fatalf("create enrollment service: %v", err)
 	}

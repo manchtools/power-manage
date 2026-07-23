@@ -781,6 +781,25 @@ func exercisePkiServiceTrustConfirmationHandlers(t *testing.T) {
 		gatewayLeaf := rotationConfirmationRequest(t, gateway, leafClaim(gatewayState, gateway))
 		gatewayConsumer := rotationConfirmationRequest(t, gateway, consumerClaim(agentState, gateway))
 
+		t.Run("missing failure ladder rejects before persistence", func(t *testing.T) {
+			before := rotationConfirmationEventCount(t, fixture.pool)
+			failureLadder := service.failureLadder
+			service.failureLadder = nil
+			response, err := client.ConfirmAgentTrustState(
+				context.Background(),
+				connect.NewRequest(agentLeaf),
+			)
+			service.failureLadder = failureLadder
+
+			wantError := connect.CodeInternal.String() + ": trust confirmation unavailable"
+			if response != nil || connect.CodeOf(err) != connect.CodeInternal || err.Error() != wantError {
+				t.Errorf("confirmation without failure ladder = (%v, %v); want no response and %q", response, err, wantError)
+			}
+			if after := rotationConfirmationEventCount(t, fixture.pool); after != before {
+				t.Fatalf("confirmation without failure ladder persisted %d events; want unchanged %d", after, before)
+			}
+		})
+
 		before := rotationConfirmationEventCount(t, fixture.pool)
 		_, swappedAgentErr := client.ConfirmGatewayTrustState(context.Background(), connect.NewRequest(agentLeaf))
 		_, swappedGatewayErr := client.ConfirmAgentTrustState(context.Background(), connect.NewRequest(gatewayLeaf))

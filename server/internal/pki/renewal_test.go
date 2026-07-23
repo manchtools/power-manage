@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"sync"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/proto"
@@ -292,7 +293,7 @@ func TestRenewalHandler_RateLimitsNetworkSource(t *testing.T) {
 		CertificateSigningRequestDer: newEnrollmentCSR(t, currentKey, pkix.Name{}, nil),
 		SealingPublicKey:             newEnrollmentSealingKey(t),
 	}
-	for attempt := 1; attempt <= 6; attempt++ {
+	for attempt := 1; attempt <= 7; attempt++ {
 		attemptRequest := proto.Clone(request).(*powermanagev1.RenewAgentRequest)
 		if attempt > 1 {
 			attemptRequest.SealingPublicKey = newEnrollmentSealingKey(t)
@@ -306,7 +307,7 @@ func TestRenewalHandler_RateLimitsNetworkSource(t *testing.T) {
 		}
 		want := connect.CodeUnauthenticated
 		wantReason := errRenewalAuthRejected
-		if attempt == 6 {
+		if attempt == 7 {
 			want = connect.CodeResourceExhausted
 			wantReason = errRenewalRateLimited
 		}
@@ -314,6 +315,46 @@ func TestRenewalHandler_RateLimitsNetworkSource(t *testing.T) {
 		if err == nil || connect.CodeOf(err) != want || err.Error() != wantError {
 			t.Fatalf("attempt %d error = %v; want %q", attempt, err, wantError)
 		}
+	}
+}
+
+func TestRenewalHandler_FailureLadderDoesNotLockOutCorrectCredential(t *testing.T) {
+	fixture := newEnrollmentHandlerFixture(t, 1)
+	currentKey, currentCertificate, _ := enrollRenewalFixture(t, fixture)
+	first, err := fixture.client.RenewAgent(context.Background(), connect.NewRequest(&powermanagev1.RenewAgentRequest{
+		CertificateDer:               currentCertificate,
+		CertificateSigningRequestDer: newEnrollmentCSR(t, currentKey, pkix.Name{}, nil),
+		SealingPublicKey:             newEnrollmentSealingKey(t),
+	}))
+	if err != nil {
+		t.Fatalf("first renewal: %v", err)
+	}
+	successor := bytes.Clone(first.Msg.GetCertificateDer())
+
+	afterOldLimiterWindow := time.Now().Add(2 * time.Minute)
+	fixture.service.now = func() time.Time { return afterOldLimiterWindow }
+	wantRejection := connect.CodeUnauthenticated.String() + ": " + errRenewalAuthRejected.Error()
+	for attempt := 1; attempt <= 5; attempt++ {
+		_, err := fixture.client.RenewAgent(context.Background(), connect.NewRequest(&powermanagev1.RenewAgentRequest{
+			CertificateDer:               currentCertificate,
+			CertificateSigningRequestDer: newEnrollmentCSR(t, currentKey, pkix.Name{}, nil),
+			SealingPublicKey:             newEnrollmentSealingKey(t),
+		}))
+		if connect.CodeOf(err) != connect.CodeUnauthenticated || err.Error() != wantRejection {
+			t.Fatalf("old-certificate replay %d error = %v; want %q", attempt, err, wantRejection)
+		}
+	}
+
+	response, err := fixture.client.RenewAgent(context.Background(), connect.NewRequest(&powermanagev1.RenewAgentRequest{
+		CertificateDer:               successor,
+		CertificateSigningRequestDer: newEnrollmentCSR(t, currentKey, pkix.Name{}, nil),
+		SealingPublicKey:             newEnrollmentSealingKey(t),
+	}))
+	if err != nil {
+		t.Fatalf("correct successor credential after five failures: %v", err)
+	}
+	if response == nil || len(response.Msg.GetCertificateDer()) == 0 {
+		t.Fatal("correct successor credential returned no certificate")
 	}
 }
 

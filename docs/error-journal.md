@@ -2165,3 +2165,78 @@ branch/PR sessions sequentially without another prompt.
 **Prevention**: Milestone isolation controls branch and PR scope, not whether
 execution pauses; continue until the requested spec is complete or genuinely
 blocked.
+
+## 2026-07-23 — Go race verification placed `-C` after another flag
+
+**What happened**: A combined focused verification command ran the normal
+package suite, then rejected the race invocation because `-race` appeared
+before Go's `-C` flag. The race suite did not run in that invocation.
+
+**What the user said**: Not user-initiated; the command failed visibly during
+the pre-publication gate.
+
+**Root cause**: The command was composed from memory instead of preserving the
+repository's canonical module-test flag order.
+
+**Harness fix**: `CLAUDE.md` now uses Go's canonical global-directory form:
+`go -C <module> test ./... -count=1 -race`.
+
+**Prevention**: Copy the canonical command shape for module-scoped race tests;
+keep global `-C` before the subcommand.
+
+## 2026-07-23 — Docref usage probe passed an unsupported help flag
+
+**What happened**: A usage probe invoked `docref --help`; docref 0.1.1 treated
+the argument as an unknown command instead of printing usage.
+
+**What the user said**: Not user-initiated; the command failed visibly during
+documentation-anchor maintenance.
+
+**Root cause**: The probe used a conventional CLI assumption instead of the
+repository's documented bare-command invocation.
+
+**Harness fix**: `CLAUDE.md` now states both parser outcomes: top-level
+`--help` is an unknown command, while a subcommand receives it as a positional
+path. Usage is printed only by bare `docref`.
+
+**Prevention**: Copy the repository's exact docref command shape rather than
+probing for conventional help flags.
+
+## 2026-07-23 — Local review initially omitted untracked source files
+
+**What happened**: The first local review covered tracked edits but omitted
+new untracked auth, control, PKI, and plan files. A second invocation with
+explicit untracked-file inclusion caught the incomplete scope.
+
+**What the user said**: Not user-initiated; the reviewed-file list exposed the
+coverage gap before commit.
+
+**Root cause**: A legacy review invocation was used without reconciling the
+reported file set against `git status`.
+
+**Harness fix**: `CLAUDE.md` now requires comparing the review tool's
+reviewed-file list with `git status`, in addition to including untracked files.
+
+**Prevention**: Treat review-file parity as a gate; an apparently successful
+review is incomplete until every changed and untracked file is represented.
+
+## 2026-07-23 — Repeated the removed docref `fix` command
+
+**What happened**: A compound review-fix check invoked `docref fix` after
+strict checking reported stale claims, repeating a previously recorded
+removed-command mistake. The failed invocation made no edits.
+
+**What the user said**: Not user-initiated; the installed docref 0.1.1 usage
+output again showed that `fix` does not exist.
+
+**Root cause**: The current short `CLAUDE.md` rule covered unsupported help
+flags but no longer carried the earlier explicit `fix` prohibition and the
+claim-versus-snippet command split.
+
+**Harness fix**: `CLAUDE.md` now explicitly bans `docref fix` and maps reviewed
+stale claims to `approve` and stale snippets to `refresh`, with required path
+arguments.
+
+**Prevention**: On strict docref drift, classify the report first: review and
+approve stale claims; refresh stale snippets; never guess a generic repair
+subcommand.

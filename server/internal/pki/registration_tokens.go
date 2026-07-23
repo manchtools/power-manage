@@ -11,10 +11,7 @@ import (
 	"io"
 	mathrand "math/rand/v2"
 	"slices"
-	"strings"
-	"sync"
 	"time"
-	"unicode/utf8"
 
 	"github.com/manchtools/power-manage/contract/identity"
 	"github.com/manchtools/power-manage/server/internal/store"
@@ -27,12 +24,10 @@ const (
 	registrationTokenEncodedSecretLen = 43
 	registrationTokenWireLen          = 26 + 1 + registrationTokenEncodedSecretLen
 	registrationAttemptsPerMinute     = 5
-	maxTrackedRegistrationSources     = 4096
 	maxRegistrationCASAttempts        = 1024
 	initialRegistrationCASBackoff     = time.Millisecond
 	maximumRegistrationCASBackoff     = 10 * time.Millisecond
 	minimumTokenRejectionDuration     = 25 * time.Millisecond
-	maxRegistrationSourceBytes        = 512
 	maxULIDTimestamp                  = 1<<48 - 1
 	dummyRegistrationTokenID          = "00000000000000000000000000"
 	ulidAlphabet                      = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
@@ -41,9 +36,7 @@ const (
 var (
 	// ErrInvalidRegistrationToken is the sole caller-visible token-state error.
 	ErrInvalidRegistrationToken = errors.New("registration token rejected")
-	// ErrRegistrationRateLimited identifies the separate public-admission limit.
-	ErrRegistrationRateLimited = errors.New("registration token rate limited")
-	dummyRegistrationTokenHash = sha256.Sum256([]byte("power-manage:registration-token:dummy:v1"))
+	dummyRegistrationTokenHash  = sha256.Sum256([]byte("power-manage:registration-token:dummy:v1"))
 )
 
 // RegistrationTokenPurpose is the enrollment class authorized by a token.
@@ -83,7 +76,6 @@ type RegistrationTokens struct {
 	random      io.Reader
 	now         func() time.Time
 	waitUntil   func(context.Context, time.Time) error
-	limiter     *registrationRateLimiter
 	casAttempts int
 }
 
@@ -115,7 +107,6 @@ func newRegistrationTokens(
 		random:      random,
 		now:         now,
 		waitUntil:   waitUntil,
-		limiter:     newRegistrationRateLimiter(),
 		casAttempts: maxRegistrationCASAttempts,
 	}, nil
 }
@@ -171,23 +162,16 @@ func (r *RegistrationTokens) Mint(
 // Consume authenticates and claims one use through an explicit fresh CAS.
 func (r *RegistrationTokens) Consume(
 	ctx context.Context,
-	source string,
 	rawToken string,
 	expectedPurpose RegistrationTokenPurpose,
 ) (RegistrationTokenGrant, error) {
 	if err := r.validateCall(ctx); err != nil {
 		return RegistrationTokenGrant{}, err
 	}
-	if err := validateRegistrationSource(source); err != nil {
-		return RegistrationTokenGrant{}, err
-	}
 	if expectedPurpose != RegistrationTokenPurposeAgent && expectedPurpose != RegistrationTokenPurposeGateway {
 		return RegistrationTokenGrant{}, errors.New("pki: invalid expected registration-token purpose")
 	}
 	startedAt := r.now()
-	if !r.limiter.Allow(source, startedAt) {
-		return RegistrationTokenGrant{}, ErrRegistrationRateLimited
-	}
 
 	tokenID, secret, wellFormed := parseRegistrationToken(rawToken)
 	candidateHash := sha256.Sum256(secret[:])
@@ -309,7 +293,7 @@ func (r *RegistrationTokens) Disable(ctx context.Context, tokenID string) error 
 }
 
 func (r *RegistrationTokens) validateCall(ctx context.Context) error {
-	if r == nil || r.eventStore == nil || r.random == nil || r.now == nil || r.waitUntil == nil || r.limiter == nil || r.casAttempts <= 0 {
+	if r == nil || r.eventStore == nil || r.random == nil || r.now == nil || r.waitUntil == nil || r.casAttempts <= 0 {
 		return errors.New("pki: registration-token service is not wired")
 	}
 	if ctx == nil {
@@ -425,13 +409,6 @@ func encodeULID(raw [16]byte) string {
 	return string(encoded)
 }
 
-func validateRegistrationSource(source string) error {
-	if source == "" || len(source) > maxRegistrationSourceBytes || !utf8.ValidString(source) || strings.ContainsRune(source, '\x00') {
-		return errors.New("pki: invalid registration-token source")
-	}
-	return nil
-}
-
 func waitUntilContext(ctx context.Context, deadline time.Time) error {
 	delay := time.Until(deadline)
 	if delay <= 0 {
@@ -445,54 +422,4 @@ func waitUntilContext(ctx context.Context, deadline time.Time) error {
 	case <-timer.C:
 		return nil
 	}
-}
-
-type registrationRateLimiter struct {
-	mu        sync.Mutex
-	attempts  map[string][]time.Time
-	nextSweep time.Time
-}
-
-func newRegistrationRateLimiter() *registrationRateLimiter {
-	return &registrationRateLimiter{attempts: make(map[string][]time.Time)}
-}
-
-func (l *registrationRateLimiter) Allow(source string, now time.Time) bool {
-	if l == nil {
-		return false
-	}
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	cutoff := now.Add(-time.Minute)
-	if l.nextSweep.IsZero() || !now.Before(l.nextSweep) {
-		for key, attempts := range l.attempts {
-			attempts = currentRegistrationAttempts(attempts, cutoff)
-			if len(attempts) == 0 {
-				delete(l.attempts, key)
-				continue
-			}
-			l.attempts[key] = attempts
-		}
-		l.nextSweep = now.Add(time.Minute)
-	}
-	attempts := currentRegistrationAttempts(l.attempts[source], cutoff)
-	if len(attempts) == 0 {
-		delete(l.attempts, source)
-	}
-	if len(attempts) >= registrationAttemptsPerMinute {
-		return false
-	}
-	if _, tracked := l.attempts[source]; !tracked && len(l.attempts) >= maxTrackedRegistrationSources {
-		return false
-	}
-	l.attempts[source] = append(attempts, now)
-	return true
-}
-
-func currentRegistrationAttempts(attempts []time.Time, cutoff time.Time) []time.Time {
-	firstCurrent := 0
-	for firstCurrent < len(attempts) && !attempts[firstCurrent].After(cutoff) {
-		firstCurrent++
-	}
-	return append(attempts[:0], attempts[firstCurrent:]...)
 }

@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/x509/pkix"
+	"net/netip"
 	"testing"
 	"time"
 
@@ -277,16 +278,16 @@ func TestRevocationHandlers_ConcurrentLifecycleOperationsSerialize(t *testing.T)
 func TestRevocationHandlers_RateLimitNetworkSource(t *testing.T) {
 	fixture := newEnrollmentHandlerFixture(t, 1)
 	_, certificateDER, _ := enrollRenewalFixture(t, fixture)
-	for attempt := 1; attempt <= 6; attempt++ {
+	for attempt := 1; attempt <= 7; attempt++ {
 		_, err := fixture.client.RevokeAgent(context.Background(), authorizedRevokeRequest(certificateDER))
 		switch attempt {
 		case 1:
 			if err != nil {
 				t.Fatalf("first revoke: %v", err)
 			}
-		case 6:
+		case 7:
 			if connect.CodeOf(err) != connect.CodeResourceExhausted || err.Error() != "resource_exhausted: certificate lifecycle rate limited" {
-				t.Fatalf("sixth revoke = %v; want exact rate limit", err)
+				t.Fatalf("sixth failed revoke = %v; want exact rate limit", err)
 			}
 		default:
 			if connect.CodeOf(err) != connect.CodeUnauthenticated || err.Error() != "unauthenticated: certificate lifecycle authorization rejected" {
@@ -294,6 +295,60 @@ func TestRevocationHandlers_RateLimitNetworkSource(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestRevocationHandler_SameIdentityCertificatesShareAccountFailureBucket(t *testing.T) {
+	fixture := newEnrollmentHandlerFixtureWithTrustedProxies(t, 1, []netip.Prefix{
+		netip.MustParsePrefix("127.0.0.0/8"),
+		netip.MustParsePrefix("::1/128"),
+	})
+	key, enrolledDER, deviceID := enrollRenewalFixture(t, fixture)
+	alternateDER := newPresentedRenewalCertificate(
+		t,
+		enrolledDER,
+		key,
+		identity.AgentClass,
+		deviceID,
+		91,
+	)
+	if bytes.Equal(enrolledDER, alternateDER) {
+		t.Fatal("same-identity certificate fixtures have identical DER")
+	}
+	for index, certificateDER := range [][]byte{enrolledDER, alternateDER} {
+		_, parsedID, err := parseRenewalCertificate(certificateDER)
+		if err != nil {
+			t.Fatalf("parse same-identity certificate %d: %v", index, err)
+		}
+		if parsedID != deviceID {
+			t.Fatalf("same-identity certificate %d device ID = %q; want %q", index, parsedID, deviceID)
+		}
+	}
+
+	fixture.authorizer.allow = false
+	for attempt := 1; attempt <= 6; attempt++ {
+		certificateDER := enrolledDER
+		if attempt%2 == 0 {
+			certificateDER = alternateDER
+		}
+		request := authorizedRevokeRequest(certificateDER)
+		request.Header().Set(
+			"X-Forwarded-For",
+			netip.AddrFrom4([4]byte{198, 51, 100, byte(attempt)}).String(),
+		)
+		_, err := fixture.client.RevokeAgent(context.Background(), request)
+		if attempt < 6 {
+			wantError := connect.CodeUnauthenticated.String() + ": " + errLifecycleAuthRejected.Error()
+			if connect.CodeOf(err) != connect.CodeUnauthenticated || err.Error() != wantError {
+				t.Fatalf("same-identity failure %d error = %v; want %q", attempt, err, wantError)
+			}
+			continue
+		}
+		wantError := connect.CodeResourceExhausted.String() + ": " + errLifecycleRateLimited.Error()
+		if connect.CodeOf(err) != connect.CodeResourceExhausted || err.Error() != wantError {
+			t.Fatalf("sixth same-identity failure error = %v; want %q", err, wantError)
+		}
+	}
+	assertLifecycleState(t, fixture, deviceID, store.DeviceLifecycleActive, 1)
 }
 
 func authorizedRevokeRequest(certificateDER []byte) *connect.Request[powermanagev1.RevokeAgentRequest] {
