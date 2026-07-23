@@ -17,8 +17,8 @@ ADRs, specs, or files — inline the rationale instead. CI enforces this
 
 ## How work happens
 
-One session = **one milestone of one spec** from `docs/content/01-specs/`
-(status ledger: `00-index.md`). Pipeline (details in the `spec-driven-dev`
+One milestone = **one branch/PR session**; a whole-spec request runs them sequentially
+without another prompt (`docs/content/01-specs/`; ledger `00-index.md`). Pipeline (details in the `spec-driven-dev`
 skill): read the spec + the context capsules of its Builds-on specs → write
 tests RED first → implement to green → `./scripts/verify.sh` → update the
 ledger → conventional commit. Code goes through a PR; docs/spec changes may
