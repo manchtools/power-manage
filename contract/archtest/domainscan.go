@@ -76,19 +76,29 @@ var rawSignaturePrimitives = map[string]map[string]bool{
 }
 
 // approvedRawSignatureSites is the exact owner registry for formats that the
-// shared command/result envelope helpers cannot represent. JWT ES256 requires
-// the JOSE 64-byte R||S encoding, rather than ASN.1 ECDSA signatures.
-var approvedRawSignatureSites = map[string]SignatureSite{
-	"ecdsa.Sign": {
+// shared command/result envelope helpers cannot represent. JWTs require JOSE
+// signature encodings and OIDC additionally accepts its configured RS256 keys.
+var approvedRawSignatureSites = map[SignatureSite]struct{}{
+	{
 		Operation: "ecdsa.Sign",
 		File:      "server/internal/auth/tokens.go",
 		Function:  "Signer.mint",
-	},
-	"ecdsa.Verify": {
+	}: {},
+	{
 		Operation: "ecdsa.Verify",
 		File:      "server/internal/auth/tokens.go",
 		Function:  "Verifier.verify",
-	},
+	}: {},
+	{
+		Operation: "ecdsa.Verify",
+		File:      "server/internal/auth/oidc.go",
+		Function:  "verifyOIDCSignature",
+	}: {},
+	{
+		Operation: "rsa.VerifyPKCS1v15",
+		File:      "server/internal/auth/oidc.go",
+		Function:  "verifyOIDCSignature",
+	}: {},
 }
 
 // signPackageDir locates the contract/sign package source directory. `go test`
@@ -377,10 +387,10 @@ func scanSignaturePackage(
 				operation := strings.TrimPrefix(importPath, "crypto/") + "." + selector.Sel.Name
 				function := enclosingFunction(selector, parents)
 				site := SignatureSite{Operation: operation, File: rel, Function: function}
-				expected, approved := approvedRawSignatureSites[operation]
 				parent := parents[selector]
 				call, direct := parent.(*ast.CallExpr)
-				if approved && direct && call.Fun == selector && site == expected {
+				_, approved := approvedRawSignatureSites[site]
+				if approved && direct && call.Fun == selector {
 					sites = append(sites, site)
 					return true
 				}

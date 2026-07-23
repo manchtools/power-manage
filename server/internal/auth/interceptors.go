@@ -26,7 +26,9 @@ const (
 
 var procedureClassifications = map[string]ProcedureClass{
 	powermanagev1connect.AgentServiceStreamProcedure:                   ProcedureAltAuth,
+	powermanagev1connect.ControlServiceCompleteOidcSessionProcedure:    ProcedurePublic,
 	powermanagev1connect.ControlServiceRefreshSessionProcedure:         ProcedurePublic,
+	powermanagev1connect.ControlServiceStartOidcSessionProcedure:       ProcedurePublic,
 	powermanagev1connect.InternalServiceStreamProcedure:                ProcedureAltAuth,
 	powermanagev1connect.InternalServiceValidateTerminalTokenProcedure: ProcedureAltAuth,
 	powermanagev1connect.PkiServiceEnrollAgentProcedure:                ProcedurePublic,

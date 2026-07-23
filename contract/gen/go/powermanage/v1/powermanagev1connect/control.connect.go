@@ -40,11 +40,19 @@ const (
 	// ControlServiceRefreshSessionProcedure is the fully-qualified name of the ControlService's
 	// RefreshSession RPC.
 	ControlServiceRefreshSessionProcedure = "/powermanage.v1.ControlService/RefreshSession"
+	// ControlServiceStartOidcSessionProcedure is the fully-qualified name of the ControlService's
+	// StartOidcSession RPC.
+	ControlServiceStartOidcSessionProcedure = "/powermanage.v1.ControlService/StartOidcSession"
+	// ControlServiceCompleteOidcSessionProcedure is the fully-qualified name of the ControlService's
+	// CompleteOidcSession RPC.
+	ControlServiceCompleteOidcSessionProcedure = "/powermanage.v1.ControlService/CompleteOidcSession"
 )
 
 // ControlServiceClient is a client for the powermanage.v1.ControlService service.
 type ControlServiceClient interface {
 	RefreshSession(context.Context, *connect.Request[v1.RefreshSessionRequest]) (*connect.Response[v1.RefreshSessionResponse], error)
+	StartOidcSession(context.Context, *connect.Request[v1.StartOidcSessionRequest]) (*connect.Response[v1.StartOidcSessionResponse], error)
+	CompleteOidcSession(context.Context, *connect.Request[v1.CompleteOidcSessionRequest]) (*connect.Response[v1.CompleteOidcSessionResponse], error)
 }
 
 // NewControlServiceClient constructs a client for the powermanage.v1.ControlService service. By
@@ -64,12 +72,26 @@ func NewControlServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(controlServiceMethods.ByName("RefreshSession")),
 			connect.WithClientOptions(opts...),
 		),
+		startOidcSession: connect.NewClient[v1.StartOidcSessionRequest, v1.StartOidcSessionResponse](
+			httpClient,
+			baseURL+ControlServiceStartOidcSessionProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("StartOidcSession")),
+			connect.WithClientOptions(opts...),
+		),
+		completeOidcSession: connect.NewClient[v1.CompleteOidcSessionRequest, v1.CompleteOidcSessionResponse](
+			httpClient,
+			baseURL+ControlServiceCompleteOidcSessionProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("CompleteOidcSession")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // controlServiceClient implements ControlServiceClient.
 type controlServiceClient struct {
-	refreshSession *connect.Client[v1.RefreshSessionRequest, v1.RefreshSessionResponse]
+	refreshSession      *connect.Client[v1.RefreshSessionRequest, v1.RefreshSessionResponse]
+	startOidcSession    *connect.Client[v1.StartOidcSessionRequest, v1.StartOidcSessionResponse]
+	completeOidcSession *connect.Client[v1.CompleteOidcSessionRequest, v1.CompleteOidcSessionResponse]
 }
 
 // RefreshSession calls powermanage.v1.ControlService.RefreshSession.
@@ -77,9 +99,21 @@ func (c *controlServiceClient) RefreshSession(ctx context.Context, req *connect.
 	return c.refreshSession.CallUnary(ctx, req)
 }
 
+// StartOidcSession calls powermanage.v1.ControlService.StartOidcSession.
+func (c *controlServiceClient) StartOidcSession(ctx context.Context, req *connect.Request[v1.StartOidcSessionRequest]) (*connect.Response[v1.StartOidcSessionResponse], error) {
+	return c.startOidcSession.CallUnary(ctx, req)
+}
+
+// CompleteOidcSession calls powermanage.v1.ControlService.CompleteOidcSession.
+func (c *controlServiceClient) CompleteOidcSession(ctx context.Context, req *connect.Request[v1.CompleteOidcSessionRequest]) (*connect.Response[v1.CompleteOidcSessionResponse], error) {
+	return c.completeOidcSession.CallUnary(ctx, req)
+}
+
 // ControlServiceHandler is an implementation of the powermanage.v1.ControlService service.
 type ControlServiceHandler interface {
 	RefreshSession(context.Context, *connect.Request[v1.RefreshSessionRequest]) (*connect.Response[v1.RefreshSessionResponse], error)
+	StartOidcSession(context.Context, *connect.Request[v1.StartOidcSessionRequest]) (*connect.Response[v1.StartOidcSessionResponse], error)
+	CompleteOidcSession(context.Context, *connect.Request[v1.CompleteOidcSessionRequest]) (*connect.Response[v1.CompleteOidcSessionResponse], error)
 }
 
 // NewControlServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -95,10 +129,26 @@ func NewControlServiceHandler(svc ControlServiceHandler, opts ...connect.Handler
 		connect.WithSchema(controlServiceMethods.ByName("RefreshSession")),
 		connect.WithHandlerOptions(opts...),
 	)
+	controlServiceStartOidcSessionHandler := connect.NewUnaryHandler(
+		ControlServiceStartOidcSessionProcedure,
+		svc.StartOidcSession,
+		connect.WithSchema(controlServiceMethods.ByName("StartOidcSession")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceCompleteOidcSessionHandler := connect.NewUnaryHandler(
+		ControlServiceCompleteOidcSessionProcedure,
+		svc.CompleteOidcSession,
+		connect.WithSchema(controlServiceMethods.ByName("CompleteOidcSession")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/powermanage.v1.ControlService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ControlServiceRefreshSessionProcedure:
 			controlServiceRefreshSessionHandler.ServeHTTP(w, r)
+		case ControlServiceStartOidcSessionProcedure:
+			controlServiceStartOidcSessionHandler.ServeHTTP(w, r)
+		case ControlServiceCompleteOidcSessionProcedure:
+			controlServiceCompleteOidcSessionHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -110,4 +160,12 @@ type UnimplementedControlServiceHandler struct{}
 
 func (UnimplementedControlServiceHandler) RefreshSession(context.Context, *connect.Request[v1.RefreshSessionRequest]) (*connect.Response[v1.RefreshSessionResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.RefreshSession is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) StartOidcSession(context.Context, *connect.Request[v1.StartOidcSessionRequest]) (*connect.Response[v1.StartOidcSessionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.StartOidcSession is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) CompleteOidcSession(context.Context, *connect.Request[v1.CompleteOidcSessionRequest]) (*connect.Response[v1.CompleteOidcSessionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.CompleteOidcSession is not implemented"))
 }

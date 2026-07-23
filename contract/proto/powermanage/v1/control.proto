@@ -11,6 +11,8 @@ option go_package = "github.com/manchtools/power-manage/contract/gen/go/powerman
 
 service ControlService {
   rpc RefreshSession(RefreshSessionRequest) returns (RefreshSessionResponse);
+  rpc StartOidcSession(StartOidcSessionRequest) returns (StartOidcSessionResponse);
+  rpc CompleteOidcSession(CompleteOidcSessionRequest) returns (CompleteOidcSessionResponse);
 }
 
 message RefreshSessionRequest {
@@ -21,6 +23,47 @@ message RefreshSessionRequest {
 }
 
 message RefreshSessionResponse {
+  string access_token = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 8192
+  }];
+  string refresh_token = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 8192
+  }];
+}
+
+message StartOidcSessionRequest {
+  string provider_slug = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 64
+    pattern: "^[a-z][a-z0-9-]*$"
+  }];
+  string redirect_uri = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 2048
+  }];
+}
+
+message StartOidcSessionResponse {
+  string authorization_url = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 8192
+  }];
+}
+
+message CompleteOidcSessionRequest {
+  string state = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 256
+  }];
+  string code = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 4096
+  }];
+}
+
+message CompleteOidcSessionResponse {
   string access_token = 1 [(buf.validate.field).string = {
     min_len: 1
     max_len: 8192

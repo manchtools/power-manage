@@ -23,7 +23,7 @@ spec's own header, which is authoritative.
 | 004 | [sdk-core](004-sdk-core.md) | 000–002 | sdk | Implemented |
 | 005 | [event-store](005-event-store.md) | 000–003 | server | Implemented |
 | 006 | [pki-and-identity](006-pki-and-identity.md) | 003, 005 | contract, server, agent | In progress (M8 done) |
-| 007 | [authentication](007-authentication.md) | 003, 005 | server | In progress (M5 done) |
+| 007 | [authentication](007-authentication.md) | 003, 005 | server | In progress (M6 done) |
 | 008 | [authorization](008-authorization.md) | 005, 007 | server | Spec ready |
 | 009 | [crud-kernel-search-and-domains](009-crud-kernel-search-and-domains.md) | 005, 007, 008 | server | Spec ready |
 | 010 | [artifact-store](010-artifact-store.md) | 003, 005 | server | Spec ready |
@@ -124,6 +124,8 @@ SPEC-007 M3 — bounded per-node failed-authentication ladder with independent c
 SPEC-007 M4 — rotating refresh-token families with SHA-256-only durable state, atomic CAS consumption and replay-driven family revocation, public session refresh handling, failure-only dual-dimension limiting, and generated anti-enumeration parity coverage (AC-4, SPEC-007), (AC-5, SPEC-007), (GUARD-007-3, SPEC-007) — PR #50
 
 SPEC-007 M5 — hash-only scoped personal access tokens with one-time secret return, expiry and idempotent revocation, stable per-token audit identity, rebuildable projections, and extended anti-enumeration parity coverage (AC-5, SPEC-007), (AC-6, SPEC-007), (GUARD-007-3, SPEC-007) — PR #51
+
+SPEC-007 M6 — OIDC authorization-code sign-in with PKCE, one-shot state and nonce binding, provider-key verification, durable user/identity projections, ordinary rotating refresh sessions, and exact public-RPC boundary guards (AC-7, SPEC-007), (AC-8, SPEC-007), (AC-9, SPEC-007), (GUARD-007-4, SPEC-007) — PR #52
 
 ## Rules
 

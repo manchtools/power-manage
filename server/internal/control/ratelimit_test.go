@@ -13,7 +13,7 @@ import (
 )
 
 func TestGuard_PublicProceduresHaveCompleteRateLimitPolicies(t *testing.T) {
-	publicProcedures := guardtest.Discover(t, "public RPC procedures", 10, func() ([]string, error) {
+	publicProcedures := guardtest.Discover(t, "public RPC procedures", 12, func() ([]string, error) {
 		var procedures []string
 		for procedure, class := range auth.ProcedureClassifications() {
 			if class == auth.ProcedurePublic {
@@ -35,10 +35,18 @@ func TestGuard_PublicProceduresHaveCompleteRateLimitPolicies(t *testing.T) {
 	pkiLimits := pki.PublicProcedureLimits()
 	for _, procedure := range publicProcedures {
 		policy := policies[procedure]
-		if procedure == powermanagev1connect.ControlServiceRefreshSessionProcedure {
+		switch procedure {
+		case powermanagev1connect.ControlServiceRefreshSessionProcedure:
 			want := refreshRateLimitPolicy()
 			if policy != want {
 				t.Fatalf("%s policy = %+v; want refresh policy %+v", procedure, policy, want)
+			}
+			continue
+		case powermanagev1connect.ControlServiceStartOidcSessionProcedure,
+			powermanagev1connect.ControlServiceCompleteOidcSessionProcedure:
+			want := oidcRateLimitPolicy()
+			if policy != want {
+				t.Fatalf("%s policy = %+v; want OIDC policy %+v", procedure, policy, want)
 			}
 			continue
 		}

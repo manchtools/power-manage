@@ -3,7 +3,7 @@ package projection
 import (
 	"context"
 
-	"example.com/server/internal/store/generated"
+	"github.com/manchtools/power-manage/server/internal/store/generated"
 )
 
 func outsideProjector(ctx context.Context, db generated.DBTX) error {
