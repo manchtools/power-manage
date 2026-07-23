@@ -5,6 +5,28 @@ syntax = "proto3";
 
 package powermanage.v1;
 
+import "buf/validate/validate.proto";
+
 option go_package = "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1;powermanagev1";
 
-service ControlService {}
+service ControlService {
+  rpc RefreshSession(RefreshSessionRequest) returns (RefreshSessionResponse);
+}
+
+message RefreshSessionRequest {
+  string refresh_token = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 8192
+  }];
+}
+
+message RefreshSessionResponse {
+  string access_token = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 8192
+  }];
+  string refresh_token = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 8192
+  }];
+}

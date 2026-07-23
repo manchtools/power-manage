@@ -10,8 +10,11 @@ package powermanagev1connect
 
 import (
 	connect "connectrpc.com/connect"
-	_ "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1"
+	context "context"
+	errors "errors"
+	v1 "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1"
 	http "net/http"
+	strings "strings"
 )
 
 // This is a compile-time assertion to ensure that this generated file and the connect package are
@@ -26,8 +29,22 @@ const (
 	ControlServiceName = "powermanage.v1.ControlService"
 )
 
+// These constants are the fully-qualified names of the RPCs defined in this package. They're
+// exposed at runtime as Spec.Procedure and as the final two segments of the HTTP route.
+//
+// Note that these are different from the fully-qualified method names used by
+// google.golang.org/protobuf/reflect/protoreflect. To convert from these constants to
+// reflection-formatted method names, remove the leading slash and convert the remaining slash to a
+// period.
+const (
+	// ControlServiceRefreshSessionProcedure is the fully-qualified name of the ControlService's
+	// RefreshSession RPC.
+	ControlServiceRefreshSessionProcedure = "/powermanage.v1.ControlService/RefreshSession"
+)
+
 // ControlServiceClient is a client for the powermanage.v1.ControlService service.
 type ControlServiceClient interface {
+	RefreshSession(context.Context, *connect.Request[v1.RefreshSessionRequest]) (*connect.Response[v1.RefreshSessionResponse], error)
 }
 
 // NewControlServiceClient constructs a client for the powermanage.v1.ControlService service. By
@@ -38,15 +55,31 @@ type ControlServiceClient interface {
 // The URL supplied here should be the base URL for the Connect or gRPC server (for example,
 // http://api.acme.com or https://acme.com/grpc).
 func NewControlServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) ControlServiceClient {
-	return &controlServiceClient{}
+	baseURL = strings.TrimRight(baseURL, "/")
+	controlServiceMethods := v1.File_powermanage_v1_control_proto.Services().ByName("ControlService").Methods()
+	return &controlServiceClient{
+		refreshSession: connect.NewClient[v1.RefreshSessionRequest, v1.RefreshSessionResponse](
+			httpClient,
+			baseURL+ControlServiceRefreshSessionProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("RefreshSession")),
+			connect.WithClientOptions(opts...),
+		),
+	}
 }
 
 // controlServiceClient implements ControlServiceClient.
 type controlServiceClient struct {
+	refreshSession *connect.Client[v1.RefreshSessionRequest, v1.RefreshSessionResponse]
+}
+
+// RefreshSession calls powermanage.v1.ControlService.RefreshSession.
+func (c *controlServiceClient) RefreshSession(ctx context.Context, req *connect.Request[v1.RefreshSessionRequest]) (*connect.Response[v1.RefreshSessionResponse], error) {
+	return c.refreshSession.CallUnary(ctx, req)
 }
 
 // ControlServiceHandler is an implementation of the powermanage.v1.ControlService service.
 type ControlServiceHandler interface {
+	RefreshSession(context.Context, *connect.Request[v1.RefreshSessionRequest]) (*connect.Response[v1.RefreshSessionResponse], error)
 }
 
 // NewControlServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -55,8 +88,17 @@ type ControlServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewControlServiceHandler(svc ControlServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	controlServiceMethods := v1.File_powermanage_v1_control_proto.Services().ByName("ControlService").Methods()
+	controlServiceRefreshSessionHandler := connect.NewUnaryHandler(
+		ControlServiceRefreshSessionProcedure,
+		svc.RefreshSession,
+		connect.WithSchema(controlServiceMethods.ByName("RefreshSession")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/powermanage.v1.ControlService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
+		case ControlServiceRefreshSessionProcedure:
+			controlServiceRefreshSessionHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -65,3 +107,7 @@ func NewControlServiceHandler(svc ControlServiceHandler, opts ...connect.Handler
 
 // UnimplementedControlServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedControlServiceHandler struct{}
+
+func (UnimplementedControlServiceHandler) RefreshSession(context.Context, *connect.Request[v1.RefreshSessionRequest]) (*connect.Response[v1.RefreshSessionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.RefreshSession is not implemented"))
+}

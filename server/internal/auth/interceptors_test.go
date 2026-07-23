@@ -17,7 +17,7 @@ import (
 )
 
 func TestGuard_RPCClassificationCoversEveryProcedure(t *testing.T) {
-	procedures := guardtest.Discover(t, "contract RPC procedures", 12, discoverContractProcedures)
+	procedures := guardtest.Discover(t, "contract RPC procedures", 13, discoverContractProcedures)
 	classifications := ProcedureClassifications()
 	registered := slices.Sorted(maps.Keys(classifications))
 	if !slices.Equal(registered, procedures) {

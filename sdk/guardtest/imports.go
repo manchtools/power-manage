@@ -34,7 +34,7 @@ var importAllowlist = map[string][]string{
 // rollback after M6 (12);
 // contract/server/agent gain their floors with SPEC-003/005/013.
 // A code-bearing module can never silently drop to zero packages.
-var modulePackageFloors = map[string]int{"contract": 0, "sdk": 12, "server": 0, "agent": 0}
+var modulePackageFloors = map[string]int{"contract": 0, "sdk": 13, "server": 0, "agent": 0}
 
 // modulePaths returns each module dir's declared module path from its
 // go.mod module line.

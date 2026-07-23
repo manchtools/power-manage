@@ -26,8 +26,17 @@ type TableClassification struct {
 // ProductionTableClassification returns the exact production table registry.
 func ProductionTableClassification() TableClassification {
 	return TableClassification{
-		Events:      []string{"events"},
-		Projections: []string{"ca_rotation_state", "certificate_revocations", "devices", "gateways", "inventory_snapshots", "registration_tokens"},
+		Events: []string{"events"},
+		Projections: []string{
+			"ca_rotation_state",
+			"certificate_revocations",
+			"devices",
+			"gateways",
+			"inventory_snapshots",
+			"refresh_families",
+			"refresh_tokens",
+			"registration_tokens",
+		},
 		Work:        []string{"work_items"},
 		Operational: []string{"crl_state", "crl_work_receipts", "execution_output_chunks", "execution_outputs"},
 		Migrations:  []string{"goose_db_version"},

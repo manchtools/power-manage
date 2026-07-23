@@ -6,7 +6,8 @@
 // @generated from file powermanage/v1/control.proto (package powermanage.v1, syntax proto3)
 /* eslint-disable */
 
-import type { GenFile, GenService } from "@bufbuild/protobuf/codegenv2";
+import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
+import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file powermanage/v1/control.proto.
@@ -14,8 +15,53 @@ import type { GenFile, GenService } from "@bufbuild/protobuf/codegenv2";
 export declare const file_powermanage_v1_control: GenFile;
 
 /**
+ * @generated from message powermanage.v1.RefreshSessionRequest
+ */
+export declare type RefreshSessionRequest = Message<"powermanage.v1.RefreshSessionRequest"> & {
+  /**
+   * @generated from field: string refresh_token = 1;
+   */
+  refreshToken: string;
+};
+
+/**
+ * Describes the message powermanage.v1.RefreshSessionRequest.
+ * Use `create(RefreshSessionRequestSchema)` to create a new message.
+ */
+export declare const RefreshSessionRequestSchema: GenMessage<RefreshSessionRequest>;
+
+/**
+ * @generated from message powermanage.v1.RefreshSessionResponse
+ */
+export declare type RefreshSessionResponse = Message<"powermanage.v1.RefreshSessionResponse"> & {
+  /**
+   * @generated from field: string access_token = 1;
+   */
+  accessToken: string;
+
+  /**
+   * @generated from field: string refresh_token = 2;
+   */
+  refreshToken: string;
+};
+
+/**
+ * Describes the message powermanage.v1.RefreshSessionResponse.
+ * Use `create(RefreshSessionResponseSchema)` to create a new message.
+ */
+export declare const RefreshSessionResponseSchema: GenMessage<RefreshSessionResponse>;
+
+/**
  * @generated from service powermanage.v1.ControlService
  */
 export declare const ControlService: GenService<{
+  /**
+   * @generated from rpc powermanage.v1.ControlService.RefreshSession
+   */
+  refreshSession: {
+    methodKind: "unary";
+    input: typeof RefreshSessionRequestSchema;
+    output: typeof RefreshSessionResponseSchema;
+  },
 }>;
 

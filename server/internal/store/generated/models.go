@@ -111,6 +111,22 @@ type InventorySnapshot struct {
 	UpdatedAt         time.Time
 }
 
+type RefreshFamily struct {
+	FamilyID          string
+	Subject           string
+	ProjectionVersion int64
+	ActiveTokenHash   []byte
+	Revoked           bool
+	UpdatedAt         time.Time
+}
+
+type RefreshToken struct {
+	TokenHash  []byte
+	FamilyID   string
+	ExpiresAt  time.Time
+	Superseded bool
+}
+
 type RegistrationToken struct {
 	TokenID           string
 	ProjectionVersion int64

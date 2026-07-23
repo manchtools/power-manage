@@ -11,9 +11,11 @@
 package powermanagev1
 
 import (
+	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
+	sync "sync"
 	unsafe "unsafe"
 )
 
@@ -24,17 +26,140 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type RefreshSessionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RefreshToken  string                 `protobuf:"bytes,1,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RefreshSessionRequest) Reset() {
+	*x = RefreshSessionRequest{}
+	mi := &file_powermanage_v1_control_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RefreshSessionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RefreshSessionRequest) ProtoMessage() {}
+
+func (x *RefreshSessionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_v1_control_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RefreshSessionRequest.ProtoReflect.Descriptor instead.
+func (*RefreshSessionRequest) Descriptor() ([]byte, []int) {
+	return file_powermanage_v1_control_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *RefreshSessionRequest) GetRefreshToken() string {
+	if x != nil {
+		return x.RefreshToken
+	}
+	return ""
+}
+
+type RefreshSessionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AccessToken   string                 `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
+	RefreshToken  string                 `protobuf:"bytes,2,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RefreshSessionResponse) Reset() {
+	*x = RefreshSessionResponse{}
+	mi := &file_powermanage_v1_control_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RefreshSessionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RefreshSessionResponse) ProtoMessage() {}
+
+func (x *RefreshSessionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_v1_control_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RefreshSessionResponse.ProtoReflect.Descriptor instead.
+func (*RefreshSessionResponse) Descriptor() ([]byte, []int) {
+	return file_powermanage_v1_control_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *RefreshSessionResponse) GetAccessToken() string {
+	if x != nil {
+		return x.AccessToken
+	}
+	return ""
+}
+
+func (x *RefreshSessionResponse) GetRefreshToken() string {
+	if x != nil {
+		return x.RefreshToken
+	}
+	return ""
+}
+
 var File_powermanage_v1_control_proto protoreflect.FileDescriptor
 
 const file_powermanage_v1_control_proto_rawDesc = "" +
 	"\n" +
-	"\x1cpowermanage/v1/control.proto\x12\x0epowermanage.v12\x10\n" +
-	"\x0eControlServiceBQZOgithub.com/manchtools/power-manage/contract/gen/go/powermanage/v1;powermanagev1b\x06proto3"
+	"\x1cpowermanage/v1/control.proto\x12\x0epowermanage.v1\x1a\x1bbuf/validate/validate.proto\"H\n" +
+	"\x15RefreshSessionRequest\x12/\n" +
+	"\rrefresh_token\x18\x01 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80@R\frefreshToken\"x\n" +
+	"\x16RefreshSessionResponse\x12-\n" +
+	"\faccess_token\x18\x01 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80@R\vaccessToken\x12/\n" +
+	"\rrefresh_token\x18\x02 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80@R\frefreshToken2q\n" +
+	"\x0eControlService\x12_\n" +
+	"\x0eRefreshSession\x12%.powermanage.v1.RefreshSessionRequest\x1a&.powermanage.v1.RefreshSessionResponseBQZOgithub.com/manchtools/power-manage/contract/gen/go/powermanage/v1;powermanagev1b\x06proto3"
 
-var file_powermanage_v1_control_proto_goTypes = []any{}
+var (
+	file_powermanage_v1_control_proto_rawDescOnce sync.Once
+	file_powermanage_v1_control_proto_rawDescData []byte
+)
+
+func file_powermanage_v1_control_proto_rawDescGZIP() []byte {
+	file_powermanage_v1_control_proto_rawDescOnce.Do(func() {
+		file_powermanage_v1_control_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_powermanage_v1_control_proto_rawDesc), len(file_powermanage_v1_control_proto_rawDesc)))
+	})
+	return file_powermanage_v1_control_proto_rawDescData
+}
+
+var file_powermanage_v1_control_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_powermanage_v1_control_proto_goTypes = []any{
+	(*RefreshSessionRequest)(nil),  // 0: powermanage.v1.RefreshSessionRequest
+	(*RefreshSessionResponse)(nil), // 1: powermanage.v1.RefreshSessionResponse
+}
 var file_powermanage_v1_control_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
+	0, // 0: powermanage.v1.ControlService.RefreshSession:input_type -> powermanage.v1.RefreshSessionRequest
+	1, // 1: powermanage.v1.ControlService.RefreshSession:output_type -> powermanage.v1.RefreshSessionResponse
+	1, // [1:2] is the sub-list for method output_type
+	0, // [0:1] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -51,12 +176,13 @@ func file_powermanage_v1_control_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_powermanage_v1_control_proto_rawDesc), len(file_powermanage_v1_control_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   0,
+			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_powermanage_v1_control_proto_goTypes,
 		DependencyIndexes: file_powermanage_v1_control_proto_depIdxs,
+		MessageInfos:      file_powermanage_v1_control_proto_msgTypes,
 	}.Build()
 	File_powermanage_v1_control_proto = out.File
 	file_powermanage_v1_control_proto_goTypes = nil
