@@ -113,6 +113,8 @@ SPEC-006 M6 — control-side exact-certificate revoke and force-renew operations
 
 SPEC-006 M7 — gateway-purpose enrollment, dual-EKU gateway identity renewal/revocation, class-separated CRL work, rebuildable gateway projections, and agent-held gateway trust anchor (AC-10, SPEC-006), (GUARD-006-1, SPEC-006), (GUARD-006-3, SPEC-006), (GUARD-006-4, SPEC-006) — PR #45
 
+SPEC-006 M8 — independent agent/gateway CA rotation, proof-only cross-sign continuity, exact signed adoption confirmations, issuer-scoped CRL overlap, PostgreSQL phase fences, restart reconstruction, and bounded DER-derived migration reporting (AC-13, SPEC-006), (PKI-6, SPEC-006), (PKI-7, SPEC-006) — PR #46
+
 ## Rules
 
 - Specs are operator-approved. A material deviation needs operator sign-off
