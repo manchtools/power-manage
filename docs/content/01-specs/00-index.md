@@ -121,6 +121,8 @@ SPEC-007 M2 — total descriptor-driven RPC classification, fixed validate/authe
 
 SPEC-007 M3 — bounded per-node failed-authentication ladder with independent client-IP and account dimensions, correct-credential lockout refusal, trusted-proxy right-to-left XFF resolution, exact public-procedure policy coverage, and real PkiService handler integration (AC-15, SPEC-007), (GUARD-007-2, SPEC-007), (LIM-4, SPEC-009) — PR #49
 
+SPEC-007 M4 — rotating refresh-token families with SHA-256-only durable state, atomic CAS consumption and replay-driven family revocation, public session refresh handling, failure-only dual-dimension limiting, and generated anti-enumeration parity coverage (AC-4, SPEC-007), (AC-5, SPEC-007), (GUARD-007-3, SPEC-007) — PR #50
+
 ## Rules
 
 - Specs are operator-approved. A material deviation needs operator sign-off

@@ -75,6 +75,7 @@ branch; after any merge-command error, check remote PR state before retrying.
 ## Commands
 
 - Verify gate (before every commit): `./scripts/verify.sh`
+- CodeRabbit local gate: literally run `coderabbit review --base main --include-untracked`; plain text is the default, `--plain` and `--type` are removed, and the reviewed-file list must match `git status`.
 - Build: recovery and agent-enrollment CLI binaries exist; networked control,
   gateway, and full agent-daemon commands land with SPEC-012/013. Verify the
   repository with the canonical gate.

@@ -6,13 +6,28 @@
 // @generated from file powermanage/v1/control.proto (package powermanage.v1, syntax proto3)
 /* eslint-disable */
 
-import { fileDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
+import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
+import { file_buf_validate_validate } from "../../buf/validate/validate_pb";
 
 /**
  * Describes the file powermanage/v1/control.proto.
  */
 export const file_powermanage_v1_control = /*@__PURE__*/
-  fileDesc("Chxwb3dlcm1hbmFnZS92MS9jb250cm9sLnByb3RvEg5wb3dlcm1hbmFnZS52MTIQCg5Db250cm9sU2VydmljZUJRWk9naXRodWIuY29tL21hbmNodG9vbHMvcG93ZXItbWFuYWdlL2NvbnRyYWN0L2dlbi9nby9wb3dlcm1hbmFnZS92MTtwb3dlcm1hbmFnZXYxYgZwcm90bzM");
+  fileDesc("Chxwb3dlcm1hbmFnZS92MS9jb250cm9sLnByb3RvEg5wb3dlcm1hbmFnZS52MSI6ChVSZWZyZXNoU2Vzc2lvblJlcXVlc3QSIQoNcmVmcmVzaF90b2tlbhgBIAEoCUIKukgHcgUQARiAQCJdChZSZWZyZXNoU2Vzc2lvblJlc3BvbnNlEiAKDGFjY2Vzc190b2tlbhgBIAEoCUIKukgHcgUQARiAQBIhCg1yZWZyZXNoX3Rva2VuGAIgASgJQgq6SAdyBRABGIBAMnEKDkNvbnRyb2xTZXJ2aWNlEl8KDlJlZnJlc2hTZXNzaW9uEiUucG93ZXJtYW5hZ2UudjEuUmVmcmVzaFNlc3Npb25SZXF1ZXN0GiYucG93ZXJtYW5hZ2UudjEuUmVmcmVzaFNlc3Npb25SZXNwb25zZUJRWk9naXRodWIuY29tL21hbmNodG9vbHMvcG93ZXItbWFuYWdlL2NvbnRyYWN0L2dlbi9nby9wb3dlcm1hbmFnZS92MTtwb3dlcm1hbmFnZXYxYgZwcm90bzM", [file_buf_validate_validate]);
+
+/**
+ * Describes the message powermanage.v1.RefreshSessionRequest.
+ * Use `create(RefreshSessionRequestSchema)` to create a new message.
+ */
+export const RefreshSessionRequestSchema = /*@__PURE__*/
+  messageDesc(file_powermanage_v1_control, 0);
+
+/**
+ * Describes the message powermanage.v1.RefreshSessionResponse.
+ * Use `create(RefreshSessionResponseSchema)` to create a new message.
+ */
+export const RefreshSessionResponseSchema = /*@__PURE__*/
+  messageDesc(file_powermanage_v1_control, 1);
 
 /**
  * @generated from service powermanage.v1.ControlService

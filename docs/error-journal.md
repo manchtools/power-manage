@@ -2240,3 +2240,22 @@ arguments.
 **Prevention**: On strict docref drift, classify the report first: review and
 approve stale claims; refresh stale snippets; never guess a generic repair
 subcommand.
+
+## 2026-07-23 — Repeated obsolete CodeRabbit flag after harness rule was lost
+
+**What happened**: The local review was invoked with the removed `--plain`
+flag. Argument parsing failed before any files were reviewed.
+
+**What the user said**: Not user-initiated; the installed CLI usage output
+showed that plain text is already the default.
+
+**Root cause**: The exact CodeRabbit invocation recorded by earlier corrections
+had been removed from the compact `CLAUDE.md`, and a stale command was
+reconstructed from memory instead of checked against the current harness.
+
+**Harness fix**: `CLAUDE.md` again carries the literal supported command,
+`coderabbit review --base main --include-untracked`, explicitly bans `--plain`
+and `--type`, and requires reviewed-file parity with `git status`.
+
+**Prevention**: Copy the repository command verbatim immediately before every
+local review; never infer mutable CLI syntax from memory or summaries.

@@ -90,6 +90,16 @@ func productionRebuildTargets() map[string]RebuildTarget {
 			},
 			Reset: resetRegistrationTokens,
 		},
+		RefreshFamilyRebuildTarget: {
+			Tables:      []string{"refresh_families", "refresh_tokens"},
+			StreamTypes: []string{refreshFamilyStreamType},
+			EventTypes: []string{
+				refreshFamilyStartedEventType,
+				refreshTokenRotatedEventType,
+				refreshFamilyRevokedEventType,
+			},
+			Reset: resetRefreshFamilies,
+		},
 		DeviceRebuildTarget: {
 			Tables:       []string{"devices"},
 			SharedTables: []string{"certificate_revocations"},
@@ -202,6 +212,9 @@ func productionEventDefinitions() map[string]eventDefinition {
 	for eventType, definition := range registrationTokenEventDefinitions() {
 		definitions[eventType] = definition
 	}
+	for eventType, definition := range refreshFamilyEventDefinitions() {
+		definitions[eventType] = definition
+	}
 	for eventType, definition := range deviceEventDefinitions() {
 		definitions[eventType] = definition
 	}
@@ -226,6 +239,9 @@ func goldenEventCorpus() map[string]goldenEvent {
 		},
 	}
 	for eventType, event := range registrationTokenGoldenCorpus() {
+		corpus[eventType] = event
+	}
+	for eventType, event := range refreshFamilyGoldenCorpus() {
 		corpus[eventType] = event
 	}
 	for eventType, event := range deviceGoldenCorpus() {

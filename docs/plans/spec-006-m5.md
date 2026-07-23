@@ -5,7 +5,7 @@ GUARD-006-1/GUARD-006-4).
 
 ## Files and symbols
 
-<!-- docref: begin src=contract/proto/powermanage/v1/pki.proto#PkiService.RenewAgent:133f0895,server/internal/pki/renewal.go#EnrollmentService.RenewAgent:549c15d6,server/internal/store/migrations/007_device_renewal_retry.sql#@device-renewal-retry-schema:af0b97c6,server/internal/store/migrations/008_validate_device_renewal_retry.sql#@device-renewal-retry-validation:55e278f4,server/internal/store/device_lifecycle.go#Store.WithDeviceLifecycleLock:15748429,server/internal/store/devices.go#Device.PreviousCertificateDER:e1e2d576,server/internal/store/devices.go#AgentCertificateRenewedEvent:18c28c2f,server/internal/store/devices.go#projectAgentCertificateRenewal:3bf2aefc,server/internal/store/inventory.go#productionRebuildTargets:55895954 -->
+<!-- docref: begin src=contract/proto/powermanage/v1/pki.proto#PkiService.RenewAgent:133f0895,server/internal/pki/renewal.go#EnrollmentService.RenewAgent:549c15d6,server/internal/store/migrations/007_device_renewal_retry.sql#@device-renewal-retry-schema:af0b97c6,server/internal/store/migrations/008_validate_device_renewal_retry.sql#@device-renewal-retry-validation:55e278f4,server/internal/store/device_lifecycle.go#Store.WithDeviceLifecycleLock:15748429,server/internal/store/devices.go#Device.PreviousCertificateDER:e1e2d576,server/internal/store/devices.go#AgentCertificateRenewedEvent:18c28c2f,server/internal/store/devices.go#projectAgentCertificateRenewal:3bf2aefc,server/internal/store/inventory.go#productionRebuildTargets:14957d66 -->
 - `contract/proto/powermanage/v1/pki.proto`: `PkiService.RenewAgent`,
   `RenewAgentRequest`, and `RenewAgentResponse`.
 - `contract/archtest/pki_test.go`: `TestPkiServiceShape`.

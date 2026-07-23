@@ -6,13 +6,14 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/manchtools/power-manage/contract/gen/go/powermanage/v1/powermanagev1connect"
 	"github.com/manchtools/power-manage/sdk/guardtest"
 	"github.com/manchtools/power-manage/server/internal/auth"
 	"github.com/manchtools/power-manage/server/internal/pki"
 )
 
 func TestGuard_PublicProceduresHaveCompleteRateLimitPolicies(t *testing.T) {
-	publicProcedures := guardtest.Discover(t, "public RPC procedures", 9, func() ([]string, error) {
+	publicProcedures := guardtest.Discover(t, "public RPC procedures", 10, func() ([]string, error) {
 		var procedures []string
 		for procedure, class := range auth.ProcedureClassifications() {
 			if class == auth.ProcedurePublic {
@@ -34,6 +35,13 @@ func TestGuard_PublicProceduresHaveCompleteRateLimitPolicies(t *testing.T) {
 	pkiLimits := pki.PublicProcedureLimits()
 	for _, procedure := range publicProcedures {
 		policy := policies[procedure]
+		if procedure == powermanagev1connect.ControlServiceRefreshSessionProcedure {
+			want := refreshRateLimitPolicy()
+			if policy != want {
+				t.Fatalf("%s policy = %+v; want refresh policy %+v", procedure, policy, want)
+			}
+			continue
+		}
 		want, exists := pkiLimits[procedure]
 		if !exists {
 			t.Fatalf("%s has no source PkiService public limit", procedure)
