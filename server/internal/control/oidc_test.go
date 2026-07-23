@@ -321,6 +321,33 @@ func TestOIDCService_CompleteTreatsProviderOutageAsUnavailable(t *testing.T) {
 	}
 }
 
+func TestOIDCService_CompleteTreatsJWKSOutageAsUnavailable(t *testing.T) {
+	for _, status := range []int{
+		http.StatusRequestTimeout,
+		http.StatusTooManyRequests,
+		http.StatusInternalServerError,
+		http.StatusServiceUnavailable,
+	} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			fixture := newOIDCTestFixture(t, false)
+			start := fixture.start(t, oidcTestRedirect, "jwks-outage", "jwks@example.test")
+			fixture.setJWKSStatus(status)
+			if _, err := fixture.service.Complete(
+				t.Context(),
+				start.state,
+				"authorization-code",
+			); !errors.Is(err, auth.ErrOIDCUnavailable) {
+				t.Fatalf(
+					"OIDC JWKS status %d error = %v; want %v",
+					status,
+					err,
+					auth.ErrOIDCUnavailable,
+				)
+			}
+		})
+	}
+}
+
 func TestOIDCHandler_UsesStaticErrorsAndFailureOnlyLimits(t *testing.T) {
 	fixture := newOIDCTestFixture(t, false)
 	trustedProxies := []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8")}
@@ -469,6 +496,7 @@ type oidcTestFixture struct {
 	lastPassword string
 	signingKey   *rsa.PrivateKey
 	tokenStatus  int
+	jwksStatus   int
 }
 
 type oidcStartFixture struct {
@@ -610,6 +638,12 @@ func (f *oidcTestFixture) setTokenStatus(status int) {
 	f.tokenStatus = status
 }
 
+func (f *oidcTestFixture) setJWKSStatus(status int) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.jwksStatus = status
+}
+
 func (f *oidcTestFixture) lastTokenRequest() (url.Values, string, string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -665,8 +699,14 @@ func (f *oidcTestFixture) serveToken(response http.ResponseWriter, request *http
 }
 
 func (f *oidcTestFixture) serveJWKS(response http.ResponseWriter) {
+	f.mu.Lock()
+	status := f.jwksStatus
+	f.mu.Unlock()
 	exponent := big.NewInt(int64(f.signingKey.PublicKey.E)).Bytes()
 	response.Header().Set("Content-Type", "application/json")
+	if status != 0 {
+		response.WriteHeader(status)
+	}
 	if err := writeOIDCTestJSON(response, map[string]any{
 		"keys": []map[string]string{{
 			"kty": "RSA",

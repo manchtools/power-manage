@@ -325,11 +325,22 @@ func (s *OIDCService) fetchJWKS(
 	var payload struct {
 		Keys []json.RawMessage `json:"keys"`
 	}
-	if err := decodeBoundedResponse(response, maxOIDCJWKSBodyBytes, &payload); err != nil {
+	decodeErr := decodeBoundedResponse(response, maxOIDCJWKSBodyBytes, &payload)
+	switch {
+	case response.StatusCode == http.StatusRequestTimeout,
+		response.StatusCode == http.StatusTooManyRequests,
+		response.StatusCode >= http.StatusInternalServerError:
+		return nil, fmt.Errorf(
+			"%w: JWKS endpoint status %d",
+			ErrOIDCUnavailable,
+			response.StatusCode,
+		)
+	case response.StatusCode != http.StatusOK:
+		return nil, ErrOIDCRejected
+	case decodeErr != nil:
 		return nil, fmt.Errorf("%w: decode JWKS", ErrOIDCUnavailable)
 	}
-	if response.StatusCode != http.StatusOK ||
-		len(payload.Keys) == 0 ||
+	if len(payload.Keys) == 0 ||
 		len(payload.Keys) > maxOIDCJWKSKeys {
 		return nil, ErrOIDCRejected
 	}
