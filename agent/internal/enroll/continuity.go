@@ -112,6 +112,9 @@ func validateTrustBundle(current, next StoredTrustBundle, now time.Time) error {
 		return nil
 	}
 	if next.Generation > current.Generation {
+		if len(current.RootCertificateDER) == 0 {
+			return errors.New("enroll: current CA bundle has no roots to transition from")
+		}
 		if len(next.RootCertificateDER) != 2 ||
 			!bytes.Equal(next.RootCertificateDER[0], current.RootCertificateDER[len(current.RootCertificateDER)-1]) {
 			return errors.New("enroll: new CA generation lacks a transition proof from the exact pending root")

@@ -97,8 +97,8 @@ branch; after any merge-command error, check remote PR state before retrying.
   binary.
 - **Tags `vYYYY.MM.PP` only on explicit operator instruction** — never tag
   unprompted.
-- Fail closed, validate-then-authorize, no secrets in logs/URLs/errors/argv
-  — full rules load from `.claude/rules/` when you touch code.
+- Fail closed; validate deserialized state before indexing; validate-then-authorize;
+  no secrets in logs/URLs/errors/argv — full rules load from `.claude/rules/`.
 
 ## Verification honesty
 
@@ -141,7 +141,7 @@ branch; after any merge-command error, check remote PR state before retrying.
   package seam; `t.TempDir()` is not root-owned under normal development.
 - Before adding an importable test-support package with dynamic database calls,
   inspect repository static-SQL guards; any necessary exemption must be keyed
-  to the exact file and method with a matches-zero-protected call count.
+  to the exact file and method with a matches-zero-protected call count; blocking fixtures use dedicated connections outside the application pool.
 - Review an uncommitted milestone with
   `coderabbit review --base main --include-untracked`; plain text is the
   default in the installed CLI, so do not pass the removed `--plain` or

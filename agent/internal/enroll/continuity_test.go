@@ -661,6 +661,25 @@ func TestContinuityValidation_RejectsZeroClock(t *testing.T) {
 	}
 }
 
+func TestContinuityValidation_RejectsCurrentGenerationWithoutRoots(t *testing.T) {
+	fixture := newContinuityEnrollmentFixture(t)
+	next := StoredTrustBundle{
+		Generation: 2,
+		Revision:   1,
+		RootCertificateDER: [][]byte{
+			fixture.gatewayCurrent.root.Raw,
+			fixture.gatewayNext.root.Raw,
+		},
+		TransitionCertificateDER: crossSignContinuityCA(t, fixture.gatewayCurrent, fixture.gatewayNext, nil),
+	}
+	current := StoredTrustBundle{Generation: 1, Revision: 1}
+
+	err := validateTrustBundle(current, next, fixture.handler.now)
+	if err == nil || !strings.Contains(err.Error(), "current CA bundle") {
+		t.Fatalf("validateTrustBundle corrupt current-state error = %v; want fail-closed root rejection", err)
+	}
+}
+
 func prepareLostAgentConfirmation(t *testing.T) (continuityClientFixture, []byte, []byte) {
 	t.Helper()
 	fixture := newContinuityClientFixture(t)

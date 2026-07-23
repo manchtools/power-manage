@@ -22,7 +22,7 @@ spec's own header, which is authoritative.
 | 003 | [wire-contract](003-wire-contract.md) | 000–002 | contract | Implemented |
 | 004 | [sdk-core](004-sdk-core.md) | 000–002 | sdk | Implemented |
 | 005 | [event-store](005-event-store.md) | 000–003 | server | Implemented |
-| 006 | [pki-and-identity](006-pki-and-identity.md) | 003, 005 | contract, server, agent | In progress (M7 done) |
+| 006 | [pki-and-identity](006-pki-and-identity.md) | 003, 005 | contract, server, agent | In progress (M8 done) |
 | 007 | [authentication](007-authentication.md) | 003, 005 | server | Spec ready |
 | 008 | [authorization](008-authorization.md) | 005, 007 | server | Spec ready |
 | 009 | [crud-kernel-search-and-domains](009-crud-kernel-search-and-domains.md) | 005, 007, 008 | server | Spec ready |

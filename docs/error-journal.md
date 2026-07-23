@@ -1706,3 +1706,46 @@ was committed and both fences were released.
 **Prevention**: Failure-injection tests must verify public error contracts and
 durable side effects separately; private dependency details are never an RPC
 acceptance criterion.
+
+## 2026-07-23 — Fence fixture exhausted the CI application pool
+
+**What happened**: A real-PostgreSQL fence test held its artificial blocking
+advisory lock on a connection borrowed from the application pool. The local
+machine exposed more connections through its CPU-derived default, but the
+four-connection CI pool deadlocked before the transition reached PostgreSQL.
+
+**What the user said**: Not user-initiated; the first PR verification timed
+out in the fresh-enrollment fence case after the same suite passed locally.
+
+**Root cause**: The fixture counted database actors but omitted its own
+blocking-control connection from the application pool budget, making the test
+environment-dependent.
+
+**Harness fix**: `CLAUDE.md` now requires blocking database fixtures to use a
+dedicated connection outside the application pool. The fence helper opens and
+boundedly closes that connection directly.
+
+**Prevention**: Concurrency fixtures cannot consume the resource whose
+availability they are trying to observe, so four-connection runners and larger
+local pools exercise the same lock ordering.
+
+## 2026-07-23 — RED command mixed repository and module paths
+
+**What happened**: The first regression-test command ran from the `agent`
+module while giving `gofmt` an `agent/`-prefixed repository-root path. It
+failed on path resolution before the new test executed.
+
+**What the user said**: Not user-initiated; the command contradicted the
+existing working-directory rule in `CLAUDE.md`.
+
+**Root cause**: Formatting and testing were combined without resolving both
+arguments against the chosen module working directory.
+
+**Harness fix**: The existing `CLAUDE.md` rule already requires one resolved
+working-directory frame for compound verification commands, so no duplicate
+rule was added. Formatting and focused testing now run as separate commands
+from their appropriate directories.
+
+**Prevention**: Before using a module workdir, strip the module prefix from
+every path argument, or run repository-relative file operations from the
+repository root.

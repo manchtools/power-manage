@@ -5,7 +5,7 @@ reload and per-device CA-migration report).
 
 ## Files and symbols
 
-<!-- docref: begin src=contract/proto/powermanage/v1/pki.proto#CATrustBundle:1ad03835,contract/proto/powermanage/v1/pki.proto#PkiService.ConfirmAgentTrustState:5043f175,contract/sign/trust_state.go#SignTrustState:c725578c,agent/internal/enroll/continuity.go#validateTrustBundle:fd0ca314,agent/internal/enroll/store.go#encodeCredentialBundle:f3f8b2af,server/internal/gateway/renewal.go#EnrollmentClient.Renew:c7197d46,server/internal/pki/rotation.go#RotationManager:81dd0d81,server/internal/pki/confirmation.go#EnrollmentService.ConfirmAgentTrustState:09a0bf7e,server/internal/pki/crl.go#CRLIssuer.HandleAgentCRLWork:a48834bb,server/internal/store/ca_rotation.go#Store.CARotationState:0c154ddb,server/internal/store/crl.go#Store.LatestCRL:f973c7bd,server/internal/control/crl.go#CRLDistributor.Subscribe:1dccd5f9 -->
+<!-- docref: begin src=contract/proto/powermanage/v1/pki.proto#CATrustBundle:1ad03835,contract/proto/powermanage/v1/pki.proto#PkiService.ConfirmAgentTrustState:5043f175,contract/sign/trust_state.go#SignTrustState:c725578c,agent/internal/enroll/continuity.go#validateTrustBundle:6b49a136,agent/internal/enroll/store.go#encodeCredentialBundle:f3f8b2af,server/internal/gateway/renewal.go#EnrollmentClient.Renew:c7197d46,server/internal/pki/rotation.go#RotationManager:81dd0d81,server/internal/pki/confirmation.go#EnrollmentService.ConfirmAgentTrustState:09a0bf7e,server/internal/pki/crl.go#CRLIssuer.HandleAgentCRLWork:a48834bb,server/internal/store/ca_rotation.go#Store.CARotationState:0c154ddb,server/internal/store/crl.go#Store.LatestCRL:f973c7bd,server/internal/store/migrations/013_issuer_scoped_crl_state.sql#@issuer-scoped-revocation-schema:9f7b4640,server/internal/control/crl.go#CRLDistributor.Subscribe:1dccd5f9 -->
 - `docs/content/01-specs/006-pki-and-identity.md`: exact four-phase rotation,
   issuer-scoped CRL, confirmation, fencing, restart, and migration-report
   requirements.
@@ -35,20 +35,13 @@ reload and per-device CA-migration report).
 - `server/internal/store/ca_rotation.go`, event definitions/projectors,
   inventory rebuild targets, and classification: durable rotation and
   confirmation state, shared and exclusive Postgres rotation fences, and
-  bounded DER-derived CA-migration reporting. The M8 schema is consolidated
-  in migration 013 so a partial issuer-key/state upgrade cannot exist.
+  bounded DER-derived CA-migration reporting.
 - `server/internal/control/crl.go`: retain and distribute each current
   issuer-scoped CRL.
 - `server/internal/pki/rotation_guard_test.go`: phase, transition, fence,
   confirmation-event, CRL-key, and limiter liveness guard.
 - `docs/content/01-specs/00-index.md`: completed M8 surface and later
   deployment-activation owner.
-<!-- docref: end -->
-
-<!-- docref: begin src=server/internal/store/migrations/013_issuer_scoped_crl_state.sql#@issuer-scoped-revocation-schema:9f7b4640 -->
-The consolidated revocation migration scopes leaf-serial uniqueness by the
-validated X.509 issuer identifier, scopes CRL state by exact root fingerprint,
-and permits one cumulative CRL sequence to acknowledge multiple source events.
 <!-- docref: end -->
 
 ## Test names
@@ -79,10 +72,8 @@ and permits one cumulative CRL sequence to acknowledge multiple source events.
 - `TestCRLDistributor_LegacySourceRejectsIssuerScopedLookup`
 <!-- docref: end -->
 
-<!-- docref: begin src=agent/internal/enroll/continuity_test.go#TestContinuityValidation_RejectsZeroClock:7f16e860,server/internal/store/migration_guard_test.go#TestCARotationMigration_BackfillsGlobalPositionDeterministically:f2357f23 -->
+<!-- docref: begin src=agent/internal/enroll/continuity_test.go#TestContinuityValidation_RejectsZeroClock:7f16e860,agent/internal/enroll/continuity_test.go#TestContinuityValidation_RejectsCurrentGenerationWithoutRoots:ced55601,server/internal/store/migration_guard_test.go#TestCARotationMigration_BackfillsGlobalPositionDeterministically:f2357f23 -->
 - `TestContinuityValidation_RejectsZeroClock`
+- `TestContinuityValidation_RejectsCurrentGenerationWithoutRoots`
 - `TestCARotationMigration_BackfillsGlobalPositionDeterministically`
 <!-- docref: end -->
-
-The trust-boundary test writer authors every listed test RED before
-implementation, including `TestGuard_PkiRotationPhasesFencesAndState`.

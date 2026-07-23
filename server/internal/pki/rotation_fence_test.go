@@ -5,10 +5,12 @@ import (
 	"crypto"
 	"crypto/x509/pkix"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	powermanagev1 "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1"
@@ -394,12 +396,17 @@ func installBlockingCommitTrigger(t *testing.T, pool *pgxpool.Pool, table string
 	if table != "events" && table != "crl_state" {
 		t.Fatalf("unsupported blocking-trigger table %q", table)
 	}
-	connection, err := pool.Acquire(context.Background())
+	setupCtx, cancelSetup := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelSetup()
+	// The fixture intentionally monopolizes this connection. Keep it outside
+	// the application pool so a four-connection CI pool can still expose the
+	// shared holder, exclusive waiter, transaction, and observer concurrently.
+	connection, err := pgx.Connect(setupCtx, pool.Config().ConnString())
 	if err != nil {
-		t.Fatalf("acquire blocking lock connection: %v", err)
+		t.Fatalf("connect blocking lock fixture: %v", err)
 	}
-	if _, err := connection.Exec(context.Background(), `SELECT pg_advisory_lock($1)`, key); err != nil {
-		connection.Release()
+	if _, err := connection.Exec(setupCtx, `SELECT pg_advisory_lock($1)`, key); err != nil {
+		_ = connection.Close(setupCtx)
 		t.Fatalf("acquire blocking advisory lock: %v", err)
 	}
 	statement := `
@@ -410,17 +417,26 @@ func installBlockingCommitTrigger(t *testing.T, pool *pgxpool.Pool, table string
 	if key != 6006001 {
 		t.Fatalf("blocking trigger key %d must use explicit audited fixture key", key)
 	}
-	if _, err := pool.Exec(context.Background(), statement); err != nil {
-		_, _ = connection.Exec(context.Background(), `SELECT pg_advisory_unlock($1)`, key)
-		connection.Release()
+	if _, err := pool.Exec(setupCtx, statement); err != nil {
+		_, _ = connection.Exec(setupCtx, `SELECT pg_advisory_unlock($1)`, key)
+		_ = connection.Close(setupCtx)
 		t.Fatalf("install blocking commit trigger: %v", err)
 	}
-	return func() {
-		if _, err := connection.Exec(context.Background(), `SELECT pg_advisory_unlock($1)`, key); err != nil {
-			t.Errorf("release blocking advisory lock: %v", err)
-		}
-		connection.Release()
+	var releaseOnce sync.Once
+	release := func() {
+		releaseOnce.Do(func() {
+			releaseCtx, cancelRelease := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancelRelease()
+			if _, err := connection.Exec(releaseCtx, `SELECT pg_advisory_unlock($1)`, key); err != nil {
+				t.Errorf("release blocking advisory lock: %v", err)
+			}
+			if err := connection.Close(releaseCtx); err != nil {
+				t.Errorf("close blocking lock fixture: %v", err)
+			}
+		})
 	}
+	t.Cleanup(release)
+	return release
 }
 
 func waitForPostgresAdvisoryWaiters(t *testing.T, pool *pgxpool.Pool, minimum int) {
