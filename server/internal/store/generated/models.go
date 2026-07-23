@@ -10,6 +10,16 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type BootstrapLogin struct {
+	LoginID           string
+	TokenHash         []byte
+	UserID            string
+	ExpiresAt         time.Time
+	Consumed          bool
+	ProjectionVersion int64
+	UpdatedAt         time.Time
+}
+
 type CaRotationState struct {
 	CertificateClass  string
 	ProjectionVersion int64

@@ -17,6 +17,7 @@ import (
 const (
 	userStreamType              = "user"
 	userCreatedEventType        = "UserCreated"
+	bootstrapAdminGrantedType   = "BootstrapAdminRoleGranted"
 	oidcIdentityLinkedEventType = "OIDCIdentityLinked"
 	userPayloadVersion          = 1
 	maxOIDCIssuerBytes          = 2048
@@ -36,6 +37,10 @@ type User struct {
 
 type userCreatedPayload struct {
 	Email string `json:"email"`
+}
+
+type bootstrapAdminRoleGrantedPayload struct {
+	Role string `json:"role"`
 }
 
 type oidcIdentityLinkedPayload struct {
@@ -60,6 +65,20 @@ func UserCreatedEvent(userID, email string) (Event, error) {
 		return Event{}, fmt.Errorf("store: encode user creation: %w", err)
 	}
 	return userEvent(userID, userCreatedEventType, payload), nil
+}
+
+// BootstrapAdminRoleGrantedEvent records the first-boot admin grant before a
+// break-glass URL can be minted.
+func BootstrapAdminRoleGrantedEvent(userID string) (Event, error) {
+	userID, err := canonicalUserID(userID)
+	if err != nil {
+		return Event{}, err
+	}
+	payload, err := json.Marshal(bootstrapAdminRoleGrantedPayload{Role: "admin"})
+	if err != nil {
+		return Event{}, fmt.Errorf("store: encode bootstrap admin role grant: %w", err)
+	}
+	return userEvent(userID, bootstrapAdminGrantedType, payload), nil
 }
 
 // OIDCIdentityLinkedEvent links one configured provider identity to a user.
@@ -252,6 +271,14 @@ func userEventDefinitions() map[string]eventDefinition {
 			},
 			Projector: projectUserCreation,
 		},
+		bootstrapAdminGrantedType: {
+			PayloadVersion: userPayloadVersion,
+			PayloadType:    bootstrapAdminRoleGrantedPayload{},
+			GoldenPayload: func() ([]byte, error) {
+				return json.Marshal(bootstrapAdminRoleGrantedPayload{Role: "admin"})
+			},
+			Projector: projectBootstrapAdminRoleGrant,
+		},
 		oidcIdentityLinkedEventType: {
 			PayloadVersion: userPayloadVersion,
 			PayloadType:    oidcIdentityLinkedPayload{},
@@ -274,6 +301,10 @@ func userGoldenCorpus() map[string]goldenEvent {
 			PayloadVersion: userPayloadVersion,
 			Payload:        []byte(`{"email":"person@example.test"}`),
 		},
+		bootstrapAdminGrantedType: {
+			PayloadVersion: userPayloadVersion,
+			Payload:        []byte(`{"role":"admin"}`),
+		},
 		oidcIdentityLinkedEventType: {
 			PayloadVersion: userPayloadVersion,
 			Payload: []byte(
@@ -281,6 +312,60 @@ func userGoldenCorpus() map[string]goldenEvent {
 			),
 		},
 	}
+}
+
+func projectBootstrapAdminRoleGrant(
+	ctx context.Context,
+	tx ProjectionTx,
+	event PersistedEvent,
+) error {
+	// This event belongs only to the atomic first-boot create batch. General
+	// grants on existing user streams are owned by SPEC-008.
+	if event.StreamVersion != 2 {
+		return fmt.Errorf(
+			"store: bootstrap admin role grant must be stream version 2, got %d",
+			event.StreamVersion,
+		)
+	}
+	userID, err := canonicalUserID(event.StreamID)
+	if err != nil || userID != event.StreamID {
+		return errors.New("store: bootstrap admin role-grant stream ID is not canonical")
+	}
+	payload, err := decodeEventPayload[bootstrapAdminRoleGrantedPayload](
+		event,
+		userPayloadVersion,
+	)
+	if err != nil {
+		return err
+	}
+	if payload.Role != "admin" {
+		return errors.New("store: bootstrap admin role grant is invalid")
+	}
+	queries := generated.New(tx)
+	user, err := queries.GetUserByID(ctx, event.StreamID)
+	if err != nil {
+		return fmt.Errorf("store: bootstrap admin role grant requires a prior user: %w", err)
+	}
+	if user.ProjectionVersion != event.StreamVersion-1 {
+		return errors.New("store: user projection version is inconsistent")
+	}
+	affected, err := queries.AdvanceUserProjectionVersionForBootstrapAdmin(
+		ctx,
+		generated.AdvanceUserProjectionVersionForBootstrapAdminParams{
+			ProjectionVersion:         event.StreamVersion,
+			UpdatedAt:                 event.CreatedAt,
+			UserID:                    event.StreamID,
+			Email:                     user.Email,
+			PreviousProjectionVersion: event.StreamVersion - 1,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("store: project bootstrap admin role grant: %w", err)
+	}
+	if affected != 1 {
+		return fmt.Errorf("store: bootstrap admin role grant advanced %d users; want one", affected)
+	}
+	return nil
 }
 
 func projectUserCreation(ctx context.Context, tx ProjectionTx, event PersistedEvent) error {
