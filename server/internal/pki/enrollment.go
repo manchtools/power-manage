@@ -15,7 +15,6 @@ import (
 	"math/big"
 	"net"
 	"net/http"
-	"reflect"
 	"slices"
 	"time"
 
@@ -27,6 +26,7 @@ import (
 	"github.com/manchtools/power-manage/contract/identity"
 	"github.com/manchtools/power-manage/contract/seal"
 	"github.com/manchtools/power-manage/contract/sign"
+	"github.com/manchtools/power-manage/sdk/nilcheck"
 	"github.com/manchtools/power-manage/server/internal/store"
 )
 
@@ -78,7 +78,7 @@ func NewEnrollmentService(
 		authorities.gatewayCA.certificate == nil || authorities.gatewayCA.signer == nil {
 		return nil, errors.New("pki: enrollment certificate authorities are not wired")
 	}
-	if interfaceNil(lifecycleAuthorizer) {
+	if nilcheck.Interface(lifecycleAuthorizer) {
 		return nil, errors.New("pki: lifecycle authorizer is not wired")
 	}
 	return &EnrollmentService{
@@ -107,7 +107,7 @@ func NewEnrollmentHTTPHandler(service *EnrollmentService) (string, http.Handler)
 
 func (s *EnrollmentService) validateWiring() error {
 	if s == nil || s.tokens == nil || s.eventStore == nil || s.authorities == nil || s.renewalLimiter == nil ||
-		interfaceNil(s.lifecycleAuthorizer) || s.lifecycleLimiter == nil || s.random == nil || s.now == nil {
+		nilcheck.Interface(s.lifecycleAuthorizer) || s.lifecycleLimiter == nil || s.random == nil || s.now == nil {
 		return errors.New("pki: enrollment service is not wired")
 	}
 	if s.tokens.eventStore != s.eventStore || s.authorities.agentCA.certificate == nil || s.authorities.agentCA.signer == nil ||
@@ -115,19 +115,6 @@ func (s *EnrollmentService) validateWiring() error {
 		return errors.New("pki: enrollment service dependencies are inconsistent")
 	}
 	return nil
-}
-
-func interfaceNil(value any) bool {
-	if value == nil {
-		return true
-	}
-	reflected := reflect.ValueOf(value)
-	switch reflected.Kind() {
-	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
-		return reflected.IsNil()
-	default:
-		return false
-	}
 }
 
 // EnrollAgent validates device-generated proof, authorizes the registration

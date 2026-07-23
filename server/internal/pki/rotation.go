@@ -16,6 +16,7 @@ import (
 	powermanagev1 "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1"
 	"github.com/manchtools/power-manage/contract/identity"
 	"github.com/manchtools/power-manage/contract/sign"
+	"github.com/manchtools/power-manage/sdk/nilcheck"
 	"github.com/manchtools/power-manage/server/internal/store"
 )
 
@@ -113,7 +114,7 @@ type ControlTrustStateConfirmation struct {
 // NewRotationManager reconstructs durable state and binds every stored root to
 // the configured signer before making it usable.
 func NewRotationManager(config RotationManagerConfig) (*RotationManager, error) {
-	if config.EventStore == nil || config.Authorities == nil || interfaceNil(config.Distributor) {
+	if config.EventStore == nil || config.Authorities == nil || nilcheck.Interface(config.Distributor) {
 		return nil, errors.New("pki: CA rotation dependencies are not wired")
 	}
 	manager := &RotationManager{
@@ -855,7 +856,7 @@ func (s *EnrollmentService) withIssuanceFences(
 }
 
 func (m *RotationManager) validateCall(ctx context.Context, class store.CertificateClass) error {
-	if m == nil || m.eventStore == nil || m.authorities == nil || interfaceNil(m.distributor) || m.now == nil {
+	if m == nil || m.eventStore == nil || m.authorities == nil || nilcheck.Interface(m.distributor) || m.now == nil {
 		return errors.New("pki: CA rotation manager is not wired")
 	}
 	if ctx == nil {

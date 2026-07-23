@@ -10,6 +10,7 @@ import (
 	"slices"
 	"sync"
 
+	"github.com/manchtools/power-manage/sdk/nilcheck"
 	"github.com/manchtools/power-manage/server/internal/store"
 )
 
@@ -50,7 +51,7 @@ type CRLDistributor struct {
 
 // NewCRLDistributor requires durable current-state wiring.
 func NewCRLDistributor(source any) (*CRLDistributor, error) {
-	if interfaceNil(source) {
+	if nilcheck.Interface(source) {
 		return nil, errors.New("control: CRL state source is not wired")
 	}
 	if _, legacy := source.(CRLStateSource); !legacy {
@@ -67,7 +68,7 @@ func NewCRLDistributor(source any) (*CRLDistributor, error) {
 
 // Subscribe returns a bounded update stream seeded from durable current state.
 func (d *CRLDistributor) Subscribe(ctx context.Context, class store.CertificateClass) (<-chan store.SignedCRL, error) {
-	if d == nil || interfaceNil(d.source) {
+	if d == nil || nilcheck.Interface(d.source) {
 		return nil, errors.New("control: CRL distributor is not wired")
 	}
 	if ctx == nil {
@@ -135,7 +136,7 @@ func (d *CRLDistributor) Subscribe(ctx context.Context, class store.CertificateC
 
 // Publish validates and fans out a strictly newer durable CRL.
 func (d *CRLDistributor) Publish(ctx context.Context, state store.SignedCRL) error {
-	if d == nil || interfaceNil(d.source) {
+	if d == nil || nilcheck.Interface(d.source) {
 		return errors.New("control: CRL distributor is not wired")
 	}
 	if ctx == nil {

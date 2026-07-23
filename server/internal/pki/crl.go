@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/manchtools/power-manage/contract/identity"
+	"github.com/manchtools/power-manage/sdk/nilcheck"
 	"github.com/manchtools/power-manage/server/internal/store"
 )
 
@@ -45,7 +46,7 @@ func NewCRLIssuer(eventStore *store.Store, authorities *Authorities, publisher C
 		authorities.gatewayCA.certificate == nil || authorities.gatewayCA.signer == nil {
 		return nil, errors.New("pki: CRL authorities are not wired")
 	}
-	if interfaceNil(publisher) {
+	if nilcheck.Interface(publisher) {
 		return nil, errors.New("pki: CRL publisher is not wired")
 	}
 	return &CRLIssuer{eventStore: eventStore, authorities: authorities, publisher: publisher, now: time.Now}, nil
@@ -326,7 +327,7 @@ func waitForCRLCASRetry(ctx context.Context, attempt int) error {
 }
 
 func (i *CRLIssuer) validateWiring() error {
-	if i == nil || i.eventStore == nil || i.authorities == nil || interfaceNil(i.publisher) || i.now == nil {
+	if i == nil || i.eventStore == nil || i.authorities == nil || nilcheck.Interface(i.publisher) || i.now == nil {
 		return errors.New("pki: CRL issuer is not wired")
 	}
 	return nil

@@ -23,20 +23,25 @@ func TestNewHTTPHandler_RejectsMissingDependencies(t *testing.T) {
 	}
 	var typedNilService *testControlService
 	tests := []struct {
-		name    string
-		service any
-		chain   *auth.InterceptorChain
-		wantErr error
+		name        string
+		service     powermanagev1connect.ControlServiceHandler
+		chain       *auth.InterceptorChain
+		wantErr     error
+		wantMessage string
 	}{
-		{name: "nil service", service: nil, chain: chain, wantErr: ErrServiceNotWired},
-		{name: "typed nil service", service: typedNilService, chain: chain, wantErr: ErrServiceNotWired},
-		{name: "nil chain", service: testControlService{}, chain: nil, wantErr: auth.ErrInterceptorChainNotWired},
-		{name: "zero chain", service: testControlService{}, chain: &auth.InterceptorChain{}, wantErr: auth.ErrInterceptorChainNotWired},
+		{name: "nil service", service: nil, chain: chain, wantErr: ErrServiceNotWired, wantMessage: "service is not wired: control"},
+		{name: "typed nil service", service: typedNilService, chain: chain, wantErr: ErrServiceNotWired, wantMessage: "service is not wired: control"},
+		{name: "nil chain", service: testControlService{}, chain: nil, wantErr: auth.ErrInterceptorChainNotWired, wantMessage: "interceptor chain is not wired: auth: control interceptor chain"},
+		{name: "zero chain", service: testControlService{}, chain: &auth.InterceptorChain{}, wantErr: auth.ErrInterceptorChainNotWired, wantMessage: "interceptor chain is not wired: auth: control interceptor chain"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if _, _, err := NewHTTPHandler(test.service, test.chain); !errors.Is(err, test.wantErr) {
+			_, _, err := NewHTTPHandler(test.service, test.chain)
+			if !errors.Is(err, test.wantErr) {
 				t.Fatalf("NewHTTPHandler error = %v; want category %v", err, test.wantErr)
+			}
+			if err.Error() != test.wantMessage {
+				t.Fatalf("NewHTTPHandler error = %q; want %q", err, test.wantMessage)
 			}
 		})
 	}

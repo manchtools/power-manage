@@ -5,10 +5,10 @@ import (
 	"context"
 	"crypto/x509"
 	"fmt"
-	"reflect"
 
 	powermanagev1 "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1"
 	"github.com/manchtools/power-manage/contract/sign"
+	"github.com/manchtools/power-manage/sdk/nilcheck"
 )
 
 // DeviceSignatureVerifier verifies a result against stored certificate DER.
@@ -36,27 +36,14 @@ type Runtime struct {
 
 // NewRuntime refuses to construct control when any mandatory gate is absent.
 func NewRuntime(verifier DeviceSignatureVerifier, resolver BindingResolver, crlSigner CRLSigner) (*Runtime, error) {
-	if interfaceNil(verifier) {
+	if nilcheck.Interface(verifier) {
 		return nil, fmt.Errorf("device signature verifier is not wired")
 	}
-	if interfaceNil(resolver) {
+	if nilcheck.Interface(resolver) {
 		return nil, fmt.Errorf("device/gateway binding resolver is not wired")
 	}
-	if interfaceNil(crlSigner) {
+	if nilcheck.Interface(crlSigner) {
 		return nil, fmt.Errorf("CRL signer is not wired")
 	}
 	return &Runtime{verifier: verifier, resolver: resolver, crlSigner: crlSigner}, nil
-}
-
-func interfaceNil(value any) bool {
-	if value == nil {
-		return true
-	}
-	v := reflect.ValueOf(value)
-	switch v.Kind() {
-	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
-		return v.IsNil()
-	default:
-		return false
-	}
 }

@@ -5,11 +5,11 @@ import (
 	"errors"
 	"maps"
 	"net/http"
-	"reflect"
 
 	"connectrpc.com/connect"
 
 	"github.com/manchtools/power-manage/contract/gen/go/powermanage/v1/powermanagev1connect"
+	"github.com/manchtools/power-manage/sdk/nilcheck"
 )
 
 // ErrInterceptorChainNotWired classifies constructor and handler wiring failures.
@@ -78,7 +78,7 @@ func (c *InterceptorChain) ValidateWiring() error {
 		return ErrInterceptorChainNotWired
 	}
 	for _, stage := range c.stages {
-		if interfaceValueNil(stage) {
+		if nilcheck.Interface(stage) {
 			return ErrInterceptorChainNotWired
 		}
 	}
@@ -170,17 +170,4 @@ func (c *InterceptorChain) WrapStreamingHandler(next connect.StreamingHandlerFun
 
 func boundaryNotWiredError() error {
 	return connect.NewError(connect.CodeInternal, errors.New("authentication boundary is not wired"))
-}
-
-func interfaceValueNil(value any) bool {
-	if value == nil {
-		return true
-	}
-	reflected := reflect.ValueOf(value)
-	switch reflected.Kind() {
-	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
-		return reflected.IsNil()
-	default:
-		return false
-	}
 }
