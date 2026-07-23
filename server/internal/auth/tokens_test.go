@@ -124,8 +124,8 @@ func TestTokenService_RejectsInvalidConstructionAndClaims(t *testing.T) {
 		"mismatched public key": mismatched,
 	} {
 		t.Run("signer/"+name, func(t *testing.T) {
-			if _, err := NewSigner(key, now); err == nil {
-				t.Fatal("NewSigner accepted an invalid key")
+			if _, err := NewSigner(key, now); !errors.Is(err, ErrInvalidKey) {
+				t.Fatalf("NewSigner error = %v, want ErrInvalidKey", err)
 			}
 		})
 	}
@@ -134,16 +134,16 @@ func TestTokenService_RejectsInvalidConstructionAndClaims(t *testing.T) {
 		"off curve": {Curve: elliptic.P256()},
 	} {
 		t.Run("verifier/"+name, func(t *testing.T) {
-			if _, err := NewVerifier(key, now); err == nil {
-				t.Fatal("NewVerifier accepted an invalid key")
+			if _, err := NewVerifier(key, now); !errors.Is(err, ErrInvalidKey) {
+				t.Fatalf("NewVerifier error = %v, want ErrInvalidKey", err)
 			}
 		})
 	}
-	if _, err := NewSigner(valid, nil); err == nil {
-		t.Fatal("NewSigner accepted a nil clock")
+	if _, err := NewSigner(valid, nil); !errors.Is(err, ErrClockNotWired) {
+		t.Fatalf("NewSigner nil-clock error = %v, want ErrClockNotWired", err)
 	}
-	if _, err := NewVerifier(&valid.PublicKey, nil); err == nil {
-		t.Fatal("NewVerifier accepted a nil clock")
+	if _, err := NewVerifier(&valid.PublicKey, nil); !errors.Is(err, ErrClockNotWired) {
+		t.Fatalf("NewVerifier nil-clock error = %v, want ErrClockNotWired", err)
 	}
 
 	clock := &testClock{now: testNow}

@@ -33,6 +33,10 @@ var (
 	ErrExpired = errors.New("access token expired")
 	// ErrInvalid is the static rejection for every other token failure.
 	ErrInvalid = errors.New("authentication token rejected")
+	// ErrInvalidKey identifies a malformed or non-ES256 constructor key.
+	ErrInvalidKey = errors.New("auth: invalid ES256 key")
+	// ErrClockNotWired identifies a missing constructor clock dependency.
+	ErrClockNotWired = errors.New("auth: token clock is not wired")
 )
 
 // Claims are the authenticated values returned from a verified token.
@@ -76,14 +80,14 @@ func GenerateSigningKey() (*ecdsa.PrivateKey, error) {
 // NewSigner validates and copies the setup-time ES256 private key.
 func NewSigner(key *ecdsa.PrivateKey, now func() time.Time) (*Signer, error) {
 	if !validPrivateKey(key) {
-		return nil, errors.New("auth: invalid ES256 signing key")
+		return nil, ErrInvalidKey
 	}
 	if now == nil {
-		return nil, errors.New("auth: token clock is not wired")
+		return nil, ErrClockNotWired
 	}
 	keyCopy, err := copyPrivateKey(key)
 	if err != nil {
-		return nil, fmt.Errorf("auth: copy ES256 signing key: %w", err)
+		return nil, ErrInvalidKey
 	}
 	return &Signer{key: keyCopy, now: now}, nil
 }
@@ -91,14 +95,14 @@ func NewSigner(key *ecdsa.PrivateKey, now func() time.Time) (*Signer, error) {
 // NewVerifier validates and copies the non-secret ES256 verification key.
 func NewVerifier(key *ecdsa.PublicKey, now func() time.Time) (*Verifier, error) {
 	if !validPublicKey(key) {
-		return nil, errors.New("auth: invalid ES256 verification key")
+		return nil, ErrInvalidKey
 	}
 	if now == nil {
-		return nil, errors.New("auth: token clock is not wired")
+		return nil, ErrClockNotWired
 	}
 	keyCopy, err := copyPublicKey(key)
 	if err != nil {
-		return nil, fmt.Errorf("auth: copy ES256 verification key: %w", err)
+		return nil, ErrInvalidKey
 	}
 	return &Verifier{key: keyCopy, now: now}, nil
 }
