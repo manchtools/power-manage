@@ -109,21 +109,3 @@ func oneofMemberTypes(oneof protoreflect.OneofDescriptor) map[string]string {
 
 // oneofRequired lives in descwalk.go: untaggedFields needs it to credit
 // members of validate-required oneofs structurally (G-1).
-
-// allMessages returns every message declared in files, top-level and nested.
-func allMessages(files []protoreflect.FileDescriptor) []protoreflect.MessageDescriptor {
-	var out []protoreflect.MessageDescriptor
-	var walk func(mds protoreflect.MessageDescriptors)
-	walk = func(mds protoreflect.MessageDescriptors) {
-		for i := 0; i < mds.Len(); i++ {
-			md := mds.Get(i)
-			out = append(out, md)
-			walk(md.Messages())
-		}
-	}
-	for _, fd := range files {
-		walk(fd.Messages())
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].FullName() < out[j].FullName() })
-	return out
-}

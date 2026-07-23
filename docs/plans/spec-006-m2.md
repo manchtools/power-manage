@@ -35,7 +35,7 @@ GUARD-006-2/6.
     signing;
   - reject nil and typed-nil dependencies before a runtime can be returned.
 <!-- docref: end -->
-<!-- docref: begin src=contract/archtest/domainscan.go#ScanSignatureSites:35881f7a,contract/archtest/guards_test.go#TestGuard_SignatureDomains:55c8f3a2,contract/archtest/guards_test.go#TestSignatureSiteScan_Liveness:3cfce2fa -->
+<!-- docref: begin src=contract/archtest/domainscan.go#ScanSignatureSites:35881f7a,contract/archtest/guards_test.go#TestGuard_SignatureDomains:f8bc1b90,contract/archtest/guards_test.go#TestSignatureSiteScan_Liveness:3cfce2fa -->
 - `contract/archtest/domainscan.go`, `contract/archtest/guards_test.go`, and a
   focused matcher fixture
   - extend the self-discovered signature-domain guard to inventory production
@@ -46,7 +46,8 @@ GUARD-006-2/6.
     control verifies results;
   - reject indirect references, dot imports, direct preimage/domain-helper use,
     and lower-level ECDSA/Ed25519/RSA/`crypto.Signer`/`crypto.MessageSigner`
-    primitives so a second hidden sign or verify path cannot evade the count;
+    primitives outside an explicit exact-site owner, so a second hidden sign
+    or verify path cannot evade the count;
     type-check complete packages to distinguish imports from local shadows and
     unrelated methods split across sibling files, and prove the matcher with
     liveness fixtures;
@@ -60,7 +61,7 @@ milestones.
 
 ## Acceptance tests
 
-<!-- docref: begin src=server/internal/pki/authorities_test.go#TestNewAuthorities_AcceptsThreeDistinctApprovedAuthorities:4a701c7e,server/internal/pki/authorities_test.go#TestNewAuthorities_RejectsInvalidCA:6d6ae3b5,server/internal/pki/authorities_test.go#TestNewAuthorities_RejectsMismatchedOrReusedKeys:aacbb8a0,server/internal/pki/authorities_test.go#TestNewAuthorities_RejectsUnsupportedSigningProfiles:a3b141e7,server/internal/pki/authorities_test.go#TestAuthorities_SignCommandUsesCommandAuthority:922929a4,server/internal/pki/authorities_test.go#TestAuthorities_SignRevocationListsWithClassCA:1f5a4a40,server/internal/pki/authorities_test.go#TestDERResultVerifier_ParsesStoredCertificateEveryCall:35730aca,server/internal/pki/authorities_test.go#TestDERResultVerifier_FailsClosed:a41a662d,agent/internal/signing/signing_test.go#TestNewProfile_RejectsUnsupportedSigningProfiles:35f42a22,agent/internal/signing/signing_test.go#TestProfile_VerifiesCommandsAndSignsResults:3227e9fe,agent/internal/signing/signing_test.go#TestProfile_FailsClosedOnInvalidSignatures:644130cd,server/internal/control/runtime_test.go#TestNewRuntime_RequiresSecurityDependencies:06b94d3b,server/internal/control/runtime_test.go#TestNewRuntime_AcceptsWiredSecurityDependencies:4b6395cf,contract/archtest/guards_test.go#TestGuard_SignatureDomains:55c8f3a2,contract/archtest/guards_test.go#TestSignatureSiteScan_Liveness:3cfce2fa,contract/sign/sign_test.go#TestValidateSigningKey_RejectsMalformedPrivateKeys:e73883cd,server/internal/pki/authorities_test.go#TestAuthorities_SignRevocationListsRejectReservedExtensions:36be50d2,server/internal/pki/authorities_test.go#TestAuthorities_KeepPrivateKeysOpaque:a0fc89b6 -->
+<!-- docref: begin src=server/internal/pki/authorities_test.go#TestNewAuthorities_AcceptsThreeDistinctApprovedAuthorities:4a701c7e,server/internal/pki/authorities_test.go#TestNewAuthorities_RejectsInvalidCA:6d6ae3b5,server/internal/pki/authorities_test.go#TestNewAuthorities_RejectsMismatchedOrReusedKeys:aacbb8a0,server/internal/pki/authorities_test.go#TestNewAuthorities_RejectsUnsupportedSigningProfiles:a3b141e7,server/internal/pki/authorities_test.go#TestAuthorities_SignCommandUsesCommandAuthority:922929a4,server/internal/pki/authorities_test.go#TestAuthorities_SignRevocationListsWithClassCA:1f5a4a40,server/internal/pki/authorities_test.go#TestDERResultVerifier_ParsesStoredCertificateEveryCall:35730aca,server/internal/pki/authorities_test.go#TestDERResultVerifier_FailsClosed:a41a662d,agent/internal/signing/signing_test.go#TestNewProfile_RejectsUnsupportedSigningProfiles:35f42a22,agent/internal/signing/signing_test.go#TestProfile_VerifiesCommandsAndSignsResults:3227e9fe,agent/internal/signing/signing_test.go#TestProfile_FailsClosedOnInvalidSignatures:644130cd,server/internal/control/runtime_test.go#TestNewRuntime_RequiresSecurityDependencies:06b94d3b,server/internal/control/runtime_test.go#TestNewRuntime_AcceptsWiredSecurityDependencies:4b6395cf,contract/archtest/guards_test.go#TestGuard_SignatureDomains:f8bc1b90,contract/archtest/guards_test.go#TestSignatureSiteScan_Liveness:3cfce2fa,contract/sign/sign_test.go#TestValidateSigningKey_RejectsMalformedPrivateKeys:e73883cd,server/internal/pki/authorities_test.go#TestAuthorities_SignRevocationListsRejectReservedExtensions:36be50d2,server/internal/pki/authorities_test.go#TestAuthorities_KeepPrivateKeysOpaque:a0fc89b6 -->
 - `TestValidateSigningKey_RejectsMalformedPrivateKeys`
 - `TestNewAuthorities_AcceptsThreeDistinctApprovedAuthorities`
 - `TestNewAuthorities_RejectsInvalidCA`

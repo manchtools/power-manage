@@ -587,12 +587,13 @@ func TestGuard_SignatureDomains(t *testing.T) {
 		}
 	}
 
-	// SPEC-006 GUARD-006-2 widens G-5 from the shared framing library to
-	// its four owning production chokepoints. The expected identities are
-	// the approved custody boundary: control signs commands and verifies
-	// results; the agent verifies commands and signs results.
+	// SPEC-006 GUARD-006-2 widens G-5 from the shared framing library to its
+	// owning production chokepoints. The expected identities are the approved
+	// custody boundary: control signs commands and verifies results; the agent
+	// verifies commands and signs results; auth alone owns JWT's JOSE-specific
+	// raw ECDSA encoding (AUTH-1, SPEC-007).
 	var scanViolations []string
-	sites := Discover(t, "server/agent signature chokepoints", 4, func() ([]SignatureSite, error) {
+	sites := Discover(t, "server/agent signature chokepoints", 6, func() ([]SignatureSite, error) {
 		sites, violations, err := ScanSignatureSites(archtestRepoRoot(t))
 		scanViolations = violations
 		return sites, err
@@ -605,6 +606,8 @@ func TestGuard_SignatureDomains(t *testing.T) {
 		"VerifyResult":  {file: "server/internal/pki/authorities.go", function: "DERResultVerifier.VerifyResult"},
 		"VerifyCommand": {file: "agent/internal/signing/signing.go", function: "Profile.VerifyCommand"},
 		"SignResult":    {file: "agent/internal/signing/signing.go", function: "Profile.SignResult"},
+		"ecdsa.Sign":    {file: "server/internal/auth/tokens.go", function: "Signer.mint"},
+		"ecdsa.Verify":  {file: "server/internal/auth/tokens.go", function: "Verifier.verify"},
 	})
 }
 
