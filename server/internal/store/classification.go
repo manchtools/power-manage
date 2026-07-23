@@ -33,6 +33,7 @@ func ProductionTableClassification() TableClassification {
 			"devices",
 			"gateways",
 			"inventory_snapshots",
+			"personal_access_tokens",
 			"refresh_families",
 			"refresh_tokens",
 			"registration_tokens",

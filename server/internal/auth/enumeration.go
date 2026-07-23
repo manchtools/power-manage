@@ -10,6 +10,8 @@ import (
 type SecretVerifier string
 
 const (
+	// SecretVerifierPAT is the personal-access-token boundary.
+	SecretVerifierPAT SecretVerifier = "pat"
 	// SecretVerifierRefresh is the rotating refresh-token boundary.
 	SecretVerifierRefresh SecretVerifier = "refresh"
 )
@@ -34,6 +36,15 @@ type EnumerationParityProfile struct {
 }
 
 var enumerationParityProfiles = map[SecretVerifier]EnumerationParityProfile{
+	SecretVerifierPAT: {
+		FailureCauses: []EnumerationFailureCause{
+			EnumerationMalformed,
+			EnumerationNonexistent,
+			EnumerationExpired,
+			EnumerationRevoked,
+		},
+		MinimumRejectionLatency: minimumPATRejectionDuration,
+	},
 	SecretVerifierRefresh: {
 		FailureCauses: []EnumerationFailureCause{
 			EnumerationMalformed,

@@ -79,6 +79,15 @@ func productionRebuildTargets() map[string]RebuildTarget {
 			EventTypes:  []string{inventorySnapshotEventType, inventoryTombstoneEventType},
 			Reset:       resetInventorySnapshots,
 		},
+		PersonalAccessTokenRebuildTarget: {
+			Tables:      []string{"personal_access_tokens"},
+			StreamTypes: []string{personalAccessTokenStreamType},
+			EventTypes: []string{
+				personalAccessTokenMintedEventType,
+				personalAccessTokenRevokedEventType,
+			},
+			Reset: resetPersonalAccessTokens,
+		},
 		RegistrationTokenRebuildTarget: {
 			Tables:      []string{"registration_tokens"},
 			StreamTypes: []string{registrationTokenStreamType},
@@ -212,6 +221,9 @@ func productionEventDefinitions() map[string]eventDefinition {
 	for eventType, definition := range registrationTokenEventDefinitions() {
 		definitions[eventType] = definition
 	}
+	for eventType, definition := range personalAccessTokenEventDefinitions() {
+		definitions[eventType] = definition
+	}
 	for eventType, definition := range refreshFamilyEventDefinitions() {
 		definitions[eventType] = definition
 	}
@@ -239,6 +251,9 @@ func goldenEventCorpus() map[string]goldenEvent {
 		},
 	}
 	for eventType, event := range registrationTokenGoldenCorpus() {
+		corpus[eventType] = event
+	}
+	for eventType, event := range personalAccessTokenGoldenCorpus() {
 		corpus[eventType] = event
 	}
 	for eventType, event := range refreshFamilyGoldenCorpus() {

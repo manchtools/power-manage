@@ -10,7 +10,7 @@ import (
 
 func TestGuard_RefreshEnumerationParityCoverage(t *testing.T) {
 	profiles := EnumerationParityProfiles()
-	discovered := guardtest.Discover(t, "secret-verification parity profiles", 1, func() ([]string, error) {
+	discovered := guardtest.Discover(t, "secret-verification parity profiles", 2, func() ([]string, error) {
 		names := make([]string, 0, len(profiles))
 		for verifier := range profiles {
 			if verifier == "" {
@@ -21,8 +21,11 @@ func TestGuard_RefreshEnumerationParityCoverage(t *testing.T) {
 		slices.Sort(names)
 		return names, nil
 	})
-	if !slices.Equal(discovered, []string{string(SecretVerifierRefresh)}) {
-		t.Fatalf("secret verifiers = %v; want refresh", discovered)
+	if !slices.Equal(discovered, []string{
+		string(SecretVerifierPAT),
+		string(SecretVerifierRefresh),
+	}) {
+		t.Fatalf("secret verifiers = %v; want PAT and refresh", discovered)
 	}
 
 	profile := profiles[SecretVerifierRefresh]
@@ -43,6 +46,33 @@ func TestGuard_RefreshEnumerationParityCoverage(t *testing.T) {
 	}
 	if len(slices.Compact(gotCauses)) != len(gotCauses) {
 		t.Fatalf("refresh parity profile repeats causes: %v", gotCauses)
+	}
+}
+
+func TestGuard_PATEnumerationParityCoverage(t *testing.T) {
+	profile := EnumerationParityProfiles()[SecretVerifierPAT]
+	discovered := guardtest.Discover(t, "PAT enumeration failure causes", 4, func() ([]string, error) {
+		causes := make([]string, 0, len(profile.FailureCauses))
+		for _, cause := range profile.FailureCauses {
+			if cause == "" {
+				return nil, errors.New("PAT parity profile contains an empty failure cause")
+			}
+			causes = append(causes, string(cause))
+		}
+		slices.Sort(causes)
+		return causes, nil
+	})
+	wantCauses := []string{
+		string(EnumerationExpired),
+		string(EnumerationMalformed),
+		string(EnumerationNonexistent),
+		string(EnumerationRevoked),
+	}
+	if !slices.Equal(discovered, wantCauses) {
+		t.Fatalf("PAT parity causes = %v; want %v", discovered, wantCauses)
+	}
+	if profile.MinimumRejectionLatency <= 0 {
+		t.Fatal("PAT parity profile has no rejection-latency floor")
 	}
 }
 
