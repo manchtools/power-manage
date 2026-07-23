@@ -20,6 +20,10 @@ func TestRecoveryCLI_RebuildsRegisteredTokenTarget(t *testing.T) {
 	testRecoveryCLIRegisteredTarget(t, store.RegistrationTokenRebuildTarget)
 }
 
+func TestRecoveryCLI_RebuildsRegisteredPersonalAccessTokenTarget(t *testing.T) {
+	testRecoveryCLIRegisteredTarget(t, store.PersonalAccessTokenRebuildTarget)
+}
+
 func TestRecoveryCLI_RebuildsRegisteredRefreshFamilyTarget(t *testing.T) {
 	testRecoveryCLIRegisteredTarget(t, store.RefreshFamilyRebuildTarget)
 }

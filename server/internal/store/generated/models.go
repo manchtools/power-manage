@@ -111,6 +111,17 @@ type InventorySnapshot struct {
 	UpdatedAt         time.Time
 }
 
+type PersonalAccessToken struct {
+	TokenID           string
+	Subject           string
+	Scopes            []string
+	TokenHash         []byte
+	ExpiresAt         time.Time
+	Revoked           bool
+	ProjectionVersion int64
+	UpdatedAt         time.Time
+}
+
 type RefreshFamily struct {
 	FamilyID          string
 	Subject           string
