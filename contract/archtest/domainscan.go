@@ -75,6 +75,22 @@ var rawSignaturePrimitives = map[string]map[string]bool{
 	},
 }
 
+// approvedRawSignatureSites is the exact owner registry for formats that the
+// shared command/result envelope helpers cannot represent. JWT ES256 requires
+// the JOSE 64-byte R||S encoding, rather than ASN.1 ECDSA signatures.
+var approvedRawSignatureSites = map[string]SignatureSite{
+	"ecdsa.Sign": {
+		Operation: "ecdsa.Sign",
+		File:      "server/internal/auth/tokens.go",
+		Function:  "Signer.mint",
+	},
+	"ecdsa.Verify": {
+		Operation: "ecdsa.Verify",
+		File:      "server/internal/auth/tokens.go",
+		Function:  "Verifier.verify",
+	},
+}
+
 // signPackageDir locates the contract/sign package source directory. `go test`
 // runs with the working directory set to the package under test
 // (contract/archtest); the sign package is a sibling under the contract
@@ -358,7 +374,22 @@ func scanSignaturePackage(
 					return true
 				}
 			} else if rawSignaturePrimitives[importPath][selector.Sel.Name] {
-				violations = append(violations, fmt.Sprintf("%s:%d: raw %s.%s signature primitive bypasses contract/sign", rel, line, strings.TrimPrefix(importPath, "crypto/"), selector.Sel.Name))
+				operation := strings.TrimPrefix(importPath, "crypto/") + "." + selector.Sel.Name
+				function := enclosingFunction(selector, parents)
+				site := SignatureSite{Operation: operation, File: rel, Function: function}
+				expected, approved := approvedRawSignatureSites[operation]
+				parent := parents[selector]
+				call, direct := parent.(*ast.CallExpr)
+				if approved && direct && call.Fun == selector && site == expected {
+					sites = append(sites, site)
+					return true
+				}
+				violations = append(violations, fmt.Sprintf(
+					"%s:%d: raw %s signature primitive bypasses the approved owner",
+					rel,
+					line,
+					operation,
+				))
 				return true
 			} else if selector.Sel.Name == "Sign" || selector.Sel.Name == "SignMessage" {
 				interfaceName := "crypto.Signer.Sign"

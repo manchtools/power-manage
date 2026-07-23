@@ -38,6 +38,74 @@ func packageFiles(pkg string) []protoreflect.FileDescriptor {
 	return files
 }
 
+// allMessages returns every message declared by files, including nested and
+// service-unreachable messages. Negative-surface guards must cover dormant
+// declarations too: a later RPC must not activate a previously unseen shape.
+func allMessages(files []protoreflect.FileDescriptor) []protoreflect.MessageDescriptor {
+	var out []protoreflect.MessageDescriptor
+	var walk func(protoreflect.MessageDescriptors)
+	walk = func(messages protoreflect.MessageDescriptors) {
+		for i := 0; i < messages.Len(); i++ {
+			message := messages.Get(i)
+			out = append(out, message)
+			walk(message.Messages())
+		}
+	}
+	for _, file := range files {
+		walk(file.Messages())
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].FullName() < out[j].FullName() })
+	return out
+}
+
+// localCredentialFieldViolations is GUARD-007-6: local password, TOTP, and
+// WebAuthn credentials cannot exist in the contract under disguised casing or
+// separator styles. Generic external credential identifiers remain legal.
+func localCredentialFieldViolations(messages []protoreflect.MessageDescriptor) []string {
+	var violations []string
+	for _, message := range messages {
+		fields := message.Fields()
+		for i := 0; i < fields.Len(); i++ {
+			field := fields.Get(i)
+			name := normalizedIdentifier(string(field.Name()))
+			jsonName := normalizedIdentifier(field.JSONName())
+			typeName := ""
+			if field.Message() != nil {
+				typeName = normalizedIdentifier(string(field.Message().FullName()))
+			} else if field.Enum() != nil {
+				typeName = normalizedIdentifier(string(field.Enum().FullName()))
+			}
+			if forbiddenLocalCredential(name) ||
+				forbiddenLocalCredential(jsonName) ||
+				forbiddenLocalCredential(typeName) {
+				violations = append(violations, fmt.Sprintf(
+					"%s: field name, JSON name, or type exposes a forbidden local credential",
+					field.FullName(),
+				))
+			}
+		}
+	}
+	sort.Strings(violations)
+	return violations
+}
+
+func normalizedIdentifier(value string) string {
+	var normalized strings.Builder
+	normalized.Grow(len(value))
+	for _, r := range strings.ToLower(value) {
+		if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' {
+			normalized.WriteRune(r)
+		}
+	}
+	return normalized.String()
+}
+
+func forbiddenLocalCredential(value string) bool {
+	return strings.Contains(value, "password") ||
+		strings.Contains(value, "totp") ||
+		strings.Contains(value, "webauthn")
+}
+
 // services returns the full names of every service declared in files.
 func services(files []protoreflect.FileDescriptor) []string {
 	var out []string
