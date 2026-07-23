@@ -47,44 +47,52 @@ func (s *EnrollmentService) EnrollGateway(
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, errEnrollmentTemporarilyFailed)
 	}
-	grant, err := s.tokens.Consume(ctx, source, request.Msg.GetRegistrationToken(), RegistrationTokenPurposeGateway)
+	var grant RegistrationTokenGrant
+	var gatewayID string
+	var certificateDER, certificateAuthorityDER []byte
+	var agentTrust, gatewayTrust AuthoritySnapshot
+	err = s.withIssuanceFences(ctx, func(agent, gateway AuthoritySnapshot) error {
+		agentTrust, gatewayTrust = agent, gateway
+		var consumeErr error
+		grant, consumeErr = s.tokens.Consume(ctx, source, request.Msg.GetRegistrationToken(), RegistrationTokenPurposeGateway)
+		if consumeErr != nil {
+			return consumeErr
+		}
+		gatewayID, consumeErr = newEnrollmentDeviceID(s.now(), s.random)
+		if consumeErr != nil {
+			return consumeErr
+		}
+		return s.eventStore.WithDeviceLifecycleLock(ctx, gatewayID, func(lifecycle *store.DeviceLifecycle) error {
+			var issueErr error
+			certificateDER, certificateAuthorityDER, issueErr = s.authorities.issueGatewayCertificate(
+				csr.PublicKey,
+				gatewayID,
+				grant.DNSNames,
+				s.now(),
+				s.random,
+			)
+			if issueErr != nil {
+				return issueErr
+			}
+			event, eventErr := store.GatewayEnrolledEvent(
+				gatewayID,
+				certificateDER,
+				grant.TokenID,
+				grant.Owner,
+				grant.DNSNames,
+			)
+			if eventErr != nil {
+				return eventErr
+			}
+			return lifecycle.AppendGatewayEvent(ctx, event, 0)
+		})
+	})
 	if err != nil {
 		return nil, mapEnrollmentTokenError(err)
 	}
-	gatewayID, err := newEnrollmentDeviceID(s.now(), s.random)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, errEnrollmentTemporarilyFailed)
-	}
-	var certificateDER, certificateAuthorityDER []byte
-	err = s.eventStore.WithDeviceLifecycleLock(ctx, gatewayID, func(lifecycle *store.DeviceLifecycle) error {
-		var issueErr error
-		certificateDER, certificateAuthorityDER, issueErr = s.authorities.issueGatewayCertificate(
-			csr.PublicKey,
-			gatewayID,
-			grant.DNSNames,
-			s.now(),
-			s.random,
-		)
-		if issueErr != nil {
-			return issueErr
-		}
-		event, eventErr := store.GatewayEnrolledEvent(
-			gatewayID,
-			certificateDER,
-			grant.TokenID,
-			grant.Owner,
-			grant.DNSNames,
-		)
-		if eventErr != nil {
-			return eventErr
-		}
-		return lifecycle.AppendGatewayEvent(ctx, event, 0)
-	})
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, errEnrollmentTemporarilyFailed)
-	}
 	return connect.NewResponse(&powermanagev1.EnrollGatewayResponse{
 		CertificateDer: certificateDER, CertificateAuthorityDer: certificateAuthorityDER,
+		AgentTrustBundle: trustBundleFromSnapshot(agentTrust), GatewayTrustBundle: trustBundleFromSnapshot(gatewayTrust),
 	}), nil
 }
 
@@ -120,53 +128,69 @@ func (s *EnrollmentService) RenewGateway(
 	}
 	presentedFingerprint := sha256.Sum256(presented.Raw)
 	var certificateDER, certificateAuthorityDER []byte
-	err = s.eventStore.WithDeviceLifecycleLock(ctx, gatewayID, func(lifecycle *store.DeviceLifecycle) error {
-		current, readErr := lifecycle.Gateway(ctx)
-		if readErr != nil {
-			if store.IsNotFound(readErr) {
+	var agentTrust, gatewayTrust AuthoritySnapshot
+	err = s.withIssuanceFences(ctx, func(agent, gateway AuthoritySnapshot) error {
+		agentTrust, gatewayTrust = agent, gateway
+		return s.eventStore.WithDeviceLifecycleLock(ctx, gatewayID, func(lifecycle *store.DeviceLifecycle) error {
+			current, readErr := lifecycle.Gateway(ctx)
+			if readErr != nil {
+				if store.IsNotFound(readErr) {
+					return errRenewalAuthRejected
+				}
+				return readErr
+			}
+			if current.LifecycleState != store.GatewayLifecycleActive {
 				return errRenewalAuthRejected
 			}
-			return readErr
-		}
-		if current.LifecycleState != store.GatewayLifecycleActive {
-			return errRenewalAuthRejected
-		}
-		if subtle.ConstantTimeCompare(current.CertificateFingerprint[:], presentedFingerprint[:]) != 1 ||
-			!bytes.Equal(current.CertificateDER, presented.Raw) {
-			currentFingerprint := sha256.Sum256(current.CertificateDER)
-			if subtle.ConstantTimeCompare(current.CertificateFingerprint[:], currentFingerprint[:]) != 1 ||
-				!bytes.Equal(current.PreviousCertificateDER, presented.Raw) {
-				return errRenewalAuthRejected
+			if subtle.ConstantTimeCompare(current.CertificateFingerprint[:], presentedFingerprint[:]) != 1 ||
+				!bytes.Equal(current.CertificateDER, presented.Raw) {
+				currentFingerprint := sha256.Sum256(current.CertificateDER)
+				if subtle.ConstantTimeCompare(current.CertificateFingerprint[:], currentFingerprint[:]) != 1 ||
+					!bytes.Equal(current.PreviousCertificateDER, presented.Raw) {
+					return errRenewalAuthRejected
+				}
+				currentCertificate, currentID, parseErr := parseGatewayRenewalCertificate(current.CertificateDER)
+				if parseErr != nil || currentID != gatewayID || !renewalPublicKeysEqual(currentCertificate.PublicKey, csr.PublicKey) {
+					return errRenewalAuthRejected
+				}
+				certificateDER = bytes.Clone(current.CertificateDER)
+				if s.rotationManager != nil {
+					agentTrust, gatewayTrust, readErr = s.rotationManager.snapshotsAtLifecycleEvent(
+						ctx, "gateway", gatewayID, current.ProjectionVersion,
+					)
+					if readErr != nil {
+						return readErr
+					}
+				}
+				certificateAuthorityDER, readErr = verifiedCertificateIssuerRoot(currentCertificate, gatewayTrust.DesiredRootDER)
+				if readErr != nil {
+					return readErr
+				}
+				return nil
 			}
-			currentCertificate, currentID, parseErr := parseGatewayRenewalCertificate(current.CertificateDER)
-			if parseErr != nil || currentID != gatewayID || !renewalPublicKeysEqual(currentCertificate.PublicKey, csr.PublicKey) {
-				return errRenewalAuthRejected
+			certificateDER, certificateAuthorityDER, readErr = s.authorities.issueGatewayCertificate(
+				csr.PublicKey,
+				gatewayID,
+				current.DNSNames,
+				s.now(),
+				s.random,
+			)
+			if readErr != nil {
+				return readErr
 			}
-			certificateDER = bytes.Clone(current.CertificateDER)
-			certificateAuthorityDER = bytes.Clone(s.authorities.gatewayCA.certificate.Raw)
-			return nil
-		}
-		certificateDER, certificateAuthorityDER, readErr = s.authorities.issueGatewayCertificate(
-			csr.PublicKey,
-			gatewayID,
-			current.DNSNames,
-			s.now(),
-			s.random,
-		)
-		if readErr != nil {
-			return readErr
-		}
-		event, eventErr := store.GatewayCertificateRenewedEvent(gatewayID, certificateDER, presented.Raw)
-		if eventErr != nil {
-			return eventErr
-		}
-		return lifecycle.AppendGatewayEvent(ctx, event, current.ProjectionVersion)
+			event, eventErr := store.GatewayCertificateRenewedEvent(gatewayID, certificateDER, presented.Raw)
+			if eventErr != nil {
+				return eventErr
+			}
+			return lifecycle.AppendGatewayEvent(ctx, event, current.ProjectionVersion)
+		})
 	})
 	if err != nil {
 		return nil, mapRenewalError(err)
 	}
 	return connect.NewResponse(&powermanagev1.RenewGatewayResponse{
 		CertificateDer: certificateDER, CertificateAuthorityDer: certificateAuthorityDER,
+		AgentTrustBundle: trustBundleFromSnapshot(agentTrust), GatewayTrustBundle: trustBundleFromSnapshot(gatewayTrust),
 	}), nil
 }
 
@@ -308,7 +332,8 @@ func (a *Authorities) issueGatewayCertificate(
 	now time.Time,
 	random io.Reader,
 ) ([]byte, []byte, error) {
-	if a == nil || a.gatewayCA.certificate == nil || a.gatewayCA.signer == nil {
+	authority, ok := a.currentAuthority(store.CertificateClassGateway)
+	if !ok {
 		return nil, nil, errors.New("pki: gateway certificate authority is not wired")
 	}
 	if err := sign.ValidateSigningKey(publicKey); err != nil {
@@ -327,7 +352,7 @@ func (a *Authorities) issueGatewayCertificate(
 	}
 	notBefore := now.UTC().Truncate(time.Second).Add(-certificateClockSkew)
 	notAfter := notBefore.Add(gatewayCertificateLifetime)
-	if notBefore.Before(a.gatewayCA.certificate.NotBefore) || notAfter.After(a.gatewayCA.certificate.NotAfter) {
+	if notBefore.Before(authority.certificate.NotBefore) || notAfter.After(authority.certificate.NotAfter) {
 		return nil, nil, errors.New("pki: gateway CA validity does not cover the certificate lifetime")
 	}
 	publicKeyDER, err := x509.MarshalPKIXPublicKey(publicKey)
@@ -344,11 +369,11 @@ func (a *Authorities) issueGatewayCertificate(
 	if err := identity.StampCertificateIdentity(template, identity.GatewayClass, gatewayID); err != nil {
 		return nil, nil, fmt.Errorf("pki: stamp gateway certificate identity: %w", err)
 	}
-	certificateDER, err := x509.CreateCertificate(random, template, a.gatewayCA.certificate, publicKey, a.gatewayCA.signer)
+	certificateDER, err := x509.CreateCertificate(random, template, authority.certificate, publicKey, authority.signer)
 	if err != nil {
 		return nil, nil, fmt.Errorf("pki: issue gateway certificate: %w", err)
 	}
-	return certificateDER, bytes.Clone(a.gatewayCA.certificate.Raw), nil
+	return certificateDER, bytes.Clone(authority.certificate.Raw), nil
 }
 
 func exactGatewayEKUs(usages []x509.ExtKeyUsage) bool {

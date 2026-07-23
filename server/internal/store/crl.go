@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"math"
 	"slices"
 	"time"
 
@@ -29,6 +30,7 @@ type CertificateRevocation struct {
 	Class               CertificateClass
 	CertificateDER      []byte
 	Fingerprint         [sha256.Size]byte
+	IssuerIdentifier    []byte
 	SerialNumber        []byte
 	RevokedAt           time.Time
 	ReasonCode          int
@@ -39,11 +41,12 @@ type CertificateRevocation struct {
 
 // SignedCRL is the latest durable publication for one certificate class.
 type SignedCRL struct {
-	Class    CertificateClass
-	Sequence int64
-	DER      []byte
-	IssuedAt time.Time
-	Source   CRLSource
+	Class             CertificateClass
+	IssuerFingerprint [sha256.Size]byte
+	Sequence          int64
+	DER               []byte
+	IssuedAt          time.Time
+	Source            CRLSource
 }
 
 // CRLSource is the event tuple whose work produced a signed CRL. The zero
@@ -89,7 +92,8 @@ func certificateRevocation(row generated.CertificateRevocation) (CertificateRevo
 	}
 	certificate, err := x509.ParseCertificate(row.CertificateDer)
 	if err != nil || !bytes.Equal(certificate.Raw, row.CertificateDer) || certificate.SerialNumber == nil ||
-		certificate.SerialNumber.Sign() <= 0 || !bytes.Equal(certificate.SerialNumber.Bytes(), row.SerialNumber) {
+		certificate.SerialNumber.Sign() <= 0 || !bytes.Equal(certificate.SerialNumber.Bytes(), row.SerialNumber) ||
+		len(certificate.AuthorityKeyId) == 0 || !bytes.Equal(certificate.AuthorityKeyId, row.IssuerIdentifier) {
 		return CertificateRevocation{}, errors.New("store: certificate revocation contains invalid certificate material")
 	}
 	identityClass, _, err := identity.ParseCertificateIdentity(certificate)
@@ -105,6 +109,7 @@ func certificateRevocation(row generated.CertificateRevocation) (CertificateRevo
 		Class:               class,
 		CertificateDER:      slices.Clone(row.CertificateDer),
 		Fingerprint:         fingerprint,
+		IssuerIdentifier:    slices.Clone(row.IssuerIdentifier),
 		SerialNumber:        slices.Clone(row.SerialNumber),
 		RevokedAt:           row.RevokedAt,
 		ReasonCode:          int(row.ReasonCode),
@@ -116,7 +121,7 @@ func certificateRevocation(row generated.CertificateRevocation) (CertificateRevo
 
 // LatestCRL returns the durable signed publication, or sequence zero before
 // the first CRL has been issued.
-func (s *Store) LatestCRL(ctx context.Context, class CertificateClass) (SignedCRL, error) {
+func (s *Store) LatestCRL(ctx context.Context, class CertificateClass, issuer ...[sha256.Size]byte) (SignedCRL, error) {
 	if s == nil || s.pool == nil {
 		return SignedCRL{}, errors.New("store: nil store")
 	}
@@ -126,11 +131,26 @@ func (s *Store) LatestCRL(ctx context.Context, class CertificateClass) (SignedCR
 	if !validCertificateClass(class) {
 		return SignedCRL{}, errors.New("store: invalid certificate class")
 	}
-	row, err := generated.New(s.pool).GetCRLState(ctx, string(class))
+	if len(issuer) > 1 {
+		return SignedCRL{}, errors.New("store: invalid CRL issuer fingerprint")
+	}
+	var issuerFingerprint [sha256.Size]byte
+	if len(issuer) == 1 {
+		issuerFingerprint = issuer[0]
+	}
+	row, err := generated.New(s.pool).GetCRLState(ctx, generated.GetCRLStateParams{
+		CertificateClass: string(class), IssuerFingerprint: issuerFingerprint[:],
+	})
+	if IsNotFound(err) {
+		return SignedCRL{Class: class, IssuerFingerprint: issuerFingerprint}, nil
+	}
 	if err != nil {
 		return SignedCRL{}, fmt.Errorf("store: read CRL state: %w", err)
 	}
-	state := SignedCRL{Class: class, Sequence: row.Sequence}
+	if len(row.IssuerFingerprint) != sha256.Size || !bytes.Equal(row.IssuerFingerprint, issuerFingerprint[:]) {
+		return SignedCRL{}, errors.New("store: CRL state issuer fingerprint is invalid")
+	}
+	state := SignedCRL{Class: class, IssuerFingerprint: issuerFingerprint, Sequence: row.Sequence}
 	if row.Sequence == 0 {
 		if len(row.CrlDer) != 0 || row.IssuedAt.Valid {
 			return SignedCRL{}, errors.New("store: empty CRL state contains publication material")
@@ -158,12 +178,43 @@ func (s *Store) LatestCRL(ctx context.Context, class CertificateClass) (SignedCR
 	return state, nil
 }
 
+// CurrentCRLs returns every durable issuer-scoped CRL for one class.
+func (s *Store) CurrentCRLs(ctx context.Context, class CertificateClass) ([]SignedCRL, error) {
+	if s == nil || s.pool == nil {
+		return nil, errors.New("store: nil store")
+	}
+	if ctx == nil {
+		return nil, errors.New("store: nil current-CRLs context")
+	}
+	if !validCertificateClass(class) {
+		return nil, errors.New("store: invalid certificate class")
+	}
+	rows, err := generated.New(s.pool).ListCurrentCRLIssuers(ctx, string(class))
+	if err != nil {
+		return nil, fmt.Errorf("store: list current CRL issuers: %w", err)
+	}
+	result := make([]SignedCRL, 0, len(rows))
+	for _, raw := range rows {
+		if len(raw) != sha256.Size {
+			return nil, errors.New("store: current CRL issuer fingerprint is invalid")
+		}
+		var fingerprint [sha256.Size]byte
+		copy(fingerprint[:], raw)
+		state, err := s.LatestCRL(ctx, class, fingerprint)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, state)
+	}
+	return result, nil
+}
+
 // CRLWorkReceipt returns the publication sequence produced by one durable
 // source event. Missing receipts are reported without an error.
 func (s *Store) CRLWorkReceipt(
 	ctx context.Context,
 	class CertificateClass,
-	source CRLSource,
+	args ...any,
 ) (int64, bool, error) {
 	if s == nil || s.pool == nil {
 		return 0, false, errors.New("store: nil store")
@@ -171,11 +222,13 @@ func (s *Store) CRLWorkReceipt(
 	if ctx == nil {
 		return 0, false, errors.New("store: nil CRL-work-receipt context")
 	}
-	if !validCertificateClass(class) || !validCRLSource(source) {
+	issuerFingerprint, source, ok := parseCRLReceiptArgs(args)
+	if !validCertificateClass(class) || !ok || !validCRLSource(source) {
 		return 0, false, errors.New("store: invalid CRL-work-receipt input")
 	}
 	sequence, err := generated.New(s.pool).GetCRLWorkReceipt(ctx, generated.GetCRLWorkReceiptParams{
 		CertificateClass:    string(class),
+		IssuerFingerprint:   issuerFingerprint[:],
 		SourceStreamType:    source.StreamType,
 		SourceStreamID:      source.StreamID,
 		SourceStreamVersion: source.StreamVersion,
@@ -192,14 +245,44 @@ func (s *Store) CRLWorkReceipt(
 	return sequence, true, nil
 }
 
+// RecordCoveredCRLWorkReceipt records that an already-committed CRL covers a
+// revocation event coalesced with the work item that produced the list.
+func (s *Store) RecordCoveredCRLWorkReceipt(
+	ctx context.Context,
+	class CertificateClass,
+	issuer [sha256.Size]byte,
+	source CRLSource,
+	publicationSequence int64,
+) error {
+	if s == nil || s.pool == nil {
+		return errors.New("store: nil store")
+	}
+	if ctx == nil || !validCertificateClass(class) || !validCRLSource(source) || publicationSequence <= 0 {
+		return errors.New("store: invalid covered CRL-work-receipt input")
+	}
+	_, err := generated.New(s.pool).RecordCoveredCRLWorkReceipt(ctx, generated.RecordCoveredCRLWorkReceiptParams{
+		CertificateClass: string(class), IssuerFingerprint: issuer[:],
+		SourceStreamType: source.StreamType, SourceStreamID: source.StreamID,
+		SourceStreamVersion: source.StreamVersion, PublicationSequence: publicationSequence,
+	})
+	if err != nil {
+		return fmt.Errorf("store: record covered CRL work receipt: %w", err)
+	}
+	_, found, err := s.CRLWorkReceipt(ctx, class, issuer, source)
+	if err != nil {
+		return err
+	}
+	if !found {
+		return errors.New("store: covered CRL work receipt was not recorded")
+	}
+	return nil
+}
+
 // CompareAndSwapCRL stores exactly the next signed sequence.
 func (s *Store) CompareAndSwapCRL(
 	ctx context.Context,
 	class CertificateClass,
-	expectedSequence int64,
-	der []byte,
-	issuedAt time.Time,
-	source CRLSource,
+	args ...any,
 ) (bool, error) {
 	if s == nil || s.pool == nil {
 		return false, errors.New("store: nil store")
@@ -207,8 +290,10 @@ func (s *Store) CompareAndSwapCRL(
 	if ctx == nil {
 		return false, errors.New("store: nil CRL compare-and-swap context")
 	}
-	if !validCertificateClass(class) || expectedSequence < 0 || len(der) == 0 || issuedAt.IsZero() ||
-		(source.isZero() && expectedSequence != 0) || (!source.isZero() && !validCRLSource(source)) {
+	issuerScoped := len(args) == 5
+	issuerFingerprint, expectedSequence, der, issuedAt, source, ok := parseCRLCompareAndSwapArgs(args)
+	if !validCertificateClass(class) || !ok || expectedSequence < 0 || len(der) == 0 || issuedAt.IsZero() ||
+		(source.isZero() && expectedSequence != 0 && !issuerScoped) || (!source.isZero() && !validCRLSource(source)) {
 		return false, errors.New("store: invalid CRL compare-and-swap input")
 	}
 	if err := validateCRLMaterial(der, expectedSequence+1, issuedAt); err != nil {
@@ -221,14 +306,16 @@ func (s *Store) CompareAndSwapCRL(
 	)
 	if source.isZero() {
 		affected, err = queries.CompareAndSwapCRLState(ctx, generated.CompareAndSwapCRLStateParams{
-			NextSequence:     expectedSequence + 1,
-			CrlDer:           slices.Clone(der),
-			IssuedAt:         pgtype.Timestamptz{Time: issuedAt, Valid: true},
-			CertificateClass: string(class),
-			ExpectedSequence: expectedSequence,
+			IssuerFingerprint: issuerFingerprint[:],
+			NextSequence:      expectedSequence + 1,
+			CrlDer:            slices.Clone(der),
+			IssuedAt:          pgtype.Timestamptz{Time: issuedAt, Valid: true},
+			CertificateClass:  string(class),
+			ExpectedSequence:  expectedSequence,
 		})
 	} else {
 		affected, err = queries.CompareAndSwapCRLStateForWork(ctx, generated.CompareAndSwapCRLStateForWorkParams{
+			IssuerFingerprint:   issuerFingerprint[:],
 			NextSequence:        expectedSequence + 1,
 			CrlDer:              slices.Clone(der),
 			IssuedAt:            pgtype.Timestamptz{Time: issuedAt, Valid: true},
@@ -248,6 +335,17 @@ func (s *Store) CompareAndSwapCRL(
 	return affected == 1, nil
 }
 
+// InitializeCRL creates the first issuer-scoped publication if absent.
+func (s *Store) InitializeCRL(
+	ctx context.Context,
+	class CertificateClass,
+	issuer [sha256.Size]byte,
+	der []byte,
+	issuedAt time.Time,
+) (bool, error) {
+	return s.CompareAndSwapCRL(ctx, class, issuer, int64(0), der, issuedAt, CRLSource{})
+}
+
 func validateCRLMaterial(der []byte, sequence int64, issuedAt time.Time) error {
 	list, err := x509.ParseRevocationList(der)
 	if err != nil || !bytes.Equal(list.Raw, der) {
@@ -260,6 +358,56 @@ func validateCRLMaterial(der []byte, sequence int64, issuedAt time.Time) error {
 		return errors.New("revocation-list validity does not match issued-at")
 	}
 	return nil
+}
+
+func parseCRLReceiptArgs(args []any) ([sha256.Size]byte, CRLSource, bool) {
+	var issuer [sha256.Size]byte
+	if len(args) == 1 {
+		source, ok := args[0].(CRLSource)
+		return issuer, source, ok
+	}
+	if len(args) == 2 {
+		fingerprint, fingerprintOK := args[0].([sha256.Size]byte)
+		source, sourceOK := args[1].(CRLSource)
+		return fingerprint, source, fingerprintOK && sourceOK
+	}
+	return issuer, CRLSource{}, false
+}
+
+func parseCRLCompareAndSwapArgs(args []any) ([sha256.Size]byte, int64, []byte, time.Time, CRLSource, bool) {
+	var issuer [sha256.Size]byte
+	if len(args) == 5 {
+		fingerprint, ok := args[0].([sha256.Size]byte)
+		if !ok {
+			return issuer, 0, nil, time.Time{}, CRLSource{}, false
+		}
+		issuer = fingerprint
+		args = args[1:]
+	}
+	if len(args) != 4 {
+		return issuer, 0, nil, time.Time{}, CRLSource{}, false
+	}
+	expected, ok := integerSequence(args[0])
+	der, derOK := args[1].([]byte)
+	issuedAt, timeOK := args[2].(time.Time)
+	source, sourceOK := args[3].(CRLSource)
+	return issuer, expected, der, issuedAt, source, ok && derOK && timeOK && sourceOK
+}
+
+func integerSequence(value any) (int64, bool) {
+	switch sequence := value.(type) {
+	case int:
+		return int64(sequence), true
+	case int64:
+		return sequence, true
+	case uint64:
+		if sequence <= math.MaxInt64 {
+			return int64(sequence), true
+		}
+		return 0, false
+	default:
+		return 0, false
+	}
 }
 
 func (source CRLSource) isZero() bool {

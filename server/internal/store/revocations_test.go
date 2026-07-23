@@ -235,10 +235,10 @@ func TestDeviceRebuild_PreservesGatewayRevocations(t *testing.T) {
 	if _, err := pool.Exec(context.Background(), `
 		INSERT INTO certificate_revocations (
 			certificate_class, certificate_fingerprint, certificate_der,
-			serial_number, revoked_at, reason_code,
+			issuer_identifier, serial_number, revoked_at, reason_code,
 			source_stream_type, source_stream_id, source_stream_version
-		) VALUES ('gateway', $1, $2, $3, $4, 0, 'device', $5, 1)`,
-		gatewayFingerprint[:], gatewayDER, gatewayCertificate.SerialNumber.Bytes(),
+		) VALUES ('gateway', $1, $2, $3, $4, $5, 0, 'device', $6, 1)`,
+		gatewayFingerprint[:], gatewayDER, gatewayCertificate.AuthorityKeyId, gatewayCertificate.SerialNumber.Bytes(),
 		time.Now().UTC(), testEnrolledDeviceID,
 	); err != nil {
 		t.Fatalf("insert gateway revocation fixture: %v", err)

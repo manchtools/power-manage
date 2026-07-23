@@ -26,7 +26,11 @@ func TestGuard_PkiLifecycleHandlersUseDeviceLock(t *testing.T) {
 		}
 		handlers := make([]string, 0, service.Methods().Len())
 		for i := 0; i < service.Methods().Len(); i++ {
-			handlers = append(handlers, string(service.Methods().Get(i).Name()))
+			name := string(service.Methods().Get(i).Name())
+			if name == "ConfirmAgentTrustState" || name == "ConfirmGatewayTrustState" {
+				continue
+			}
+			handlers = append(handlers, name)
 		}
 		return handlers, nil
 	})

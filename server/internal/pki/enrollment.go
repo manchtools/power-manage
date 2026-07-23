@@ -53,6 +53,7 @@ type EnrollmentService struct {
 	renewalLimiter      *registrationRateLimiter
 	lifecycleAuthorizer LifecycleAuthorizer
 	lifecycleLimiter    *registrationRateLimiter
+	rotationManager     *RotationManager
 	random              io.Reader
 	now                 func() time.Time
 }
@@ -152,46 +153,54 @@ func (s *EnrollmentService) EnrollAgent(
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, errEnrollmentTemporarilyFailed)
 	}
-	grant, err := s.tokens.Consume(ctx, source, request.Msg.GetRegistrationToken(), RegistrationTokenPurposeAgent)
-	if err != nil {
-		return nil, mapEnrollmentTokenError(err)
-	}
-
-	deviceID, err := newEnrollmentDeviceID(s.now(), s.random)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, errEnrollmentTemporarilyFailed)
-	}
+	var grant RegistrationTokenGrant
+	var deviceID string
 	var certificateDER, certificateAuthorityDER []byte
-	err = s.eventStore.WithDeviceLifecycleLock(ctx, deviceID, func(lifecycle *store.DeviceLifecycle) error {
-		var issueErr error
-		certificateDER, certificateAuthorityDER, issueErr = s.authorities.issueAgentCertificate(
-			csr.PublicKey,
-			deviceID,
-			s.now(),
-			s.random,
-		)
-		if issueErr != nil {
-			return issueErr
+	var agentTrust, gatewayTrust AuthoritySnapshot
+	err = s.withIssuanceFences(ctx, func(agent, gateway AuthoritySnapshot) error {
+		agentTrust, gatewayTrust = agent, gateway
+		var consumeErr error
+		grant, consumeErr = s.tokens.Consume(ctx, source, request.Msg.GetRegistrationToken(), RegistrationTokenPurposeAgent)
+		if consumeErr != nil {
+			return consumeErr
 		}
-		event, eventErr := store.AgentEnrolledEvent(
-			deviceID,
-			certificateDER,
-			request.Msg.GetSealingPublicKey(),
-			grant.TokenID,
-			grant.Owner,
-		)
-		if eventErr != nil {
-			return eventErr
+		deviceID, consumeErr = newEnrollmentDeviceID(s.now(), s.random)
+		if consumeErr != nil {
+			return consumeErr
 		}
-		return lifecycle.AppendEvent(ctx, event, 0)
+		return s.eventStore.WithDeviceLifecycleLock(ctx, deviceID, func(lifecycle *store.DeviceLifecycle) error {
+			var issueErr error
+			certificateDER, certificateAuthorityDER, issueErr = s.authorities.issueAgentCertificate(
+				csr.PublicKey,
+				deviceID,
+				s.now(),
+				s.random,
+			)
+			if issueErr != nil {
+				return issueErr
+			}
+			event, eventErr := store.AgentEnrolledEvent(
+				deviceID,
+				certificateDER,
+				request.Msg.GetSealingPublicKey(),
+				grant.TokenID,
+				grant.Owner,
+			)
+			if eventErr != nil {
+				return eventErr
+			}
+			return lifecycle.AppendEvent(ctx, event, 0)
+		})
 	})
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, errEnrollmentTemporarilyFailed)
+		return nil, mapEnrollmentTokenError(err)
 	}
 	return connect.NewResponse(&powermanagev1.EnrollAgentResponse{
 		CertificateDer:                 certificateDER,
 		CertificateAuthorityDer:        certificateAuthorityDER,
-		GatewayCertificateAuthorityDer: slices.Clone(s.authorities.gatewayCA.certificate.Raw),
+		GatewayCertificateAuthorityDer: slices.Clone(gatewayTrust.IssuingRootDER),
+		AgentTrustBundle:               trustBundleFromSnapshot(agentTrust),
+		GatewayTrustBundle:             trustBundleFromSnapshot(gatewayTrust),
 	}), nil
 }
 
@@ -257,7 +266,8 @@ func (a *Authorities) issueAgentCertificate(
 	now time.Time,
 	random io.Reader,
 ) ([]byte, []byte, error) {
-	if a == nil || a.agentCA.certificate == nil || a.agentCA.signer == nil {
+	authority, ok := a.currentAuthority(store.CertificateClassAgent)
+	if !ok {
 		return nil, nil, errors.New("pki: agent certificate authority is not wired")
 	}
 	if err := sign.ValidateSigningKey(publicKey); err != nil {
@@ -279,7 +289,7 @@ func (a *Authorities) issueAgentCertificate(
 	}
 	notBefore := now.UTC().Truncate(time.Second).Add(-certificateClockSkew)
 	notAfter := notBefore.Add(agentCertificateLifetime)
-	if notBefore.Before(a.agentCA.certificate.NotBefore) || notAfter.After(a.agentCA.certificate.NotAfter) {
+	if notBefore.Before(authority.certificate.NotBefore) || notAfter.After(authority.certificate.NotAfter) {
 		return nil, nil, errors.New("pki: agent CA validity does not cover the certificate lifetime")
 	}
 	publicKeyDER, err := x509.MarshalPKIXPublicKey(publicKey)
@@ -300,9 +310,9 @@ func (a *Authorities) issueAgentCertificate(
 	if err := identity.StampCertificateIdentity(template, identity.AgentClass, deviceID); err != nil {
 		return nil, nil, fmt.Errorf("pki: stamp agent certificate identity: %w", err)
 	}
-	certificateDER, err := x509.CreateCertificate(random, template, a.agentCA.certificate, publicKey, a.agentCA.signer)
+	certificateDER, err := x509.CreateCertificate(random, template, authority.certificate, publicKey, authority.signer)
 	if err != nil {
 		return nil, nil, fmt.Errorf("pki: issue agent certificate: %w", err)
 	}
-	return certificateDER, slices.Clone(a.agentCA.certificate.Raw), nil
+	return certificateDER, slices.Clone(authority.certificate.Raw), nil
 }

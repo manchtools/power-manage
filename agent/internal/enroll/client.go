@@ -38,12 +38,16 @@ const (
 // CredentialBundle is the verified public identity plus the two private keys
 // generated locally for it. Private fields never cross the enrollment RPC.
 type CredentialBundle struct {
-	DeviceID                       string
-	CertificateDER                 []byte
-	CertificateAuthorityDER        []byte
-	GatewayCertificateAuthorityDER []byte
-	PrivateKey                     crypto.Signer
-	SealingPrivateKey              *ecdh.PrivateKey
+	DeviceID                        string
+	CertificateDER                  []byte
+	CertificateAuthorityDER         []byte
+	GatewayCertificateAuthorityDER  []byte
+	PrivateKey                      crypto.Signer
+	SealingPrivateKey               *ecdh.PrivateKey
+	AgentTrustBundle                StoredTrustBundle
+	GatewayTrustBundle              StoredTrustBundle
+	PendingAgentTrustConfirmation   *PendingTrustConfirmation
+	PendingGatewayTrustConfirmation *PendingTrustConfirmation
 }
 
 // CredentialStore owns first publication, strict loading, and atomic renewal
@@ -87,6 +91,17 @@ func (c *Client) Enroll(ctx context.Context, token, caFingerprint string) (strin
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}
+	if existing, loadErr := c.store.Load(ctx); loadErr == nil && len(existing.CertificateDER) != 0 {
+		if err := validateStoredCredentialBundle(existing, c.now()); err != nil {
+			return "", fmt.Errorf("enroll: validate locally committed enrollment: %w", err)
+		}
+		if existing.PendingAgentTrustConfirmation != nil || existing.PendingGatewayTrustConfirmation != nil {
+			if err := c.sendPendingConfirmations(ctx, &existing); err != nil {
+				return existing.DeviceID, err
+			}
+			return existing.DeviceID, nil
+		}
+	}
 	if token == "" || len(token) > maxRegistrationTokenBytes {
 		return "", errors.New("enroll: registration token is invalid")
 	}
@@ -117,31 +132,92 @@ func (c *Client) Enroll(ctx context.Context, token, caFingerprint string) (strin
 	if response == nil || response.Msg == nil {
 		return "", errors.New("enroll: PkiService returned an empty response")
 	}
-	deviceID, err := validateEnrollmentResponse(
-		response.Msg.GetCertificateDer(),
-		response.Msg.GetCertificateAuthorityDer(),
-		privateKey.Public(),
-		pin,
-		c.now(),
-	)
+	hasAgentBundle := response.Msg.GetAgentTrustBundle() != nil
+	hasGatewayBundle := response.Msg.GetGatewayTrustBundle() != nil
+	if hasAgentBundle != hasGatewayBundle {
+		return "", errors.New("enroll: agent and gateway CA bundles must be published atomically")
+	}
+	if !hasAgentBundle {
+		return c.storeLegacyEnrollment(ctx, response.Msg, privateKey, sealingPrivateKey, pin)
+	}
+	now := c.now()
+	agentTrust, err := storedTrustBundle(response.Msg.GetAgentTrustBundle(), response.Msg.GetCertificateAuthorityDer(), StoredTrustBundle{}, now)
 	if err != nil {
 		return "", err
 	}
-	if err := validateGatewayTrustAnchor(
-		response.Msg.GetGatewayCertificateAuthorityDer(),
-		response.Msg.GetCertificateAuthorityDer(),
-		c.now(),
-		true,
-	); err != nil {
+	gatewayTrust, err := storedTrustBundle(response.Msg.GetGatewayTrustBundle(), response.Msg.GetGatewayCertificateAuthorityDer(), StoredTrustBundle{}, now)
+	if err != nil {
+		return "", err
+	}
+	if err := validateSeparatedTrustBundles(agentTrust, gatewayTrust); err != nil {
+		return "", err
+	}
+	if len(pin) != 0 {
+		fingerprint := sha256.Sum256(agentTrust.RootCertificateDER[0])
+		if subtle.ConstantTimeCompare(fingerprint[:], pin) != 1 {
+			return "", errors.New("enroll: certificate authority fingerprint mismatch")
+		}
+	}
+	issuingRoot, err := selectIssuingRoot(response.Msg.GetCertificateDer(), agentTrust)
+	if err != nil {
+		return "", err
+	}
+	deviceID, err := validateEnrollmentResponse(response.Msg.GetCertificateDer(), issuingRoot, privateKey.Public(), nil, now)
+	if err != nil {
 		return "", err
 	}
 	bundle := CredentialBundle{
 		DeviceID:                       deviceID,
 		CertificateDER:                 bytes.Clone(response.Msg.GetCertificateDer()),
-		CertificateAuthorityDER:        bytes.Clone(response.Msg.GetCertificateAuthorityDer()),
-		GatewayCertificateAuthorityDER: bytes.Clone(response.Msg.GetGatewayCertificateAuthorityDer()),
+		CertificateAuthorityDER:        issuingRoot,
+		GatewayCertificateAuthorityDER: bytes.Clone(gatewayTrust.RootCertificateDER[0]),
 		PrivateKey:                     privateKey,
 		SealingPrivateKey:              sealingPrivateKey,
+		AgentTrustBundle:               agentTrust,
+		GatewayTrustBundle:             gatewayTrust,
+	}
+	if response.Msg.GetAgentTrustBundle() != nil && response.Msg.GetGatewayTrustBundle() != nil {
+		bundle.PendingAgentTrustConfirmation, err = newPendingTrustConfirmation(bundle, "agent", agentTrust)
+		if err != nil {
+			return "", err
+		}
+		bundle.PendingGatewayTrustConfirmation, err = newPendingTrustConfirmation(bundle, "gateway", gatewayTrust)
+		if err != nil {
+			return "", err
+		}
+	}
+	if err := c.store.Create(ctx, bundle); err != nil {
+		return "", fmt.Errorf("enroll: store credentials: %w", err)
+	}
+	if err := c.sendPendingConfirmations(ctx, &bundle); err != nil {
+		return deviceID, err
+	}
+	return deviceID, nil
+}
+
+func (c *Client) storeLegacyEnrollment(
+	ctx context.Context,
+	response *powermanagev1.EnrollAgentResponse,
+	privateKey crypto.Signer,
+	sealingPrivateKey *ecdh.PrivateKey,
+	pin []byte,
+) (string, error) {
+	deviceID, err := validateEnrollmentResponse(
+		response.GetCertificateDer(), response.GetCertificateAuthorityDer(), privateKey.Public(), pin, c.now(),
+	)
+	if err != nil {
+		return "", err
+	}
+	if err := validateGatewayTrustAnchor(
+		response.GetGatewayCertificateAuthorityDer(), response.GetCertificateAuthorityDer(), c.now(), true,
+	); err != nil {
+		return "", err
+	}
+	bundle := CredentialBundle{
+		DeviceID: deviceID, CertificateDER: bytes.Clone(response.GetCertificateDer()),
+		CertificateAuthorityDER:        bytes.Clone(response.GetCertificateAuthorityDer()),
+		GatewayCertificateAuthorityDER: bytes.Clone(response.GetGatewayCertificateAuthorityDer()),
+		PrivateKey:                     privateKey, SealingPrivateKey: sealingPrivateKey,
 	}
 	if err := c.store.Create(ctx, bundle); err != nil {
 		return "", fmt.Errorf("enroll: store credentials: %w", err)
@@ -167,8 +243,11 @@ func (c *Client) Renew(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("enroll: load credentials for renewal: %w", err)
 	}
-	if err := validateStoredCredentialBundle(current); err != nil {
+	if err := validateStoredCredentialBundle(current, c.now()); err != nil {
 		return fmt.Errorf("enroll: validate credentials for renewal: %w", err)
+	}
+	if err := c.sendPendingConfirmations(ctx, &current); err != nil {
+		return err
 	}
 	csrDER, err := x509.CreateCertificateRequest(rand.Reader, &x509.CertificateRequest{}, current.PrivateKey)
 	if err != nil {
@@ -193,12 +272,75 @@ func (c *Client) Renew(ctx context.Context) error {
 	if response == nil || response.Msg == nil {
 		return errors.New("enroll: PkiService returned an empty renewal response")
 	}
+	hasAgentBundle := response.Msg.GetAgentTrustBundle() != nil
+	hasGatewayBundle := response.Msg.GetGatewayTrustBundle() != nil
+	if hasAgentBundle != hasGatewayBundle {
+		return errors.New("enroll: agent and gateway CA bundles must be published atomically")
+	}
+	if !hasAgentBundle {
+		if current.AgentTrustBundle.Generation != 0 || current.GatewayTrustBundle.Generation != 0 {
+			return errors.New("enroll: renewal omitted previously adopted CA trust bundles")
+		}
+		return c.replaceLegacyRenewal(ctx, current, sealingPrivateKey, response.Msg)
+	}
+	now := c.now()
+	agentTrust, err := storedTrustBundle(response.Msg.GetAgentTrustBundle(), response.Msg.GetCertificateAuthorityDer(), current.AgentTrustBundle, now)
+	if err != nil {
+		return fmt.Errorf("enroll: validate renewal agent trust bundle: %w", err)
+	}
+	gatewayTrust, err := storedTrustBundle(response.Msg.GetGatewayTrustBundle(), response.Msg.GetGatewayCertificateAuthorityDer(), current.GatewayTrustBundle, now)
+	if err != nil {
+		return fmt.Errorf("enroll: validate renewal gateway trust bundle: %w", err)
+	}
+	if err := validateSeparatedTrustBundles(agentTrust, gatewayTrust); err != nil {
+		return err
+	}
+	issuingRoot, err := selectIssuingRoot(response.Msg.GetCertificateDer(), agentTrust)
+	if err != nil {
+		return err
+	}
+	deviceID, err := validateEnrollmentResponse(response.Msg.GetCertificateDer(), issuingRoot, current.PrivateKey.Public(), nil, now)
+	if err != nil {
+		return fmt.Errorf("enroll: validate renewal response: %w", err)
+	}
+	if deviceID != current.DeviceID {
+		return errors.New("enroll: renewed certificate device ID mismatch")
+	}
+	replacement := CredentialBundle{
+		DeviceID:                       current.DeviceID,
+		CertificateDER:                 bytes.Clone(response.Msg.GetCertificateDer()),
+		CertificateAuthorityDER:        issuingRoot,
+		GatewayCertificateAuthorityDER: bytes.Clone(gatewayTrust.RootCertificateDER[0]),
+		PrivateKey:                     current.PrivateKey,
+		SealingPrivateKey:              sealingPrivateKey,
+		AgentTrustBundle:               agentTrust,
+		GatewayTrustBundle:             gatewayTrust,
+	}
+	replacement.PendingAgentTrustConfirmation, err = newPendingTrustConfirmation(replacement, "agent", agentTrust)
+	if err != nil {
+		return err
+	}
+	if !equalStoredTrustBundles(current.GatewayTrustBundle, gatewayTrust) {
+		replacement.PendingGatewayTrustConfirmation, err = newPendingTrustConfirmation(replacement, "gateway", gatewayTrust)
+		if err != nil {
+			return err
+		}
+	}
+	if err := c.store.Replace(ctx, replacement); err != nil {
+		return fmt.Errorf("enroll: replace renewed credentials: %w", err)
+	}
+	c.pendingRenewalSealingKey = nil
+	return c.sendPendingConfirmations(ctx, &replacement)
+}
+
+func (c *Client) replaceLegacyRenewal(
+	ctx context.Context,
+	current CredentialBundle,
+	sealingPrivateKey *ecdh.PrivateKey,
+	response *powermanagev1.RenewAgentResponse,
+) error {
 	deviceID, err := validateEnrollmentResponse(
-		response.Msg.GetCertificateDer(),
-		response.Msg.GetCertificateAuthorityDer(),
-		current.PrivateKey.Public(),
-		nil,
-		c.now(),
+		response.GetCertificateDer(), response.GetCertificateAuthorityDer(), current.PrivateKey.Public(), nil, c.now(),
 	)
 	if err != nil {
 		return fmt.Errorf("enroll: validate renewal response: %w", err)
@@ -206,27 +348,22 @@ func (c *Client) Renew(ctx context.Context) error {
 	if deviceID != current.DeviceID {
 		return errors.New("enroll: renewed certificate device ID mismatch")
 	}
-	if !bytes.Equal(response.Msg.GetCertificateAuthorityDer(), current.CertificateAuthorityDER) {
+	if !bytes.Equal(response.GetCertificateAuthorityDer(), current.CertificateAuthorityDER) {
 		return errors.New("enroll: renewed certificate authority differs from enrolled authority")
 	}
 	if err := validateGatewayTrustAnchor(
-		response.Msg.GetGatewayCertificateAuthorityDer(),
-		response.Msg.GetCertificateAuthorityDer(),
-		c.now(),
-		true,
+		response.GetGatewayCertificateAuthorityDer(), response.GetCertificateAuthorityDer(), c.now(), true,
 	); err != nil {
 		return fmt.Errorf("enroll: validate renewal gateway certificate authority: %w", err)
 	}
-	if !bytes.Equal(response.Msg.GetGatewayCertificateAuthorityDer(), current.GatewayCertificateAuthorityDER) {
+	if !bytes.Equal(response.GetGatewayCertificateAuthorityDer(), current.GatewayCertificateAuthorityDER) {
 		return errors.New("enroll: renewed gateway certificate authority differs from enrolled authority")
 	}
 	replacement := CredentialBundle{
-		DeviceID:                       current.DeviceID,
-		CertificateDER:                 bytes.Clone(response.Msg.GetCertificateDer()),
-		CertificateAuthorityDER:        bytes.Clone(response.Msg.GetCertificateAuthorityDer()),
-		GatewayCertificateAuthorityDER: bytes.Clone(response.Msg.GetGatewayCertificateAuthorityDer()),
-		PrivateKey:                     current.PrivateKey,
-		SealingPrivateKey:              sealingPrivateKey,
+		DeviceID: current.DeviceID, CertificateDER: bytes.Clone(response.GetCertificateDer()),
+		CertificateAuthorityDER:        bytes.Clone(response.GetCertificateAuthorityDer()),
+		GatewayCertificateAuthorityDER: bytes.Clone(response.GetGatewayCertificateAuthorityDer()),
+		PrivateKey:                     current.PrivateKey, SealingPrivateKey: sealingPrivateKey,
 	}
 	if err := c.store.Replace(ctx, replacement); err != nil {
 		return fmt.Errorf("enroll: replace renewed credentials: %w", err)
@@ -368,10 +505,19 @@ func validateCredentialBundle(bundle CredentialBundle, now time.Time) error {
 	if err := seal.ValidateX25519PublicKey(bundle.SealingPrivateKey.PublicKey().Bytes()); err != nil {
 		return fmt.Errorf("enroll: validate sealing private key: %w", err)
 	}
+	if err := validateCredentialContinuity(bundle, now); err != nil {
+		return err
+	}
+	if err := validatePendingTrustConfirmations(bundle); err != nil {
+		return fmt.Errorf("enroll: pending trust confirmation is invalid: %w", err)
+	}
 	return nil
 }
 
-func validateStoredCredentialBundle(bundle CredentialBundle) error {
+func validateStoredCredentialBundle(bundle CredentialBundle, now time.Time) error {
+	if now.IsZero() {
+		return errors.New("enroll: stored credential validation clock is zero")
+	}
 	if isNilEnrollmentDependency(bundle.PrivateKey) || bundle.SealingPrivateKey == nil {
 		return errors.New("enroll: credential bundle has a nil private key")
 	}
@@ -388,7 +534,7 @@ func validateStoredCredentialBundle(bundle CredentialBundle) error {
 	if err := sign.ValidateSigningKey(certificateAuthority.PublicKey); err != nil {
 		return fmt.Errorf("enroll: validate stored certificate authority key: %w", err)
 	}
-	if err := validateGatewayTrustAnchor(bundle.GatewayCertificateAuthorityDER, bundle.CertificateAuthorityDER, time.Time{}, false); err != nil {
+	if err := validateGatewayTrustAnchor(bundle.GatewayCertificateAuthorityDER, bundle.CertificateAuthorityDER, now, true); err != nil {
 		return err
 	}
 	certificate, err := parseExactCertificate(bundle.CertificateDER)
@@ -416,7 +562,7 @@ func validateStoredCredentialBundle(bundle CredentialBundle) error {
 	if err := seal.ValidateX25519PublicKey(bundle.SealingPrivateKey.PublicKey().Bytes()); err != nil {
 		return fmt.Errorf("enroll: validate stored sealing private key: %w", err)
 	}
-	return nil
+	return validateCredentialContinuity(bundle, now)
 }
 
 func validateGatewayTrustAnchor(gatewayDER, agentDER []byte, now time.Time, requireCurrent bool) error {

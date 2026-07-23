@@ -6,9 +6,11 @@ import (
 	"crypto"
 	"crypto/ecdh"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -21,12 +23,21 @@ const DefaultCredentialPath = "/var/lib/power-manage/identity.pem"
 
 const maxCredentialBundleBytes int64 = 256 * 1024
 
+const continuityPEMType = "POWER MANAGE CA CONTINUITY"
+
 var credentialPEMTypes = [...]string{
 	"POWER MANAGE AGENT CERTIFICATE",
 	"POWER MANAGE AGENT PRIVATE KEY",
 	"POWER MANAGE AGENT CA CERTIFICATE",
 	"POWER MANAGE GATEWAY CA CERTIFICATE",
 	"POWER MANAGE SEALING PRIVATE KEY",
+}
+
+type storedCredentialContinuity struct {
+	AgentTrustBundle                StoredTrustBundle         `json:"agent_trust_bundle"`
+	GatewayTrustBundle              StoredTrustBundle         `json:"gateway_trust_bundle"`
+	PendingAgentTrustConfirmation   *PendingTrustConfirmation `json:"pending_agent_trust_confirmation,omitempty"`
+	PendingGatewayTrustConfirmation *PendingTrustConfirmation `json:"pending_gateway_trust_confirmation,omitempty"`
 }
 
 type createCredentialFile func(string, []byte, os.FileMode) error
@@ -87,7 +98,7 @@ func (s *FileCredentialStore) Create(ctx context.Context, bundle CredentialBundl
 // Load reads one exact, bounded, root-only credential bundle. Expired agent
 // certificates remain loadable so an overdue agent can renew immediately.
 func (s *FileCredentialStore) Load(ctx context.Context) (CredentialBundle, error) {
-	if s == nil || s.path == "" || s.read == nil {
+	if s == nil || s.path == "" || s.read == nil || s.now == nil {
 		return CredentialBundle{}, errors.New("enroll: credential store is not wired for loading")
 	}
 	if ctx == nil {
@@ -104,7 +115,7 @@ func (s *FileCredentialStore) Load(ctx context.Context) (CredentialBundle, error
 	if err != nil {
 		return CredentialBundle{}, err
 	}
-	if err := validateStoredCredentialBundle(bundle); err != nil {
+	if err := validateStoredCredentialBundle(bundle, s.now()); err != nil {
 		return CredentialBundle{}, fmt.Errorf("enroll: validate stored credential bundle: %w", err)
 	}
 	return bundle, nil
@@ -149,8 +160,24 @@ func decodeStoredCredentialBundle(encoded []byte) (CredentialBundle, error) {
 		blocks = append(blocks, block)
 		remaining = rest
 	}
+	var continuity storedCredentialContinuity
 	if len(remaining) != 0 {
-		return CredentialBundle{}, errors.New("enroll: credential bundle contains duplicate, unknown, or trailing data")
+		prefix := []byte("-----BEGIN " + continuityPEMType + "-----\n")
+		if !bytes.HasPrefix(remaining, prefix) {
+			return CredentialBundle{}, errors.New("enroll: credential bundle contains duplicate, unknown, or trailing data")
+		}
+		block, rest := pem.Decode(remaining)
+		if block == nil || block.Type != continuityPEMType || len(block.Headers) != 0 || len(block.Bytes) == 0 || len(rest) != 0 {
+			return CredentialBundle{}, errors.New("enroll: credential bundle has an invalid CA continuity block")
+		}
+		decoder := json.NewDecoder(bytes.NewReader(block.Bytes))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&continuity); err != nil {
+			return CredentialBundle{}, fmt.Errorf("enroll: decode stored CA continuity: %w", err)
+		}
+		if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+			return CredentialBundle{}, errors.New("enroll: stored CA continuity contains trailing JSON data")
+		}
 	}
 	certificate, err := parseExactCertificate(blocks[0].Bytes)
 	if err != nil {
@@ -186,12 +213,16 @@ func decodeStoredCredentialBundle(encoded []byte) (CredentialBundle, error) {
 		return CredentialBundle{}, errors.New("enroll: stored sealing private key is not X25519")
 	}
 	return CredentialBundle{
-		DeviceID:                       deviceID,
-		CertificateDER:                 bytes.Clone(blocks[0].Bytes),
-		PrivateKey:                     privateKey,
-		CertificateAuthorityDER:        bytes.Clone(blocks[2].Bytes),
-		GatewayCertificateAuthorityDER: bytes.Clone(blocks[3].Bytes),
-		SealingPrivateKey:              sealingPrivateKey,
+		DeviceID:                        deviceID,
+		CertificateDER:                  bytes.Clone(blocks[0].Bytes),
+		PrivateKey:                      privateKey,
+		CertificateAuthorityDER:         bytes.Clone(blocks[2].Bytes),
+		GatewayCertificateAuthorityDER:  bytes.Clone(blocks[3].Bytes),
+		SealingPrivateKey:               sealingPrivateKey,
+		AgentTrustBundle:                continuity.AgentTrustBundle,
+		GatewayTrustBundle:              continuity.GatewayTrustBundle,
+		PendingAgentTrustConfirmation:   continuity.PendingAgentTrustConfirmation,
+		PendingGatewayTrustConfirmation: continuity.PendingGatewayTrustConfirmation,
 	}, nil
 }
 
@@ -210,6 +241,18 @@ func encodeCredentialBundle(bundle CredentialBundle) ([]byte, error) {
 		{Type: credentialPEMTypes[2], Bytes: bundle.CertificateAuthorityDER},
 		{Type: credentialPEMTypes[3], Bytes: bundle.GatewayCertificateAuthorityDER},
 		{Type: credentialPEMTypes[4], Bytes: sealingPrivateKeyDER},
+	}
+	if bundle.AgentTrustBundle.Generation != 0 || bundle.GatewayTrustBundle.Generation != 0 ||
+		bundle.PendingAgentTrustConfirmation != nil || bundle.PendingGatewayTrustConfirmation != nil {
+		continuityDER, err := json.Marshal(storedCredentialContinuity{
+			AgentTrustBundle: bundle.AgentTrustBundle, GatewayTrustBundle: bundle.GatewayTrustBundle,
+			PendingAgentTrustConfirmation:   bundle.PendingAgentTrustConfirmation,
+			PendingGatewayTrustConfirmation: bundle.PendingGatewayTrustConfirmation,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("enroll: encode CA continuity: %w", err)
+		}
+		blocks = append(blocks, &pem.Block{Type: continuityPEMType, Bytes: continuityDER})
 	}
 	var encoded []byte
 	for _, block := range blocks {

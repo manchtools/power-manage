@@ -10,6 +10,13 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type CaRotationState struct {
+	CertificateClass  string
+	ProjectionVersion int64
+	StateJson         []byte
+	UpdatedAt         time.Time
+}
+
 type CertificateRevocation struct {
 	CertificateClass       string
 	CertificateFingerprint []byte
@@ -20,6 +27,7 @@ type CertificateRevocation struct {
 	SourceStreamType       string
 	SourceStreamID         string
 	SourceStreamVersion    int64
+	IssuerIdentifier       []byte
 }
 
 type CrlState struct {
@@ -30,6 +38,7 @@ type CrlState struct {
 	SourceStreamType    pgtype.Text
 	SourceStreamID      pgtype.Text
 	SourceStreamVersion pgtype.Int8
+	IssuerFingerprint   []byte
 }
 
 type CrlWorkReceipt struct {
@@ -38,6 +47,7 @@ type CrlWorkReceipt struct {
 	SourceStreamID      string
 	SourceStreamVersion int64
 	PublicationSequence int64
+	IssuerFingerprint   []byte
 }
 
 type Device struct {
@@ -61,6 +71,7 @@ type Event struct {
 	PayloadVersion int32
 	Payload        []byte
 	CreatedAt      time.Time
+	GlobalPosition int64
 }
 
 type ExecutionOutput struct {

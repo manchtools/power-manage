@@ -25,6 +25,7 @@ import (
 const (
 	eventsStreamVersionConstraint = "events_stream_version_key"
 	rollbackTimeout               = 5 * time.Second
+	beforeCommitCallbackTimeout   = 5 * time.Second
 	appendRetryBaseDelay          = time.Millisecond
 	appendRetryMaxDelay           = 50 * time.Millisecond
 )
@@ -404,6 +405,103 @@ func (s *Store) AppendEvents(ctx context.Context, events []Event) error {
 	return nil
 }
 
+// AppendEventBeforeCommit appends and projects one event, then runs a bounded,
+// fail-closed publication callback before committing the transaction.
+func (s *Store) AppendEventBeforeCommit(ctx context.Context, event Event, beforeCommit func(context.Context) error) (retErr error) {
+	if err := s.validateAppendCall(ctx); err != nil {
+		return err
+	}
+	if beforeCommit == nil {
+		return errors.New("store: nil before-commit callback")
+	}
+	prepared, err := s.prepareEvent(event)
+	if err != nil {
+		return err
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("store: begin callback append transaction: %w", err)
+	}
+	defer func() {
+		if err := rollbackTx(ctx, tx); err != nil {
+			retErr = errors.Join(retErr, err)
+		}
+	}()
+	queries := generated.New(tx)
+	currentVersion, err := queries.CurrentStreamVersion(ctx, generated.CurrentStreamVersionParams{
+		StreamType: prepared.StreamType, StreamID: prepared.StreamID,
+	})
+	if err != nil {
+		return fmt.Errorf("store: read callback append stream version: %w", err)
+	}
+	if err := appendPrepared(ctx, tx, queries, prepared, currentVersion+1); err != nil {
+		return fmt.Errorf("store: callback append: %w", err)
+	}
+	callbackCtx, cancelCallback := context.WithTimeout(ctx, beforeCommitCallbackTimeout)
+	defer cancelCallback()
+	if err := beforeCommit(callbackCtx); err != nil {
+		return fmt.Errorf("store: before-commit callback: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("store: commit callback append transaction: %w", err)
+	}
+	return nil
+}
+
+// WithAdvisoryLocks holds sorted session-level Postgres locks through action.
+func (s *Store) WithAdvisoryLocks(ctx context.Context, keys []int64, shared bool, action func() error) (retErr error) {
+	if s == nil || s.pool == nil {
+		return errors.New("store: nil store")
+	}
+	if ctx == nil {
+		return errors.New("store: nil advisory-lock context")
+	}
+	if len(keys) == 0 || action == nil {
+		return errors.New("store: invalid advisory-lock request")
+	}
+	keys = slices.Clone(keys)
+	slices.Sort(keys)
+	keys = slices.Compact(keys)
+	connection, err := s.pool.Acquire(ctx)
+	if err != nil {
+		return fmt.Errorf("store: acquire advisory-lock connection: %w", err)
+	}
+	defer connection.Release()
+	queries := generated.New(connection)
+	locked := make([]int64, 0, len(keys))
+	defer func() {
+		unlockCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), rollbackTimeout)
+		defer cancel()
+		for index := len(locked) - 1; index >= 0; index-- {
+			var unlocked bool
+			var err error
+			if shared {
+				unlocked, err = queries.ReleaseAdvisoryLockShared(unlockCtx, locked[index])
+			} else {
+				unlocked, err = queries.ReleaseAdvisoryLock(unlockCtx, locked[index])
+			}
+			if err != nil {
+				retErr = errors.Join(retErr, fmt.Errorf("store: release advisory lock: %w", err))
+			} else if !unlocked {
+				retErr = errors.Join(retErr, errors.New("store: advisory lock was not held during release"))
+			}
+		}
+	}()
+	for _, key := range keys {
+		var err error
+		if shared {
+			err = queries.AcquireAdvisoryLockShared(ctx, key)
+		} else {
+			err = queries.AcquireAdvisoryLock(ctx, key)
+		}
+		if err != nil {
+			return fmt.Errorf("store: acquire advisory lock: %w", err)
+		}
+		locked = append(locked, key)
+	}
+	return action()
+}
+
 // IsVersionConflict recognizes the stable error returned by version-pinned appends.
 func IsVersionConflict(err error) bool {
 	return errors.Is(err, errVersionConflict)
@@ -423,7 +521,9 @@ func (s *Store) prepareEvent(event Event) (preparedEvent, error) {
 	if err := validateEvent(event); err != nil {
 		return preparedEvent{}, err
 	}
-	event.StreamID = strings.ToUpper(event.StreamID)
+	if event.StreamType != caRotationStreamType {
+		event.StreamID = strings.ToUpper(event.StreamID)
+	}
 	projector, ok := s.projectors[event.EventType]
 	if !ok {
 		return preparedEvent{}, fmt.Errorf("store: no projector registered for event type %q", event.EventType)
@@ -522,7 +622,9 @@ func validateEvent(event Event) error {
 	if strings.TrimSpace(event.StreamType) == "" {
 		return errors.New("store: stream type is empty")
 	}
-	if err := validate.ULIDPathID(event.StreamID); err != nil {
+	rotationClassID := event.StreamType == caRotationStreamType &&
+		(event.StreamID == string(CertificateClassAgent) || event.StreamID == string(CertificateClassGateway))
+	if err := validate.ULIDPathID(event.StreamID); err != nil && !rotationClassID {
 		return fmt.Errorf("store: invalid stream ID: %w", err)
 	}
 	if strings.TrimSpace(event.EventType) == "" {

@@ -496,6 +496,20 @@ func TestClientTLSConfig_RejectsWrongDNSName(t *testing.T) {
 	assertErrorContains(t, result.clientErr, "certificate is valid for", "not other.internal.test")
 }
 
+// TestRejectPeerIntermediates_AllowsEmptyVerifiedChain pins the defensive
+// callback boundary: malformed or pre-verification connection state must not
+// panic while the standard TLS verifier is still responsible for rejection.
+func TestRejectPeerIntermediates_AllowsEmptyVerifiedChain(t *testing.T) {
+	ca := newTestCA(t, "transition-proof-ca")
+	config := &tls.Config{MinVersion: tls.VersionTLS13}
+	if err := identity.RejectPeerIntermediates(config, ca.cert.Raw); err != nil {
+		t.Fatalf("RejectPeerIntermediates: %v", err)
+	}
+	if err := config.VerifyConnection(tls.ConnectionState{}); err != nil {
+		t.Fatalf("VerifyConnection(empty peer chain): %v", err)
+	}
+}
+
 func stampedProfile(t *testing.T, class identity.Class, id string) *x509.Certificate {
 	t.Helper()
 	cert := &x509.Certificate{}

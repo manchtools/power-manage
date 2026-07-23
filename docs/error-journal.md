@@ -1526,3 +1526,183 @@ read-only prefix or suffix.
 start module tests in a later call. This rule applies to a manual formatter
 invocation; the canonical verification script retains its own output-capture
 harness.
+
+## 2026-07-23 — RED-suite clone helper discarded its source
+
+**What happened**: The trust-state test clone helper replaced the root slice
+before copying its elements, so every mutation case received empty
+fingerprints and one case panicked before exercising production behavior.
+
+**What the user said**: Not user-initiated; the defect surfaced on the first
+focused green run after the independently approved RED checkpoint.
+
+**Root cause**: RED review checked scenario coverage and expected failures but
+did not execute the clone helper far enough to prove that copied claims
+preserved every covered field.
+
+**Harness fix**: `CLAUDE.md` now requires clone helpers to preserve their
+source before replacing the destination as part of RED approval.
+
+**Prevention**: Mutation tests retain a stable source snapshot, so each case
+reaches the intended validation or cryptographic assertion instead of failing
+inside test setup.
+
+## 2026-07-23 — Proto guard required a lint-forbidden tag shape
+
+**What happened**: The trust-bundle descriptor guard required equal
+`min_len`/`max_len` byte rules even though Buf lint requires the equivalent
+exact-length rule to use `len`.
+
+**What the user said**: Not user-initiated; `buf lint` rejected the first
+production proto that satisfied the RED guard.
+
+**Root cause**: The guard pinned a descriptor encoding instead of the security
+invariant and was not checked against Buf's canonical rule representation.
+
+**Harness fix**: `CLAUDE.md` now requires descriptor guards to accept Buf's
+canonical validation-tag form.
+
+**Prevention**: Exact-byte guards assert the same length invariant through
+the canonical `len` field, allowing both the security test and lint gate to
+pass without weakening validation.
+
+## 2026-07-23 — Fixed-date trust fixtures depended on the wall clock
+
+**What happened**: Real TLS checks created authorities around a fixed future
+instant but left `tls.Config.Time` unset, while an overlap phase erased its
+transition proof before reading it and a non-CA mutation produced a template
+that `x509.CreateCertificate` itself rejects.
+
+**What the user said**: Not user-initiated; the first focused green run failed
+inside TLS and fixture construction rather than at the intended assertions.
+
+**Root cause**: RED review did not prove that fixed-time integration fixtures
+were independent of the machine clock or that setup mutations still produced
+valid adversarial inputs.
+
+**Harness fix**: `CLAUDE.md` now requires fixed-date TLS tests to install the
+matching `Config.Time` seam and fixtures to preserve values before reset or
+replacement.
+
+**Prevention**: Trust tests run deterministically at any wall-clock instant,
+and negative certificates reach production validation instead of failing in
+their constructors.
+
+## 2026-07-23 — Migration-report gateway fixture used the agent lifetime
+
+**What happened**: The CA migration report's shared leaf factory assigned a
+365-day lifetime before switching only the identity and EKU fields for its
+gateway branch. Production validation correctly rejected that gateway before
+the cryptographic issuer-classification assertion ran.
+
+**What the user said**: Not user-initiated; the focused store test exposed the
+fixture/profile mismatch during SPEC-006 M8 implementation.
+
+**Root cause**: The shared fixture treated class-specific certificate profiles
+as only identity and EKU differences and missed the gateway's 45-day lifetime.
+
+**Harness fix**: `CLAUDE.md` now requires approved RED certificate fixtures to
+match the current production certificate profile before implementation begins.
+
+**Prevention**: Shared certificate factories must set every class-specific
+profile field before signing, so negative tests reach the behavior they name.
+
+## 2026-07-23 — Issuer-scoped work fixture promoted embedded fields in a literal
+
+**What happened**: The new CRL retry fixture initialized `WorkItem` using
+promoted `Work` fields directly. Go permits promoted field selection but not
+promoted keys in a composite literal, so the RED package did not compile once
+the production symbols reached that test.
+
+**What the user said**: Not user-initiated; the focused PKI compile exposed the
+fixture construction error during SPEC-006 M8 implementation.
+
+**Root cause**: RED review checked the work-item semantics but did not compile
+the embedded-struct literal against its actual declaration.
+
+**Harness fix**: `CLAUDE.md` now requires composite literals to resolve
+embedded fields through the declared embedded field name.
+
+**Prevention**: Test fixtures mirror the declared data shape and reach the
+intended retry/idempotency behavior instead of failing at compile time.
+
+## 2026-07-23 — A second non-CA mutation retained CA-only path length
+
+**What happened**: The rotation transition-proof factory set `IsCA=false` for
+an adversarial case but retained `MaxPathLenZero=true`, causing
+`x509.CreateCertificate` to reject the fixture before production validation.
+
+**What the user said**: Not user-initiated; the canonical rotation matrix
+reached this fixture after the manager began compiling and running.
+
+**Root cause**: The earlier correction covered another certificate factory,
+but the RED review rule described profile preservation too generally and did
+not explicitly require CA-only fields to be cleared after a non-CA mutation.
+
+**Harness fix**: `CLAUDE.md` now calls out constructibility after CA/profile
+mutations, and this shared proof factory normalizes CA-only path-length fields.
+
+**Prevention**: Every negative certificate mutation is signed in isolation
+during RED review, so constructor rejection cannot masquerade as boundary
+validation coverage.
+
+## 2026-07-23 — Zero-consumer agent gates were required to fail and succeed unchanged
+
+**What happened**: The invalid-edge matrix required agent `Migrate` and
+`Normalize` calls to fail with no active consumers, while canonical paths
+required the same zero-consumer gates to succeed without adding any state.
+
+**What the user said**: Not user-initiated; the contradiction surfaced when
+the first canonical manager behavior reached the invalid-edge matrix.
+
+**Root cause**: Gateway-only intrinsic-control gates were applied to both CA
+classes in shared test maps even though the role matrix deliberately excludes
+control as an agent-root consumer.
+
+**Harness fix**: `CLAUDE.md` now requires RED acceptance paths to be mutually
+satisfiable. The gated migrate/normalize negatives are scoped to gateway
+rotation; agent zero-consumer gates remain deliberately vacuous.
+
+**Prevention**: Shared class matrices must justify every class-specific row
+against the closed role matrix before RED approval.
+
+## 2026-07-23 — Invalid trust claims were rejected by the test signer
+
+**What happened**: Negative manager cases mutated claims into forbidden role,
+missing-fingerprint, or zero-CRL shapes and then called the shared signing API.
+That API correctly rejected the invalid claim before the manager saw it.
+
+**What the user said**: Not user-initiated; the consumer-gate suite failed in
+fixture signing rather than at the expected manager rejection.
+
+**Root cause**: The RED fixtures assumed a validated signing helper could
+create semantically invalid signed input, conflating signing-contract tests
+with trust-boundary rejection tests.
+
+**Harness fix**: `CLAUDE.md` now requires negative crypto inputs either to be
+constructible or explicitly malformed when the shared signer rejects them.
+The fixture supplies a non-empty invalid signature in that case.
+
+**Prevention**: Structurally valid mutation cases remain genuinely signed;
+structurally forbidden cases still reach the manager and prove fail-closed
+rejection without weakening any acceptance expectation.
+
+## 2026-07-23 — Fence test expected a raw database error over RPC
+
+**What happened**: The issuance commit-failure test required the enrollment
+RPC error to contain the trigger's internal PostgreSQL exception text.
+
+**What the user said**: Not user-initiated; the full SPEC-006 PKI run reached
+the assertion after the real shared-fence path was wired.
+
+**Root cause**: The RED fixture conflated proof of rollback with observability
+of a private storage failure, contradicting the existing generic enrollment
+error boundary.
+
+**Harness fix**: The test now requires the stable generic internal error,
+explicitly rejects leaked trigger text, and still proves that no identity row
+was committed and both fences were released.
+
+**Prevention**: Failure-injection tests must verify public error contracts and
+durable side effects separately; private dependency details are never an RPC
+acceptance criterion.

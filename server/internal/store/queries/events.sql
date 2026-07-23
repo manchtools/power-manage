@@ -13,11 +13,11 @@ INSERT INTO events (
     payload
 ) VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING stream_type, stream_id, stream_version, event_type,
-          payload_version, payload, created_at;
+          payload_version, payload, created_at, global_position;
 
 -- name: ListEventsForReplayPage :many
 SELECT stream_type, stream_id, stream_version, event_type,
-       payload_version, payload, created_at
+       payload_version, payload, created_at, global_position
 FROM events
 WHERE stream_type = ANY(sqlc.arg(stream_types)::text[])
   AND (stream_type, stream_id, stream_version) > (
@@ -55,3 +55,15 @@ WITH RECURSIVE target_tables AS (
 SELECT table_name
 FROM fk_closure
 ORDER BY table_name;
+
+-- name: AcquireAdvisoryLock :exec
+SELECT pg_advisory_lock($1);
+
+-- name: AcquireAdvisoryLockShared :exec
+SELECT pg_advisory_lock_shared($1);
+
+-- name: ReleaseAdvisoryLock :one
+SELECT pg_advisory_unlock($1);
+
+-- name: ReleaseAdvisoryLockShared :one
+SELECT pg_advisory_unlock_shared($1);

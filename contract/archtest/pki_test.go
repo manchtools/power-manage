@@ -18,8 +18,8 @@ func TestPkiServiceShape(t *testing.T) {
 		t.Fatalf("find PkiService: %v", err)
 	}
 	methods := service.Methods()
-	if methods.Len() != 7 {
-		t.Fatalf("PkiService methods = %d; want seven agent and gateway lifecycle methods", methods.Len())
+	if methods.Len() != 9 {
+		t.Fatalf("PkiService methods = %d; want seven lifecycle and two trust-confirmation methods", methods.Len())
 	}
 	enrollAgent := methods.ByName("EnrollAgent")
 	renewAgent := methods.ByName("RenewAgent")
@@ -51,6 +51,8 @@ func TestPkiServiceShape(t *testing.T) {
 		"certificate_der",
 		"certificate_authority_der",
 		"gateway_certificate_authority_der",
+		"agent_trust_bundle",
+		"gateway_trust_bundle",
 	})
 	assertStringMaxLen(t, enrollAgent.Input().Fields().ByName("registration_token"), 512)
 	assertBytesBounds(t, enrollAgent.Input().Fields().ByName("certificate_signing_request_der"), 1, 65536)
@@ -67,6 +69,8 @@ func TestPkiServiceShape(t *testing.T) {
 		"certificate_der",
 		"certificate_authority_der",
 		"gateway_certificate_authority_der",
+		"agent_trust_bundle",
+		"gateway_trust_bundle",
 	})
 	assertBytesBounds(t, renewAgent.Input().Fields().ByName("certificate_der"), 1, 65536)
 	assertBytesBounds(t, renewAgent.Input().Fields().ByName("certificate_signing_request_der"), 1, 65536)
@@ -83,6 +87,8 @@ func TestPkiServiceShape(t *testing.T) {
 	assertMessageFields(t, enrollGateway.Output(), []string{
 		"certificate_der",
 		"certificate_authority_der",
+		"agent_trust_bundle",
+		"gateway_trust_bundle",
 	})
 	assertCertificateResponseBounds(t, enrollGateway.Output())
 
@@ -95,6 +101,8 @@ func TestPkiServiceShape(t *testing.T) {
 	assertMessageFields(t, renewGateway.Output(), []string{
 		"certificate_der",
 		"certificate_authority_der",
+		"agent_trust_bundle",
+		"gateway_trust_bundle",
 	})
 	assertCertificateResponseBounds(t, renewGateway.Output())
 

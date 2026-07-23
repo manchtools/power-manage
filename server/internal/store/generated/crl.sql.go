@@ -13,37 +13,52 @@ import (
 )
 
 const compareAndSwapCRLState = `-- name: CompareAndSwapCRLState :execrows
-UPDATE crl_state
-SET sequence = $1,
-    crl_der = $2,
-    issued_at = $3,
-    source_stream_type = $4,
-    source_stream_id = $5,
-    source_stream_version = $6
-WHERE certificate_class = $7
-  AND sequence = $8
+INSERT INTO crl_state (
+    certificate_class, issuer_fingerprint, sequence, crl_der, issued_at,
+    source_stream_type, source_stream_id, source_stream_version
+)
+SELECT $1, $2,
+       $3, $4, $5,
+       $6, $7,
+       $8
+WHERE $9::bigint = 0
+   OR EXISTS (
+       SELECT 1 FROM crl_state
+       WHERE certificate_class = $1
+         AND issuer_fingerprint = $2
+   )
+ON CONFLICT (certificate_class, issuer_fingerprint) DO UPDATE
+SET sequence = EXCLUDED.sequence,
+    crl_der = EXCLUDED.crl_der,
+    issued_at = EXCLUDED.issued_at,
+    source_stream_type = EXCLUDED.source_stream_type,
+    source_stream_id = EXCLUDED.source_stream_id,
+    source_stream_version = EXCLUDED.source_stream_version
+WHERE crl_state.sequence = $9
 `
 
 type CompareAndSwapCRLStateParams struct {
+	CertificateClass    string
+	IssuerFingerprint   []byte
 	NextSequence        int64
 	CrlDer              []byte
 	IssuedAt            pgtype.Timestamptz
 	SourceStreamType    pgtype.Text
 	SourceStreamID      pgtype.Text
 	SourceStreamVersion pgtype.Int8
-	CertificateClass    string
 	ExpectedSequence    int64
 }
 
 func (q *Queries) CompareAndSwapCRLState(ctx context.Context, arg CompareAndSwapCRLStateParams) (int64, error) {
 	result, err := q.db.Exec(ctx, compareAndSwapCRLState,
+		arg.CertificateClass,
+		arg.IssuerFingerprint,
 		arg.NextSequence,
 		arg.CrlDer,
 		arg.IssuedAt,
 		arg.SourceStreamType,
 		arg.SourceStreamID,
 		arg.SourceStreamVersion,
-		arg.CertificateClass,
 		arg.ExpectedSequence,
 	)
 	if err != nil {
@@ -54,19 +69,33 @@ func (q *Queries) CompareAndSwapCRLState(ctx context.Context, arg CompareAndSwap
 
 const compareAndSwapCRLStateForWork = `-- name: CompareAndSwapCRLStateForWork :execrows
 WITH advanced AS (
-    UPDATE crl_state
-    SET sequence = $5,
-        crl_der = $6,
-        issued_at = $7,
-        source_stream_type = $2,
-        source_stream_id = $3,
-        source_stream_version = $4
-    WHERE certificate_class = $1
-      AND sequence = $8
+    INSERT INTO crl_state (
+        certificate_class, issuer_fingerprint, sequence, crl_der, issued_at,
+        source_stream_type, source_stream_id, source_stream_version
+    )
+    SELECT $1, $2,
+           $6, $7, $8,
+           $3, $4,
+           $5
+    WHERE $9::bigint = 0
+       OR EXISTS (
+           SELECT 1 FROM crl_state
+           WHERE certificate_class = $1
+             AND issuer_fingerprint = $2
+       )
+    ON CONFLICT (certificate_class, issuer_fingerprint) DO UPDATE
+    SET sequence = EXCLUDED.sequence,
+        crl_der = EXCLUDED.crl_der,
+        issued_at = EXCLUDED.issued_at,
+        source_stream_type = EXCLUDED.source_stream_type,
+        source_stream_id = EXCLUDED.source_stream_id,
+        source_stream_version = EXCLUDED.source_stream_version
+    WHERE crl_state.sequence = $9
     RETURNING sequence
 )
 INSERT INTO crl_work_receipts (
     certificate_class,
+    issuer_fingerprint,
     source_stream_type,
     source_stream_id,
     source_stream_version,
@@ -76,12 +105,14 @@ SELECT $1,
        $2,
        $3,
        $4,
+       $5,
        advanced.sequence
 FROM advanced
 `
 
 type CompareAndSwapCRLStateForWorkParams struct {
 	CertificateClass    string
+	IssuerFingerprint   []byte
 	SourceStreamType    string
 	SourceStreamID      string
 	SourceStreamVersion int64
@@ -94,6 +125,7 @@ type CompareAndSwapCRLStateForWorkParams struct {
 func (q *Queries) CompareAndSwapCRLStateForWork(ctx context.Context, arg CompareAndSwapCRLStateForWorkParams) (int64, error) {
 	result, err := q.db.Exec(ctx, compareAndSwapCRLStateForWork,
 		arg.CertificateClass,
+		arg.IssuerFingerprint,
 		arg.SourceStreamType,
 		arg.SourceStreamID,
 		arg.SourceStreamVersion,
@@ -110,13 +142,19 @@ func (q *Queries) CompareAndSwapCRLStateForWork(ctx context.Context, arg Compare
 
 const getCRLState = `-- name: GetCRLState :one
 SELECT certificate_class, sequence, crl_der, issued_at,
-       source_stream_type, source_stream_id, source_stream_version
+       source_stream_type, source_stream_id, source_stream_version,
+       issuer_fingerprint
 FROM crl_state
-WHERE certificate_class = $1
+WHERE certificate_class = $1 AND issuer_fingerprint = $2
 `
 
-func (q *Queries) GetCRLState(ctx context.Context, certificateClass string) (CrlState, error) {
-	row := q.db.QueryRow(ctx, getCRLState, certificateClass)
+type GetCRLStateParams struct {
+	CertificateClass  string
+	IssuerFingerprint []byte
+}
+
+func (q *Queries) GetCRLState(ctx context.Context, arg GetCRLStateParams) (CrlState, error) {
+	row := q.db.QueryRow(ctx, getCRLState, arg.CertificateClass, arg.IssuerFingerprint)
 	var i CrlState
 	err := row.Scan(
 		&i.CertificateClass,
@@ -126,6 +164,7 @@ func (q *Queries) GetCRLState(ctx context.Context, certificateClass string) (Crl
 		&i.SourceStreamType,
 		&i.SourceStreamID,
 		&i.SourceStreamVersion,
+		&i.IssuerFingerprint,
 	)
 	return i, err
 }
@@ -134,13 +173,15 @@ const getCRLWorkReceipt = `-- name: GetCRLWorkReceipt :one
 SELECT publication_sequence
 FROM crl_work_receipts
 WHERE certificate_class = $1
-  AND source_stream_type = $2
-  AND source_stream_id = $3
-  AND source_stream_version = $4
+  AND issuer_fingerprint = $2
+  AND source_stream_type = $3
+  AND source_stream_id = $4
+  AND source_stream_version = $5
 `
 
 type GetCRLWorkReceiptParams struct {
 	CertificateClass    string
+	IssuerFingerprint   []byte
 	SourceStreamType    string
 	SourceStreamID      string
 	SourceStreamVersion int64
@@ -149,6 +190,7 @@ type GetCRLWorkReceiptParams struct {
 func (q *Queries) GetCRLWorkReceipt(ctx context.Context, arg GetCRLWorkReceiptParams) (int64, error) {
 	row := q.db.QueryRow(ctx, getCRLWorkReceipt,
 		arg.CertificateClass,
+		arg.IssuerFingerprint,
 		arg.SourceStreamType,
 		arg.SourceStreamID,
 		arg.SourceStreamVersion,
@@ -161,7 +203,8 @@ func (q *Queries) GetCRLWorkReceipt(ctx context.Context, arg GetCRLWorkReceiptPa
 const getCertificateRevocation = `-- name: GetCertificateRevocation :one
 SELECT certificate_class, certificate_fingerprint, certificate_der,
        serial_number, revoked_at, reason_code,
-       source_stream_type, source_stream_id, source_stream_version
+       source_stream_type, source_stream_id, source_stream_version,
+       issuer_identifier
 FROM certificate_revocations
 WHERE certificate_class = $1 AND certificate_fingerprint = $2
 `
@@ -184,6 +227,7 @@ func (q *Queries) GetCertificateRevocation(ctx context.Context, arg GetCertifica
 		&i.SourceStreamType,
 		&i.SourceStreamID,
 		&i.SourceStreamVersion,
+		&i.IssuerIdentifier,
 	)
 	return i, err
 }
@@ -193,13 +237,14 @@ INSERT INTO certificate_revocations (
     certificate_class,
     certificate_fingerprint,
     certificate_der,
+    issuer_identifier,
     serial_number,
     revoked_at,
     reason_code,
     source_stream_type,
     source_stream_id,
     source_stream_version
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 ON CONFLICT (certificate_class, certificate_fingerprint) DO NOTHING
 `
 
@@ -207,6 +252,7 @@ type InsertCertificateRevocationParams struct {
 	CertificateClass       string
 	CertificateFingerprint []byte
 	CertificateDer         []byte
+	IssuerIdentifier       []byte
 	SerialNumber           []byte
 	RevokedAt              time.Time
 	ReasonCode             int16
@@ -220,6 +266,7 @@ func (q *Queries) InsertCertificateRevocation(ctx context.Context, arg InsertCer
 		arg.CertificateClass,
 		arg.CertificateFingerprint,
 		arg.CertificateDer,
+		arg.IssuerIdentifier,
 		arg.SerialNumber,
 		arg.RevokedAt,
 		arg.ReasonCode,
@@ -236,7 +283,8 @@ func (q *Queries) InsertCertificateRevocation(ctx context.Context, arg InsertCer
 const listCertificateRevocations = `-- name: ListCertificateRevocations :many
 SELECT certificate_class, certificate_fingerprint, certificate_der,
        serial_number, revoked_at, reason_code,
-       source_stream_type, source_stream_id, source_stream_version
+       source_stream_type, source_stream_id, source_stream_version,
+       issuer_identifier
 FROM certificate_revocations
 WHERE certificate_class = $1
 ORDER BY revoked_at, certificate_fingerprint
@@ -261,6 +309,7 @@ func (q *Queries) ListCertificateRevocations(ctx context.Context, certificateCla
 			&i.SourceStreamType,
 			&i.SourceStreamID,
 			&i.SourceStreamVersion,
+			&i.IssuerIdentifier,
 		); err != nil {
 			return nil, err
 		}
@@ -270,6 +319,85 @@ func (q *Queries) ListCertificateRevocations(ctx context.Context, certificateCla
 		return nil, err
 	}
 	return items, nil
+}
+
+const listCurrentCRLIssuers = `-- name: ListCurrentCRLIssuers :many
+SELECT issuer_fingerprint
+FROM crl_state
+WHERE certificate_class = $1 AND sequence > 0
+ORDER BY issuer_fingerprint
+`
+
+func (q *Queries) ListCurrentCRLIssuers(ctx context.Context, certificateClass string) ([][]byte, error) {
+	rows, err := q.db.Query(ctx, listCurrentCRLIssuers, certificateClass)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items [][]byte
+	for rows.Next() {
+		var issuer_fingerprint []byte
+		if err := rows.Scan(&issuer_fingerprint); err != nil {
+			return nil, err
+		}
+		items = append(items, issuer_fingerprint)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const recordCoveredCRLWorkReceipt = `-- name: RecordCoveredCRLWorkReceipt :execrows
+INSERT INTO crl_work_receipts (
+    certificate_class,
+    issuer_fingerprint,
+    source_stream_type,
+    source_stream_id,
+    source_stream_version,
+    publication_sequence
+)
+SELECT $1,
+       $2,
+       $3,
+       $4,
+       $5,
+       $6
+FROM crl_state
+WHERE certificate_class = $1
+  AND issuer_fingerprint = $2
+  AND sequence >= $6
+ON CONFLICT (
+    certificate_class,
+    issuer_fingerprint,
+    source_stream_type,
+    source_stream_id,
+    source_stream_version
+) DO NOTHING
+`
+
+type RecordCoveredCRLWorkReceiptParams struct {
+	CertificateClass    string
+	IssuerFingerprint   []byte
+	SourceStreamType    string
+	SourceStreamID      string
+	SourceStreamVersion int64
+	PublicationSequence int64
+}
+
+func (q *Queries) RecordCoveredCRLWorkReceipt(ctx context.Context, arg RecordCoveredCRLWorkReceiptParams) (int64, error) {
+	result, err := q.db.Exec(ctx, recordCoveredCRLWorkReceipt,
+		arg.CertificateClass,
+		arg.IssuerFingerprint,
+		arg.SourceStreamType,
+		arg.SourceStreamID,
+		arg.SourceStreamVersion,
+		arg.PublicationSequence,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const resetAgentCertificateRevocations = `-- name: ResetAgentCertificateRevocations :exec

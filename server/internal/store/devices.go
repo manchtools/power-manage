@@ -487,7 +487,8 @@ func projectCertificateRevocation(
 		return errors.New("store: invalid certificate revocation class or work kind")
 	}
 	certificate, err := x509.ParseCertificate(certificateDER)
-	if err != nil || !bytes.Equal(certificate.Raw, certificateDER) || certificate.SerialNumber == nil || certificate.SerialNumber.Sign() <= 0 {
+	if err != nil || !bytes.Equal(certificate.Raw, certificateDER) || certificate.SerialNumber == nil ||
+		certificate.SerialNumber.Sign() <= 0 || len(certificate.AuthorityKeyId) == 0 {
 		return errors.New("store: revoked certificate DER is invalid")
 	}
 	fingerprint := sha256.Sum256(certificateDER)
@@ -496,6 +497,7 @@ func projectCertificateRevocation(
 		CertificateClass:       string(class),
 		CertificateFingerprint: fingerprint[:],
 		CertificateDer:         certificateDER,
+		IssuerIdentifier:       slices.Clone(certificate.AuthorityKeyId),
 		SerialNumber:           certificate.SerialNumber.Bytes(),
 		RevokedAt:              event.CreatedAt,
 		ReasonCode:             int16(reasonCode),
@@ -515,6 +517,7 @@ func projectCertificateRevocation(
 			return fmt.Errorf("store: inspect certificate revocation: %w", readErr)
 		}
 		if !bytes.Equal(existing.CertificateDer, certificateDER) ||
+			!bytes.Equal(existing.IssuerIdentifier, certificate.AuthorityKeyId) ||
 			!bytes.Equal(existing.SerialNumber, certificate.SerialNumber.Bytes()) ||
 			!compatibleRevocationReason(existing.ReasonCode, int16(reasonCode)) {
 			return errors.New("store: certificate revocation conflicts with existing material")

@@ -26,6 +26,234 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// CATrustBundle is the exact desired trust state for one certificate class.
+// Roots are canonical current+successor during overlap and are never inferred
+// from a coarse rotation phase.
+type CATrustBundle struct {
+	state                    protoimpl.MessageState `protogen:"open.v1"`
+	Generation               uint64                 `protobuf:"varint,1,opt,name=generation,proto3" json:"generation,omitempty"`
+	Revision                 uint64                 `protobuf:"varint,2,opt,name=revision,proto3" json:"revision,omitempty"`
+	RootCertificateDer       [][]byte               `protobuf:"bytes,3,rep,name=root_certificate_der,json=rootCertificateDer,proto3" json:"root_certificate_der,omitempty"`
+	TransitionCertificateDer []byte                 `protobuf:"bytes,4,opt,name=transition_certificate_der,json=transitionCertificateDer,proto3" json:"transition_certificate_der,omitempty"`
+	// Agent-root bundles carry the issuer-scoped CRL state that a gateway must
+	// have adopted before confirming this exact trust publication. Gateway-root
+	// bundles leave both fields unset.
+	CrlIssuerFingerprint []byte `protobuf:"bytes,5,opt,name=crl_issuer_fingerprint,json=crlIssuerFingerprint,proto3" json:"crl_issuer_fingerprint,omitempty"`
+	CrlSequence          uint64 `protobuf:"varint,6,opt,name=crl_sequence,json=crlSequence,proto3" json:"crl_sequence,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *CATrustBundle) Reset() {
+	*x = CATrustBundle{}
+	mi := &file_powermanage_v1_pki_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CATrustBundle) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CATrustBundle) ProtoMessage() {}
+
+func (x *CATrustBundle) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_v1_pki_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CATrustBundle.ProtoReflect.Descriptor instead.
+func (*CATrustBundle) Descriptor() ([]byte, []int) {
+	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *CATrustBundle) GetGeneration() uint64 {
+	if x != nil {
+		return x.Generation
+	}
+	return 0
+}
+
+func (x *CATrustBundle) GetRevision() uint64 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
+}
+
+func (x *CATrustBundle) GetRootCertificateDer() [][]byte {
+	if x != nil {
+		return x.RootCertificateDer
+	}
+	return nil
+}
+
+func (x *CATrustBundle) GetTransitionCertificateDer() []byte {
+	if x != nil {
+		return x.TransitionCertificateDer
+	}
+	return nil
+}
+
+func (x *CATrustBundle) GetCrlIssuerFingerprint() []byte {
+	if x != nil {
+		return x.CrlIssuerFingerprint
+	}
+	return nil
+}
+
+func (x *CATrustBundle) GetCrlSequence() uint64 {
+	if x != nil {
+		return x.CrlSequence
+	}
+	return 0
+}
+
+// ConfirmTrustStateRequest carries one independently applicable signed class
+// claim. Reporter class is derived from the procedure, never caller supplied.
+type ConfirmTrustStateRequest struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	CertificateDer       []byte                 `protobuf:"bytes,1,opt,name=certificate_der,json=certificateDer,proto3" json:"certificate_der,omitempty"`
+	ClaimedClass         string                 `protobuf:"bytes,2,opt,name=claimed_class,json=claimedClass,proto3" json:"claimed_class,omitempty"`
+	Generation           uint64                 `protobuf:"varint,3,opt,name=generation,proto3" json:"generation,omitempty"`
+	Revision             uint64                 `protobuf:"varint,4,opt,name=revision,proto3" json:"revision,omitempty"`
+	RootFingerprints     [][]byte               `protobuf:"bytes,5,rep,name=root_fingerprints,json=rootFingerprints,proto3" json:"root_fingerprints,omitempty"`
+	CrlIssuerFingerprint []byte                 `protobuf:"bytes,6,opt,name=crl_issuer_fingerprint,json=crlIssuerFingerprint,proto3" json:"crl_issuer_fingerprint,omitempty"`
+	CrlSequence          uint64                 `protobuf:"varint,7,opt,name=crl_sequence,json=crlSequence,proto3" json:"crl_sequence,omitempty"`
+	Signature            []byte                 `protobuf:"bytes,8,opt,name=signature,proto3" json:"signature,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *ConfirmTrustStateRequest) Reset() {
+	*x = ConfirmTrustStateRequest{}
+	mi := &file_powermanage_v1_pki_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConfirmTrustStateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConfirmTrustStateRequest) ProtoMessage() {}
+
+func (x *ConfirmTrustStateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_v1_pki_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConfirmTrustStateRequest.ProtoReflect.Descriptor instead.
+func (*ConfirmTrustStateRequest) Descriptor() ([]byte, []int) {
+	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *ConfirmTrustStateRequest) GetCertificateDer() []byte {
+	if x != nil {
+		return x.CertificateDer
+	}
+	return nil
+}
+
+func (x *ConfirmTrustStateRequest) GetClaimedClass() string {
+	if x != nil {
+		return x.ClaimedClass
+	}
+	return ""
+}
+
+func (x *ConfirmTrustStateRequest) GetGeneration() uint64 {
+	if x != nil {
+		return x.Generation
+	}
+	return 0
+}
+
+func (x *ConfirmTrustStateRequest) GetRevision() uint64 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
+}
+
+func (x *ConfirmTrustStateRequest) GetRootFingerprints() [][]byte {
+	if x != nil {
+		return x.RootFingerprints
+	}
+	return nil
+}
+
+func (x *ConfirmTrustStateRequest) GetCrlIssuerFingerprint() []byte {
+	if x != nil {
+		return x.CrlIssuerFingerprint
+	}
+	return nil
+}
+
+func (x *ConfirmTrustStateRequest) GetCrlSequence() uint64 {
+	if x != nil {
+		return x.CrlSequence
+	}
+	return 0
+}
+
+func (x *ConfirmTrustStateRequest) GetSignature() []byte {
+	if x != nil {
+		return x.Signature
+	}
+	return nil
+}
+
+type ConfirmTrustStateResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConfirmTrustStateResponse) Reset() {
+	*x = ConfirmTrustStateResponse{}
+	mi := &file_powermanage_v1_pki_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConfirmTrustStateResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConfirmTrustStateResponse) ProtoMessage() {}
+
+func (x *ConfirmTrustStateResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_v1_pki_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConfirmTrustStateResponse.ProtoReflect.Descriptor instead.
+func (*ConfirmTrustStateResponse) Descriptor() ([]byte, []int) {
+	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{2}
+}
+
 // EnrollAgentRequest carries proof generated entirely on the device. The
 // registration token is the sole authorization; no claimed device identity is
 // accepted from the caller.
@@ -42,7 +270,7 @@ type EnrollAgentRequest struct {
 
 func (x *EnrollAgentRequest) Reset() {
 	*x = EnrollAgentRequest{}
-	mi := &file_powermanage_v1_pki_proto_msgTypes[0]
+	mi := &file_powermanage_v1_pki_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -54,7 +282,7 @@ func (x *EnrollAgentRequest) String() string {
 func (*EnrollAgentRequest) ProtoMessage() {}
 
 func (x *EnrollAgentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_v1_pki_proto_msgTypes[0]
+	mi := &file_powermanage_v1_pki_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -67,7 +295,7 @@ func (x *EnrollAgentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnrollAgentRequest.ProtoReflect.Descriptor instead.
 func (*EnrollAgentRequest) Descriptor() ([]byte, []int) {
-	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{0}
+	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *EnrollAgentRequest) GetRegistrationToken() string {
@@ -98,13 +326,15 @@ type EnrollAgentResponse struct {
 	CertificateDer                 []byte                 `protobuf:"bytes,1,opt,name=certificate_der,json=certificateDer,proto3" json:"certificate_der,omitempty"`
 	CertificateAuthorityDer        []byte                 `protobuf:"bytes,2,opt,name=certificate_authority_der,json=certificateAuthorityDer,proto3" json:"certificate_authority_der,omitempty"`
 	GatewayCertificateAuthorityDer []byte                 `protobuf:"bytes,3,opt,name=gateway_certificate_authority_der,json=gatewayCertificateAuthorityDer,proto3" json:"gateway_certificate_authority_der,omitempty"`
+	AgentTrustBundle               *CATrustBundle         `protobuf:"bytes,4,opt,name=agent_trust_bundle,json=agentTrustBundle,proto3" json:"agent_trust_bundle,omitempty"`
+	GatewayTrustBundle             *CATrustBundle         `protobuf:"bytes,5,opt,name=gateway_trust_bundle,json=gatewayTrustBundle,proto3" json:"gateway_trust_bundle,omitempty"`
 	unknownFields                  protoimpl.UnknownFields
 	sizeCache                      protoimpl.SizeCache
 }
 
 func (x *EnrollAgentResponse) Reset() {
 	*x = EnrollAgentResponse{}
-	mi := &file_powermanage_v1_pki_proto_msgTypes[1]
+	mi := &file_powermanage_v1_pki_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -116,7 +346,7 @@ func (x *EnrollAgentResponse) String() string {
 func (*EnrollAgentResponse) ProtoMessage() {}
 
 func (x *EnrollAgentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_v1_pki_proto_msgTypes[1]
+	mi := &file_powermanage_v1_pki_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -129,7 +359,7 @@ func (x *EnrollAgentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnrollAgentResponse.ProtoReflect.Descriptor instead.
 func (*EnrollAgentResponse) Descriptor() ([]byte, []int) {
-	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{1}
+	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *EnrollAgentResponse) GetCertificateDer() []byte {
@@ -153,6 +383,20 @@ func (x *EnrollAgentResponse) GetGatewayCertificateAuthorityDer() []byte {
 	return nil
 }
 
+func (x *EnrollAgentResponse) GetAgentTrustBundle() *CATrustBundle {
+	if x != nil {
+		return x.AgentTrustBundle
+	}
+	return nil
+}
+
+func (x *EnrollAgentResponse) GetGatewayTrustBundle() *CATrustBundle {
+	if x != nil {
+		return x.GatewayTrustBundle
+	}
+	return nil
+}
+
 // RenewAgentRequest proves continuity from the current exact certificate to a
 // CSR signed by the same device-held key. Control derives device identity from
 // the certificate; no caller-asserted identity field exists.
@@ -167,7 +411,7 @@ type RenewAgentRequest struct {
 
 func (x *RenewAgentRequest) Reset() {
 	*x = RenewAgentRequest{}
-	mi := &file_powermanage_v1_pki_proto_msgTypes[2]
+	mi := &file_powermanage_v1_pki_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -179,7 +423,7 @@ func (x *RenewAgentRequest) String() string {
 func (*RenewAgentRequest) ProtoMessage() {}
 
 func (x *RenewAgentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_v1_pki_proto_msgTypes[2]
+	mi := &file_powermanage_v1_pki_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -192,7 +436,7 @@ func (x *RenewAgentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenewAgentRequest.ProtoReflect.Descriptor instead.
 func (*RenewAgentRequest) Descriptor() ([]byte, []int) {
-	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{2}
+	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *RenewAgentRequest) GetCertificateDer() []byte {
@@ -223,13 +467,15 @@ type RenewAgentResponse struct {
 	CertificateDer                 []byte                 `protobuf:"bytes,1,opt,name=certificate_der,json=certificateDer,proto3" json:"certificate_der,omitempty"`
 	CertificateAuthorityDer        []byte                 `protobuf:"bytes,2,opt,name=certificate_authority_der,json=certificateAuthorityDer,proto3" json:"certificate_authority_der,omitempty"`
 	GatewayCertificateAuthorityDer []byte                 `protobuf:"bytes,3,opt,name=gateway_certificate_authority_der,json=gatewayCertificateAuthorityDer,proto3" json:"gateway_certificate_authority_der,omitempty"`
+	AgentTrustBundle               *CATrustBundle         `protobuf:"bytes,4,opt,name=agent_trust_bundle,json=agentTrustBundle,proto3" json:"agent_trust_bundle,omitempty"`
+	GatewayTrustBundle             *CATrustBundle         `protobuf:"bytes,5,opt,name=gateway_trust_bundle,json=gatewayTrustBundle,proto3" json:"gateway_trust_bundle,omitempty"`
 	unknownFields                  protoimpl.UnknownFields
 	sizeCache                      protoimpl.SizeCache
 }
 
 func (x *RenewAgentResponse) Reset() {
 	*x = RenewAgentResponse{}
-	mi := &file_powermanage_v1_pki_proto_msgTypes[3]
+	mi := &file_powermanage_v1_pki_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -241,7 +487,7 @@ func (x *RenewAgentResponse) String() string {
 func (*RenewAgentResponse) ProtoMessage() {}
 
 func (x *RenewAgentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_v1_pki_proto_msgTypes[3]
+	mi := &file_powermanage_v1_pki_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -254,7 +500,7 @@ func (x *RenewAgentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenewAgentResponse.ProtoReflect.Descriptor instead.
 func (*RenewAgentResponse) Descriptor() ([]byte, []int) {
-	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{3}
+	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *RenewAgentResponse) GetCertificateDer() []byte {
@@ -278,6 +524,20 @@ func (x *RenewAgentResponse) GetGatewayCertificateAuthorityDer() []byte {
 	return nil
 }
 
+func (x *RenewAgentResponse) GetAgentTrustBundle() *CATrustBundle {
+	if x != nil {
+		return x.AgentTrustBundle
+	}
+	return nil
+}
+
+func (x *RenewAgentResponse) GetGatewayTrustBundle() *CATrustBundle {
+	if x != nil {
+		return x.GatewayTrustBundle
+	}
+	return nil
+}
+
 // RevokeAgentRequest identifies the currently stored certificate exactly.
 // Operator authorization is transport metadata, never a protobuf identity
 // claim. Control derives the device identity from this certificate.
@@ -290,7 +550,7 @@ type RevokeAgentRequest struct {
 
 func (x *RevokeAgentRequest) Reset() {
 	*x = RevokeAgentRequest{}
-	mi := &file_powermanage_v1_pki_proto_msgTypes[4]
+	mi := &file_powermanage_v1_pki_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -302,7 +562,7 @@ func (x *RevokeAgentRequest) String() string {
 func (*RevokeAgentRequest) ProtoMessage() {}
 
 func (x *RevokeAgentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_v1_pki_proto_msgTypes[4]
+	mi := &file_powermanage_v1_pki_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -315,7 +575,7 @@ func (x *RevokeAgentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeAgentRequest.ProtoReflect.Descriptor instead.
 func (*RevokeAgentRequest) Descriptor() ([]byte, []int) {
-	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{4}
+	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *RevokeAgentRequest) GetCertificateDer() []byte {
@@ -337,7 +597,7 @@ type ForceRenewAgentRequest struct {
 
 func (x *ForceRenewAgentRequest) Reset() {
 	*x = ForceRenewAgentRequest{}
-	mi := &file_powermanage_v1_pki_proto_msgTypes[5]
+	mi := &file_powermanage_v1_pki_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -349,7 +609,7 @@ func (x *ForceRenewAgentRequest) String() string {
 func (*ForceRenewAgentRequest) ProtoMessage() {}
 
 func (x *ForceRenewAgentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_v1_pki_proto_msgTypes[5]
+	mi := &file_powermanage_v1_pki_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -362,7 +622,7 @@ func (x *ForceRenewAgentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ForceRenewAgentRequest.ProtoReflect.Descriptor instead.
 func (*ForceRenewAgentRequest) Descriptor() ([]byte, []int) {
-	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{5}
+	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ForceRenewAgentRequest) GetCertificateDer() []byte {
@@ -380,7 +640,7 @@ type RevokeAgentResponse struct {
 
 func (x *RevokeAgentResponse) Reset() {
 	*x = RevokeAgentResponse{}
-	mi := &file_powermanage_v1_pki_proto_msgTypes[6]
+	mi := &file_powermanage_v1_pki_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -392,7 +652,7 @@ func (x *RevokeAgentResponse) String() string {
 func (*RevokeAgentResponse) ProtoMessage() {}
 
 func (x *RevokeAgentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_v1_pki_proto_msgTypes[6]
+	mi := &file_powermanage_v1_pki_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -405,7 +665,7 @@ func (x *RevokeAgentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeAgentResponse.ProtoReflect.Descriptor instead.
 func (*RevokeAgentResponse) Descriptor() ([]byte, []int) {
-	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{6}
+	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{9}
 }
 
 type ForceRenewAgentResponse struct {
@@ -416,7 +676,7 @@ type ForceRenewAgentResponse struct {
 
 func (x *ForceRenewAgentResponse) Reset() {
 	*x = ForceRenewAgentResponse{}
-	mi := &file_powermanage_v1_pki_proto_msgTypes[7]
+	mi := &file_powermanage_v1_pki_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -428,7 +688,7 @@ func (x *ForceRenewAgentResponse) String() string {
 func (*ForceRenewAgentResponse) ProtoMessage() {}
 
 func (x *ForceRenewAgentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_v1_pki_proto_msgTypes[7]
+	mi := &file_powermanage_v1_pki_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -441,7 +701,7 @@ func (x *ForceRenewAgentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ForceRenewAgentResponse.ProtoReflect.Descriptor instead.
 func (*ForceRenewAgentResponse) Descriptor() ([]byte, []int) {
-	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{7}
+	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{10}
 }
 
 // EnrollGatewayRequest carries only the gateway-held proof and a
@@ -456,7 +716,7 @@ type EnrollGatewayRequest struct {
 
 func (x *EnrollGatewayRequest) Reset() {
 	*x = EnrollGatewayRequest{}
-	mi := &file_powermanage_v1_pki_proto_msgTypes[8]
+	mi := &file_powermanage_v1_pki_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -468,7 +728,7 @@ func (x *EnrollGatewayRequest) String() string {
 func (*EnrollGatewayRequest) ProtoMessage() {}
 
 func (x *EnrollGatewayRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_v1_pki_proto_msgTypes[8]
+	mi := &file_powermanage_v1_pki_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -481,7 +741,7 @@ func (x *EnrollGatewayRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnrollGatewayRequest.ProtoReflect.Descriptor instead.
 func (*EnrollGatewayRequest) Descriptor() ([]byte, []int) {
-	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{8}
+	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *EnrollGatewayRequest) GetRegistrationToken() string {
@@ -502,13 +762,15 @@ type EnrollGatewayResponse struct {
 	state                   protoimpl.MessageState `protogen:"open.v1"`
 	CertificateDer          []byte                 `protobuf:"bytes,1,opt,name=certificate_der,json=certificateDer,proto3" json:"certificate_der,omitempty"`
 	CertificateAuthorityDer []byte                 `protobuf:"bytes,2,opt,name=certificate_authority_der,json=certificateAuthorityDer,proto3" json:"certificate_authority_der,omitempty"`
+	AgentTrustBundle        *CATrustBundle         `protobuf:"bytes,3,opt,name=agent_trust_bundle,json=agentTrustBundle,proto3" json:"agent_trust_bundle,omitempty"`
+	GatewayTrustBundle      *CATrustBundle         `protobuf:"bytes,4,opt,name=gateway_trust_bundle,json=gatewayTrustBundle,proto3" json:"gateway_trust_bundle,omitempty"`
 	unknownFields           protoimpl.UnknownFields
 	sizeCache               protoimpl.SizeCache
 }
 
 func (x *EnrollGatewayResponse) Reset() {
 	*x = EnrollGatewayResponse{}
-	mi := &file_powermanage_v1_pki_proto_msgTypes[9]
+	mi := &file_powermanage_v1_pki_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -520,7 +782,7 @@ func (x *EnrollGatewayResponse) String() string {
 func (*EnrollGatewayResponse) ProtoMessage() {}
 
 func (x *EnrollGatewayResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_v1_pki_proto_msgTypes[9]
+	mi := &file_powermanage_v1_pki_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -533,7 +795,7 @@ func (x *EnrollGatewayResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnrollGatewayResponse.ProtoReflect.Descriptor instead.
 func (*EnrollGatewayResponse) Descriptor() ([]byte, []int) {
-	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{9}
+	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *EnrollGatewayResponse) GetCertificateDer() []byte {
@@ -550,6 +812,20 @@ func (x *EnrollGatewayResponse) GetCertificateAuthorityDer() []byte {
 	return nil
 }
 
+func (x *EnrollGatewayResponse) GetAgentTrustBundle() *CATrustBundle {
+	if x != nil {
+		return x.AgentTrustBundle
+	}
+	return nil
+}
+
+func (x *EnrollGatewayResponse) GetGatewayTrustBundle() *CATrustBundle {
+	if x != nil {
+		return x.GatewayTrustBundle
+	}
+	return nil
+}
+
 // RenewGatewayRequest proves continuity from the exact current certificate
 // to a CSR signed by the same in-memory gateway key.
 type RenewGatewayRequest struct {
@@ -562,7 +838,7 @@ type RenewGatewayRequest struct {
 
 func (x *RenewGatewayRequest) Reset() {
 	*x = RenewGatewayRequest{}
-	mi := &file_powermanage_v1_pki_proto_msgTypes[10]
+	mi := &file_powermanage_v1_pki_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -574,7 +850,7 @@ func (x *RenewGatewayRequest) String() string {
 func (*RenewGatewayRequest) ProtoMessage() {}
 
 func (x *RenewGatewayRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_v1_pki_proto_msgTypes[10]
+	mi := &file_powermanage_v1_pki_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -587,7 +863,7 @@ func (x *RenewGatewayRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenewGatewayRequest.ProtoReflect.Descriptor instead.
 func (*RenewGatewayRequest) Descriptor() ([]byte, []int) {
-	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{10}
+	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *RenewGatewayRequest) GetCertificateDer() []byte {
@@ -608,13 +884,15 @@ type RenewGatewayResponse struct {
 	state                   protoimpl.MessageState `protogen:"open.v1"`
 	CertificateDer          []byte                 `protobuf:"bytes,1,opt,name=certificate_der,json=certificateDer,proto3" json:"certificate_der,omitempty"`
 	CertificateAuthorityDer []byte                 `protobuf:"bytes,2,opt,name=certificate_authority_der,json=certificateAuthorityDer,proto3" json:"certificate_authority_der,omitempty"`
+	AgentTrustBundle        *CATrustBundle         `protobuf:"bytes,3,opt,name=agent_trust_bundle,json=agentTrustBundle,proto3" json:"agent_trust_bundle,omitempty"`
+	GatewayTrustBundle      *CATrustBundle         `protobuf:"bytes,4,opt,name=gateway_trust_bundle,json=gatewayTrustBundle,proto3" json:"gateway_trust_bundle,omitempty"`
 	unknownFields           protoimpl.UnknownFields
 	sizeCache               protoimpl.SizeCache
 }
 
 func (x *RenewGatewayResponse) Reset() {
 	*x = RenewGatewayResponse{}
-	mi := &file_powermanage_v1_pki_proto_msgTypes[11]
+	mi := &file_powermanage_v1_pki_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -626,7 +904,7 @@ func (x *RenewGatewayResponse) String() string {
 func (*RenewGatewayResponse) ProtoMessage() {}
 
 func (x *RenewGatewayResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_v1_pki_proto_msgTypes[11]
+	mi := &file_powermanage_v1_pki_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -639,7 +917,7 @@ func (x *RenewGatewayResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenewGatewayResponse.ProtoReflect.Descriptor instead.
 func (*RenewGatewayResponse) Descriptor() ([]byte, []int) {
-	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{11}
+	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *RenewGatewayResponse) GetCertificateDer() []byte {
@@ -656,6 +934,20 @@ func (x *RenewGatewayResponse) GetCertificateAuthorityDer() []byte {
 	return nil
 }
 
+func (x *RenewGatewayResponse) GetAgentTrustBundle() *CATrustBundle {
+	if x != nil {
+		return x.AgentTrustBundle
+	}
+	return nil
+}
+
+func (x *RenewGatewayResponse) GetGatewayTrustBundle() *CATrustBundle {
+	if x != nil {
+		return x.GatewayTrustBundle
+	}
+	return nil
+}
+
 // RevokeGatewayRequest identifies the exact currently stored gateway
 // certificate. Operator authorization remains transport metadata.
 type RevokeGatewayRequest struct {
@@ -667,7 +959,7 @@ type RevokeGatewayRequest struct {
 
 func (x *RevokeGatewayRequest) Reset() {
 	*x = RevokeGatewayRequest{}
-	mi := &file_powermanage_v1_pki_proto_msgTypes[12]
+	mi := &file_powermanage_v1_pki_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -679,7 +971,7 @@ func (x *RevokeGatewayRequest) String() string {
 func (*RevokeGatewayRequest) ProtoMessage() {}
 
 func (x *RevokeGatewayRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_v1_pki_proto_msgTypes[12]
+	mi := &file_powermanage_v1_pki_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -692,7 +984,7 @@ func (x *RevokeGatewayRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeGatewayRequest.ProtoReflect.Descriptor instead.
 func (*RevokeGatewayRequest) Descriptor() ([]byte, []int) {
-	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{12}
+	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *RevokeGatewayRequest) GetCertificateDer() []byte {
@@ -710,7 +1002,7 @@ type RevokeGatewayResponse struct {
 
 func (x *RevokeGatewayResponse) Reset() {
 	*x = RevokeGatewayResponse{}
-	mi := &file_powermanage_v1_pki_proto_msgTypes[13]
+	mi := &file_powermanage_v1_pki_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -722,7 +1014,7 @@ func (x *RevokeGatewayResponse) String() string {
 func (*RevokeGatewayResponse) ProtoMessage() {}
 
 func (x *RevokeGatewayResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_powermanage_v1_pki_proto_msgTypes[13]
+	mi := &file_powermanage_v1_pki_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -735,30 +1027,61 @@ func (x *RevokeGatewayResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeGatewayResponse.ProtoReflect.Descriptor instead.
 func (*RevokeGatewayResponse) Descriptor() ([]byte, []int) {
-	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{13}
+	return file_powermanage_v1_pki_proto_rawDescGZIP(), []int{16}
 }
 
 var File_powermanage_v1_pki_proto protoreflect.FileDescriptor
 
 const file_powermanage_v1_pki_proto_rawDesc = "" +
 	"\n" +
-	"\x18powermanage/v1/pki.proto\x12\x0epowermanage.v1\x1a\x1bbuf/validate/validate.proto\"\xd8\x01\n" +
+	"\x18powermanage/v1/pki.proto\x12\x0epowermanage.v1\x1a\x1bbuf/validate/validate.proto\"\xdf\x02\n" +
+	"\rCATrustBundle\x12'\n" +
+	"\n" +
+	"generation\x18\x01 \x01(\x04B\a\xbaH\x042\x02(\x01R\n" +
+	"generation\x12#\n" +
+	"\brevision\x18\x02 \x01(\x04B\a\xbaH\x042\x02(\x01R\brevision\x12F\n" +
+	"\x14root_certificate_der\x18\x03 \x03(\fB\x14\xbaH\x11\x92\x01\x0e\b\x01\x10\x02\"\bz\x06\x10\x01\x18\x80\x80\x04R\x12rootCertificateDer\x12G\n" +
+	"\x1atransition_certificate_der\x18\x04 \x01(\fB\t\xbaH\x06z\x04\x18\x80\x80\x04R\x18transitionCertificateDer\x12@\n" +
+	"\x16crl_issuer_fingerprint\x18\x05 \x01(\fB\n" +
+	"\xbaH\a\xd8\x01\x01z\x02h R\x14crlIssuerFingerprint\x12-\n" +
+	"\fcrl_sequence\x18\x06 \x01(\x04B\n" +
+	"\xbaH\a\xd8\x01\x012\x02(\x01R\vcrlSequence\"\xb4\x03\n" +
+	"\x18ConfirmTrustStateRequest\x124\n" +
+	"\x0fcertificate_der\x18\x01 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x0ecertificateDer\x12:\n" +
+	"\rclaimed_class\x18\x02 \x01(\tB\x15\xbaH\x12r\x10R\x05agentR\agatewayR\fclaimedClass\x12'\n" +
+	"\n" +
+	"generation\x18\x03 \x01(\x04B\a\xbaH\x042\x02(\x01R\n" +
+	"generation\x12#\n" +
+	"\brevision\x18\x04 \x01(\x04B\a\xbaH\x042\x02(\x01R\brevision\x12=\n" +
+	"\x11root_fingerprints\x18\x05 \x03(\fB\x10\xbaH\r\x92\x01\n" +
+	"\b\x01\x10\x02\"\x04z\x02h R\x10rootFingerprints\x12@\n" +
+	"\x16crl_issuer_fingerprint\x18\x06 \x01(\fB\n" +
+	"\xbaH\a\xd8\x01\x01z\x02h R\x14crlIssuerFingerprint\x12-\n" +
+	"\fcrl_sequence\x18\a \x01(\x04B\n" +
+	"\xbaH\a\xd8\x01\x012\x02(\x01R\vcrlSequence\x12(\n" +
+	"\tsignature\x18\b \x01(\fB\n" +
+	"\xbaH\az\x05\x10\x01\x18\x80@R\tsignature\"\x1b\n" +
+	"\x19ConfirmTrustStateResponse\"\xd8\x01\n" +
 	"\x12EnrollAgentRequest\x127\n" +
 	"\x12registration_token\x18\x01 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x04R\x11registrationToken\x12R\n" +
 	"\x1fcertificate_signing_request_der\x18\x02 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x1ccertificateSigningRequestDer\x125\n" +
-	"\x12sealing_public_key\x18\x03 \x01(\fB\a\xbaH\x04z\x02h R\x10sealingPublicKey\"\xec\x01\n" +
+	"\x12sealing_public_key\x18\x03 \x01(\fB\a\xbaH\x04z\x02h R\x10sealingPublicKey\"\x9a\x03\n" +
 	"\x13EnrollAgentResponse\x124\n" +
 	"\x0fcertificate_der\x18\x01 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x0ecertificateDer\x12G\n" +
 	"\x19certificate_authority_der\x18\x02 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x17certificateAuthorityDer\x12V\n" +
-	"!gateway_certificate_authority_der\x18\x03 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x1egatewayCertificateAuthorityDer\"\xd4\x01\n" +
+	"!gateway_certificate_authority_der\x18\x03 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x1egatewayCertificateAuthorityDer\x12S\n" +
+	"\x12agent_trust_bundle\x18\x04 \x01(\v2\x1d.powermanage.v1.CATrustBundleB\x06\xbaH\x03\xc8\x01\x01R\x10agentTrustBundle\x12W\n" +
+	"\x14gateway_trust_bundle\x18\x05 \x01(\v2\x1d.powermanage.v1.CATrustBundleB\x06\xbaH\x03\xc8\x01\x01R\x12gatewayTrustBundle\"\xd4\x01\n" +
 	"\x11RenewAgentRequest\x124\n" +
 	"\x0fcertificate_der\x18\x01 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x0ecertificateDer\x12R\n" +
 	"\x1fcertificate_signing_request_der\x18\x02 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x1ccertificateSigningRequestDer\x125\n" +
-	"\x12sealing_public_key\x18\x03 \x01(\fB\a\xbaH\x04z\x02h R\x10sealingPublicKey\"\xeb\x01\n" +
+	"\x12sealing_public_key\x18\x03 \x01(\fB\a\xbaH\x04z\x02h R\x10sealingPublicKey\"\x99\x03\n" +
 	"\x12RenewAgentResponse\x124\n" +
 	"\x0fcertificate_der\x18\x01 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x0ecertificateDer\x12G\n" +
 	"\x19certificate_authority_der\x18\x02 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x17certificateAuthorityDer\x12V\n" +
-	"!gateway_certificate_authority_der\x18\x03 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x1egatewayCertificateAuthorityDer\"J\n" +
+	"!gateway_certificate_authority_der\x18\x03 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x1egatewayCertificateAuthorityDer\x12S\n" +
+	"\x12agent_trust_bundle\x18\x04 \x01(\v2\x1d.powermanage.v1.CATrustBundleB\x06\xbaH\x03\xc8\x01\x01R\x10agentTrustBundle\x12W\n" +
+	"\x14gateway_trust_bundle\x18\x05 \x01(\v2\x1d.powermanage.v1.CATrustBundleB\x06\xbaH\x03\xc8\x01\x01R\x12gatewayTrustBundle\"J\n" +
 	"\x12RevokeAgentRequest\x124\n" +
 	"\x0fcertificate_der\x18\x01 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x0ecertificateDer\"N\n" +
 	"\x16ForceRenewAgentRequest\x124\n" +
@@ -767,19 +1090,23 @@ const file_powermanage_v1_pki_proto_rawDesc = "" +
 	"\x17ForceRenewAgentResponse\"\xa3\x01\n" +
 	"\x14EnrollGatewayRequest\x127\n" +
 	"\x12registration_token\x18\x01 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x04R\x11registrationToken\x12R\n" +
-	"\x1fcertificate_signing_request_der\x18\x02 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x1ccertificateSigningRequestDer\"\x96\x01\n" +
+	"\x1fcertificate_signing_request_der\x18\x02 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x1ccertificateSigningRequestDer\"\xc4\x02\n" +
 	"\x15EnrollGatewayResponse\x124\n" +
 	"\x0fcertificate_der\x18\x01 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x0ecertificateDer\x12G\n" +
-	"\x19certificate_authority_der\x18\x02 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x17certificateAuthorityDer\"\x9f\x01\n" +
+	"\x19certificate_authority_der\x18\x02 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x17certificateAuthorityDer\x12S\n" +
+	"\x12agent_trust_bundle\x18\x03 \x01(\v2\x1d.powermanage.v1.CATrustBundleB\x06\xbaH\x03\xc8\x01\x01R\x10agentTrustBundle\x12W\n" +
+	"\x14gateway_trust_bundle\x18\x04 \x01(\v2\x1d.powermanage.v1.CATrustBundleB\x06\xbaH\x03\xc8\x01\x01R\x12gatewayTrustBundle\"\x9f\x01\n" +
 	"\x13RenewGatewayRequest\x124\n" +
 	"\x0fcertificate_der\x18\x01 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x0ecertificateDer\x12R\n" +
-	"\x1fcertificate_signing_request_der\x18\x02 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x1ccertificateSigningRequestDer\"\x95\x01\n" +
+	"\x1fcertificate_signing_request_der\x18\x02 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x1ccertificateSigningRequestDer\"\xc3\x02\n" +
 	"\x14RenewGatewayResponse\x124\n" +
 	"\x0fcertificate_der\x18\x01 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x0ecertificateDer\x12G\n" +
-	"\x19certificate_authority_der\x18\x02 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x17certificateAuthorityDer\"L\n" +
+	"\x19certificate_authority_der\x18\x02 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x17certificateAuthorityDer\x12S\n" +
+	"\x12agent_trust_bundle\x18\x03 \x01(\v2\x1d.powermanage.v1.CATrustBundleB\x06\xbaH\x03\xc8\x01\x01R\x10agentTrustBundle\x12W\n" +
+	"\x14gateway_trust_bundle\x18\x04 \x01(\v2\x1d.powermanage.v1.CATrustBundleB\x06\xbaH\x03\xc8\x01\x01R\x12gatewayTrustBundle\"L\n" +
 	"\x14RevokeGatewayRequest\x124\n" +
 	"\x0fcertificate_der\x18\x01 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x04R\x0ecertificateDer\"\x17\n" +
-	"\x15RevokeGatewayResponse2\x8c\x05\n" +
+	"\x15RevokeGatewayResponse2\xec\x06\n" +
 	"\n" +
 	"PkiService\x12V\n" +
 	"\vEnrollAgent\x12\".powermanage.v1.EnrollAgentRequest\x1a#.powermanage.v1.EnrollAgentResponse\x12S\n" +
@@ -789,7 +1116,9 @@ const file_powermanage_v1_pki_proto_rawDesc = "" +
 	"\x0fForceRenewAgent\x12&.powermanage.v1.ForceRenewAgentRequest\x1a'.powermanage.v1.ForceRenewAgentResponse\x12\\\n" +
 	"\rEnrollGateway\x12$.powermanage.v1.EnrollGatewayRequest\x1a%.powermanage.v1.EnrollGatewayResponse\x12Y\n" +
 	"\fRenewGateway\x12#.powermanage.v1.RenewGatewayRequest\x1a$.powermanage.v1.RenewGatewayResponse\x12\\\n" +
-	"\rRevokeGateway\x12$.powermanage.v1.RevokeGatewayRequest\x1a%.powermanage.v1.RevokeGatewayResponseBQZOgithub.com/manchtools/power-manage/contract/gen/go/powermanage/v1;powermanagev1b\x06proto3"
+	"\rRevokeGateway\x12$.powermanage.v1.RevokeGatewayRequest\x1a%.powermanage.v1.RevokeGatewayResponse\x12m\n" +
+	"\x16ConfirmAgentTrustState\x12(.powermanage.v1.ConfirmTrustStateRequest\x1a).powermanage.v1.ConfirmTrustStateResponse\x12o\n" +
+	"\x18ConfirmGatewayTrustState\x12(.powermanage.v1.ConfirmTrustStateRequest\x1a).powermanage.v1.ConfirmTrustStateResponseBQZOgithub.com/manchtools/power-manage/contract/gen/go/powermanage/v1;powermanagev1b\x06proto3"
 
 var (
 	file_powermanage_v1_pki_proto_rawDescOnce sync.Once
@@ -803,43 +1132,58 @@ func file_powermanage_v1_pki_proto_rawDescGZIP() []byte {
 	return file_powermanage_v1_pki_proto_rawDescData
 }
 
-var file_powermanage_v1_pki_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_powermanage_v1_pki_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_powermanage_v1_pki_proto_goTypes = []any{
-	(*EnrollAgentRequest)(nil),      // 0: powermanage.v1.EnrollAgentRequest
-	(*EnrollAgentResponse)(nil),     // 1: powermanage.v1.EnrollAgentResponse
-	(*RenewAgentRequest)(nil),       // 2: powermanage.v1.RenewAgentRequest
-	(*RenewAgentResponse)(nil),      // 3: powermanage.v1.RenewAgentResponse
-	(*RevokeAgentRequest)(nil),      // 4: powermanage.v1.RevokeAgentRequest
-	(*ForceRenewAgentRequest)(nil),  // 5: powermanage.v1.ForceRenewAgentRequest
-	(*RevokeAgentResponse)(nil),     // 6: powermanage.v1.RevokeAgentResponse
-	(*ForceRenewAgentResponse)(nil), // 7: powermanage.v1.ForceRenewAgentResponse
-	(*EnrollGatewayRequest)(nil),    // 8: powermanage.v1.EnrollGatewayRequest
-	(*EnrollGatewayResponse)(nil),   // 9: powermanage.v1.EnrollGatewayResponse
-	(*RenewGatewayRequest)(nil),     // 10: powermanage.v1.RenewGatewayRequest
-	(*RenewGatewayResponse)(nil),    // 11: powermanage.v1.RenewGatewayResponse
-	(*RevokeGatewayRequest)(nil),    // 12: powermanage.v1.RevokeGatewayRequest
-	(*RevokeGatewayResponse)(nil),   // 13: powermanage.v1.RevokeGatewayResponse
+	(*CATrustBundle)(nil),             // 0: powermanage.v1.CATrustBundle
+	(*ConfirmTrustStateRequest)(nil),  // 1: powermanage.v1.ConfirmTrustStateRequest
+	(*ConfirmTrustStateResponse)(nil), // 2: powermanage.v1.ConfirmTrustStateResponse
+	(*EnrollAgentRequest)(nil),        // 3: powermanage.v1.EnrollAgentRequest
+	(*EnrollAgentResponse)(nil),       // 4: powermanage.v1.EnrollAgentResponse
+	(*RenewAgentRequest)(nil),         // 5: powermanage.v1.RenewAgentRequest
+	(*RenewAgentResponse)(nil),        // 6: powermanage.v1.RenewAgentResponse
+	(*RevokeAgentRequest)(nil),        // 7: powermanage.v1.RevokeAgentRequest
+	(*ForceRenewAgentRequest)(nil),    // 8: powermanage.v1.ForceRenewAgentRequest
+	(*RevokeAgentResponse)(nil),       // 9: powermanage.v1.RevokeAgentResponse
+	(*ForceRenewAgentResponse)(nil),   // 10: powermanage.v1.ForceRenewAgentResponse
+	(*EnrollGatewayRequest)(nil),      // 11: powermanage.v1.EnrollGatewayRequest
+	(*EnrollGatewayResponse)(nil),     // 12: powermanage.v1.EnrollGatewayResponse
+	(*RenewGatewayRequest)(nil),       // 13: powermanage.v1.RenewGatewayRequest
+	(*RenewGatewayResponse)(nil),      // 14: powermanage.v1.RenewGatewayResponse
+	(*RevokeGatewayRequest)(nil),      // 15: powermanage.v1.RevokeGatewayRequest
+	(*RevokeGatewayResponse)(nil),     // 16: powermanage.v1.RevokeGatewayResponse
 }
 var file_powermanage_v1_pki_proto_depIdxs = []int32{
-	0,  // 0: powermanage.v1.PkiService.EnrollAgent:input_type -> powermanage.v1.EnrollAgentRequest
-	2,  // 1: powermanage.v1.PkiService.RenewAgent:input_type -> powermanage.v1.RenewAgentRequest
-	4,  // 2: powermanage.v1.PkiService.RevokeAgent:input_type -> powermanage.v1.RevokeAgentRequest
-	5,  // 3: powermanage.v1.PkiService.ForceRenewAgent:input_type -> powermanage.v1.ForceRenewAgentRequest
-	8,  // 4: powermanage.v1.PkiService.EnrollGateway:input_type -> powermanage.v1.EnrollGatewayRequest
-	10, // 5: powermanage.v1.PkiService.RenewGateway:input_type -> powermanage.v1.RenewGatewayRequest
-	12, // 6: powermanage.v1.PkiService.RevokeGateway:input_type -> powermanage.v1.RevokeGatewayRequest
-	1,  // 7: powermanage.v1.PkiService.EnrollAgent:output_type -> powermanage.v1.EnrollAgentResponse
-	3,  // 8: powermanage.v1.PkiService.RenewAgent:output_type -> powermanage.v1.RenewAgentResponse
-	6,  // 9: powermanage.v1.PkiService.RevokeAgent:output_type -> powermanage.v1.RevokeAgentResponse
-	7,  // 10: powermanage.v1.PkiService.ForceRenewAgent:output_type -> powermanage.v1.ForceRenewAgentResponse
-	9,  // 11: powermanage.v1.PkiService.EnrollGateway:output_type -> powermanage.v1.EnrollGatewayResponse
-	11, // 12: powermanage.v1.PkiService.RenewGateway:output_type -> powermanage.v1.RenewGatewayResponse
-	13, // 13: powermanage.v1.PkiService.RevokeGateway:output_type -> powermanage.v1.RevokeGatewayResponse
-	7,  // [7:14] is the sub-list for method output_type
-	0,  // [0:7] is the sub-list for method input_type
-	0,  // [0:0] is the sub-list for extension type_name
-	0,  // [0:0] is the sub-list for extension extendee
-	0,  // [0:0] is the sub-list for field type_name
+	0,  // 0: powermanage.v1.EnrollAgentResponse.agent_trust_bundle:type_name -> powermanage.v1.CATrustBundle
+	0,  // 1: powermanage.v1.EnrollAgentResponse.gateway_trust_bundle:type_name -> powermanage.v1.CATrustBundle
+	0,  // 2: powermanage.v1.RenewAgentResponse.agent_trust_bundle:type_name -> powermanage.v1.CATrustBundle
+	0,  // 3: powermanage.v1.RenewAgentResponse.gateway_trust_bundle:type_name -> powermanage.v1.CATrustBundle
+	0,  // 4: powermanage.v1.EnrollGatewayResponse.agent_trust_bundle:type_name -> powermanage.v1.CATrustBundle
+	0,  // 5: powermanage.v1.EnrollGatewayResponse.gateway_trust_bundle:type_name -> powermanage.v1.CATrustBundle
+	0,  // 6: powermanage.v1.RenewGatewayResponse.agent_trust_bundle:type_name -> powermanage.v1.CATrustBundle
+	0,  // 7: powermanage.v1.RenewGatewayResponse.gateway_trust_bundle:type_name -> powermanage.v1.CATrustBundle
+	3,  // 8: powermanage.v1.PkiService.EnrollAgent:input_type -> powermanage.v1.EnrollAgentRequest
+	5,  // 9: powermanage.v1.PkiService.RenewAgent:input_type -> powermanage.v1.RenewAgentRequest
+	7,  // 10: powermanage.v1.PkiService.RevokeAgent:input_type -> powermanage.v1.RevokeAgentRequest
+	8,  // 11: powermanage.v1.PkiService.ForceRenewAgent:input_type -> powermanage.v1.ForceRenewAgentRequest
+	11, // 12: powermanage.v1.PkiService.EnrollGateway:input_type -> powermanage.v1.EnrollGatewayRequest
+	13, // 13: powermanage.v1.PkiService.RenewGateway:input_type -> powermanage.v1.RenewGatewayRequest
+	15, // 14: powermanage.v1.PkiService.RevokeGateway:input_type -> powermanage.v1.RevokeGatewayRequest
+	1,  // 15: powermanage.v1.PkiService.ConfirmAgentTrustState:input_type -> powermanage.v1.ConfirmTrustStateRequest
+	1,  // 16: powermanage.v1.PkiService.ConfirmGatewayTrustState:input_type -> powermanage.v1.ConfirmTrustStateRequest
+	4,  // 17: powermanage.v1.PkiService.EnrollAgent:output_type -> powermanage.v1.EnrollAgentResponse
+	6,  // 18: powermanage.v1.PkiService.RenewAgent:output_type -> powermanage.v1.RenewAgentResponse
+	9,  // 19: powermanage.v1.PkiService.RevokeAgent:output_type -> powermanage.v1.RevokeAgentResponse
+	10, // 20: powermanage.v1.PkiService.ForceRenewAgent:output_type -> powermanage.v1.ForceRenewAgentResponse
+	12, // 21: powermanage.v1.PkiService.EnrollGateway:output_type -> powermanage.v1.EnrollGatewayResponse
+	14, // 22: powermanage.v1.PkiService.RenewGateway:output_type -> powermanage.v1.RenewGatewayResponse
+	16, // 23: powermanage.v1.PkiService.RevokeGateway:output_type -> powermanage.v1.RevokeGatewayResponse
+	2,  // 24: powermanage.v1.PkiService.ConfirmAgentTrustState:output_type -> powermanage.v1.ConfirmTrustStateResponse
+	2,  // 25: powermanage.v1.PkiService.ConfirmGatewayTrustState:output_type -> powermanage.v1.ConfirmTrustStateResponse
+	17, // [17:26] is the sub-list for method output_type
+	8,  // [8:17] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_powermanage_v1_pki_proto_init() }
@@ -853,7 +1197,7 @@ func file_powermanage_v1_pki_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_powermanage_v1_pki_proto_rawDesc), len(file_powermanage_v1_pki_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   14,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

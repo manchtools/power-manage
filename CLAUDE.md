@@ -67,8 +67,9 @@ branch; after any merge-command error, check remote PR state before retrying.
   from it.
 - **NEVER weaken a test to make it pass.** Implementation sessions do not
   edit test expectations — a failing test is a finding to report, not an
-  obstacle. Any test-file change by an implementer must be explicitly
-  justified in the PR.
+  obstacle. Before approving RED, acceptance paths are mutually satisfiable and fixtures preserve values before reset or
+  replacement, keep negative crypto inputs constructible (or explicitly malformed when shared signers reject them), and fixed-date TLS sets `Config.Time`. Any test-file change
+  by an implementer must be explicitly justified in the PR.
 - After substantial changes, run the `reviewer` agent against the plan.
 
 ## Commands
@@ -78,7 +79,7 @@ branch; after any merge-command error, check remote PR state before retrying.
   gateway, and full agent-daemon commands land with SPEC-012/013. Verify the
   repository with the canonical gate.
 - Test one module: `go test -C <module> ./... -count=1 -race`
-- Protos: `cd contract && buf lint && buf generate`
+- Protos: `cd contract && buf lint && buf generate`; guards accept Buf's canonical tags (exact bytes use `len`).
 
 ## Always / never
 
@@ -118,7 +119,7 @@ branch; after any merge-command error, check remote PR state before retrying.
 - After any `apply_patch` context failure, every remaining patch in that turn
   is single-file and based on freshly printed surrounding lines; do not retry a
   combined code-and-documentation patch.
-- After adding a call site, resolve every new identifier against an existing
+- After adding a call site, resolve every new identifier and composite-literal embedded field against an existing
   declaration or add that declaration in the same patch; reuse values already
   returned by test factories instead of inventing accessor helpers. Before
   adding a package-level test helper, search the package for that name. After

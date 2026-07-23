@@ -437,6 +437,11 @@ func newGatewayCertificateFixtureWithMutation(
 	mutate func(*x509.Certificate),
 ) []byte {
 	t.Helper()
+	publicDER, err := x509.MarshalPKIXPublicKey(key.Public())
+	if err != nil {
+		t.Fatalf("marshal gateway fixture public key: %v", err)
+	}
+	keyID := sha256.Sum256(publicDER)
 	template := &x509.Certificate{
 		SerialNumber:          big.NewInt(serial),
 		NotBefore:             time.Date(2026, time.July, 22, 0, 0, 0, 0, time.UTC),
@@ -445,6 +450,8 @@ func newGatewayCertificateFixtureWithMutation(
 		KeyUsage:              x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 		DNSNames:              slices.Clone(dnsNames),
+		SubjectKeyId:          bytes.Clone(keyID[:20]),
+		AuthorityKeyId:        bytes.Clone(keyID[:20]),
 	}
 	if err := identity.StampCertificateIdentity(template, identity.GatewayClass, gatewayID); err != nil {
 		t.Fatalf("stamp gateway certificate identity: %v", err)

@@ -11,6 +11,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
+	"errors"
 	"math/big"
 	"net"
 	"net/http"
@@ -97,6 +98,8 @@ func TestGatewayClient_EachEnrollmentCreatesFreshValidatedIdentity(t *testing.T)
 		}, want: "profile"},
 		{name: "wrong lifetime", mutate: func(handler *gatewayClientHandler) { handler.lifetime = 44 * 24 * time.Hour }, want: "profile"},
 		{name: "malformed CA", mutate: func(handler *gatewayClientHandler) { handler.responseCADER = []byte("bad") }, want: "certificate authority"},
+		{name: "missing agent trust bundle", mutate: func(handler *gatewayClientHandler) { handler.omitAgentTrust = true }, want: "agent trust bundle"},
+		{name: "missing gateway trust bundle", mutate: func(handler *gatewayClientHandler) { handler.omitGatewayTrust = true }, want: "gateway trust bundle"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -128,6 +131,30 @@ func TestGatewayClient_EachEnrollmentCreatesFreshValidatedIdentity(t *testing.T)
 	}
 }
 
+func TestGatewayClient_FirstRenewalUsesEnrollmentTrustState(t *testing.T) {
+	fixture := newGatewayClientFixture(t)
+	publisher := &gatewayEnrollmentPublisher{}
+	fixture.client.publisher = publisher
+	current, err := fixture.client.Enroll(context.Background(), "gateway-registration-token")
+	if err != nil {
+		t.Fatalf("Enroll: %v", err)
+	}
+	if current.AgentTrustBundle.Generation == 0 || current.GatewayTrustBundle.Generation == 0 {
+		t.Fatalf("enrollment omitted trust state: %+v", current)
+	}
+
+	renewed, err := fixture.client.Renew(context.Background(), current)
+	if err != nil {
+		t.Fatalf("first Renew after Enroll: %v", err)
+	}
+	if fixture.handler.renewCalls != 1 || fixture.handler.confirmCalls != 2 {
+		t.Fatalf("renew/confirmation calls = (%d,%d); want (1,2)", fixture.handler.renewCalls, fixture.handler.confirmCalls)
+	}
+	if publisher.calls != 2 || renewed.PendingAgentTrustConfirmation != nil || renewed.PendingGatewayTrustConfirmation != nil {
+		t.Fatalf("published/renewed state = (%d,%+v); want atomic replacement then cleared confirmations", publisher.calls, renewed)
+	}
+}
+
 type gatewayClientFixture struct {
 	client  *EnrollmentClient
 	handler *gatewayClientHandler
@@ -138,6 +165,7 @@ type gatewayClientHandler struct {
 
 	ca                     *x509.Certificate
 	caSigner               crypto.Signer
+	agentCA                *x509.Certificate
 	responseCA             *x509.Certificate
 	responseCADER          []byte
 	dnsNames               []string
@@ -155,14 +183,19 @@ type gatewayClientHandler struct {
 	now                    time.Time
 	calls                  int
 	requests               []*powermanagev1.EnrollGatewayRequest
+	renewCalls             int
+	confirmCalls           int
+	omitAgentTrust         bool
+	omitGatewayTrust       bool
 }
 
 func newGatewayClientFixture(t *testing.T) gatewayClientFixture {
 	t.Helper()
 	ca, signer := newGatewayClientCA(t, "gateway client CA")
+	agentCA, _ := newGatewayClientCA(t, "agent client CA")
 	now := time.Date(2026, time.July, 22, 12, 0, 0, 0, time.UTC)
 	handler := &gatewayClientHandler{
-		ca: ca, caSigner: signer, dnsNames: []string{"gateway.internal.example"},
+		ca: ca, caSigner: signer, agentCA: agentCA, dnsNames: []string{"gateway.internal.example"},
 		class: identity.GatewayClass, lifetime: 45 * 24 * time.Hour, now: now,
 	}
 	path, connectHandler := powermanagev1connect.NewPkiServiceHandler(handler)
@@ -236,10 +269,83 @@ func (h *gatewayClientHandler) EnrollGateway(_ context.Context, request *connect
 		}
 		caDER = ca.Raw
 	}
+	agentTrust, gatewayTrust := h.trustBundles()
+	if h.omitAgentTrust {
+		agentTrust = nil
+	}
+	if h.omitGatewayTrust {
+		gatewayTrust = nil
+	}
 	return connect.NewResponse(&powermanagev1.EnrollGatewayResponse{
 		CertificateDer:          certificateDER,
 		CertificateAuthorityDer: caDER,
+		AgentTrustBundle:        agentTrust,
+		GatewayTrustBundle:      gatewayTrust,
 	}), nil
+}
+
+func (h *gatewayClientHandler) RenewGateway(_ context.Context, request *connect.Request[powermanagev1.RenewGatewayRequest]) (*connect.Response[powermanagev1.RenewGatewayResponse], error) {
+	h.renewCalls++
+	presented, err := x509.ParseCertificate(request.Msg.GetCertificateDer())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	class, gatewayID, err := identity.ParseCertificateIdentity(presented)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	if class != identity.GatewayClass {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("presented identity is not a gateway"))
+	}
+	csr, err := x509.ParseCertificateRequest(request.Msg.GetCertificateSigningRequestDer())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	if err := csr.CheckSignature(); err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(int64(100 + h.renewCalls)),
+		NotBefore:    h.now.Add(-time.Minute), NotAfter: h.now.Add(-time.Minute).Add(45 * 24 * time.Hour),
+		BasicConstraintsValid: true, KeyUsage: x509.KeyUsageDigitalSignature,
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+		DNSNames:    slices.Clone(h.dnsNames),
+	}
+	if err := identity.StampCertificateIdentity(template, identity.GatewayClass, gatewayID); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	certificateDER, err := x509.CreateCertificate(rand.Reader, template, h.ca, csr.PublicKey, h.caSigner)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	agentTrust, gatewayTrust := h.trustBundles()
+	return connect.NewResponse(&powermanagev1.RenewGatewayResponse{
+		CertificateDer: certificateDER, CertificateAuthorityDer: h.ca.Raw,
+		AgentTrustBundle: agentTrust, GatewayTrustBundle: gatewayTrust,
+	}), nil
+}
+
+func (h *gatewayClientHandler) ConfirmGatewayTrustState(context.Context, *connect.Request[powermanagev1.ConfirmTrustStateRequest]) (*connect.Response[powermanagev1.ConfirmTrustStateResponse], error) {
+	h.confirmCalls++
+	return connect.NewResponse(&powermanagev1.ConfirmTrustStateResponse{}), nil
+}
+
+func (h *gatewayClientHandler) trustBundles() (*powermanagev1.CATrustBundle, *powermanagev1.CATrustBundle) {
+	return &powermanagev1.CATrustBundle{
+			Generation: 1, Revision: 1, RootCertificateDer: [][]byte{h.agentCA.Raw},
+			CrlIssuerFingerprint: sha256FingerprintBytes(h.agentCA.Raw), CrlSequence: 1,
+		}, &powermanagev1.CATrustBundle{
+			Generation: 1, Revision: 1, RootCertificateDer: [][]byte{h.ca.Raw},
+		}
+}
+
+type gatewayEnrollmentPublisher struct {
+	calls int
+}
+
+func (p *gatewayEnrollmentPublisher) Publish(context.Context, Identity) error {
+	p.calls++
+	return nil
 }
 
 func newGatewayClientCA(t *testing.T, name string) (*x509.Certificate, crypto.Signer) {
@@ -258,8 +364,10 @@ func newGatewayClientCA(t *testing.T, name string) (*x509.Certificate, crypto.Si
 		SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: name},
 		NotBefore: now.Add(-time.Hour), NotAfter: now.Add(365 * 24 * time.Hour),
 		IsCA: true, BasicConstraintsValid: true,
-		KeyUsage:     x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
-		SubjectKeyId: bytes.Clone(keyID[:20]),
+		KeyUsage:       x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		MaxPathLen:     0,
+		MaxPathLenZero: true,
+		SubjectKeyId:   bytes.Clone(keyID[:20]),
 	}
 	der, err := x509.CreateCertificate(rand.Reader, template, template, signer.Public(), signer)
 	if err != nil {
