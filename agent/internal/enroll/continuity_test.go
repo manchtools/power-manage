@@ -845,7 +845,7 @@ func newContinuityClientFixture(t *testing.T) continuityClientFixture {
 		t.Fatalf("generate continuity client key: %v", err)
 	}
 	sealingKey := newEnrollmentSealingPrivateKey(t)
-	certificateDER := newContinuityAgentLeaf(t, currentAgent, key.Public(), enrolledClientDeviceID)
+	certificateDER := newContinuityAgentLeaf(t, now, currentAgent, key.Public(), enrolledClientDeviceID)
 	store := &continuityCredentialStore{bundle: CredentialBundle{
 		DeviceID: enrolledClientDeviceID, CertificateDER: certificateDER,
 		CertificateAuthorityDER:        currentAgent.root.Raw,
@@ -1275,8 +1275,8 @@ func assertTransitionIntermediateRejectedByRealTLS(t *testing.T, class continuit
 	} else {
 		agentAuthority = fixture.nextAgent
 	}
-	gatewayLeaf := newContinuityGatewayLeaf(t, gatewayAuthority, gatewayKey.Public(), dnsName)
-	agentLeaf := newContinuityAgentLeaf(t, agentAuthority, agentKey.Public(), enrolledClientDeviceID)
+	gatewayLeaf := newContinuityGatewayLeaf(t, fixture.handler.now, gatewayAuthority, gatewayKey.Public(), dnsName)
+	agentLeaf := newContinuityAgentLeaf(t, fixture.handler.now, agentAuthority, agentKey.Public(), enrolledClientDeviceID)
 	agentRoots := x509.NewCertPool()
 	agentRoots.AddCert(fixture.currentAgent.root)
 	if class == continuityClassAgent {
@@ -1303,11 +1303,13 @@ func assertTransitionIntermediateRejectedByRealTLS(t *testing.T, class continuit
 	clientTLS.Time = func() time.Time { return fixture.handler.now }
 	transitionDER := fixture.transition(class)
 	if class == continuityClassGateway {
-		if err := identity.RejectPeerIntermediates(clientTLS, transitionDER); err != nil {
+		clientTLS, err = identity.RejectPeerIntermediates(clientTLS, transitionDER)
+		if err != nil {
 			t.Fatalf("install production transition denylist on agent client: %v", err)
 		}
 	} else {
-		if err := identity.RejectPeerIntermediates(serverTLS, transitionDER); err != nil {
+		serverTLS, err = identity.RejectPeerIntermediates(serverTLS, transitionDER)
+		if err != nil {
 			t.Fatalf("install production transition denylist on gateway server: %v", err)
 		}
 	}
@@ -1401,8 +1403,9 @@ func assertContinuityMutualTLS(
 	if err != nil {
 		t.Fatalf("generate agent overlap key: %v", err)
 	}
-	gatewayLeaf := newContinuityGatewayLeaf(t, gatewayAuthority, gatewayKey.Public(), dnsName)
-	agentLeaf := newContinuityAgentLeaf(t, agentAuthority, agentKey.Public(), enrolledClientDeviceID)
+	validationTime := gatewayAuthority.root.NotBefore.Add(time.Hour)
+	gatewayLeaf := newContinuityGatewayLeaf(t, validationTime, gatewayAuthority, gatewayKey.Public(), dnsName)
+	agentLeaf := newContinuityAgentLeaf(t, validationTime, agentAuthority, agentKey.Public(), enrolledClientDeviceID)
 	agentPool := x509.NewCertPool()
 	for _, root := range agentRoots {
 		agentPool.AddCert(root)
@@ -1419,7 +1422,6 @@ func assertContinuityMutualTLS(
 	if err != nil {
 		t.Fatalf("build overlap agent TLS config: %v", err)
 	}
-	validationTime := gatewayAuthority.root.NotBefore.Add(time.Hour)
 	serverTLS.Time = func() time.Time { return validationTime }
 	clientTLS.Time = func() time.Time { return validationTime }
 	server := httptest.NewUnstartedServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
@@ -1464,9 +1466,9 @@ func newContinuityAgentLeafWithoutTest(now time.Time, authority continuityCA, pu
 	return continuityLeafResult{der: der, err: err}
 }
 
-func newContinuityAgentLeaf(t *testing.T, authority continuityCA, publicKey crypto.PublicKey, deviceID string) []byte {
+func newContinuityAgentLeaf(t *testing.T, now time.Time, authority continuityCA, publicKey crypto.PublicKey, deviceID string) []byte {
 	t.Helper()
-	result := newContinuityAgentLeafWithoutTest(time.Now().UTC(), authority, publicKey, deviceID)
+	result := newContinuityAgentLeafWithoutTest(now, authority, publicKey, deviceID)
 	if result.err != nil {
 		t.Fatalf("create continuity agent leaf: %v", result.err)
 	}
@@ -1482,9 +1484,8 @@ func newEnrollmentSealingPrivateKey(t *testing.T) *ecdh.PrivateKey {
 	return key
 }
 
-func newContinuityGatewayLeaf(t *testing.T, authority continuityCA, publicKey crypto.PublicKey, dnsName string) []byte {
+func newContinuityGatewayLeaf(t *testing.T, now time.Time, authority continuityCA, publicKey crypto.PublicKey, dnsName string) []byte {
 	t.Helper()
-	now := time.Now().UTC()
 	template := &x509.Certificate{
 		SerialNumber: big.NewInt(4), NotBefore: now.Add(-time.Minute), NotAfter: now.Add(45*24*time.Hour - time.Minute),
 		BasicConstraintsValid: true, KeyUsage: x509.KeyUsageDigitalSignature,

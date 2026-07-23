@@ -68,7 +68,7 @@ branch; after any merge-command error, check remote PR state before retrying.
 - **NEVER weaken a test to make it pass.** Implementation sessions do not
   edit test expectations — a failing test is a finding to report, not an
   obstacle. Before approving RED, acceptance paths are mutually satisfiable and fixtures preserve values before reset or
-  replacement, keep negative crypto inputs constructible (or explicitly malformed when shared signers reject them), and fixed-date TLS sets `Config.Time`. Any test-file change
+  replacement, keep negative crypto inputs constructible (or explicitly malformed when shared signers reject them); fixed-date certificate fixtures derive issuance and `Config.Time` from one injected clock. TLS config decorators return clones and never mutate caller-owned configs. Any test-file change
   by an implementer must be explicitly justified in the PR.
 - After substantial changes, run the `reviewer` agent against the plan.
 
@@ -127,7 +127,7 @@ branch; after any merge-command error, check remote PR state before retrying.
   when handwritten and generated types differ only by casing, verify each use
   against its receiver type after patching.
 - Build guard ownership from production call sites, never inferred receiver
-  syntax; cardinality-changing refactors update exact sets and liveness fixtures.
+  syntax; descriptor counts resolve every expected name, and cardinality-changing refactors update exact sets and liveness fixtures.
 - In PostgreSQL migrations, explicitly name table-level constraints so they
   cannot collide with PostgreSQL's `<table>_<column>_check` names for
   column-level checks; test empty and populated pre-upgrade states, failing
@@ -143,8 +143,8 @@ branch; after any merge-command error, check remote PR state before retrying.
 - Before adding an importable test-support package with dynamic database calls, inspect repository
   static-SQL guards; any exemption is exact and matches-zero-protected;
   blocking and observer fixtures stay outside the application pool, and synthetic triggers exclude follow-on work.
-- Review uncommitted work with `coderabbit review --base main --include-untracked`;
-  do not pass removed output flags. Before declaring remote review complete,
+- Review uncommitted work against main with the installed local review tool,
+  including untracked files and no removed output flags. Before completion,
   query unresolved PR threads even when the newest-head check is rate-limited;
   a head status does not summarize earlier reviews.
 - After editing a shell file containing heredocs, inspect the numbered changed
@@ -175,8 +175,8 @@ branch; after any merge-command error, check remote PR state before retrying.
 - For `gh --json` status inspection, use only fields listed by that command;
   query the GitHub API when nested job-step data is required.
 - Run standard-library `go doc` probes with `GOWORK=off` when workspace
-  resolution is unnecessary, one symbol per invocation, and inspect
-  module/workspace sums afterward.
+  resolution is unnecessary. Run cross-module Go probes from their module
+  directories, and inspect sums after any workspace-root Go command.
 - Split file reads use non-overlapping ranges; include line numbers at joins
   before diagnosing apparent duplicate source text.
 - No-self-mention instructions for publication apply to commit and PR text;

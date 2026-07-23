@@ -207,23 +207,24 @@ func ClientTLSConfig(certificate tls.Certificate, rootCAs *x509.CertPool, server
 	}, nil
 }
 
-// RejectPeerIntermediates adds an exact-DER denylist to an existing production
-// TLS configuration. CA transition certificates are continuity proofs only;
-// they must never become general peer-chain intermediates.
-func RejectPeerIntermediates(config *tls.Config, certificateDER ...[]byte) error {
+// RejectPeerIntermediates returns a cloned TLS configuration with an exact-DER
+// denylist. CA transition certificates are continuity proofs only; they must
+// never become general peer-chain intermediates.
+func RejectPeerIntermediates(config *tls.Config, certificateDER ...[]byte) (*tls.Config, error) {
 	if config == nil {
-		return fmt.Errorf("identity: nil TLS config")
+		return nil, fmt.Errorf("identity: nil TLS config")
 	}
 	denied := make([][]byte, len(certificateDER))
 	for index, der := range certificateDER {
 		certificate, err := x509.ParseCertificate(der)
 		if err != nil || !bytes.Equal(certificate.Raw, der) {
-			return fmt.Errorf("identity: transition certificate %d is not exact DER", index)
+			return nil, fmt.Errorf("identity: transition certificate %d is not exact DER", index)
 		}
 		denied[index] = bytes.Clone(der)
 	}
-	previous := config.VerifyConnection
-	config.VerifyConnection = func(state tls.ConnectionState) error {
+	next := config.Clone()
+	previous := next.VerifyConnection
+	next.VerifyConnection = func(state tls.ConnectionState) error {
 		if previous != nil {
 			if err := previous(state); err != nil {
 				return err
@@ -241,7 +242,7 @@ func RejectPeerIntermediates(config *tls.Config, certificateDER ...[]byte) error
 		}
 		return nil
 	}
-	return nil
+	return next, nil
 }
 
 func classURI(class Class) (string, error) {

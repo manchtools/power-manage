@@ -28,6 +28,8 @@ func TestPkiServiceShape(t *testing.T) {
 	enrollGateway := methods.ByName("EnrollGateway")
 	renewGateway := methods.ByName("RenewGateway")
 	revokeGateway := methods.ByName("RevokeGateway")
+	confirmAgentTrust := methods.ByName("ConfirmAgentTrustState")
+	confirmGatewayTrust := methods.ByName("ConfirmGatewayTrustState")
 	for _, method := range []protoreflect.MethodDescriptor{
 		enrollAgent,
 		renewAgent,
@@ -36,6 +38,8 @@ func TestPkiServiceShape(t *testing.T) {
 		enrollGateway,
 		renewGateway,
 		revokeGateway,
+		confirmAgentTrust,
+		confirmGatewayTrust,
 	} {
 		if method == nil || method.IsStreamingClient() || method.IsStreamingServer() {
 			t.Fatalf("PkiService method = %v; want a unary method", method)

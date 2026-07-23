@@ -1979,3 +1979,171 @@ bundle rows now assert their full `missing the ... trust bundle` category.
 **Prevention**: For table-driven error substrings, compare every candidate
 against the shared wrapper prefix; a discriminator must add information beyond
 that prefix.
+
+## 2026-07-23 — Targeted rerun mixed root and module-relative paths
+
+**What happened**: A focused `go test` rerun used the repository root as its
+working directory with a package path that was relative to the agent module.
+The command failed during setup and exercised no tests.
+
+**What the user said**: Not user-initiated; the failed command exposed the
+working-directory mismatch immediately.
+
+**Root cause**: The rerun copied the package selector from a module-scoped
+command without carrying over its module working directory.
+
+**Harness fix**: The existing `CLAUDE.md` command-composition rule already
+requires choosing one working-directory model before execution, so no duplicate
+rule was added. The corrected command runs from the `agent` module.
+
+**Prevention**: Pair module-relative Go package selectors with the module
+working directory, or use the repository-root-relative package path from the
+workspace root.
+
+## 2026-07-23 — Local review reused a removed output flag
+
+**What happened**: The local review invocation included the obsolete
+`--plain` option. The installed CLI rejected the command before starting a
+review and printed its current usage.
+
+**What the user said**: Not user-initiated; the CLI rejected the stale syntax.
+
+**Root cause**: The invocation followed remembered syntax instead of the
+repository's recorded command convention for the installed CLI.
+
+**Harness fix**: `CLAUDE.md` already records the exact supported local-review
+command and explicitly prohibits removed output flags, so no duplicate rule was
+added. The review is rerun with `--base main --include-untracked`.
+
+**Prevention**: Use the repository's pinned command convention verbatim and
+treat the installed CLI's usage output as authoritative when syntax changes.
+
+## 2026-07-23 — Fixed-clock TLS fixtures issued certificates from wall time
+
+**What happened**: Agent and server rotation fixtures verified certificates at
+an injected time but issued some leaves and roots from `time.Now()`. The tests
+became date-dependent once wall time moved beyond the frozen fixture clock.
+
+**What the user said**: Not user-initiated; CI and local review exposed the two
+wall-clock dependencies.
+
+**Root cause**: Certificate issuance and verification used different clock
+sources inside otherwise deterministic fixtures.
+
+**Harness fix**: `CLAUDE.md` now requires fixed-date certificate issuance and
+`tls.Config.Time` to derive from the same injected clock. Both fixture families
+pass their explicit time into certificate construction.
+
+**Prevention**: A deterministic PKI fixture owns one clock and passes it to
+every validity window and TLS verifier.
+
+## 2026-07-23 — Confirmation matrices accepted unrelated errors
+
+**What happened**: Two invalid trust-confirmation matrices asserted only that
+an error occurred, so unrelated setup or persistence failures could satisfy the
+negative cases.
+
+**What the user said**: Not user-initiated; local review identified the weak
+error assertions.
+
+**Root cause**: The table rows treated any non-nil error as proof that the
+intended authorization rejection executed.
+
+**Harness fix**: The existing `CLAUDE.md` negative-test rule already requires
+the exact intended sentinel. Both matrices now require
+`ErrTrustStateRejected`.
+
+**Prevention**: Every negative matrix names the sentinel or stable category
+that proves its intended branch, including nested subtests.
+
+## 2026-07-23 — Milestone plan duplicated implementation behavior
+
+**What happened**: The SPEC-006 M8 plan mixed behavioral summaries and
+generated-artifact explanations into its files-and-symbols inventory.
+
+**What the user said**: Not user-initiated; local review found the plan-scope
+violation.
+
+**Root cause**: Completion notes were added to the plan even though the
+specification remains the behavioral source of truth.
+
+**Harness fix**: The existing `CLAUDE.md` planning rule already limits plans to
+the milestone delta. The inventory now contains only paths and symbols; the
+second section remains test names only.
+
+**Prevention**: Put behavioral rationale and requirements in the spec, and use
+milestone plans only as implementation inventories.
+
+## 2026-07-23 — TLS denylist helper mutated caller-owned configuration
+
+**What happened**: `RejectPeerIntermediates` installed its verification hook by
+mutating the supplied `tls.Config`, which is unsafe once a config is shared with
+an active TLS client or server.
+
+**What the user said**: Not user-initiated; local review identified the unsafe
+ownership contract.
+
+**Root cause**: The helper was designed as an in-place decorator even though
+Go permits cloning an in-use TLS configuration safely.
+
+**Harness fix**: `CLAUDE.md` now requires TLS config decorators to return a
+clone. `RejectPeerIntermediates` clones the input, preserves the previous
+callback, and returns the guarded config without modifying the caller's value.
+
+**Prevention**: Treat TLS configurations as immutable after construction;
+derive replacement configs with `Clone` and swap them through the owner.
+
+## 2026-07-23 — Workspace-root race test churned the workspace sum
+
+**What happened**: A race-detector command addressed packages from three Go
+modules at the workspace root. Go rewrote `go.work.sum` with unrelated module
+metadata even though the implementation changed no dependency.
+
+**What the user said**: Not user-initiated; the final status audit exposed the
+unexpected sum-file diff.
+
+**Root cause**: A verification probe used workspace resolution where three
+module-scoped commands would have avoided mutating workspace metadata.
+
+**Harness fix**: `CLAUDE.md` now directs cross-module probes to their module
+directories and requires sum inspection after any workspace-root Go command.
+The unrelated `go.work.sum` churn was removed.
+
+**Prevention**: Run affected-module tests from each module directory and treat
+unexpected dependency metadata as a failed cleanliness check.
+
+## 2026-07-23 — Repository guidance named a review provider
+
+**What happened**: A repository harness rule embedded a provider-specific local
+review command even though the repository prohibits tool attribution in docs.
+
+**What the user said**: Not user-initiated; remote review found the conflict
+with the existing no-attribution rule.
+
+**Root cause**: An exact operational command was recorded in tracked project
+guidance instead of remaining in private tooling instructions.
+
+**Harness fix**: The repository rule now describes the required review scope
+and unresolved-thread check without naming a provider. Exact CLI syntax remains
+owned by the private review integration.
+
+**Prevention**: Repository guidance states tool-neutral outcomes; private
+tooling guidance owns provider names and invocation syntax.
+
+## 2026-07-23 — Service-shape guard counted unnamed methods
+
+**What happened**: `TestPkiServiceShape` required nine methods but resolved
+only the seven lifecycle methods by name. Unrelated methods could satisfy its
+cardinality check without proving both trust-confirmation methods existed.
+
+**What the user said**: Not user-initiated; local review found the guard gap.
+
+**Root cause**: The test used total cardinality as an implicit assertion for
+the two methods owned by the rotation milestone.
+
+**Harness fix**: `CLAUDE.md` now requires descriptor count guards to resolve
+every expected name. The service-shape test includes both trust-confirmation
+descriptors in its unary-method matrix.
+
+**Prevention**: Pair exact descriptor counts with explicit lookup and shape
+validation for every member in the expected set.

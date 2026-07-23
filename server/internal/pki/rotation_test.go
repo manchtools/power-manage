@@ -432,8 +432,8 @@ func TestRotationManager_ConsumerBundlesGateMigrateAbortAndNormalize(t *testing.
 			t.Run(test.name, func(t *testing.T) {
 				claim := consumerClaim(trust, reporter)
 				test.mutate(&claim)
-				if err := fixture.confirm(t, reporter, claim); err == nil {
-					t.Fatal("ConfirmTrustState accepted invalid bundle or receipt state")
+				if err := fixture.confirm(t, reporter, claim); !errors.Is(err, ErrTrustStateRejected) {
+					t.Fatalf("ConfirmTrustState error = %v; want %v", err, ErrTrustStateRejected)
 				}
 			})
 		}
@@ -654,8 +654,8 @@ func exerciseRotationRoleMatrix(t *testing.T) {
 				t.Run(test.name, func(t *testing.T) {
 					claim := cloneRotationClaim(valid)
 					test.mutate(&claim)
-					if err := fixture.confirm(t, consumer, claim); err == nil {
-						t.Fatal("closed role matrix accepted a missing, forbidden, cross-class, or cross-issuer receipt")
+					if err := fixture.confirm(t, consumer, claim); !errors.Is(err, ErrTrustStateRejected) {
+						t.Fatalf("closed role-matrix confirmation error = %v; want %v", err, ErrTrustStateRejected)
 					}
 				})
 			}
@@ -1193,7 +1193,7 @@ func (d *recordingTrustBundleDistributor) PublishTrustBundle(_ context.Context, 
 
 func newRotationManagerFixture(t *testing.T) rotationManagerFixture {
 	t.Helper()
-	now := time.Date(2026, time.July, 23, 11, 0, 0, 0, time.UTC)
+	now := time.Now().UTC().Truncate(time.Second)
 	pool := registrationPostgres.Database(t, store.Migrate)
 	eventStore, err := store.NewProduction(pool)
 	if err != nil {
@@ -1611,7 +1611,7 @@ func newRotationCA(t *testing.T, name string, now time.Time) rotationCA {
 	keyID := sha256.Sum256(publicDER)
 	template := &x509.Certificate{
 		SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: name},
-		NotBefore: time.Now().Add(-time.Hour), NotAfter: now.Add(2 * 365 * 24 * time.Hour),
+		NotBefore: now.Add(-time.Hour), NotAfter: now.Add(2 * 365 * 24 * time.Hour),
 		IsCA: true, BasicConstraintsValid: true,
 		KeyUsage:     x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
 		SubjectKeyId: bytes.Clone(keyID[:20]), AuthorityKeyId: bytes.Clone(keyID[:20]),
