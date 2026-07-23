@@ -1526,3 +1526,624 @@ read-only prefix or suffix.
 start module tests in a later call. This rule applies to a manual formatter
 invocation; the canonical verification script retains its own output-capture
 harness.
+
+## 2026-07-23 — RED-suite clone helper discarded its source
+
+**What happened**: The trust-state test clone helper replaced the root slice
+before copying its elements, so every mutation case received empty
+fingerprints and one case panicked before exercising production behavior.
+
+**What the user said**: Not user-initiated; the defect surfaced on the first
+focused green run after the independently approved RED checkpoint.
+
+**Root cause**: RED review checked scenario coverage and expected failures but
+did not execute the clone helper far enough to prove that copied claims
+preserved every covered field.
+
+**Harness fix**: `CLAUDE.md` now requires clone helpers to preserve their
+source before replacing the destination as part of RED approval.
+
+**Prevention**: Mutation tests retain a stable source snapshot, so each case
+reaches the intended validation or cryptographic assertion instead of failing
+inside test setup.
+
+## 2026-07-23 — Proto guard required a lint-forbidden tag shape
+
+**What happened**: The trust-bundle descriptor guard required equal
+`min_len`/`max_len` byte rules even though Buf lint requires the equivalent
+exact-length rule to use `len`.
+
+**What the user said**: Not user-initiated; `buf lint` rejected the first
+production proto that satisfied the RED guard.
+
+**Root cause**: The guard pinned a descriptor encoding instead of the security
+invariant and was not checked against Buf's canonical rule representation.
+
+**Harness fix**: `CLAUDE.md` now requires descriptor guards to accept Buf's
+canonical validation-tag form.
+
+**Prevention**: Exact-byte guards assert the same length invariant through
+the canonical `len` field, allowing both the security test and lint gate to
+pass without weakening validation.
+
+## 2026-07-23 — Fixed-date trust fixtures depended on the wall clock
+
+**What happened**: Real TLS checks created authorities around a fixed future
+instant but left `tls.Config.Time` unset, while an overlap phase erased its
+transition proof before reading it and a non-CA mutation produced a template
+that `x509.CreateCertificate` itself rejects.
+
+**What the user said**: Not user-initiated; the first focused green run failed
+inside TLS and fixture construction rather than at the intended assertions.
+
+**Root cause**: RED review did not prove that fixed-time integration fixtures
+were independent of the machine clock or that setup mutations still produced
+valid adversarial inputs.
+
+**Harness fix**: `CLAUDE.md` now requires fixed-date TLS tests to install the
+matching `Config.Time` seam and fixtures to preserve values before reset or
+replacement.
+
+**Prevention**: Trust tests run deterministically at any wall-clock instant,
+and negative certificates reach production validation instead of failing in
+their constructors.
+
+## 2026-07-23 — Migration-report gateway fixture used the agent lifetime
+
+**What happened**: The CA migration report's shared leaf factory assigned a
+365-day lifetime before switching only the identity and EKU fields for its
+gateway branch. Production validation correctly rejected that gateway before
+the cryptographic issuer-classification assertion ran.
+
+**What the user said**: Not user-initiated; the focused store test exposed the
+fixture/profile mismatch during SPEC-006 M8 implementation.
+
+**Root cause**: The shared fixture treated class-specific certificate profiles
+as only identity and EKU differences and missed the gateway's 45-day lifetime.
+
+**Harness fix**: `CLAUDE.md` now requires approved RED certificate fixtures to
+match the current production certificate profile before implementation begins.
+
+**Prevention**: Shared certificate factories must set every class-specific
+profile field before signing, so negative tests reach the behavior they name.
+
+## 2026-07-23 — Issuer-scoped work fixture promoted embedded fields in a literal
+
+**What happened**: The new CRL retry fixture initialized `WorkItem` using
+promoted `Work` fields directly. Go permits promoted field selection but not
+promoted keys in a composite literal, so the RED package did not compile once
+the production symbols reached that test.
+
+**What the user said**: Not user-initiated; the focused PKI compile exposed the
+fixture construction error during SPEC-006 M8 implementation.
+
+**Root cause**: RED review checked the work-item semantics but did not compile
+the embedded-struct literal against its actual declaration.
+
+**Harness fix**: `CLAUDE.md` now requires composite literals to resolve
+embedded fields through the declared embedded field name.
+
+**Prevention**: Test fixtures mirror the declared data shape and reach the
+intended retry/idempotency behavior instead of failing at compile time.
+
+## 2026-07-23 — A second non-CA mutation retained CA-only path length
+
+**What happened**: The rotation transition-proof factory set `IsCA=false` for
+an adversarial case but retained `MaxPathLenZero=true`, causing
+`x509.CreateCertificate` to reject the fixture before production validation.
+
+**What the user said**: Not user-initiated; the canonical rotation matrix
+reached this fixture after the manager began compiling and running.
+
+**Root cause**: The earlier correction covered another certificate factory,
+but the RED review rule described profile preservation too generally and did
+not explicitly require CA-only fields to be cleared after a non-CA mutation.
+
+**Harness fix**: `CLAUDE.md` now calls out constructibility after CA/profile
+mutations, and this shared proof factory normalizes CA-only path-length fields.
+
+**Prevention**: Every negative certificate mutation is signed in isolation
+during RED review, so constructor rejection cannot masquerade as boundary
+validation coverage.
+
+## 2026-07-23 — Zero-consumer agent gates were required to fail and succeed unchanged
+
+**What happened**: The invalid-edge matrix required agent `Migrate` and
+`Normalize` calls to fail with no active consumers, while canonical paths
+required the same zero-consumer gates to succeed without adding any state.
+
+**What the user said**: Not user-initiated; the contradiction surfaced when
+the first canonical manager behavior reached the invalid-edge matrix.
+
+**Root cause**: Gateway-only intrinsic-control gates were applied to both CA
+classes in shared test maps even though the role matrix deliberately excludes
+control as an agent-root consumer.
+
+**Harness fix**: `CLAUDE.md` now requires RED acceptance paths to be mutually
+satisfiable. The gated migrate/normalize negatives are scoped to gateway
+rotation; agent zero-consumer gates remain deliberately vacuous.
+
+**Prevention**: Shared class matrices must justify every class-specific row
+against the closed role matrix before RED approval.
+
+## 2026-07-23 — Invalid trust claims were rejected by the test signer
+
+**What happened**: Negative manager cases mutated claims into forbidden role,
+missing-fingerprint, or zero-CRL shapes and then called the shared signing API.
+That API correctly rejected the invalid claim before the manager saw it.
+
+**What the user said**: Not user-initiated; the consumer-gate suite failed in
+fixture signing rather than at the expected manager rejection.
+
+**Root cause**: The RED fixtures assumed a validated signing helper could
+create semantically invalid signed input, conflating signing-contract tests
+with trust-boundary rejection tests.
+
+**Harness fix**: `CLAUDE.md` now requires negative crypto inputs either to be
+constructible or explicitly malformed when the shared signer rejects them.
+The fixture supplies a non-empty invalid signature in that case.
+
+**Prevention**: Structurally valid mutation cases remain genuinely signed;
+structurally forbidden cases still reach the manager and prove fail-closed
+rejection without weakening any acceptance expectation.
+
+## 2026-07-23 — Fence test expected a raw database error over RPC
+
+**What happened**: The issuance commit-failure test required the enrollment
+RPC error to contain the trigger's internal PostgreSQL exception text.
+
+**What the user said**: Not user-initiated; the full SPEC-006 PKI run reached
+the assertion after the real shared-fence path was wired.
+
+**Root cause**: The RED fixture conflated proof of rollback with observability
+of a private storage failure, contradicting the existing generic enrollment
+error boundary.
+
+**Harness fix**: The test now requires the stable generic internal error,
+explicitly rejects leaked trigger text, and still proves that no identity row
+was committed and both fences were released.
+
+**Prevention**: Failure-injection tests must verify public error contracts and
+durable side effects separately; private dependency details are never an RPC
+acceptance criterion.
+
+## 2026-07-23 — Fence fixture exhausted the CI application pool
+
+**What happened**: A real-PostgreSQL fence test held its artificial blocking
+advisory lock on a connection borrowed from the application pool. The local
+machine exposed more connections through its CPU-derived default, but the
+four-connection CI pool deadlocked before the transition reached PostgreSQL.
+
+**What the user said**: Not user-initiated; the first PR verification timed
+out in the fresh-enrollment fence case after the same suite passed locally.
+
+**Root cause**: The fixture counted database actors but omitted its own
+blocking-control connection from the application pool budget, making the test
+environment-dependent.
+
+**Harness fix**: `CLAUDE.md` now requires blocking database fixtures to use a
+dedicated connection outside the application pool. The fence helper opens and
+boundedly closes that connection directly.
+
+**Prevention**: Concurrency fixtures cannot consume the resource whose
+availability they are trying to observe, so four-connection runners and larger
+local pools exercise the same lock ordering.
+
+## 2026-07-23 — Fence observer exhausted the remaining CI pool slot
+
+**What happened**: Moving the blocking control lock outside the application
+pool fixed one four-connection deadlock, but the waiter-count observer still
+borrowed from that pool. Fresh enrollment occupied all four remaining slots
+with its shared-fence session, event transaction, and two exclusive rotation
+waiters, so the observer could never query the state that would release them.
+
+**What the user said**: Not user-initiated; the replacement GitHub Actions run
+timed out in the same fence acceptance test after the first pool fix.
+
+**Root cause**: The fixture budget accounted for the actor that controlled the
+block but not the observer used to prove the actors had reached it.
+
+**Harness fix**: `CLAUDE.md` now requires both blocking and observation
+fixtures to use dedicated connections outside the application pool. The
+waiter observer connects directly and bounds its query and close operations.
+
+**Prevention**: Concurrency-test control and observation connections stay
+outside the constrained resource used by production actors; the acceptance
+test is reproduced under a two-CPU runtime before relying on CI.
+
+## 2026-07-23 — Fence trigger also blocked the follow-on rotation events
+
+**What happened**: After the observer moved outside the four-connection pool,
+the fresh-enrollment test reached its release but one of two CA transitions
+still could not complete. The event trigger applied to every later event, not
+only the lifecycle event whose commit it was intended to hold.
+
+**What the user said**: Not user-initiated; the constrained-pool regression
+failed at the bounded transition completion wait.
+
+**Root cause**: One rotation transaction acquired the fixture advisory lock
+and then needed a nested CRL-state connection, while the other rotation held
+the final pool slot waiting on that same synthetic lock.
+
+**Harness fix**: The event-table trigger now bypasses `ca-rotation` streams,
+and `CLAUDE.md` requires synthetic blockers to exclude follow-on work whose
+ordering the fixture is meant to observe.
+
+**Prevention**: A blocking fixture names both the operation it pauses and the
+subsequent operations it must not intercept; constrained-pool tests cover the
+entire release-and-completion sequence.
+
+## 2026-07-23 — RED command mixed repository and module paths
+
+**What happened**: The first regression-test command ran from the `agent`
+module while giving `gofmt` an `agent/`-prefixed repository-root path. It
+failed on path resolution before the new test executed.
+
+**What the user said**: Not user-initiated; the command contradicted the
+existing working-directory rule in `CLAUDE.md`.
+
+**Root cause**: Formatting and testing were combined without resolving both
+arguments against the chosen module working directory.
+
+**Harness fix**: The existing `CLAUDE.md` rule already requires one resolved
+working-directory frame for compound verification commands, so no duplicate
+rule was added. Formatting and focused testing now run as separate commands
+from their appropriate directories.
+
+**Prevention**: Before using a module workdir, strip the module prefix from
+every path argument, or run repository-relative file operations from the
+repository root.
+
+## 2026-07-23 — Rate-limited head check hid an earlier remote review
+
+**What happened**: The newest remote-review status completed as rate-limited and
+looked terminal, while a full review against the preceding head had already
+posted unresolved inline findings. Reading only the newest status would have
+left those findings unaddressed.
+
+**What the user said**: The publication workflow requires every review finding
+to be addressed before merge.
+
+**Root cause**: Head-check status and PR-wide review-thread state were treated
+as equivalent even though review threads survive later commits and a
+rate-limited incremental review contains no thread summary.
+
+**Harness fix**: `CLAUDE.md` now requires a thread-aware unresolved-comment
+query before remote review is considered complete, including when the newest
+head is rate-limited. It also records the two implementation lessons exposed
+by that review: uncertain advisory cleanup poisons a pooled session, and
+identity-bearing migrations test populated pre-upgrade state.
+
+**Prevention**: Publication checks both the current commit status and all
+unresolved PR review threads; neither substitutes for the other.
+
+## 2026-07-23 — Review attribution entered a journal entry
+
+**What happened**: A new error-journal entry named the review service instead
+of describing the rate-limited remote-review state in neutral terms.
+
+**What the user said**: Publication text must not contain AI attribution.
+
+**Root cause**: Operational evidence was copied into documentation without
+separating the relevant review state from the service that reported it.
+
+**Harness fix**: The existing repository-wide no-attribution rule already
+covers documentation, so no duplicate rule was added. The entry now describes
+the review status and requirement without naming its provider.
+
+**Prevention**: Journal entries preserve the technical condition and lesson,
+not the identity of the automation that surfaced them.
+
+## 2026-07-23 — Present continuity JSON accepted absent required state
+
+**What happened**: A stored continuity PEM block containing JSON `null`, `{}`,
+or null trust-bundle fields decoded to zero values and loaded as legacy state.
+That could silently discard persisted generations and pending confirmations on
+restart instead of treating the file as corrupt.
+
+**What the user said**: Not user-initiated; local review found the fail-open
+deserialization path before publication.
+
+**Root cause**: `DisallowUnknownFields` was treated as presence validation,
+but Go's JSON decoder accepts null and leaves absent value fields at zero.
+
+**Harness fix**: `CLAUDE.md` now requires presence tracking and null rejection
+for required JSON object fields. The wire shape uses pointers for both required
+trust bundles, rejects legacy-empty state when a continuity block is present,
+and retains absence of the entire block as the only legacy representation.
+
+**Prevention**: Deserialization tests cover top-level null, an empty object,
+each required field set to null, and a present but legacy-empty continuity
+state before semantic validation.
+
+## 2026-07-23 — Concurrent rotations raced in the trust-bundle recorder
+
+**What happened**: Narrowing the synthetic commit trigger allowed the agent
+and gateway transitions to publish concurrently as intended, but their shared
+test distributor appended both publications to an unprotected slice.
+
+**What the user said**: Not user-initiated; the final race-detector sweep found
+the recorder race after all functional tests passed.
+
+**Root cause**: The test double was written for sequential transition tests
+and reused in a real concurrency acceptance test without synchronizing its
+mutable observation state.
+
+**Harness fix**: `CLAUDE.md` now requires shared concurrency-test recorders to
+synchronize writes. The trust-bundle recorder serializes error inspection and
+publication capture with a mutex.
+
+**Prevention**: Every shared fake used by concurrent actors is included in the
+race-detector sweep; synchronization covers the recorder itself rather than
+reintroducing artificial ordering between production operations.
+
+## 2026-07-23 — Migration refusal test matched a generic noun
+
+**What happened**: The populated legacy-revocation test accepted any database
+error containing `issuer`, so an unrelated issuer-column or constraint failure
+could satisfy the intended migration refusal assertion.
+
+**What the user said**: Not user-initiated; remote review identified the
+vacuous discriminator before merge.
+
+**Root cause**: The test checked a topic word instead of the migration's stable
+clean-break refusal message.
+
+**Harness fix**: The existing negative-test rule already requires an exact
+sentinel or stable category, so no duplicate rule was added. The test now
+matches the full legacy-revocation refusal text.
+
+**Prevention**: Migration failure tests distinguish the intended guard from
+all later PostgreSQL errors by asserting the complete operator-facing refusal.
+
+## 2026-07-23 — Gateway renewal fixture reused enrollment bundle versions
+
+**What happened**: The first-renewal test returned generation/revision 1/1
+from both enrollment and renewal, then asserted only confirmation call counts.
+It could not prove which persisted bundle the signed confirmations described.
+
+**What the user said**: Not user-initiated; local review identified the
+non-discriminating fixture.
+
+**Root cause**: The test treated successful control flow as proof of state
+provenance even though its two producer stages emitted identical values.
+
+**Harness fix**: `CLAUDE.md` now requires successive fixture states to be
+observably distinct. Renewal returns revision two, the handler captures exact
+confirmation requests, and the test verifies their signatures and fields
+against the atomically published renewal identity. The shared assertion now
+derives the expected CRL sequence from that identity instead of hard-coding a
+different fixture's sequence.
+
+**Prevention**: Multi-stage tests assign distinct versions at each stage and
+assert the downstream artifact against the intended stage, not just call
+cardinality.
+
+## 2026-07-23 — Control confirmation lookup duplicated its join key
+
+**What happened**: The control confirmation write path declared its reserved
+reporter ID, but the lookup path repeated the literal. Editing only one copy
+would make durable receipts permanently undiscoverable.
+
+**What the user said**: Not user-initiated; local review found the duplicated
+identity literal.
+
+**Root cause**: A security-sensitive persistence join key was treated as local
+syntax instead of one shared domain constant.
+
+**Harness fix**: `CLAUDE.md` now explicitly requires call sites to reuse
+declared join keys. Both write and lookup paths reference `controlReporterID`.
+
+**Prevention**: Reserved stream identities are declared once at package scope
+and reused by every persistence and lookup path.
+
+## 2026-07-23 — Confirmation deduplication moved the guard convention
+
+**What happened**: Collapsing the two trust-confirmation handlers into one
+class-parameterized helper correctly reduced four duplicated persistence call
+sites to two, but the rotation guard still required the old four-site shape.
+The full gate failed after all focused behavior tests passed.
+
+**What the user said**: Not user-initiated; the guard correctly refused a
+convention change that had not updated its exact-set model.
+
+**Root cause**: The refactor was validated as runtime behavior only. Its
+self-discovering architectural consumer was not included in the focused test
+set before the full gate.
+
+**Harness fix**: GUARD-006-7 and its liveness fixture now prove two independent
+properties: each public handler delegates exactly once with its reporter-class
+constant, and the shared helper owns both fenced persistence paths. The
+matches-zero floors remain intact for the new convention.
+
+**Prevention**: When a refactor deliberately changes call-site cardinality,
+search guard scanners for the moved symbol and update the discovered ownership
+shape before running only behavior-focused tests.
+
+## 2026-07-23 — Gateway negative test matched the universal prefix
+
+**What happened**: The missing-gateway-bundle case accepted `"gateway"` as its
+error category even though every renewal error starts with `gateway:`. Any
+unrelated failure would have satisfied the assertion.
+
+**What the user said**: Not user-initiated; the final local review identified
+the vacuous discriminator.
+
+**Root cause**: The invalid-response matrix checked a mutation-related noun
+without comparing it against the operation-wide error prefix.
+
+**Harness fix**: The existing `CLAUDE.md` negative-test rule already requires
+the intended stable category, so no duplicate rule was added. Both missing
+bundle rows now assert their full `missing the ... trust bundle` category.
+
+**Prevention**: For table-driven error substrings, compare every candidate
+against the shared wrapper prefix; a discriminator must add information beyond
+that prefix.
+
+## 2026-07-23 — Targeted rerun mixed root and module-relative paths
+
+**What happened**: A focused `go test` rerun used the repository root as its
+working directory with a package path that was relative to the agent module.
+The command failed during setup and exercised no tests.
+
+**What the user said**: Not user-initiated; the failed command exposed the
+working-directory mismatch immediately.
+
+**Root cause**: The rerun copied the package selector from a module-scoped
+command without carrying over its module working directory.
+
+**Harness fix**: The existing `CLAUDE.md` command-composition rule already
+requires choosing one working-directory model before execution, so no duplicate
+rule was added. The corrected command runs from the `agent` module.
+
+**Prevention**: Pair module-relative Go package selectors with the module
+working directory, or use the repository-root-relative package path from the
+workspace root.
+
+## 2026-07-23 — Local review reused a removed output flag
+
+**What happened**: The local review invocation included the obsolete
+`--plain` option. The installed CLI rejected the command before starting a
+review and printed its current usage.
+
+**What the user said**: Not user-initiated; the CLI rejected the stale syntax.
+
+**Root cause**: The invocation followed remembered syntax instead of the
+repository's recorded command convention for the installed CLI.
+
+**Harness fix**: `CLAUDE.md` already records the exact supported local-review
+command and explicitly prohibits removed output flags, so no duplicate rule was
+added. The review is rerun with `--base main --include-untracked`.
+
+**Prevention**: Use the repository's pinned command convention verbatim and
+treat the installed CLI's usage output as authoritative when syntax changes.
+
+## 2026-07-23 — Fixed-clock TLS fixtures issued certificates from wall time
+
+**What happened**: Agent and server rotation fixtures verified certificates at
+an injected time but issued some leaves and roots from `time.Now()`. The tests
+became date-dependent once wall time moved beyond the frozen fixture clock.
+
+**What the user said**: Not user-initiated; CI and local review exposed the two
+wall-clock dependencies.
+
+**Root cause**: Certificate issuance and verification used different clock
+sources inside otherwise deterministic fixtures.
+
+**Harness fix**: `CLAUDE.md` now requires fixed-date certificate issuance and
+`tls.Config.Time` to derive from the same injected clock. Both fixture families
+pass their explicit time into certificate construction.
+
+**Prevention**: A deterministic PKI fixture owns one clock and passes it to
+every validity window and TLS verifier.
+
+## 2026-07-23 — Confirmation matrices accepted unrelated errors
+
+**What happened**: Two invalid trust-confirmation matrices asserted only that
+an error occurred, so unrelated setup or persistence failures could satisfy the
+negative cases.
+
+**What the user said**: Not user-initiated; local review identified the weak
+error assertions.
+
+**Root cause**: The table rows treated any non-nil error as proof that the
+intended authorization rejection executed.
+
+**Harness fix**: The existing `CLAUDE.md` negative-test rule already requires
+the exact intended sentinel. Both matrices now require
+`ErrTrustStateRejected`.
+
+**Prevention**: Every negative matrix names the sentinel or stable category
+that proves its intended branch, including nested subtests.
+
+## 2026-07-23 — Milestone plan duplicated implementation behavior
+
+**What happened**: The SPEC-006 M8 plan mixed behavioral summaries and
+generated-artifact explanations into its files-and-symbols inventory.
+
+**What the user said**: Not user-initiated; local review found the plan-scope
+violation.
+
+**Root cause**: Completion notes were added to the plan even though the
+specification remains the behavioral source of truth.
+
+**Harness fix**: The existing `CLAUDE.md` planning rule already limits plans to
+the milestone delta. The inventory now contains only paths and symbols; the
+second section remains test names only.
+
+**Prevention**: Put behavioral rationale and requirements in the spec, and use
+milestone plans only as implementation inventories.
+
+## 2026-07-23 — TLS denylist helper mutated caller-owned configuration
+
+**What happened**: `RejectPeerIntermediates` installed its verification hook by
+mutating the supplied `tls.Config`, which is unsafe once a config is shared with
+an active TLS client or server.
+
+**What the user said**: Not user-initiated; local review identified the unsafe
+ownership contract.
+
+**Root cause**: The helper was designed as an in-place decorator even though
+Go permits cloning an in-use TLS configuration safely.
+
+**Harness fix**: `CLAUDE.md` now requires TLS config decorators to return a
+clone. `RejectPeerIntermediates` clones the input, preserves the previous
+callback, and returns the guarded config without modifying the caller's value.
+
+**Prevention**: Treat TLS configurations as immutable after construction;
+derive replacement configs with `Clone` and swap them through the owner.
+
+## 2026-07-23 — Workspace-root race test churned the workspace sum
+
+**What happened**: A race-detector command addressed packages from three Go
+modules at the workspace root. Go rewrote `go.work.sum` with unrelated module
+metadata even though the implementation changed no dependency.
+
+**What the user said**: Not user-initiated; the final status audit exposed the
+unexpected sum-file diff.
+
+**Root cause**: A verification probe used workspace resolution where three
+module-scoped commands would have avoided mutating workspace metadata.
+
+**Harness fix**: `CLAUDE.md` now directs cross-module probes to their module
+directories and requires sum inspection after any workspace-root Go command.
+The unrelated `go.work.sum` churn was removed.
+
+**Prevention**: Run affected-module tests from each module directory and treat
+unexpected dependency metadata as a failed cleanliness check.
+
+## 2026-07-23 — Repository guidance named a review provider
+
+**What happened**: A repository harness rule embedded a provider-specific local
+review command even though the repository prohibits tool attribution in docs.
+
+**What the user said**: Not user-initiated; remote review found the conflict
+with the existing no-attribution rule.
+
+**Root cause**: An exact operational command was recorded in tracked project
+guidance instead of remaining in private tooling instructions.
+
+**Harness fix**: The repository rule now describes the required review scope
+and unresolved-thread check without naming a provider. Exact CLI syntax remains
+owned by the private review integration.
+
+**Prevention**: Repository guidance states tool-neutral outcomes; private
+tooling guidance owns provider names and invocation syntax.
+
+## 2026-07-23 — Service-shape guard counted unnamed methods
+
+**What happened**: `TestPkiServiceShape` required nine methods but resolved
+only the seven lifecycle methods by name. Unrelated methods could satisfy its
+cardinality check without proving both trust-confirmation methods existed.
+
+**What the user said**: Not user-initiated; local review found the guard gap.
+
+**Root cause**: The test used total cardinality as an implicit assertion for
+the two methods owned by the rotation milestone.
+
+**Harness fix**: `CLAUDE.md` now requires descriptor count guards to resolve
+every expected name. The service-shape test includes both trust-confirmation
+descriptors in its unary-method matrix.
+
+**Prevention**: Pair exact descriptor counts with explicit lookup and shape
+validation for every member in the expected set.

@@ -17,7 +17,74 @@ service PkiService {
   rpc EnrollGateway(EnrollGatewayRequest) returns (EnrollGatewayResponse);
   rpc RenewGateway(RenewGatewayRequest) returns (RenewGatewayResponse);
   rpc RevokeGateway(RevokeGatewayRequest) returns (RevokeGatewayResponse);
+  rpc ConfirmAgentTrustState(ConfirmTrustStateRequest) returns (ConfirmTrustStateResponse);
+  rpc ConfirmGatewayTrustState(ConfirmTrustStateRequest) returns (ConfirmTrustStateResponse);
 }
+
+// CATrustBundle is the exact desired trust state for one certificate class.
+// Roots are canonical current+successor during overlap and are never inferred
+// from a coarse rotation phase.
+message CATrustBundle {
+  uint64 generation = 1 [(buf.validate.field).uint64.gte = 1];
+  uint64 revision = 2 [(buf.validate.field).uint64.gte = 1];
+  repeated bytes root_certificate_der = 3 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 2
+    items: {
+      bytes: {
+        min_len: 1
+        max_len: 65536
+      }
+    }
+  }];
+  bytes transition_certificate_der = 4 [(buf.validate.field).bytes.max_len = 65536];
+  // Agent-root bundles carry the issuer-scoped CRL state that a gateway must
+  // have adopted before confirming this exact trust publication. Gateway-root
+  // bundles leave both fields unset.
+  bytes crl_issuer_fingerprint = 5 [
+    (buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE,
+    (buf.validate.field).bytes.len = 32
+  ];
+  uint64 crl_sequence = 6 [
+    (buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE,
+    (buf.validate.field).uint64.gte = 1
+  ];
+}
+
+// ConfirmTrustStateRequest carries one independently applicable signed class
+// claim. Reporter class is derived from the procedure, never caller supplied.
+message ConfirmTrustStateRequest {
+  bytes certificate_der = 1 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 65536
+  }];
+  string claimed_class = 2 [(buf.validate.field).string = {
+    in: ["agent", "gateway"]
+  }];
+  uint64 generation = 3 [(buf.validate.field).uint64.gte = 1];
+  uint64 revision = 4 [(buf.validate.field).uint64.gte = 1];
+  repeated bytes root_fingerprints = 5 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 2
+    items: {
+      bytes: {len: 32}
+    }
+  }];
+  bytes crl_issuer_fingerprint = 6 [
+    (buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE,
+    (buf.validate.field).bytes.len = 32
+  ];
+  uint64 crl_sequence = 7 [
+    (buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE,
+    (buf.validate.field).uint64.gte = 1
+  ];
+  bytes signature = 8 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 8192
+  }];
+}
+
+message ConfirmTrustStateResponse {}
 
 // EnrollAgentRequest carries proof generated entirely on the device. The
 // registration token is the sole authorization; no claimed device identity is
@@ -48,6 +115,8 @@ message EnrollAgentResponse {
     min_len: 1
     max_len: 65536
   }];
+  CATrustBundle agent_trust_bundle = 4 [(buf.validate.field).required = true];
+  CATrustBundle gateway_trust_bundle = 5 [(buf.validate.field).required = true];
 }
 
 // RenewAgentRequest proves continuity from the current exact certificate to a
@@ -80,6 +149,8 @@ message RenewAgentResponse {
     min_len: 1
     max_len: 65536
   }];
+  CATrustBundle agent_trust_bundle = 4 [(buf.validate.field).required = true];
+  CATrustBundle gateway_trust_bundle = 5 [(buf.validate.field).required = true];
 }
 
 // RevokeAgentRequest identifies the currently stored certificate exactly.
@@ -125,6 +196,8 @@ message EnrollGatewayResponse {
     min_len: 1
     max_len: 65536
   }];
+  CATrustBundle agent_trust_bundle = 3 [(buf.validate.field).required = true];
+  CATrustBundle gateway_trust_bundle = 4 [(buf.validate.field).required = true];
 }
 
 // RenewGatewayRequest proves continuity from the exact current certificate
@@ -149,6 +222,8 @@ message RenewGatewayResponse {
     min_len: 1
     max_len: 65536
   }];
+  CATrustBundle agent_trust_bundle = 3 [(buf.validate.field).required = true];
+  CATrustBundle gateway_trust_bundle = 4 [(buf.validate.field).required = true];
 }
 
 // RevokeGatewayRequest identifies the exact currently stored gateway

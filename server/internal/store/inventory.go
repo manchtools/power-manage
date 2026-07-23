@@ -113,6 +113,23 @@ func productionRebuildTargets() map[string]RebuildTarget {
 			},
 			Reset: resetGateways,
 		},
+		CARotationRebuildTarget: {
+			Tables:      []string{"ca_rotation_state"},
+			StreamTypes: []string{caRotationStreamType, caTrustConfirmationStreamType},
+			EventTypes: []string{
+				caRotationTrustBegunEventType,
+				caRotationAbortedEventType,
+				caRotationMigrationBegunEventType,
+				caRotationRetiredEventType,
+				caRotationNormalizedEventType,
+				agentLeafTrustConfirmedEventType,
+				agentConsumerTrustConfirmedEventType,
+				gatewayLeafTrustConfirmedEventType,
+				gatewayConsumerTrustConfirmedEventType,
+				controlTrustStateRecordedEventType,
+			},
+			Reset: resetCARotationState,
+		},
 	}
 }
 
@@ -191,6 +208,9 @@ func productionEventDefinitions() map[string]eventDefinition {
 	for eventType, definition := range gatewayEventDefinitions() {
 		definitions[eventType] = definition
 	}
+	for eventType, definition := range caRotationEventDefinitions() {
+		definitions[eventType] = definition
+	}
 	return definitions
 }
 
@@ -212,6 +232,9 @@ func goldenEventCorpus() map[string]goldenEvent {
 		corpus[eventType] = event
 	}
 	for eventType, event := range gatewayGoldenCorpus() {
+		corpus[eventType] = event
+	}
+	for eventType, event := range caRotationGoldenCorpus() {
 		corpus[eventType] = event
 	}
 	return corpus

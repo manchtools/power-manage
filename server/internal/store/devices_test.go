@@ -360,6 +360,11 @@ func newDeviceSigningKeyFixture(t *testing.T) *ecdsa.PrivateKey {
 
 func newDeviceCertificateWithKeyFixture(t *testing.T, class identity.Class, deviceID string, key *ecdsa.PrivateKey, serial int64) []byte {
 	t.Helper()
+	publicDER, err := x509.MarshalPKIXPublicKey(key.Public())
+	if err != nil {
+		t.Fatalf("marshal device fixture public key: %v", err)
+	}
+	keyID := sha256.Sum256(publicDER)
 	template := &x509.Certificate{
 		SerialNumber:          big.NewInt(serial),
 		NotBefore:             time.Date(2026, time.July, 22, 0, 0, 0, 0, time.UTC),
@@ -367,6 +372,8 @@ func newDeviceCertificateWithKeyFixture(t *testing.T, class identity.Class, devi
 		BasicConstraintsValid: true,
 		KeyUsage:              x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		SubjectKeyId:          bytes.Clone(keyID[:20]),
+		AuthorityKeyId:        bytes.Clone(keyID[:20]),
 	}
 	if err := identity.StampCertificateIdentity(template, class, deviceID); err != nil {
 		t.Fatalf("stamp device certificate identity: %v", err)

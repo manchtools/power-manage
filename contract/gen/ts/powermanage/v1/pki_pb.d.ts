@@ -15,6 +15,121 @@ import type { Message } from "@bufbuild/protobuf";
 export declare const file_powermanage_v1_pki: GenFile;
 
 /**
+ * CATrustBundle is the exact desired trust state for one certificate class.
+ * Roots are canonical current+successor during overlap and are never inferred
+ * from a coarse rotation phase.
+ *
+ * @generated from message powermanage.v1.CATrustBundle
+ */
+export declare type CATrustBundle = Message<"powermanage.v1.CATrustBundle"> & {
+  /**
+   * @generated from field: uint64 generation = 1;
+   */
+  generation: bigint;
+
+  /**
+   * @generated from field: uint64 revision = 2;
+   */
+  revision: bigint;
+
+  /**
+   * @generated from field: repeated bytes root_certificate_der = 3;
+   */
+  rootCertificateDer: Uint8Array[];
+
+  /**
+   * @generated from field: bytes transition_certificate_der = 4;
+   */
+  transitionCertificateDer: Uint8Array;
+
+  /**
+   * Agent-root bundles carry the issuer-scoped CRL state that a gateway must
+   * have adopted before confirming this exact trust publication. Gateway-root
+   * bundles leave both fields unset.
+   *
+   * @generated from field: bytes crl_issuer_fingerprint = 5;
+   */
+  crlIssuerFingerprint: Uint8Array;
+
+  /**
+   * @generated from field: uint64 crl_sequence = 6;
+   */
+  crlSequence: bigint;
+};
+
+/**
+ * Describes the message powermanage.v1.CATrustBundle.
+ * Use `create(CATrustBundleSchema)` to create a new message.
+ */
+export declare const CATrustBundleSchema: GenMessage<CATrustBundle>;
+
+/**
+ * ConfirmTrustStateRequest carries one independently applicable signed class
+ * claim. Reporter class is derived from the procedure, never caller supplied.
+ *
+ * @generated from message powermanage.v1.ConfirmTrustStateRequest
+ */
+export declare type ConfirmTrustStateRequest = Message<"powermanage.v1.ConfirmTrustStateRequest"> & {
+  /**
+   * @generated from field: bytes certificate_der = 1;
+   */
+  certificateDer: Uint8Array;
+
+  /**
+   * @generated from field: string claimed_class = 2;
+   */
+  claimedClass: string;
+
+  /**
+   * @generated from field: uint64 generation = 3;
+   */
+  generation: bigint;
+
+  /**
+   * @generated from field: uint64 revision = 4;
+   */
+  revision: bigint;
+
+  /**
+   * @generated from field: repeated bytes root_fingerprints = 5;
+   */
+  rootFingerprints: Uint8Array[];
+
+  /**
+   * @generated from field: bytes crl_issuer_fingerprint = 6;
+   */
+  crlIssuerFingerprint: Uint8Array;
+
+  /**
+   * @generated from field: uint64 crl_sequence = 7;
+   */
+  crlSequence: bigint;
+
+  /**
+   * @generated from field: bytes signature = 8;
+   */
+  signature: Uint8Array;
+};
+
+/**
+ * Describes the message powermanage.v1.ConfirmTrustStateRequest.
+ * Use `create(ConfirmTrustStateRequestSchema)` to create a new message.
+ */
+export declare const ConfirmTrustStateRequestSchema: GenMessage<ConfirmTrustStateRequest>;
+
+/**
+ * @generated from message powermanage.v1.ConfirmTrustStateResponse
+ */
+export declare type ConfirmTrustStateResponse = Message<"powermanage.v1.ConfirmTrustStateResponse"> & {
+};
+
+/**
+ * Describes the message powermanage.v1.ConfirmTrustStateResponse.
+ * Use `create(ConfirmTrustStateResponseSchema)` to create a new message.
+ */
+export declare const ConfirmTrustStateResponseSchema: GenMessage<ConfirmTrustStateResponse>;
+
+/**
  * EnrollAgentRequest carries proof generated entirely on the device. The
  * registration token is the sole authorization; no claimed device identity is
  * accepted from the caller.
@@ -68,6 +183,16 @@ export declare type EnrollAgentResponse = Message<"powermanage.v1.EnrollAgentRes
    * @generated from field: bytes gateway_certificate_authority_der = 3;
    */
   gatewayCertificateAuthorityDer: Uint8Array;
+
+  /**
+   * @generated from field: powermanage.v1.CATrustBundle agent_trust_bundle = 4;
+   */
+  agentTrustBundle?: CATrustBundle | undefined;
+
+  /**
+   * @generated from field: powermanage.v1.CATrustBundle gateway_trust_bundle = 5;
+   */
+  gatewayTrustBundle?: CATrustBundle | undefined;
 };
 
 /**
@@ -127,6 +252,16 @@ export declare type RenewAgentResponse = Message<"powermanage.v1.RenewAgentRespo
    * @generated from field: bytes gateway_certificate_authority_der = 3;
    */
   gatewayCertificateAuthorityDer: Uint8Array;
+
+  /**
+   * @generated from field: powermanage.v1.CATrustBundle agent_trust_bundle = 4;
+   */
+  agentTrustBundle?: CATrustBundle | undefined;
+
+  /**
+   * @generated from field: powermanage.v1.CATrustBundle gateway_trust_bundle = 5;
+   */
+  gatewayTrustBundle?: CATrustBundle | undefined;
 };
 
 /**
@@ -236,6 +371,16 @@ export declare type EnrollGatewayResponse = Message<"powermanage.v1.EnrollGatewa
    * @generated from field: bytes certificate_authority_der = 2;
    */
   certificateAuthorityDer: Uint8Array;
+
+  /**
+   * @generated from field: powermanage.v1.CATrustBundle agent_trust_bundle = 3;
+   */
+  agentTrustBundle?: CATrustBundle | undefined;
+
+  /**
+   * @generated from field: powermanage.v1.CATrustBundle gateway_trust_bundle = 4;
+   */
+  gatewayTrustBundle?: CATrustBundle | undefined;
 };
 
 /**
@@ -281,6 +426,16 @@ export declare type RenewGatewayResponse = Message<"powermanage.v1.RenewGatewayR
    * @generated from field: bytes certificate_authority_der = 2;
    */
   certificateAuthorityDer: Uint8Array;
+
+  /**
+   * @generated from field: powermanage.v1.CATrustBundle agent_trust_bundle = 3;
+   */
+  agentTrustBundle?: CATrustBundle | undefined;
+
+  /**
+   * @generated from field: powermanage.v1.CATrustBundle gateway_trust_bundle = 4;
+   */
+  gatewayTrustBundle?: CATrustBundle | undefined;
 };
 
 /**
@@ -379,6 +534,22 @@ export declare const PkiService: GenService<{
     methodKind: "unary";
     input: typeof RevokeGatewayRequestSchema;
     output: typeof RevokeGatewayResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.PkiService.ConfirmAgentTrustState
+   */
+  confirmAgentTrustState: {
+    methodKind: "unary";
+    input: typeof ConfirmTrustStateRequestSchema;
+    output: typeof ConfirmTrustStateResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.PkiService.ConfirmGatewayTrustState
+   */
+  confirmGatewayTrustState: {
+    methodKind: "unary";
+    input: typeof ConfirmTrustStateRequestSchema;
+    output: typeof ConfirmTrustStateResponseSchema;
   },
 }>;
 

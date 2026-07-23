@@ -30,11 +30,19 @@ const (
 
 // Identity is one validated, in-memory gateway certificate and private key.
 type Identity struct {
-	GatewayID               string
-	CertificateDER          []byte
-	CertificateAuthorityDER []byte
-	DNSNames                []string
-	PrivateKey              crypto.Signer
+	GatewayID                       string
+	CertificateDER                  []byte
+	CertificateAuthorityDER         []byte
+	DNSNames                        []string
+	PrivateKey                      crypto.Signer
+	AgentTrustBundle                GatewayTrustBundle
+	GatewayTrustBundle              GatewayTrustBundle
+	PendingAgentTrustConfirmation   *PendingTrustConfirmation
+	PendingGatewayTrustConfirmation *PendingTrustConfirmation
+}
+
+type identityPublisher interface {
+	Publish(context.Context, Identity) error
 }
 
 // EnrollmentClient creates a fresh key and identity for each gateway boot.
@@ -42,6 +50,7 @@ type EnrollmentClient struct {
 	remote           powermanagev1connect.PkiServiceClient
 	expectedDNSNames []string
 	now              func() time.Time
+	publisher        identityPublisher
 }
 
 // NewEnrollmentClient pins the independently configured DNS identities that
@@ -96,20 +105,48 @@ func (c *EnrollmentClient) Enroll(ctx context.Context, token string) (Identity, 
 	if response == nil || response.Msg == nil {
 		return Identity{}, errors.New("gateway: PkiService returned an empty response")
 	}
+	if response.Msg.GetAgentTrustBundle() == nil {
+		return Identity{}, errors.New("gateway: enrollment response is missing the agent trust bundle")
+	}
+	if response.Msg.GetGatewayTrustBundle() == nil {
+		return Identity{}, errors.New("gateway: enrollment response is missing the gateway trust bundle")
+	}
+	now := c.now()
 	gatewayID, err := validateEnrollmentResponse(
 		response.Msg.GetCertificateDer(),
 		response.Msg.GetCertificateAuthorityDer(),
 		privateKey.Public(),
 		c.expectedDNSNames,
-		c.now(),
+		now,
 	)
 	if err != nil {
 		return Identity{}, err
+	}
+	agentTrust, err := gatewayStoredTrustBundle(response.Msg.GetAgentTrustBundle(), GatewayTrustBundle{}, now)
+	if err != nil {
+		return Identity{}, fmt.Errorf("gateway: validate agent trust bundle: %w", err)
+	}
+	if err := validateGatewayCRLReceipt(agentTrust, true); err != nil {
+		return Identity{}, err
+	}
+	if err := validateGatewayCRLIssuerPublished(agentTrust); err != nil {
+		return Identity{}, err
+	}
+	gatewayTrust, err := gatewayStoredTrustBundle(response.Msg.GetGatewayTrustBundle(), GatewayTrustBundle{}, now)
+	if err != nil {
+		return Identity{}, fmt.Errorf("gateway: validate gateway trust bundle: %w", err)
+	}
+	if err := validateGatewayCRLReceipt(gatewayTrust, false); err != nil {
+		return Identity{}, err
+	}
+	if !containsGatewayDER(gatewayTrust.RootCertificateDER, response.Msg.GetCertificateAuthorityDer()) {
+		return Identity{}, errors.New("gateway: enrollment certificate authority is outside the published gateway root bundle")
 	}
 	return Identity{
 		GatewayID: gatewayID, CertificateDER: bytes.Clone(response.Msg.GetCertificateDer()),
 		CertificateAuthorityDER: bytes.Clone(response.Msg.GetCertificateAuthorityDer()),
 		DNSNames:                slices.Clone(c.expectedDNSNames), PrivateKey: privateKey,
+		AgentTrustBundle: agentTrust, GatewayTrustBundle: gatewayTrust,
 	}, nil
 }
 

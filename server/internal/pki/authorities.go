@@ -6,13 +6,16 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/asn1"
 	"fmt"
+	"sync"
 	"time"
 
 	powermanagev1 "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1"
 	"github.com/manchtools/power-manage/contract/sign"
+	"github.com/manchtools/power-manage/server/internal/store"
 )
 
 type certificateAuthority struct {
@@ -29,9 +32,12 @@ var reservedCRLExtensions = []asn1.ObjectIdentifier{
 // Authorities is control's opaque, purpose-separated signing-key custody set.
 // Its methods expose signing operations, never the private keys themselves.
 type Authorities struct {
-	agentCA       certificateAuthority
-	gatewayCA     certificateAuthority
-	commandSigner crypto.Signer
+	mu             sync.RWMutex
+	agentCA        certificateAuthority
+	gatewayCA      certificateAuthority
+	commandSigner  crypto.Signer
+	agentIssuers   map[[32]byte]certificateAuthority
+	gatewayIssuers map[[32]byte]certificateAuthority
 }
 
 // NewAuthorities validates all three control-only authorities before boot.
@@ -66,11 +72,16 @@ func NewAuthorities(
 	if bytes.Equal(commandPublicKey, gatewayCA.publicKey) {
 		return nil, fmt.Errorf("command key reuses gateway CA key")
 	}
-	return &Authorities{
-		agentCA:       agentCA,
-		gatewayCA:     gatewayCA,
-		commandSigner: commandSigner,
-	}, nil
+	authorities := &Authorities{
+		agentCA:        agentCA,
+		gatewayCA:      gatewayCA,
+		commandSigner:  commandSigner,
+		agentIssuers:   make(map[[32]byte]certificateAuthority),
+		gatewayIssuers: make(map[[32]byte]certificateAuthority),
+	}
+	authorities.agentIssuers[authorityFingerprint(agentCA.certificate.Raw)] = agentCA
+	authorities.gatewayIssuers[authorityFingerprint(gatewayCA.certificate.Raw)] = gatewayCA
+	return authorities, nil
 }
 
 // SignCommand is control's sole command-signing chokepoint.
@@ -81,20 +92,130 @@ func (a *Authorities) SignCommand(command *powermanagev1.SignedCommand) error {
 	return sign.SignCommand(a.commandSigner, command)
 }
 
-// SignAgentRevocationList signs an agent CRL with the agent CA.
+// SignAgentRevocationList signs an agent CRL with the current agent CA.
 func (a *Authorities) SignAgentRevocationList(template *x509.RevocationList) ([]byte, error) {
-	if a == nil || a.agentCA.certificate == nil || a.agentCA.signer == nil {
+	authority, ok := a.currentAuthority(store.CertificateClassAgent)
+	if !ok {
 		return nil, fmt.Errorf("agent CRL signer is not wired")
 	}
-	return a.agentCA.signRevocationList("agent", template)
+	return authority.signRevocationList("agent", template)
 }
 
-// SignGatewayRevocationList signs a gateway CRL with the gateway CA.
+// SignGatewayRevocationList signs a gateway CRL with the current gateway CA.
 func (a *Authorities) SignGatewayRevocationList(template *x509.RevocationList) ([]byte, error) {
-	if a == nil || a.gatewayCA.certificate == nil || a.gatewayCA.signer == nil {
+	authority, ok := a.currentAuthority(store.CertificateClassGateway)
+	if !ok {
 		return nil, fmt.Errorf("gateway CRL signer is not wired")
 	}
-	return a.gatewayCA.signRevocationList("gateway", template)
+	return authority.signRevocationList("gateway", template)
+}
+
+func (a *Authorities) signRevocationListForIssuer(
+	class store.CertificateClass,
+	issuer [sha256.Size]byte,
+	template *x509.RevocationList,
+) ([]byte, error) {
+	authority, ok := a.authorityForIssuer(class, issuer)
+	if !ok {
+		return nil, fmt.Errorf("%s CRL issuer is not wired", class)
+	}
+	return authority.signRevocationList(string(class), template)
+}
+
+func authorityFingerprint(der []byte) [32]byte {
+	return sha256.Sum256(der)
+}
+
+func (a *Authorities) currentAuthority(class store.CertificateClass) (certificateAuthority, bool) {
+	if a == nil {
+		return certificateAuthority{}, false
+	}
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	switch class {
+	case store.CertificateClassAgent:
+		return a.agentCA, a.agentCA.certificate != nil && a.agentCA.signer != nil
+	case store.CertificateClassGateway:
+		return a.gatewayCA, a.gatewayCA.certificate != nil && a.gatewayCA.signer != nil
+	default:
+		return certificateAuthority{}, false
+	}
+}
+
+func (a *Authorities) authorityForIssuer(class store.CertificateClass, fingerprint [32]byte) (certificateAuthority, bool) {
+	if a == nil {
+		return certificateAuthority{}, false
+	}
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	var authority certificateAuthority
+	var ok bool
+	switch class {
+	case store.CertificateClassAgent:
+		authority, ok = a.agentIssuers[fingerprint]
+	case store.CertificateClassGateway:
+		authority, ok = a.gatewayIssuers[fingerprint]
+	}
+	return authority, ok
+}
+
+func (a *Authorities) installAuthority(class store.CertificateClass, certificateDER []byte, signer crypto.Signer) error {
+	if a == nil {
+		return fmt.Errorf("authorities are not wired")
+	}
+	authority, err := newCertificateAuthority(string(class), certificateDER, signer)
+	if err != nil {
+		return err
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	switch class {
+	case store.CertificateClassAgent:
+		a.agentIssuers[authorityFingerprint(certificateDER)] = authority
+	case store.CertificateClassGateway:
+		a.gatewayIssuers[authorityFingerprint(certificateDER)] = authority
+	default:
+		return fmt.Errorf("invalid certificate class")
+	}
+	return nil
+}
+
+func (a *Authorities) selectAuthority(class store.CertificateClass, fingerprint [32]byte) error {
+	if a == nil {
+		return fmt.Errorf("authorities are not wired")
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	switch class {
+	case store.CertificateClassAgent:
+		authority, ok := a.agentIssuers[fingerprint]
+		if !ok {
+			return fmt.Errorf("agent issuer is not installed")
+		}
+		a.agentCA = authority
+	case store.CertificateClassGateway:
+		authority, ok := a.gatewayIssuers[fingerprint]
+		if !ok {
+			return fmt.Errorf("gateway issuer is not installed")
+		}
+		a.gatewayCA = authority
+	default:
+		return fmt.Errorf("invalid certificate class")
+	}
+	return nil
+}
+
+func (a *Authorities) removeAuthority(class store.CertificateClass, fingerprint [32]byte) {
+	if a == nil {
+		return
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if class == store.CertificateClassAgent {
+		delete(a.agentIssuers, fingerprint)
+	} else if class == store.CertificateClassGateway {
+		delete(a.gatewayIssuers, fingerprint)
+	}
 }
 
 func newCertificateAuthority(role string, certificateDER []byte, signer crypto.Signer) (certificateAuthority, error) {

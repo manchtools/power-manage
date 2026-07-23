@@ -62,56 +62,71 @@ func (s *EnrollmentService) RenewAgent(
 
 	presentedFingerprint := sha256.Sum256(presented.Raw)
 	var certificateDER, certificateAuthorityDER []byte
-	err = s.eventStore.WithDeviceLifecycleLock(ctx, deviceID, func(lifecycle *store.DeviceLifecycle) error {
-		current, readErr := lifecycle.Device(ctx)
-		if readErr != nil {
-			if store.IsNotFound(readErr) {
+	var agentTrust, gatewayTrust AuthoritySnapshot
+	err = s.withIssuanceFences(ctx, func(agent, gateway AuthoritySnapshot) error {
+		agentTrust, gatewayTrust = agent, gateway
+		return s.eventStore.WithDeviceLifecycleLock(ctx, deviceID, func(lifecycle *store.DeviceLifecycle) error {
+			current, readErr := lifecycle.Device(ctx)
+			if readErr != nil {
+				if store.IsNotFound(readErr) {
+					return errRenewalAuthRejected
+				}
+				return readErr
+			}
+			if current.LifecycleState == store.DeviceLifecycleRevoked {
 				return errRenewalAuthRejected
 			}
-			return readErr
-		}
-		if current.LifecycleState == store.DeviceLifecycleRevoked {
-			return errRenewalAuthRejected
-		}
-		if subtle.ConstantTimeCompare(current.CertificateFingerprint[:], presentedFingerprint[:]) != 1 ||
-			!bytes.Equal(current.CertificateDER, presented.Raw) {
-			currentFingerprint := sha256.Sum256(current.CertificateDER)
-			if current.LifecycleState != store.DeviceLifecycleActive ||
-				subtle.ConstantTimeCompare(current.CertificateFingerprint[:], currentFingerprint[:]) != 1 ||
-				!bytes.Equal(current.PreviousCertificateDER, presented.Raw) ||
-				!bytes.Equal(current.SealingPublicKey, request.Msg.GetSealingPublicKey()) {
-				return errRenewalAuthRejected
+			if subtle.ConstantTimeCompare(current.CertificateFingerprint[:], presentedFingerprint[:]) != 1 ||
+				!bytes.Equal(current.CertificateDER, presented.Raw) {
+				currentFingerprint := sha256.Sum256(current.CertificateDER)
+				if current.LifecycleState != store.DeviceLifecycleActive ||
+					subtle.ConstantTimeCompare(current.CertificateFingerprint[:], currentFingerprint[:]) != 1 ||
+					!bytes.Equal(current.PreviousCertificateDER, presented.Raw) ||
+					!bytes.Equal(current.SealingPublicKey, request.Msg.GetSealingPublicKey()) {
+					return errRenewalAuthRejected
+				}
+				currentCertificate, currentDeviceID, parseErr := parseRenewalCertificate(current.CertificateDER)
+				if parseErr != nil {
+					return parseErr
+				}
+				if currentDeviceID != deviceID || !renewalPublicKeysEqual(currentCertificate.PublicKey, csr.PublicKey) {
+					return errRenewalAuthRejected
+				}
+				certificateDER = bytes.Clone(current.CertificateDER)
+				if s.rotationManager != nil {
+					agentTrust, gatewayTrust, readErr = s.rotationManager.snapshotsAtLifecycleEvent(
+						ctx, "device", deviceID, current.ProjectionVersion,
+					)
+					if readErr != nil {
+						return readErr
+					}
+				}
+				certificateAuthorityDER, readErr = verifiedCertificateIssuerRoot(currentCertificate, agentTrust.DesiredRootDER)
+				if readErr != nil {
+					return readErr
+				}
+				return nil
 			}
-			currentCertificate, currentDeviceID, parseErr := parseRenewalCertificate(current.CertificateDER)
-			if parseErr != nil {
-				return parseErr
+			certificateDER, certificateAuthorityDER, readErr = s.authorities.issueAgentCertificate(
+				csr.PublicKey,
+				deviceID,
+				s.now(),
+				s.random,
+			)
+			if readErr != nil {
+				return readErr
 			}
-			if currentDeviceID != deviceID || !renewalPublicKeysEqual(currentCertificate.PublicKey, csr.PublicKey) {
-				return errRenewalAuthRejected
+			event, eventErr := store.AgentCertificateRenewedEvent(
+				deviceID,
+				certificateDER,
+				request.Msg.GetSealingPublicKey(),
+				presented.Raw,
+			)
+			if eventErr != nil {
+				return eventErr
 			}
-			certificateDER = bytes.Clone(current.CertificateDER)
-			certificateAuthorityDER = bytes.Clone(s.authorities.agentCA.certificate.Raw)
-			return nil
-		}
-		certificateDER, certificateAuthorityDER, readErr = s.authorities.issueAgentCertificate(
-			csr.PublicKey,
-			deviceID,
-			s.now(),
-			s.random,
-		)
-		if readErr != nil {
-			return readErr
-		}
-		event, eventErr := store.AgentCertificateRenewedEvent(
-			deviceID,
-			certificateDER,
-			request.Msg.GetSealingPublicKey(),
-			presented.Raw,
-		)
-		if eventErr != nil {
-			return eventErr
-		}
-		return lifecycle.AppendEvent(ctx, event, current.ProjectionVersion)
+			return lifecycle.AppendEvent(ctx, event, current.ProjectionVersion)
+		})
 	})
 	if err != nil {
 		return nil, mapRenewalError(err)
@@ -119,7 +134,9 @@ func (s *EnrollmentService) RenewAgent(
 	return connect.NewResponse(&powermanagev1.RenewAgentResponse{
 		CertificateDer:                 certificateDER,
 		CertificateAuthorityDer:        certificateAuthorityDER,
-		GatewayCertificateAuthorityDer: bytes.Clone(s.authorities.gatewayCA.certificate.Raw),
+		GatewayCertificateAuthorityDer: bytes.Clone(gatewayTrust.IssuingRootDER),
+		AgentTrustBundle:               trustBundleFromSnapshot(agentTrust),
+		GatewayTrustBundle:             trustBundleFromSnapshot(gatewayTrust),
 	}), nil
 }
 
@@ -154,4 +171,17 @@ func renewalPublicKeysEqual(first, second crypto.PublicKey) bool {
 	}
 	secondDER, err := x509.MarshalPKIXPublicKey(second)
 	return err == nil && bytes.Equal(firstDER, secondDER)
+}
+
+func verifiedCertificateIssuerRoot(certificate *x509.Certificate, roots [][]byte) ([]byte, error) {
+	if certificate == nil {
+		return nil, errors.New("pki: nil renewed certificate")
+	}
+	for _, rootDER := range roots {
+		root, err := parseExactCertificate(rootDER)
+		if err == nil && certificate.CheckSignatureFrom(root) == nil {
+			return bytes.Clone(rootDER), nil
+		}
+	}
+	return nil, errors.New("pki: renewed certificate issuer is absent from its committed trust bundle")
 }

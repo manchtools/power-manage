@@ -417,7 +417,7 @@ func TestAction_Shape(t *testing.T) {
 //
 // Guards: INV-5, INV-6.
 func TestGuard_SignatureDomains(t *testing.T) {
-	consts := Discover(t, "contract/sign *SignatureDomain constants", 14, ScanSignatureDomains)
+	consts := Discover(t, "contract/sign *SignatureDomain constants", 15, ScanSignatureDomains)
 
 	// Exact set, both directions, against the two formulas over the closed
 	// §3.4 command catalog ([WIRE-14]) and §3.6 result catalog ([WIRE-20a]).
@@ -430,7 +430,8 @@ func TestGuard_SignatureDomains(t *testing.T) {
 	}
 	const cmdPrefix = "power-manage:cmd:"
 	const resultPrefix = "power-manage:result:"
-	wantCount := len(commandCatalog) + len(resultCatalog)
+	const trustStateDomain = "power-manage:trust-state:v1"
+	wantCount := len(commandCatalog) + len(resultCatalog) + 1
 
 	wantValue := map[string]bool{}
 	for _, ct := range commandCatalog {
@@ -439,6 +440,7 @@ func TestGuard_SignatureDomains(t *testing.T) {
 	for _, rt := range resultCatalog {
 		wantValue[resultPrefix+rt+":v1"] = true
 	}
+	wantValue[trustStateDomain] = true
 	// Disjoint families: the [WIRE-14] and [WIRE-20a] formulas must never
 	// collapse to the same domain string, or a command signature and a result
 	// signature could share a domain. Distinct-value count proves it.
@@ -466,9 +468,9 @@ func TestGuard_SignatureDomains(t *testing.T) {
 		}
 	}
 	// Exact-set means exact COUNT: 8 §3.4 command domains + 6 §3.6 result
-	// domains = 14.
+	// domains + the SPEC-006 trust-state domain = 15.
 	if len(consts) != wantCount {
-		t.Errorf("discovered %d *SignatureDomain constants, want exactly %d — 8 command domains + 6 result domains; remove duplicate or extra domain constants (G-5 exact-set)", len(consts), wantCount)
+		t.Errorf("discovered %d *SignatureDomain constants, want exactly %d — 8 command domains + 6 result domains + one trust-state domain; remove duplicate or extra domain constants (G-5 exact-set)", len(consts), wantCount)
 	}
 
 	// Partition the DISCOVERED constants into the two families by formula
@@ -481,8 +483,11 @@ func TestGuard_SignatureDomains(t *testing.T) {
 			commandTypes = append(commandTypes, strings.TrimSuffix(strings.TrimPrefix(c.Value, cmdPrefix), ":v1"))
 		case strings.HasPrefix(c.Value, resultPrefix):
 			resultTypes = append(resultTypes, strings.TrimSuffix(strings.TrimPrefix(c.Value, resultPrefix), ":v1"))
+		case c.Value == trustStateDomain:
+			// Trust-state framing has its own semantic and pairwise isolation
+			// tests in contract/sign; it is not a command or result type.
 		default:
-			t.Errorf("constant %s = %q matches neither the command nor the result domain formula (G-5)", c.Name, c.Value)
+			t.Errorf("constant %s = %q matches neither a command, result, nor trust-state domain formula (G-5)", c.Name, c.Value)
 		}
 	}
 

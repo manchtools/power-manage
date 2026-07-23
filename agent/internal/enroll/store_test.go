@@ -70,6 +70,11 @@ func TestFileCredentialStore_LoadRejectsNonCanonicalOrInvalidPEM(t *testing.T) {
 		}
 		return result
 	}
+	withContinuity := func(payload string) []byte {
+		return append(bytes.Clone(encoded), pem.EncodeToMemory(&pem.Block{
+			Type: continuityPEMType, Bytes: []byte(payload),
+		})...)
+	}
 	tests := []struct {
 		name string
 		data []byte
@@ -87,6 +92,13 @@ func TestFileCredentialStore_LoadRejectsNonCanonicalOrInvalidPEM(t *testing.T) {
 		{name: "certificate and CA mismatch", data: encodeBlocks(blocks[0], blocks[1], otherBlocks[2], blocks[3], blocks[4]), want: "verify stored certificate authority"},
 		{name: "malformed gateway CA", data: encodeBlocks(blocks[0], blocks[1], blocks[2], &pem.Block{Type: blocks[3].Type, Bytes: []byte("bad")}, blocks[4]), want: "parse stored gateway CA certificate"},
 		{name: "wrong sealing key type", data: encodeBlocks(blocks[0], blocks[1], blocks[2], blocks[3], &pem.Block{Type: blocks[4].Type, Bytes: blocks[1].Bytes}), want: "stored sealing private key is not X25519"},
+		{name: "null continuity", data: withContinuity(`null`), want: "stored CA continuity requires non-null agent and gateway trust bundles"},
+		{name: "missing continuity fields", data: withContinuity(`{}`), want: "stored CA continuity requires non-null agent and gateway trust bundles"},
+		{name: "missing agent trust bundle", data: withContinuity(`{"gateway_trust_bundle":{}}`), want: "stored CA continuity requires non-null agent and gateway trust bundles"},
+		{name: "missing gateway trust bundle", data: withContinuity(`{"agent_trust_bundle":{}}`), want: "stored CA continuity requires non-null agent and gateway trust bundles"},
+		{name: "null agent trust bundle", data: withContinuity(`{"agent_trust_bundle":null,"gateway_trust_bundle":{}}`), want: "stored CA continuity requires non-null agent and gateway trust bundles"},
+		{name: "null gateway trust bundle", data: withContinuity(`{"agent_trust_bundle":{},"gateway_trust_bundle":null}`), want: "stored CA continuity requires non-null agent and gateway trust bundles"},
+		{name: "empty continuity state", data: withContinuity(`{"agent_trust_bundle":{},"gateway_trust_bundle":{}}`), want: "stored CA continuity cannot encode legacy-empty trust state"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

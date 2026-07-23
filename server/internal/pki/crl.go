@@ -3,6 +3,7 @@ package pki
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"crypto/x509"
 	"errors"
 	"fmt"
@@ -28,10 +29,11 @@ type CRLPublisher interface {
 
 // CRLIssuer materializes event-derived revocations into monotonic signed CRLs.
 type CRLIssuer struct {
-	eventStore  *store.Store
-	authorities *Authorities
-	publisher   CRLPublisher
-	now         func() time.Time
+	eventStore      *store.Store
+	authorities     *Authorities
+	publisher       CRLPublisher
+	rotationManager *RotationManager
+	now             func() time.Time
 }
 
 // NewCRLIssuer validates the production, state, and distribution seams.
@@ -102,13 +104,6 @@ func (i *CRLIssuer) EnsureCurrent(ctx context.Context, class store.CertificateCl
 	if ctx == nil {
 		return store.SignedCRL{}, errors.New("pki: nil ensure-current CRL context")
 	}
-	current, err := i.eventStore.LatestCRL(ctx, class)
-	if err != nil {
-		return store.SignedCRL{}, err
-	}
-	if current.Sequence > 0 {
-		return current, nil
-	}
 	return i.issue(ctx, class, store.CRLSource{})
 }
 
@@ -117,86 +112,205 @@ func (i *CRLIssuer) issue(
 	class store.CertificateClass,
 	source store.CRLSource,
 ) (store.SignedCRL, error) {
-	for attempt := range crlStateCASAttempts {
-		if err := ctx.Err(); err != nil {
-			return store.SignedCRL{}, err
-		}
-		current, err := i.eventStore.LatestCRL(ctx, class)
+	return i.sign(ctx, class, source)
+}
+
+func (i *CRLIssuer) sign(
+	ctx context.Context,
+	class store.CertificateClass,
+	source store.CRLSource,
+) (store.SignedCRL, error) {
+	var result store.SignedCRL
+	err := i.withCRLIssuerFence(ctx, class, func() error {
+		issuerFingerprint, authority, active, err := i.crlAuthority(ctx, class, source)
 		if err != nil {
-			return store.SignedCRL{}, err
+			return err
 		}
-		if source == (store.CRLSource{}) && current.Sequence > 0 {
-			return current, nil
+		if !active {
+			return nil
 		}
-		if source.StreamVersion > 0 {
-			receiptSequence, found, err := i.eventStore.CRLWorkReceipt(ctx, class, source)
+		// The shared class fence spans this entire callback, including every CAS
+		// attempt and its commit, so rotation cannot invalidate this authority.
+		for attempt := range crlStateCASAttempts {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			current, err := i.eventStore.LatestCRL(ctx, class, issuerFingerprint)
 			if err != nil {
-				return store.SignedCRL{}, err
+				return err
 			}
-			if found {
-				if current.Sequence < receiptSequence {
-					return store.SignedCRL{}, errors.New("pki: CRL state precedes its durable work receipt")
-				}
-				if current.Sequence > receiptSequence {
-					return current, nil
-				}
-				if current.Source != source {
-					return store.SignedCRL{}, errors.New("pki: CRL state does not match its durable work receipt")
-				}
-				if err := i.publisher.Publish(ctx, current); err != nil {
-					return store.SignedCRL{}, fmt.Errorf("pki: republish %s CRL: %w", class, err)
-				}
-				return current, nil
+			if source == (store.CRLSource{}) && current.Sequence > 0 {
+				result = current
+				return nil
 			}
+			if source.StreamVersion > 0 {
+				receiptSequence, found, err := i.eventStore.CRLWorkReceipt(ctx, class, issuerFingerprint, source)
+				if err != nil {
+					return err
+				}
+				if found {
+					if current.Sequence < receiptSequence {
+						return errors.New("pki: CRL state precedes its durable work receipt")
+					}
+					if current.Sequence > receiptSequence {
+						result = current
+						return nil
+					}
+					if current.Source != source {
+						result = current
+						return nil
+					}
+					if err := i.publisher.Publish(ctx, current); err != nil {
+						return fmt.Errorf("pki: republish %s CRL: %w", class, err)
+					}
+					result = current
+					return nil
+				}
+			}
+			revocations, err := i.eventStore.CertificateRevocations(ctx, class)
+			if err != nil {
+				return err
+			}
+			issuedAt := i.now().UTC().Truncate(time.Second)
+			if issuedAt.IsZero() {
+				return errors.New("pki: CRL clock returned zero time")
+			}
+			if current.IssuedAt.After(issuedAt) {
+				issuedAt = current.IssuedAt
+			}
+			sequence := current.Sequence + 1
+			entries, coveredSources, err := revocationListEntriesForIssuer(revocations, authority)
+			if err != nil {
+				return err
+			}
+			template := &x509.RevocationList{
+				RevokedCertificateEntries: entries,
+				Number:                    big.NewInt(sequence),
+				ThisUpdate:                issuedAt,
+				NextUpdate:                issuedAt.Add(DefaultCRLMaxAge),
+			}
+			var der []byte
+			switch class {
+			case store.CertificateClassAgent:
+				if i.rotationManager == nil {
+					der, err = i.authorities.SignAgentRevocationList(template)
+				} else {
+					der, err = i.authorities.signRevocationListForIssuer(class, issuerFingerprint, template)
+				}
+			case store.CertificateClassGateway:
+				if i.rotationManager == nil {
+					der, err = i.authorities.SignGatewayRevocationList(template)
+				} else {
+					der, err = i.authorities.signRevocationListForIssuer(class, issuerFingerprint, template)
+				}
+			default:
+				return errors.New("pki: invalid CRL certificate class")
+			}
+			if err != nil {
+				return err
+			}
+			if err := validateIssuedCRL(der, authority, class, sequence, issuedAt, len(entries)); err != nil {
+				return err
+			}
+			stored, err := i.eventStore.CompareAndSwapCRL(ctx, class, issuerFingerprint, current.Sequence, der, issuedAt, source)
+			if err != nil {
+				return err
+			}
+			if !stored {
+				if err := waitForCRLCASRetry(ctx, attempt); err != nil {
+					return err
+				}
+				continue
+			}
+			for _, coveredSource := range coveredSources {
+				if err := i.eventStore.RecordCoveredCRLWorkReceipt(
+					ctx, class, issuerFingerprint, coveredSource, sequence,
+				); err != nil {
+					return err
+				}
+			}
+			result = store.SignedCRL{
+				Class: class, IssuerFingerprint: issuerFingerprint,
+				Sequence: sequence, DER: slices.Clone(der), IssuedAt: issuedAt, Source: source,
+			}
+			if err := i.publisher.Publish(ctx, result); err != nil {
+				return fmt.Errorf("pki: publish %s CRL: %w", class, err)
+			}
+			return nil
 		}
+		return errors.New("pki: CRL state remained contended")
+	})
+	if err != nil {
+		return store.SignedCRL{}, err
+	}
+	return result, nil
+}
+
+func (i *CRLIssuer) withCRLIssuerFence(
+	ctx context.Context,
+	class store.CertificateClass,
+	action func() error,
+) error {
+	if action == nil {
+		return errors.New("pki: nil CRL issuer action")
+	}
+	if i.rotationManager == nil {
+		return action()
+	}
+	return i.rotationManager.withCRLIssuerFence(ctx, class, action)
+}
+
+func (i *CRLIssuer) crlAuthority(
+	ctx context.Context,
+	class store.CertificateClass,
+	source store.CRLSource,
+) ([sha256.Size]byte, *x509.Certificate, bool, error) {
+	if i.rotationManager == nil {
+		authority, ok := i.authorities.currentAuthority(class)
+		if !ok {
+			return [sha256.Size]byte{}, nil, false, errors.New("pki: current CRL authority is not wired")
+		}
+		return [sha256.Size]byte{}, authority.certificate, true, nil
+	}
+	snapshot, err := i.rotationManager.Snapshot(ctx, class)
+	if err != nil {
+		return [sha256.Size]byte{}, nil, false, err
+	}
+	rootDER := snapshot.IssuingRootDER
+	if source.StreamVersion > 0 {
 		revocations, err := i.eventStore.CertificateRevocations(ctx, class)
 		if err != nil {
-			return store.SignedCRL{}, err
+			return [sha256.Size]byte{}, nil, false, err
 		}
-		issuedAt := i.now().UTC().Truncate(time.Second)
-		if issuedAt.IsZero() {
-			return store.SignedCRL{}, errors.New("pki: CRL clock returned zero time")
-		}
-		if current.IssuedAt.After(issuedAt) {
-			issuedAt = current.IssuedAt
-		}
-		sequence := current.Sequence + 1
-		entries, err := revocationListEntries(revocations)
-		if err != nil {
-			return store.SignedCRL{}, err
-		}
-		template := &x509.RevocationList{
-			RevokedCertificateEntries: entries,
-			Number:                    big.NewInt(sequence),
-			ThisUpdate:                issuedAt,
-			NextUpdate:                issuedAt.Add(DefaultCRLMaxAge),
-		}
-		der, authority, err := i.sign(class, template)
-		if err != nil {
-			return store.SignedCRL{}, err
-		}
-		if err := validateIssuedCRL(der, authority, class, sequence, issuedAt, len(entries)); err != nil {
-			return store.SignedCRL{}, err
-		}
-		stored, err := i.eventStore.CompareAndSwapCRL(ctx, class, current.Sequence, der, issuedAt, source)
-		if err != nil {
-			return store.SignedCRL{}, err
-		}
-		if !stored {
-			if err := waitForCRLCASRetry(ctx, attempt); err != nil {
-				return store.SignedCRL{}, err
+		rootDER = nil
+		for _, revocation := range revocations {
+			if revocation.SourceStreamType != source.StreamType || revocation.SourceStreamID != source.StreamID ||
+				revocation.SourceStreamVersion != source.StreamVersion {
+				continue
 			}
-			continue
+			certificate, err := parseExactCertificate(revocation.CertificateDER)
+			if err != nil {
+				return [sha256.Size]byte{}, nil, false, err
+			}
+			for _, candidate := range activeCRLRoots(snapshot) {
+				root, err := parseExactCertificate(candidate)
+				if err == nil && certificate.CheckSignatureFrom(root) == nil {
+					rootDER = candidate
+					break
+				}
+			}
+			break
 		}
-		state := store.SignedCRL{
-			Class: class, Sequence: sequence, DER: slices.Clone(der), IssuedAt: issuedAt, Source: source,
+		if len(rootDER) == 0 {
+			return [sha256.Size]byte{}, nil, false, nil
 		}
-		if err := i.publisher.Publish(ctx, state); err != nil {
-			return store.SignedCRL{}, fmt.Errorf("pki: publish %s CRL: %w", class, err)
-		}
-		return state, nil
 	}
-	return store.SignedCRL{}, errors.New("pki: CRL state remained contended")
+	fingerprint := sha256.Sum256(rootDER)
+	authority, ok := i.authorities.authorityForIssuer(class, fingerprint)
+	if !ok {
+		return [sha256.Size]byte{}, nil, false, errors.New("pki: active CRL authority is not wired")
+	}
+	return fingerprint, authority.certificate, true, nil
 }
 
 func waitForCRLCASRetry(ctx context.Context, attempt int) error {
@@ -208,22 +322,6 @@ func waitForCRLCASRetry(ctx context.Context, attempt int) error {
 		return ctx.Err()
 	case <-timer.C:
 		return nil
-	}
-}
-
-func (i *CRLIssuer) sign(
-	class store.CertificateClass,
-	template *x509.RevocationList,
-) ([]byte, *x509.Certificate, error) {
-	switch class {
-	case store.CertificateClassAgent:
-		der, err := i.authorities.SignAgentRevocationList(template)
-		return der, i.authorities.agentCA.certificate, err
-	case store.CertificateClassGateway:
-		der, err := i.authorities.SignGatewayRevocationList(template)
-		return der, i.authorities.gatewayCA.certificate, err
-	default:
-		return nil, nil, errors.New("pki: invalid CRL certificate class")
 	}
 }
 
@@ -251,6 +349,32 @@ func revocationListEntries(revocations []store.CertificateRevocation) ([]x509.Re
 		})
 	}
 	return entries, nil
+}
+
+func revocationListEntriesForIssuer(
+	revocations []store.CertificateRevocation,
+	authority *x509.Certificate,
+) ([]x509.RevocationListEntry, []store.CRLSource, error) {
+	if authority == nil {
+		return nil, nil, errors.New("pki: CRL authority is missing")
+	}
+	filtered := make([]store.CertificateRevocation, 0, len(revocations))
+	sources := make([]store.CRLSource, 0, len(revocations))
+	for _, revocation := range revocations {
+		certificate, err := parseExactCertificate(revocation.CertificateDER)
+		if err != nil {
+			return nil, nil, fmt.Errorf("pki: parse revoked certificate: %w", err)
+		}
+		if bytes.Equal(revocation.IssuerIdentifier, authority.SubjectKeyId) && certificate.CheckSignatureFrom(authority) == nil {
+			filtered = append(filtered, revocation)
+			sources = append(sources, store.CRLSource{
+				StreamType: revocation.SourceStreamType, StreamID: revocation.SourceStreamID,
+				StreamVersion: revocation.SourceStreamVersion,
+			})
+		}
+	}
+	entries, err := revocationListEntries(filtered)
+	return entries, sources, err
 }
 
 func validateIssuedCRL(

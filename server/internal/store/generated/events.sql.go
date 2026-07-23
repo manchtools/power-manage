@@ -9,6 +9,24 @@ import (
 	"context"
 )
 
+const acquireAdvisoryLock = `-- name: AcquireAdvisoryLock :exec
+SELECT pg_advisory_lock($1)
+`
+
+func (q *Queries) AcquireAdvisoryLock(ctx context.Context, pgAdvisoryLock int64) error {
+	_, err := q.db.Exec(ctx, acquireAdvisoryLock, pgAdvisoryLock)
+	return err
+}
+
+const acquireAdvisoryLockShared = `-- name: AcquireAdvisoryLockShared :exec
+SELECT pg_advisory_lock_shared($1)
+`
+
+func (q *Queries) AcquireAdvisoryLockShared(ctx context.Context, pgAdvisoryLockShared int64) error {
+	_, err := q.db.Exec(ctx, acquireAdvisoryLockShared, pgAdvisoryLockShared)
+	return err
+}
+
 const currentStreamVersion = `-- name: CurrentStreamVersion :one
 SELECT COALESCE(MAX(stream_version), 0)::bigint AS stream_version
 FROM events
@@ -37,7 +55,7 @@ INSERT INTO events (
     payload
 ) VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING stream_type, stream_id, stream_version, event_type,
-          payload_version, payload, created_at
+          payload_version, payload, created_at, global_position
 `
 
 type InsertEventParams struct {
@@ -67,13 +85,14 @@ func (q *Queries) InsertEvent(ctx context.Context, arg InsertEventParams) (Event
 		&i.PayloadVersion,
 		&i.Payload,
 		&i.CreatedAt,
+		&i.GlobalPosition,
 	)
 	return i, err
 }
 
 const listEventsForReplayPage = `-- name: ListEventsForReplayPage :many
 SELECT stream_type, stream_id, stream_version, event_type,
-       payload_version, payload, created_at
+       payload_version, payload, created_at, global_position
 FROM events
 WHERE stream_type = ANY($1::text[])
   AND (stream_type, stream_id, stream_version) > (
@@ -116,6 +135,7 @@ func (q *Queries) ListEventsForReplayPage(ctx context.Context, arg ListEventsFor
 			&i.PayloadVersion,
 			&i.Payload,
 			&i.CreatedAt,
+			&i.GlobalPosition,
 		); err != nil {
 			return nil, err
 		}
@@ -174,4 +194,26 @@ func (q *Queries) RebuildTableClosure(ctx context.Context, tableNames []string) 
 		return nil, err
 	}
 	return items, nil
+}
+
+const releaseAdvisoryLock = `-- name: ReleaseAdvisoryLock :one
+SELECT pg_advisory_unlock($1)
+`
+
+func (q *Queries) ReleaseAdvisoryLock(ctx context.Context, pgAdvisoryUnlock int64) (bool, error) {
+	row := q.db.QueryRow(ctx, releaseAdvisoryLock, pgAdvisoryUnlock)
+	var pg_advisory_unlock bool
+	err := row.Scan(&pg_advisory_unlock)
+	return pg_advisory_unlock, err
+}
+
+const releaseAdvisoryLockShared = `-- name: ReleaseAdvisoryLockShared :one
+SELECT pg_advisory_unlock_shared($1)
+`
+
+func (q *Queries) ReleaseAdvisoryLockShared(ctx context.Context, pgAdvisoryUnlockShared int64) (bool, error) {
+	row := q.db.QueryRow(ctx, releaseAdvisoryLockShared, pgAdvisoryUnlockShared)
+	var pg_advisory_unlock_shared bool
+	err := row.Scan(&pg_advisory_unlock_shared)
+	return pg_advisory_unlock_shared, err
 }

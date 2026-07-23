@@ -54,6 +54,12 @@ const (
 	// PkiServiceRevokeGatewayProcedure is the fully-qualified name of the PkiService's RevokeGateway
 	// RPC.
 	PkiServiceRevokeGatewayProcedure = "/powermanage.v1.PkiService/RevokeGateway"
+	// PkiServiceConfirmAgentTrustStateProcedure is the fully-qualified name of the PkiService's
+	// ConfirmAgentTrustState RPC.
+	PkiServiceConfirmAgentTrustStateProcedure = "/powermanage.v1.PkiService/ConfirmAgentTrustState"
+	// PkiServiceConfirmGatewayTrustStateProcedure is the fully-qualified name of the PkiService's
+	// ConfirmGatewayTrustState RPC.
+	PkiServiceConfirmGatewayTrustStateProcedure = "/powermanage.v1.PkiService/ConfirmGatewayTrustState"
 )
 
 // PkiServiceClient is a client for the powermanage.v1.PkiService service.
@@ -65,6 +71,8 @@ type PkiServiceClient interface {
 	EnrollGateway(context.Context, *connect.Request[v1.EnrollGatewayRequest]) (*connect.Response[v1.EnrollGatewayResponse], error)
 	RenewGateway(context.Context, *connect.Request[v1.RenewGatewayRequest]) (*connect.Response[v1.RenewGatewayResponse], error)
 	RevokeGateway(context.Context, *connect.Request[v1.RevokeGatewayRequest]) (*connect.Response[v1.RevokeGatewayResponse], error)
+	ConfirmAgentTrustState(context.Context, *connect.Request[v1.ConfirmTrustStateRequest]) (*connect.Response[v1.ConfirmTrustStateResponse], error)
+	ConfirmGatewayTrustState(context.Context, *connect.Request[v1.ConfirmTrustStateRequest]) (*connect.Response[v1.ConfirmTrustStateResponse], error)
 }
 
 // NewPkiServiceClient constructs a client for the powermanage.v1.PkiService service. By default, it
@@ -120,18 +128,32 @@ func NewPkiServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(pkiServiceMethods.ByName("RevokeGateway")),
 			connect.WithClientOptions(opts...),
 		),
+		confirmAgentTrustState: connect.NewClient[v1.ConfirmTrustStateRequest, v1.ConfirmTrustStateResponse](
+			httpClient,
+			baseURL+PkiServiceConfirmAgentTrustStateProcedure,
+			connect.WithSchema(pkiServiceMethods.ByName("ConfirmAgentTrustState")),
+			connect.WithClientOptions(opts...),
+		),
+		confirmGatewayTrustState: connect.NewClient[v1.ConfirmTrustStateRequest, v1.ConfirmTrustStateResponse](
+			httpClient,
+			baseURL+PkiServiceConfirmGatewayTrustStateProcedure,
+			connect.WithSchema(pkiServiceMethods.ByName("ConfirmGatewayTrustState")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // pkiServiceClient implements PkiServiceClient.
 type pkiServiceClient struct {
-	enrollAgent     *connect.Client[v1.EnrollAgentRequest, v1.EnrollAgentResponse]
-	renewAgent      *connect.Client[v1.RenewAgentRequest, v1.RenewAgentResponse]
-	revokeAgent     *connect.Client[v1.RevokeAgentRequest, v1.RevokeAgentResponse]
-	forceRenewAgent *connect.Client[v1.ForceRenewAgentRequest, v1.ForceRenewAgentResponse]
-	enrollGateway   *connect.Client[v1.EnrollGatewayRequest, v1.EnrollGatewayResponse]
-	renewGateway    *connect.Client[v1.RenewGatewayRequest, v1.RenewGatewayResponse]
-	revokeGateway   *connect.Client[v1.RevokeGatewayRequest, v1.RevokeGatewayResponse]
+	enrollAgent              *connect.Client[v1.EnrollAgentRequest, v1.EnrollAgentResponse]
+	renewAgent               *connect.Client[v1.RenewAgentRequest, v1.RenewAgentResponse]
+	revokeAgent              *connect.Client[v1.RevokeAgentRequest, v1.RevokeAgentResponse]
+	forceRenewAgent          *connect.Client[v1.ForceRenewAgentRequest, v1.ForceRenewAgentResponse]
+	enrollGateway            *connect.Client[v1.EnrollGatewayRequest, v1.EnrollGatewayResponse]
+	renewGateway             *connect.Client[v1.RenewGatewayRequest, v1.RenewGatewayResponse]
+	revokeGateway            *connect.Client[v1.RevokeGatewayRequest, v1.RevokeGatewayResponse]
+	confirmAgentTrustState   *connect.Client[v1.ConfirmTrustStateRequest, v1.ConfirmTrustStateResponse]
+	confirmGatewayTrustState *connect.Client[v1.ConfirmTrustStateRequest, v1.ConfirmTrustStateResponse]
 }
 
 // EnrollAgent calls powermanage.v1.PkiService.EnrollAgent.
@@ -169,6 +191,16 @@ func (c *pkiServiceClient) RevokeGateway(ctx context.Context, req *connect.Reque
 	return c.revokeGateway.CallUnary(ctx, req)
 }
 
+// ConfirmAgentTrustState calls powermanage.v1.PkiService.ConfirmAgentTrustState.
+func (c *pkiServiceClient) ConfirmAgentTrustState(ctx context.Context, req *connect.Request[v1.ConfirmTrustStateRequest]) (*connect.Response[v1.ConfirmTrustStateResponse], error) {
+	return c.confirmAgentTrustState.CallUnary(ctx, req)
+}
+
+// ConfirmGatewayTrustState calls powermanage.v1.PkiService.ConfirmGatewayTrustState.
+func (c *pkiServiceClient) ConfirmGatewayTrustState(ctx context.Context, req *connect.Request[v1.ConfirmTrustStateRequest]) (*connect.Response[v1.ConfirmTrustStateResponse], error) {
+	return c.confirmGatewayTrustState.CallUnary(ctx, req)
+}
+
 // PkiServiceHandler is an implementation of the powermanage.v1.PkiService service.
 type PkiServiceHandler interface {
 	EnrollAgent(context.Context, *connect.Request[v1.EnrollAgentRequest]) (*connect.Response[v1.EnrollAgentResponse], error)
@@ -178,6 +210,8 @@ type PkiServiceHandler interface {
 	EnrollGateway(context.Context, *connect.Request[v1.EnrollGatewayRequest]) (*connect.Response[v1.EnrollGatewayResponse], error)
 	RenewGateway(context.Context, *connect.Request[v1.RenewGatewayRequest]) (*connect.Response[v1.RenewGatewayResponse], error)
 	RevokeGateway(context.Context, *connect.Request[v1.RevokeGatewayRequest]) (*connect.Response[v1.RevokeGatewayResponse], error)
+	ConfirmAgentTrustState(context.Context, *connect.Request[v1.ConfirmTrustStateRequest]) (*connect.Response[v1.ConfirmTrustStateResponse], error)
+	ConfirmGatewayTrustState(context.Context, *connect.Request[v1.ConfirmTrustStateRequest]) (*connect.Response[v1.ConfirmTrustStateResponse], error)
 }
 
 // NewPkiServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -229,6 +263,18 @@ func NewPkiServiceHandler(svc PkiServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(pkiServiceMethods.ByName("RevokeGateway")),
 		connect.WithHandlerOptions(opts...),
 	)
+	pkiServiceConfirmAgentTrustStateHandler := connect.NewUnaryHandler(
+		PkiServiceConfirmAgentTrustStateProcedure,
+		svc.ConfirmAgentTrustState,
+		connect.WithSchema(pkiServiceMethods.ByName("ConfirmAgentTrustState")),
+		connect.WithHandlerOptions(opts...),
+	)
+	pkiServiceConfirmGatewayTrustStateHandler := connect.NewUnaryHandler(
+		PkiServiceConfirmGatewayTrustStateProcedure,
+		svc.ConfirmGatewayTrustState,
+		connect.WithSchema(pkiServiceMethods.ByName("ConfirmGatewayTrustState")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/powermanage.v1.PkiService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case PkiServiceEnrollAgentProcedure:
@@ -245,6 +291,10 @@ func NewPkiServiceHandler(svc PkiServiceHandler, opts ...connect.HandlerOption) 
 			pkiServiceRenewGatewayHandler.ServeHTTP(w, r)
 		case PkiServiceRevokeGatewayProcedure:
 			pkiServiceRevokeGatewayHandler.ServeHTTP(w, r)
+		case PkiServiceConfirmAgentTrustStateProcedure:
+			pkiServiceConfirmAgentTrustStateHandler.ServeHTTP(w, r)
+		case PkiServiceConfirmGatewayTrustStateProcedure:
+			pkiServiceConfirmGatewayTrustStateHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -280,4 +330,12 @@ func (UnimplementedPkiServiceHandler) RenewGateway(context.Context, *connect.Req
 
 func (UnimplementedPkiServiceHandler) RevokeGateway(context.Context, *connect.Request[v1.RevokeGatewayRequest]) (*connect.Response[v1.RevokeGatewayResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.PkiService.RevokeGateway is not implemented"))
+}
+
+func (UnimplementedPkiServiceHandler) ConfirmAgentTrustState(context.Context, *connect.Request[v1.ConfirmTrustStateRequest]) (*connect.Response[v1.ConfirmTrustStateResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.PkiService.ConfirmAgentTrustState is not implemented"))
+}
+
+func (UnimplementedPkiServiceHandler) ConfirmGatewayTrustState(context.Context, *connect.Request[v1.ConfirmTrustStateRequest]) (*connect.Response[v1.ConfirmTrustStateResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.PkiService.ConfirmGatewayTrustState is not implemented"))
 }

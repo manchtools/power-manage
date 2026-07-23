@@ -3,6 +3,7 @@
 package identity
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/asn1"
@@ -204,6 +205,44 @@ func ClientTLSConfig(certificate tls.Certificate, rootCAs *x509.CertPool, server
 			return requirePeerClass(state, serverClass)
 		},
 	}, nil
+}
+
+// RejectPeerIntermediates returns a cloned TLS configuration with an exact-DER
+// denylist. CA transition certificates are continuity proofs only; they must
+// never become general peer-chain intermediates.
+func RejectPeerIntermediates(config *tls.Config, certificateDER ...[]byte) (*tls.Config, error) {
+	if config == nil {
+		return nil, fmt.Errorf("identity: nil TLS config")
+	}
+	denied := make([][]byte, len(certificateDER))
+	for index, der := range certificateDER {
+		certificate, err := x509.ParseCertificate(der)
+		if err != nil || !bytes.Equal(certificate.Raw, der) {
+			return nil, fmt.Errorf("identity: transition certificate %d is not exact DER", index)
+		}
+		denied[index] = bytes.Clone(der)
+	}
+	next := config.Clone()
+	previous := next.VerifyConnection
+	next.VerifyConnection = func(state tls.ConnectionState) error {
+		if previous != nil {
+			if err := previous(state); err != nil {
+				return err
+			}
+		}
+		if len(state.PeerCertificates) == 0 {
+			return nil
+		}
+		for _, peer := range state.PeerCertificates[1:] {
+			for _, proof := range denied {
+				if bytes.Equal(peer.Raw, proof) {
+					return fmt.Errorf("identity: CA transition proof is forbidden as a peer-chain intermediate")
+				}
+			}
+		}
+		return nil
+	}
+	return next, nil
 }
 
 func classURI(class Class) (string, error) {

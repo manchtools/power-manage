@@ -12,7 +12,7 @@ import (
 // Guards: INV-12.
 func TestGuard_TableClassification(t *testing.T) {
 	pool := testPostgres(t)
-	tables := guardtest.Discover(t, "public Postgres tables", 12, func() ([]string, error) {
+	tables := guardtest.Discover(t, "public Postgres tables", 13, func() ([]string, error) {
 		return generated.New(pool).ListPublicTables(context.Background())
 	})
 	if err := validateTableClassification(tables, ProductionTableClassification()); err != nil {
@@ -60,6 +60,7 @@ func TestTableClassificationGuard_RejectsDuplicateClass(t *testing.T) {
 
 func productionTableNames() []string {
 	return []string{
+		"ca_rotation_state",
 		"certificate_revocations",
 		"crl_state",
 		"crl_work_receipts",

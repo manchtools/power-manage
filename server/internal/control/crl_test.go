@@ -185,6 +185,26 @@ func TestCRLDistributor_ExactRedeliveryIsIdempotent(t *testing.T) {
 	}
 }
 
+func TestCRLDistributor_LegacySourceRejectsIssuerScopedLookup(t *testing.T) {
+	issuedAt := time.Date(2026, time.July, 22, 15, 0, 0, 0, time.UTC)
+	ca, signer := crlDistributorCA(t)
+	current := store.SignedCRL{
+		Class: store.CertificateClassAgent, Sequence: 1,
+		DER: signedCRLFixture(t, ca, signer, 1, issuedAt), IssuedAt: issuedAt,
+	}
+	distributor, err := NewCRLDistributor(&crlStateSourceStub{states: map[store.CertificateClass]store.SignedCRL{
+		store.CertificateClassAgent: current,
+	}})
+	if err != nil {
+		t.Fatalf("create legacy CRL distributor: %v", err)
+	}
+	scoped := current
+	scoped.IssuerFingerprint = sha256.Sum256(ca.Raw)
+	if err := distributor.Publish(context.Background(), scoped); err == nil || err.Error() != "control: read durable CRL before publication: control: legacy CRL source cannot resolve an issuer-scoped publication" {
+		t.Fatalf("issuer-scoped publication through legacy source error = %v; want fail-closed adapter rejection", err)
+	}
+}
+
 type crlStateSourceStub struct {
 	states map[store.CertificateClass]store.SignedCRL
 }

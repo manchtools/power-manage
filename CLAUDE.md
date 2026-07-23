@@ -67,8 +67,9 @@ branch; after any merge-command error, check remote PR state before retrying.
   from it.
 - **NEVER weaken a test to make it pass.** Implementation sessions do not
   edit test expectations — a failing test is a finding to report, not an
-  obstacle. Any test-file change by an implementer must be explicitly
-  justified in the PR.
+  obstacle. Before approving RED, acceptance paths are mutually satisfiable and fixtures preserve values before reset or
+  replacement, keep negative crypto inputs constructible (or explicitly malformed when shared signers reject them); fixed-date certificate fixtures derive issuance and `Config.Time` from one injected clock. TLS config decorators return clones and never mutate caller-owned configs. Any test-file change
+  by an implementer must be explicitly justified in the PR.
 - After substantial changes, run the `reviewer` agent against the plan.
 
 ## Commands
@@ -78,7 +79,7 @@ branch; after any merge-command error, check remote PR state before retrying.
   gateway, and full agent-daemon commands land with SPEC-012/013. Verify the
   repository with the canonical gate.
 - Test one module: `go test -C <module> ./... -count=1 -race`
-- Protos: `cd contract && buf lint && buf generate`
+- Protos: `cd contract && buf lint && buf generate`; guards accept Buf's canonical tags (exact bytes use `len`).
 
 ## Always / never
 
@@ -96,8 +97,8 @@ branch; after any merge-command error, check remote PR state before retrying.
   binary.
 - **Tags `vYYYY.MM.PP` only on explicit operator instruction** — never tag
   unprompted.
-- Fail closed, validate-then-authorize, no secrets in logs/URLs/errors/argv
-  — full rules load from `.claude/rules/` when you touch code.
+- Fail closed; validate deserialized state before indexing; required JSON object fields track presence and reject null;
+  discard pooled sessions after uncertain cleanup; no secrets in logs/URLs/errors/argv.
 
 ## Verification honesty
 
@@ -118,18 +119,19 @@ branch; after any merge-command error, check remote PR state before retrying.
 - After any `apply_patch` context failure, every remaining patch in that turn
   is single-file and based on freshly printed surrounding lines; do not retry a
   combined code-and-documentation patch.
-- After adding a call site, resolve every new identifier against an existing
+- After adding a call site, reuse declared join keys and resolve every new identifier and composite-literal embedded field against an existing
   declaration or add that declaration in the same patch; reuse values already
   returned by test factories instead of inventing accessor helpers. Before
   adding a package-level test helper, search the package for that name. After
   code generation, inspect generated field/method spelling before referencing it;
   when handwritten and generated types differ only by casing, verify each use
   against its receiver type after patching.
-- Build listener-boundary registration keys from `guardtest.ListenerSites`
-  output after the production call sites exist; do not infer receiver syntax.
+- Build guard ownership from production call sites, never inferred receiver
+  syntax; descriptor counts resolve every expected name, and cardinality-changing refactors update exact sets and liveness fixtures.
 - In PostgreSQL migrations, explicitly name table-level constraints so they
   cannot collide with PostgreSQL's `<table>_<column>_check` names for
-  column-level checks; exercise every new migration from an empty database.
+  column-level checks; test empty and populated pre-upgrade states, failing
+  when identity-bearing data cannot be backfilled exactly.
 - Parameterized pgx `Exec` calls carry one SQL statement; split test-fixture
   mutations instead of sending multiple commands through the prepared path.
 - Projection-corruption fixtures must write constraint-valid but semantically
@@ -138,22 +140,21 @@ branch; after any merge-command error, check remote PR state before retrying.
 - A unit test for behavior behind a root-owned-parent precondition must either
   use a root-owned container path or isolate that precondition through the
   package seam; `t.TempDir()` is not root-owned under normal development.
-- Before adding an importable test-support package with dynamic database calls,
-  inspect repository static-SQL guards; any necessary exemption must be keyed
-  to the exact file and method with a matches-zero-protected call count.
-- Review an uncommitted milestone with
-  `coderabbit review --base main --include-untracked`; plain text is the
-  default in the installed CLI, so do not pass the removed `--plain` or
-  `--type` flags. Re-read this rule immediately before every local review and
-  copy the command literally; conversational summaries are not CLI authority.
+- Before adding an importable test-support package with dynamic database calls, inspect repository
+  static-SQL guards; any exemption is exact and matches-zero-protected;
+  blocking and observer fixtures stay outside the application pool, and synthetic triggers exclude follow-on work.
+- Review uncommitted work against main with the installed local review tool,
+  including untracked files and no removed output flags. Before completion,
+  query unresolved PR threads even when the newest-head check is rate-limited;
+  a head status does not summarize earlier reviews.
 - After editing a shell file containing heredocs, inspect the numbered changed
   region; `bash -n` cannot detect code accidentally swallowed as fixture text.
-- Negative tests assert the intended failure message, never only a nonzero exit.
+- Successive fixture states are observably distinct; negative tests assert the intended failure message, never only a nonzero exit.
 - Before the local review gate, scan every changed negative-test branch,
   including table subtests, and pair each `err != nil` expectation with the
   exact intended sentinel or stable error category.
 - Bound every concurrent-test channel wait with a timeout, including setup and
-  readiness receives; a completion timeout does not protect an earlier hang.
+  readiness receives; shared test recorders synchronize concurrent writes.
 - Every optimistic-conflict retry loop must combine fresh-state
   re-authorization with backoff and a finite internal retry budget; caller
   cancellation alone is not a bound because production callers may use a
@@ -174,8 +175,8 @@ branch; after any merge-command error, check remote PR state before retrying.
 - For `gh --json` status inspection, use only fields listed by that command;
   query the GitHub API when nested job-step data is required.
 - Run standard-library `go doc` probes with `GOWORK=off` when workspace
-  resolution is unnecessary, one symbol per invocation, and inspect
-  module/workspace sums afterward.
+  resolution is unnecessary. Run cross-module Go probes from their module
+  directories, and inspect sums after any workspace-root Go command.
 - Split file reads use non-overlapping ranges; include line numbers at joins
   before diagnosing apparent duplicate source text.
 - No-self-mention instructions for publication apply to commit and PR text;

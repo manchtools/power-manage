@@ -20,6 +20,31 @@ const (
 	testEventType  = "FactRecorded"
 )
 
+func TestReleaseAdvisoryLocks_MarksSessionUnusableOnUncertainRelease(t *testing.T) {
+	forced := errors.New("forced advisory unlock failure")
+	var released []int64
+	dirty, err := releaseAdvisoryLocks(context.Background(), []int64{11, 22}, func(_ context.Context, key int64) (bool, error) {
+		released = append(released, key)
+		if key == 22 {
+			return false, nil
+		}
+		return false, forced
+	})
+	if !dirty || !errors.Is(err, forced) || !strings.Contains(err.Error(), "was not held") ||
+		len(released) != 2 || released[0] != 22 || released[1] != 11 {
+		t.Fatalf("uncertain advisory cleanup = (dirty %v, error %v, order %v); want dirty, joined error, reverse order", dirty, err, released)
+	}
+
+	released = nil
+	dirty, err = releaseAdvisoryLocks(context.Background(), []int64{11, 22}, func(_ context.Context, key int64) (bool, error) {
+		released = append(released, key)
+		return true, nil
+	})
+	if dirty || err != nil || len(released) != 2 || released[0] != 22 || released[1] != 11 {
+		t.Fatalf("successful advisory cleanup = (dirty %v, error %v, order %v); want clean reverse release", dirty, err, released)
+	}
+}
+
 func TestEventsUniqueStreamVersion_ConcurrentConflict(t *testing.T) {
 	pool := testPostgres(t)
 	ctx := context.Background()
