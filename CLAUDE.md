@@ -108,8 +108,7 @@ branch; after any merge-command error, check remote PR state before retrying.
 - Before running a compound verification command, choose its working directory
   once and resolve every command/path argument against that directory; do not
   mix a module workdir with repository-root-relative paths.
-- For docref 0.1.1, `--help` is unsupported: top-level it is an unknown
-  command; after a subcommand it is a positional path. Use bare `docref`.
+- For docref 0.1.1, never run removed `fix` or any `--help` form. Use bare `docref` for usage; after reviewing `docref diff <path>`, stale claims require `docref approve <path>` and stale snippets require `docref refresh <path>`.
 - Before patching an escaping-sensitive literal, inspect its exact current
   bytes and match that observed form; do not reconstruct it through an extra
   shell, JSON, or JavaScript escaping layer.

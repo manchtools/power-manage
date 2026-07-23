@@ -2219,3 +2219,24 @@ reviewed-file list with `git status`, in addition to including untracked files.
 
 **Prevention**: Treat review-file parity as a gate; an apparently successful
 review is incomplete until every changed and untracked file is represented.
+
+## 2026-07-23 — Repeated the removed docref `fix` command
+
+**What happened**: A compound review-fix check invoked `docref fix` after
+strict checking reported stale claims, repeating a previously recorded
+removed-command mistake. The failed invocation made no edits.
+
+**What the user said**: Not user-initiated; the installed docref 0.1.1 usage
+output again showed that `fix` does not exist.
+
+**Root cause**: The current short `CLAUDE.md` rule covered unsupported help
+flags but no longer carried the earlier explicit `fix` prohibition and the
+claim-versus-snippet command split.
+
+**Harness fix**: `CLAUDE.md` now explicitly bans `docref fix` and maps reviewed
+stale claims to `approve` and stale snippets to `refresh`, with required path
+arguments.
+
+**Prevention**: On strict docref drift, classify the report first: review and
+approve stale claims; refresh stale snippets; never guess a generic repair
+subcommand.

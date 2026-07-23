@@ -159,44 +159,49 @@ func TestFailureLadder_FailsClosedForInvalidInputAndCapacity(t *testing.T) {
 	for _, test := range []struct {
 		name     string
 		policies map[string]RateLimitPolicy
+		wantErr  string
 	}{
-		{name: "nil policies", policies: nil},
-		{name: "empty policies", policies: map[string]RateLimitPolicy{}},
-		{name: "empty procedure", policies: map[string]RateLimitPolicy{"": validPolicy}},
+		{name: "nil policies", policies: nil, wantErr: "rate-limit policy registry is empty"},
+		{name: "empty policies", policies: map[string]RateLimitPolicy{}, wantErr: "rate-limit policy registry is empty"},
+		{name: "empty procedure", policies: map[string]RateLimitPolicy{"": validPolicy}, wantErr: "rate-limit policy procedure is empty"},
 		{name: "missing IP limit", policies: map[string]RateLimitPolicy{
 			testRateLimitProcedure: {PerAccount: validPolicy.PerAccount},
-		}},
+		}, wantErr: "rate-limit policy is invalid"},
 		{name: "missing account limit", policies: map[string]RateLimitPolicy{
 			testRateLimitProcedure: {PerIP: validPolicy.PerIP},
-		}},
+		}, wantErr: "rate-limit policy is invalid"},
 		{name: "zero attempts", policies: map[string]RateLimitPolicy{
 			testRateLimitProcedure: {
 				PerIP:      FailureLimit{Window: time.Minute},
 				PerAccount: validPolicy.PerAccount,
 			},
-		}},
+		}, wantErr: "rate-limit policy is invalid"},
 		{name: "zero window", policies: map[string]RateLimitPolicy{
 			testRateLimitProcedure: {
 				PerIP:      validPolicy.PerIP,
 				PerAccount: FailureLimit{Attempts: 1},
 			},
-		}},
+		}, wantErr: "rate-limit policy is invalid"},
 		{name: "negative attempts", policies: map[string]RateLimitPolicy{
 			testRateLimitProcedure: {
 				PerIP:      FailureLimit{Attempts: -1, Window: time.Minute},
 				PerAccount: validPolicy.PerAccount,
 			},
-		}},
+		}, wantErr: "rate-limit policy is invalid"},
 		{name: "negative window", policies: map[string]RateLimitPolicy{
 			testRateLimitProcedure: {
 				PerIP:      validPolicy.PerIP,
 				PerAccount: FailureLimit{Attempts: 1, Window: -time.Second},
 			},
-		}},
+		}, wantErr: "rate-limit policy is invalid"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			if ladder, err := NewFailureLadder(test.policies); err == nil || ladder != nil {
-				t.Fatalf("NewFailureLadder = (%v, %v); want nil ladder and validation error", ladder, err)
+			ladder, err := NewFailureLadder(test.policies)
+			if err == nil || ladder != nil {
+				t.Fatalf("NewFailureLadder = (%v, %v); want nil ladder and %q", ladder, err, test.wantErr)
+			}
+			if err.Error() != test.wantErr {
+				t.Fatalf("NewFailureLadder error = %q; want %q", err, test.wantErr)
 			}
 		})
 	}
@@ -354,6 +359,18 @@ func TestClientIPResolver_WalksTrustedChainRightToLeft(t *testing.T) {
 	want := netip.MustParseAddr("198.51.100.10")
 	if resolved != want {
 		t.Fatalf("Resolve trusted chain = %s; want first untrusted hop %s", resolved, want)
+	}
+
+	resolved, err = resolver.Resolve(
+		netip.MustParseAddr("10.0.0.3"),
+		"malformed-attacker-entry, 198.51.100.10, 10.0.0.2",
+	)
+	if err != nil {
+		t.Fatalf("Resolve trusted chain with malformed entry before trust boundary: %v", err)
+	}
+	if resolved != want {
+		t.Fatalf("Resolve trusted chain with malformed entry before trust boundary = %s; want first untrusted hop %s",
+			resolved, want)
 	}
 
 	peer := netip.MustParseAddr("10.0.0.4")
