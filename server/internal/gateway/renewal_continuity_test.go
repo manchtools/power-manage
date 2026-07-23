@@ -567,8 +567,9 @@ func assertExactGatewayReporterClaims(
 		if claimedClass == "gateway" && (len(request.GetCrlIssuerFingerprint()) != 0 || request.GetCrlSequence() != 0) {
 			t.Fatal("gateway leaf claim carried a forbidden CRL receipt")
 		}
-		if claimedClass == "agent" && (!bytes.Equal(request.GetCrlIssuerFingerprint(), agentCRLIssuerFingerprint) || request.GetCrlSequence() != 17) {
-			t.Fatalf("gateway agent-root claim CRL receipt = (%x,%d); want exact successor issuer sequence 17", request.GetCrlIssuerFingerprint(), request.GetCrlSequence())
+		if claimedClass == "agent" && (!bytes.Equal(request.GetCrlIssuerFingerprint(), agentCRLIssuerFingerprint) || request.GetCrlSequence() != bundle.CRLSequence) {
+			t.Fatalf("gateway agent-root claim CRL receipt = (%x,%d); want exact issuer %x sequence %d",
+				request.GetCrlIssuerFingerprint(), request.GetCrlSequence(), agentCRLIssuerFingerprint, bundle.CRLSequence)
 		}
 	}
 }

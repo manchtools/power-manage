@@ -97,8 +97,8 @@ branch; after any merge-command error, check remote PR state before retrying.
   binary.
 - **Tags `vYYYY.MM.PP` only on explicit operator instruction** — never tag
   unprompted.
-- Fail closed; validate deserialized state before indexing; discard pooled sessions
-  after uncertain cleanup; no secrets in logs/URLs/errors/argv.
+- Fail closed; validate deserialized state before indexing; required JSON object fields track presence and reject null;
+  discard pooled sessions after uncertain cleanup; no secrets in logs/URLs/errors/argv.
 
 ## Verification honesty
 
@@ -119,7 +119,7 @@ branch; after any merge-command error, check remote PR state before retrying.
 - After any `apply_patch` context failure, every remaining patch in that turn
   is single-file and based on freshly printed surrounding lines; do not retry a
   combined code-and-documentation patch.
-- After adding a call site, resolve every new identifier and composite-literal embedded field against an existing
+- After adding a call site, reuse declared join keys and resolve every new identifier and composite-literal embedded field against an existing
   declaration or add that declaration in the same patch; reuse values already
   returned by test factories instead of inventing accessor helpers. Before
   adding a package-level test helper, search the package for that name. After
@@ -140,21 +140,21 @@ branch; after any merge-command error, check remote PR state before retrying.
 - A unit test for behavior behind a root-owned-parent precondition must either
   use a root-owned container path or isolate that precondition through the
   package seam; `t.TempDir()` is not root-owned under normal development.
-- Before adding an importable test-support package with dynamic database calls,
-  inspect repository static-SQL guards; any necessary exemption must be keyed
-  to the exact file and method with a matches-zero-protected call count; blocking fixtures use dedicated connections outside the application pool.
+- Before adding an importable test-support package with dynamic database calls, inspect repository
+  static-SQL guards; any exemption is exact and matches-zero-protected;
+  blocking and observer fixtures stay outside the application pool, and synthetic triggers exclude follow-on work.
 - Review uncommitted work with `coderabbit review --base main --include-untracked`;
   do not pass removed output flags. Before declaring remote review complete,
   query unresolved PR threads even when the newest-head check is rate-limited;
   a head status does not summarize earlier reviews.
 - After editing a shell file containing heredocs, inspect the numbered changed
   region; `bash -n` cannot detect code accidentally swallowed as fixture text.
-- Negative tests assert the intended failure message, never only a nonzero exit.
+- Successive fixture states are observably distinct; negative tests assert the intended failure message, never only a nonzero exit.
 - Before the local review gate, scan every changed negative-test branch,
   including table subtests, and pair each `err != nil` expectation with the
   exact intended sentinel or stable error category.
 - Bound every concurrent-test channel wait with a timeout, including setup and
-  readiness receives; a completion timeout does not protect an earlier hang.
+  readiness receives; shared test recorders synchronize concurrent writes.
 - Every optimistic-conflict retry loop must combine fresh-state
   re-authorization with backoff and a finite internal retry budget; caller
   cancellation alone is not a bound because production callers may use a

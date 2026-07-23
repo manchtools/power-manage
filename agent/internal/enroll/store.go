@@ -34,8 +34,8 @@ var credentialPEMTypes = [...]string{
 }
 
 type storedCredentialContinuity struct {
-	AgentTrustBundle                StoredTrustBundle         `json:"agent_trust_bundle"`
-	GatewayTrustBundle              StoredTrustBundle         `json:"gateway_trust_bundle"`
+	AgentTrustBundle                *StoredTrustBundle        `json:"agent_trust_bundle"`
+	GatewayTrustBundle              *StoredTrustBundle        `json:"gateway_trust_bundle"`
 	PendingAgentTrustConfirmation   *PendingTrustConfirmation `json:"pending_agent_trust_confirmation,omitempty"`
 	PendingGatewayTrustConfirmation *PendingTrustConfirmation `json:"pending_gateway_trust_confirmation,omitempty"`
 }
@@ -161,6 +161,7 @@ func decodeStoredCredentialBundle(encoded []byte) (CredentialBundle, error) {
 		remaining = rest
 	}
 	var continuity storedCredentialContinuity
+	var agentTrustBundle, gatewayTrustBundle StoredTrustBundle
 	if len(remaining) != 0 {
 		prefix := []byte("-----BEGIN " + continuityPEMType + "-----\n")
 		if !bytes.HasPrefix(remaining, prefix) {
@@ -177,6 +178,16 @@ func decodeStoredCredentialBundle(encoded []byte) (CredentialBundle, error) {
 		}
 		if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
 			return CredentialBundle{}, errors.New("enroll: stored CA continuity contains trailing JSON data")
+		}
+		if continuity.AgentTrustBundle == nil || continuity.GatewayTrustBundle == nil {
+			return CredentialBundle{}, errors.New("enroll: stored CA continuity requires non-null agent and gateway trust bundles")
+		}
+		agentTrustBundle = *continuity.AgentTrustBundle
+		gatewayTrustBundle = *continuity.GatewayTrustBundle
+		agentAbsent := agentTrustBundle.Generation == 0 && len(agentTrustBundle.RootCertificateDER) == 0
+		gatewayAbsent := gatewayTrustBundle.Generation == 0 && len(gatewayTrustBundle.RootCertificateDER) == 0
+		if agentAbsent && gatewayAbsent {
+			return CredentialBundle{}, errors.New("enroll: stored CA continuity cannot encode legacy-empty trust state")
 		}
 	}
 	certificate, err := parseExactCertificate(blocks[0].Bytes)
@@ -219,8 +230,8 @@ func decodeStoredCredentialBundle(encoded []byte) (CredentialBundle, error) {
 		CertificateAuthorityDER:         bytes.Clone(blocks[2].Bytes),
 		GatewayCertificateAuthorityDER:  bytes.Clone(blocks[3].Bytes),
 		SealingPrivateKey:               sealingPrivateKey,
-		AgentTrustBundle:                continuity.AgentTrustBundle,
-		GatewayTrustBundle:              continuity.GatewayTrustBundle,
+		AgentTrustBundle:                agentTrustBundle,
+		GatewayTrustBundle:              gatewayTrustBundle,
 		PendingAgentTrustConfirmation:   continuity.PendingAgentTrustConfirmation,
 		PendingGatewayTrustConfirmation: continuity.PendingGatewayTrustConfirmation,
 	}, nil
@@ -245,7 +256,7 @@ func encodeCredentialBundle(bundle CredentialBundle) ([]byte, error) {
 	if bundle.AgentTrustBundle.Generation != 0 || bundle.GatewayTrustBundle.Generation != 0 ||
 		bundle.PendingAgentTrustConfirmation != nil || bundle.PendingGatewayTrustConfirmation != nil {
 		continuityDER, err := json.Marshal(storedCredentialContinuity{
-			AgentTrustBundle: bundle.AgentTrustBundle, GatewayTrustBundle: bundle.GatewayTrustBundle,
+			AgentTrustBundle: &bundle.AgentTrustBundle, GatewayTrustBundle: &bundle.GatewayTrustBundle,
 			PendingAgentTrustConfirmation:   bundle.PendingAgentTrustConfirmation,
 			PendingGatewayTrustConfirmation: bundle.PendingGatewayTrustConfirmation,
 		})

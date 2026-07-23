@@ -69,18 +69,7 @@ func TestGatewayTokenChecks_UseDeferredValidationMigration(t *testing.T) {
 }
 
 func TestCARotationMigration_BackfillsGlobalPositionDeterministically(t *testing.T) {
-	const caRotationVersion = 13
-	migrations := discoverSQLMigrations(t, "migrations")
-	var migrationPath string
-	for _, migration := range migrations {
-		if migration.version == caRotationVersion {
-			migrationPath = migration.path
-			break
-		}
-	}
-	if migrationPath == "" {
-		t.Fatal("CA rotation migration 013 is absent")
-	}
+	migrationPath := migrationPathByVersion(t, 13)
 
 	database := testPostgres(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
@@ -145,18 +134,44 @@ func TestCARotationMigration_BackfillsGlobalPositionDeterministically(t *testing
 	}
 }
 
+func TestCARotationMigration_AppliesToEmptyPreUpgradeState(t *testing.T) {
+	migrationPath := migrationPathByVersion(t, 13)
+	database := testPostgres(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	if _, err := database.Exec(ctx, migrationDownSQL(t, migrationPath), pgx.QueryExecModeSimpleProtocol); err != nil {
+		t.Fatalf("roll back migration 013 empty-state fixture: %v", err)
+	}
+
+	var events, revocations int
+	if err := database.QueryRow(ctx, `SELECT
+		(SELECT count(*) FROM events),
+		(SELECT count(*) FROM certificate_revocations)`).Scan(&events, &revocations); err != nil {
+		t.Fatalf("read empty pre-migration state: %v", err)
+	}
+	if events != 0 || revocations != 0 {
+		t.Fatalf("empty pre-migration state = (%d events, %d revocations); want both zero", events, revocations)
+	}
+	if _, err := database.Exec(ctx, migrationUpSQL(t, migrationPath), pgx.QueryExecModeSimpleProtocol); err != nil {
+		t.Fatalf("apply migration 013 to empty state: %v", err)
+	}
+
+	var nextPosition int64
+	if err := database.QueryRow(ctx, `
+		INSERT INTO events (
+			stream_type, stream_id, stream_version, event_type,
+			payload_version, payload
+		) VALUES ('device', '01J00000000000000000000005', 1, 'first', 1, '{}')
+		RETURNING global_position`).Scan(&nextPosition); err != nil {
+		t.Fatalf("insert first event after empty migration: %v", err)
+	}
+	if nextPosition != 1 {
+		t.Fatalf("first empty-state global position = %d; want 1", nextPosition)
+	}
+}
+
 func TestCARotationMigration_RejectsLegacyRevocationsWithoutIssuerIdentity(t *testing.T) {
-	const caRotationVersion = 13
-	var migrationPath string
-	for _, migration := range discoverSQLMigrations(t, "migrations") {
-		if migration.version == caRotationVersion {
-			migrationPath = migration.path
-			break
-		}
-	}
-	if migrationPath == "" {
-		t.Fatal("CA rotation migration 013 is absent")
-	}
+	migrationPath := migrationPathByVersion(t, 13)
 
 	database := testPostgres(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
@@ -183,8 +198,9 @@ func TestCARotationMigration_RejectsLegacyRevocationsWithoutIssuerIdentity(t *te
 		t.Fatalf("seed legacy certificate revocation: %v", err)
 	}
 
+	const wantMigrationError = "issuer-scoped revocation migration requires empty legacy certificate_revocations"
 	_, err := database.Exec(ctx, migrationUpSQL(t, migrationPath), pgx.QueryExecModeSimpleProtocol)
-	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "issuer") {
+	if err == nil || !strings.Contains(err.Error(), wantMigrationError) {
 		t.Fatalf("migration 013 with legacy revocation error = %v; want explicit issuer-identity refusal", err)
 	}
 }
@@ -192,6 +208,17 @@ func TestCARotationMigration_RejectsLegacyRevocationsWithoutIssuerIdentity(t *te
 type sqlMigration struct {
 	version int
 	path    string
+}
+
+func migrationPathByVersion(t *testing.T, version int) string {
+	t.Helper()
+	for _, migration := range discoverSQLMigrations(t, "migrations") {
+		if migration.version == version {
+			return migration.path
+		}
+	}
+	t.Fatalf("migration %03d is absent", version)
+	return ""
 }
 
 func discoverSQLMigrations(t *testing.T, directory string) []sqlMigration {

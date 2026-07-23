@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/proto"
 
 	powermanagev1 "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1"
 	"github.com/manchtools/power-manage/contract/gen/go/powermanage/v1/powermanagev1connect"
@@ -150,6 +151,13 @@ func TestGatewayClient_FirstRenewalUsesEnrollmentTrustState(t *testing.T) {
 	if fixture.handler.renewCalls != 1 || fixture.handler.confirmCalls != 2 {
 		t.Fatalf("renew/confirmation calls = (%d,%d); want (1,2)", fixture.handler.renewCalls, fixture.handler.confirmCalls)
 	}
+	if current.AgentTrustBundle.Revision == renewed.AgentTrustBundle.Revision ||
+		current.GatewayTrustBundle.Revision == renewed.GatewayTrustBundle.Revision {
+		t.Fatalf("enrollment/renewal revisions = agent %d/%d gateway %d/%d; want observably newer renewal bundles",
+			current.AgentTrustBundle.Revision, renewed.AgentTrustBundle.Revision,
+			current.GatewayTrustBundle.Revision, renewed.GatewayTrustBundle.Revision)
+	}
+	assertExactGatewayReporterClaims(t, fixture.handler.confirmRequests, renewed, sha256FingerprintBytes(fixture.handler.agentCA.Raw))
 	if publisher.calls != 2 || renewed.PendingAgentTrustConfirmation != nil || renewed.PendingGatewayTrustConfirmation != nil {
 		t.Fatalf("published/renewed state = (%d,%+v); want atomic replacement then cleared confirmations", publisher.calls, renewed)
 	}
@@ -185,6 +193,7 @@ type gatewayClientHandler struct {
 	requests               []*powermanagev1.EnrollGatewayRequest
 	renewCalls             int
 	confirmCalls           int
+	confirmRequests        []*powermanagev1.ConfirmTrustStateRequest
 	omitAgentTrust         bool
 	omitGatewayTrust       bool
 }
@@ -319,14 +328,17 @@ func (h *gatewayClientHandler) RenewGateway(_ context.Context, request *connect.
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	agentTrust, gatewayTrust := h.trustBundles()
+	agentTrust.Revision, agentTrust.CrlSequence = 2, 2
+	gatewayTrust.Revision = 2
 	return connect.NewResponse(&powermanagev1.RenewGatewayResponse{
 		CertificateDer: certificateDER, CertificateAuthorityDer: h.ca.Raw,
 		AgentTrustBundle: agentTrust, GatewayTrustBundle: gatewayTrust,
 	}), nil
 }
 
-func (h *gatewayClientHandler) ConfirmGatewayTrustState(context.Context, *connect.Request[powermanagev1.ConfirmTrustStateRequest]) (*connect.Response[powermanagev1.ConfirmTrustStateResponse], error) {
+func (h *gatewayClientHandler) ConfirmGatewayTrustState(_ context.Context, request *connect.Request[powermanagev1.ConfirmTrustStateRequest]) (*connect.Response[powermanagev1.ConfirmTrustStateResponse], error) {
 	h.confirmCalls++
+	h.confirmRequests = append(h.confirmRequests, proto.Clone(request.Msg).(*powermanagev1.ConfirmTrustStateRequest))
 	return connect.NewResponse(&powermanagev1.ConfirmTrustStateResponse{}), nil
 }
 

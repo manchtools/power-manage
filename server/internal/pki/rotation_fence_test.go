@@ -420,11 +420,14 @@ func installBlockingCommitTrigger(t *testing.T, pool *pgxpool.Pool, table string
 	if table != "events" && table != "crl_state" {
 		t.Fatalf("unsupported blocking-trigger table %q", table)
 	}
+	if key != 6006001 {
+		t.Fatalf("blocking trigger key %d must use explicit audited fixture key", key)
+	}
 	setupCtx, cancelSetup := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelSetup()
 	// The fixture intentionally monopolizes this connection. Keep it outside
 	// the application pool so a four-connection CI pool can still expose the
-	// shared holder, exclusive waiter, transaction, and observer concurrently.
+	// shared holder, two exclusive waiters, and transaction concurrently.
 	connection, err := pgx.Connect(setupCtx, pool.Config().ConnString())
 	if err != nil {
 		t.Fatalf("connect blocking lock fixture: %v", err)
@@ -433,14 +436,19 @@ func installBlockingCommitTrigger(t *testing.T, pool *pgxpool.Pool, table string
 		_ = connection.Close(setupCtx)
 		t.Fatalf("acquire blocking advisory lock: %v", err)
 	}
+	blockBody := `PERFORM pg_advisory_xact_lock(6006001);`
+	if table == "events" {
+		// Rotation events are the follow-on work whose ordering this fixture
+		// observes. Only the lifecycle event may stop at the synthetic block.
+		blockBody = `IF NEW.stream_type <> 'ca-rotation' THEN
+			PERFORM pg_advisory_xact_lock(6006001);
+		END IF;`
+	}
 	statement := `
 		CREATE FUNCTION block_spec006_commit() RETURNS trigger LANGUAGE plpgsql AS $$
-		BEGIN PERFORM pg_advisory_xact_lock(` + "6006001" + `); RETURN NEW; END $$;
+		BEGIN ` + blockBody + ` RETURN NEW; END $$;
 		CREATE TRIGGER block_spec006_commit BEFORE INSERT OR UPDATE ON ` + table + `
 		FOR EACH ROW EXECUTE FUNCTION block_spec006_commit()`
-	if key != 6006001 {
-		t.Fatalf("blocking trigger key %d must use explicit audited fixture key", key)
-	}
 	if _, err := pool.Exec(setupCtx, statement); err != nil {
 		_, _ = connection.Exec(setupCtx, `SELECT pg_advisory_unlock($1)`, key)
 		_ = connection.Close(setupCtx)
@@ -465,19 +473,37 @@ func installBlockingCommitTrigger(t *testing.T, pool *pgxpool.Pool, table string
 
 func waitForPostgresAdvisoryWaiters(t *testing.T, pool *pgxpool.Pool, minimum int) {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	// Observation must not compete with the actors under test for an
+	// application-pool slot. Four slots are all occupied when one issuance
+	// transaction holds shared fences and two rotations wait for them.
+	connection, err := pgx.Connect(ctx, pool.Config().ConnString())
+	if err != nil {
+		t.Fatalf("connect Postgres advisory-lock observer: %v", err)
+	}
+	defer func() {
+		closeCtx, cancelClose := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancelClose()
+		if err := connection.Close(closeCtx); err != nil {
+			t.Errorf("close Postgres advisory-lock observer: %v", err)
+		}
+	}()
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
 	for {
 		var waiters int
-		if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND NOT granted`).Scan(&waiters); err != nil {
+		if err := connection.QueryRow(ctx, `SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND NOT granted`).Scan(&waiters); err != nil {
 			t.Fatalf("read Postgres advisory waiters: %v", err)
 		}
 		if waiters >= minimum {
 			return
 		}
-		if time.Now().After(deadline) {
+		select {
+		case <-ctx.Done():
 			t.Fatalf("Postgres advisory waiters = %d; want positive proof of at least %d", waiters, minimum)
+		case <-ticker.C:
 		}
-		time.Sleep(10 * time.Millisecond)
 	}
 }
 

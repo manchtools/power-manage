@@ -16,6 +16,7 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -1172,11 +1173,14 @@ type rotationReporter struct {
 }
 
 type recordingTrustBundleDistributor struct {
+	mu           sync.Mutex
 	publications []TrustBundlePublication
 	err          error
 }
 
 func (d *recordingTrustBundleDistributor) PublishTrustBundle(_ context.Context, publication TrustBundlePublication) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	if d.err != nil {
 		return d.err
 	}

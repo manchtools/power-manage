@@ -5,7 +5,7 @@ reload and per-device CA-migration report).
 
 ## Files and symbols
 
-<!-- docref: begin src=contract/proto/powermanage/v1/pki.proto#CATrustBundle:1ad03835,contract/proto/powermanage/v1/pki.proto#PkiService.ConfirmAgentTrustState:5043f175,contract/sign/trust_state.go#SignTrustState:c725578c,agent/internal/enroll/continuity.go#validateTrustBundle:6b49a136,agent/internal/enroll/store.go#encodeCredentialBundle:f3f8b2af,server/internal/gateway/renewal.go#EnrollmentClient.Renew:c7197d46,server/internal/pki/rotation.go#RotationManager:81dd0d81,server/internal/pki/confirmation.go#EnrollmentService.ConfirmAgentTrustState:cc94471f,server/internal/pki/confirmation.go#EnrollmentService.confirmTrustState:0a1633dc,server/internal/pki/crl.go#CRLIssuer.HandleAgentCRLWork:a48834bb,server/internal/store/ca_rotation.go#Store.CARotationState:0c154ddb,server/internal/store/ca_rotation.go#Store.HasControlTrustConfirmation:59f38291,server/internal/store/store.go#Store.WithAdvisoryLocks:4007afb8,server/internal/store/store.go#releaseAdvisoryLocks:7ab9d10c,server/internal/store/crl.go#Store.LatestCRL:f973c7bd,server/internal/store/migrations/013_issuer_scoped_crl_state.sql#@issuer-scoped-revocation-schema:9114f063,server/internal/control/crl.go#CRLDistributor.Subscribe:1dccd5f9 -->
+<!-- docref: begin src=contract/proto/powermanage/v1/pki.proto#CATrustBundle:1ad03835,contract/proto/powermanage/v1/pki.proto#PkiService.ConfirmAgentTrustState:5043f175,contract/sign/trust_state.go#SignTrustState:c725578c,agent/internal/enroll/continuity.go#validateTrustBundle:6b49a136,agent/internal/enroll/store.go#encodeCredentialBundle:504a252f,server/internal/gateway/renewal.go#EnrollmentClient.Renew:c7197d46,server/internal/pki/rotation.go#RotationManager:81dd0d81,server/internal/pki/confirmation.go#EnrollmentService.ConfirmAgentTrustState:cc94471f,server/internal/pki/confirmation.go#EnrollmentService.confirmTrustState:0a1633dc,server/internal/pki/crl.go#CRLIssuer.HandleAgentCRLWork:a48834bb,server/internal/store/ca_rotation.go#Store.CARotationState:0c154ddb,server/internal/store/ca_rotation.go#Store.HasControlTrustConfirmation:e0639fd6,server/internal/store/store.go#Store.WithAdvisoryLocks:4007afb8,server/internal/store/store.go#releaseAdvisoryLocks:7ab9d10c,server/internal/store/crl.go#Store.LatestCRL:f973c7bd,server/internal/store/migrations/013_issuer_scoped_crl_state.sql#@issuer-scoped-revocation-schema:9114f063,server/internal/control/crl.go#CRLDistributor.Subscribe:1dccd5f9 -->
 - `docs/content/01-specs/006-pki-and-identity.md`: exact four-phase rotation,
   issuer-scoped CRL, confirmation, fencing, restart, and migration-report
   requirements.
@@ -69,17 +69,18 @@ reload and per-device CA-migration report).
 - `TestGuard_PkiRotationPhasesFencesAndState`
 <!-- docref: end -->
 
-<!-- docref: begin src=contract/identity/m1_test.go#TestRejectPeerIntermediates_AllowsEmptyVerifiedChain:5bef5f61,server/internal/gateway/enrollment_test.go#TestGatewayClient_FirstRenewalUsesEnrollmentTrustState:d1e32055,server/internal/control/crl_test.go#TestCRLDistributor_LegacySourceRejectsIssuerScopedLookup:b9cb1e10 -->
+<!-- docref: begin src=contract/identity/m1_test.go#TestRejectPeerIntermediates_AllowsEmptyVerifiedChain:5bef5f61,server/internal/gateway/enrollment_test.go#TestGatewayClient_FirstRenewalUsesEnrollmentTrustState:ed274c9d,server/internal/control/crl_test.go#TestCRLDistributor_LegacySourceRejectsIssuerScopedLookup:b9cb1e10 -->
 - `TestRejectPeerIntermediates_AllowsEmptyVerifiedChain`
 - `TestGatewayClient_FirstRenewalUsesEnrollmentTrustState`
 - `TestCRLDistributor_LegacySourceRejectsIssuerScopedLookup`
 <!-- docref: end -->
 
-<!-- docref: begin src=agent/internal/enroll/continuity_test.go#TestContinuityValidation_RejectsZeroClock:7f16e860,agent/internal/enroll/continuity_test.go#TestContinuityValidation_RejectsCurrentGenerationWithoutRoots:ced55601,server/internal/store/ca_rotation_confirmation_test.go#TestControlTrustConfirmationLookup_RejectsForbiddenCRLReceipt:608ed269,server/internal/store/migration_guard_test.go#TestCARotationMigration_BackfillsGlobalPositionDeterministically:f2357f23,server/internal/store/migration_guard_test.go#TestCARotationMigration_RejectsLegacyRevocationsWithoutIssuerIdentity:6a403e5c,server/internal/store/store_test.go#TestReleaseAdvisoryLocks_MarksSessionUnusableOnUncertainRelease:af7a23f5 -->
+<!-- docref: begin src=agent/internal/enroll/continuity_test.go#TestContinuityValidation_RejectsZeroClock:7f16e860,agent/internal/enroll/continuity_test.go#TestContinuityValidation_RejectsCurrentGenerationWithoutRoots:ced55601,server/internal/store/ca_rotation_confirmation_test.go#TestControlTrustConfirmationLookup_RejectsForbiddenCRLReceipt:608ed269,server/internal/store/migration_guard_test.go#TestCARotationMigration_BackfillsGlobalPositionDeterministically:c8530170,server/internal/store/migration_guard_test.go#TestCARotationMigration_AppliesToEmptyPreUpgradeState:deb715a6,server/internal/store/migration_guard_test.go#TestCARotationMigration_RejectsLegacyRevocationsWithoutIssuerIdentity:eae08584,server/internal/store/store_test.go#TestReleaseAdvisoryLocks_MarksSessionUnusableOnUncertainRelease:af7a23f5 -->
 - `TestContinuityValidation_RejectsZeroClock`
 - `TestContinuityValidation_RejectsCurrentGenerationWithoutRoots`
 - `TestControlTrustConfirmationLookup_RejectsForbiddenCRLReceipt`
 - `TestCARotationMigration_BackfillsGlobalPositionDeterministically`
+- `TestCARotationMigration_AppliesToEmptyPreUpgradeState`
 - `TestCARotationMigration_RejectsLegacyRevocationsWithoutIssuerIdentity`
 - `TestReleaseAdvisoryLocks_MarksSessionUnusableOnUncertainRelease`
 <!-- docref: end -->

@@ -24,6 +24,7 @@ const (
 	gatewayLeafTrustConfirmedEventType     = "GatewayLeafTrustConfirmed"
 	gatewayConsumerTrustConfirmedEventType = "GatewayConsumerTrustConfirmed"
 	controlTrustStateRecordedEventType     = "ControlTrustStateRecorded"
+	controlReporterID                      = "00000000000000000000000000"
 	caRotationPayloadVersion               = 1
 	caRotationTrustBegunEventType          = "CARotationTrustBegun"
 	caRotationAbortedEventType             = "CARotationAborted"
@@ -402,7 +403,6 @@ func (s *Store) RecordControlTrustConfirmation(ctx context.Context, confirmation
 	if err != nil {
 		return fmt.Errorf("store: encode control trust confirmation: %w", err)
 	}
-	const controlReporterID = "00000000000000000000000000"
 	found, err := s.confirmationEventExists(ctx, controlTrustStateRecordedEventType, controlReporterID, encoded)
 	if err != nil || found {
 		return err
@@ -508,7 +508,7 @@ func (s *Store) HasControlTrustConfirmation(ctx context.Context, confirmation Co
 	if err != nil {
 		return false, fmt.Errorf("store: encode control trust confirmation lookup: %w", err)
 	}
-	return s.confirmationEventExists(ctx, controlTrustStateRecordedEventType, "00000000000000000000000000", encoded)
+	return s.confirmationEventExists(ctx, controlTrustStateRecordedEventType, controlReporterID, encoded)
 }
 
 func cloneFingerprintBytes(values [][sha256.Size]byte) [][]byte {

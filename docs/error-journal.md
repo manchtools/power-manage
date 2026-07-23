@@ -1729,6 +1729,50 @@ boundedly closes that connection directly.
 availability they are trying to observe, so four-connection runners and larger
 local pools exercise the same lock ordering.
 
+## 2026-07-23 — Fence observer exhausted the remaining CI pool slot
+
+**What happened**: Moving the blocking control lock outside the application
+pool fixed one four-connection deadlock, but the waiter-count observer still
+borrowed from that pool. Fresh enrollment occupied all four remaining slots
+with its shared-fence session, event transaction, and two exclusive rotation
+waiters, so the observer could never query the state that would release them.
+
+**What the user said**: Not user-initiated; the replacement GitHub Actions run
+timed out in the same fence acceptance test after the first pool fix.
+
+**Root cause**: The fixture budget accounted for the actor that controlled the
+block but not the observer used to prove the actors had reached it.
+
+**Harness fix**: `CLAUDE.md` now requires both blocking and observation
+fixtures to use dedicated connections outside the application pool. The
+waiter observer connects directly and bounds its query and close operations.
+
+**Prevention**: Concurrency-test control and observation connections stay
+outside the constrained resource used by production actors; the acceptance
+test is reproduced under a two-CPU runtime before relying on CI.
+
+## 2026-07-23 — Fence trigger also blocked the follow-on rotation events
+
+**What happened**: After the observer moved outside the four-connection pool,
+the fresh-enrollment test reached its release but one of two CA transitions
+still could not complete. The event trigger applied to every later event, not
+only the lifecycle event whose commit it was intended to hold.
+
+**What the user said**: Not user-initiated; the constrained-pool regression
+failed at the bounded transition completion wait.
+
+**Root cause**: One rotation transaction acquired the fixture advisory lock
+and then needed a nested CRL-state connection, while the other rotation held
+the final pool slot waiting on that same synthetic lock.
+
+**Harness fix**: The event-table trigger now bypasses `ca-rotation` streams,
+and `CLAUDE.md` requires synthetic blockers to exclude follow-on work whose
+ordering the fixture is meant to observe.
+
+**Prevention**: A blocking fixture names both the operation it pauses and the
+subsequent operations it must not intercept; constrained-pool tests cover the
+entire release-and-completion sequence.
+
 ## 2026-07-23 — RED command mixed repository and module paths
 
 **What happened**: The first regression-test command ran from the `agent`
@@ -1752,13 +1796,13 @@ repository root.
 
 ## 2026-07-23 — Rate-limited head check hid an earlier remote review
 
-**What happened**: The newest CodeRabbit status completed as rate-limited and
+**What happened**: The newest remote-review status completed as rate-limited and
 looked terminal, while a full review against the preceding head had already
 posted unresolved inline findings. Reading only the newest status would have
 left those findings unaddressed.
 
-**What the user said**: The publication workflow requires every CodeRabbit
-finding to be addressed before merge.
+**What the user said**: The publication workflow requires every review finding
+to be addressed before merge.
 
 **Root cause**: Head-check status and PR-wide review-thread state were treated
 as equivalent even though review threads survive later commits and a
@@ -1772,6 +1816,126 @@ identity-bearing migrations test populated pre-upgrade state.
 
 **Prevention**: Publication checks both the current commit status and all
 unresolved PR review threads; neither substitutes for the other.
+
+## 2026-07-23 — Review attribution entered a journal entry
+
+**What happened**: A new error-journal entry named the review service instead
+of describing the rate-limited remote-review state in neutral terms.
+
+**What the user said**: Publication text must not contain AI attribution.
+
+**Root cause**: Operational evidence was copied into documentation without
+separating the relevant review state from the service that reported it.
+
+**Harness fix**: The existing repository-wide no-attribution rule already
+covers documentation, so no duplicate rule was added. The entry now describes
+the review status and requirement without naming its provider.
+
+**Prevention**: Journal entries preserve the technical condition and lesson,
+not the identity of the automation that surfaced them.
+
+## 2026-07-23 — Present continuity JSON accepted absent required state
+
+**What happened**: A stored continuity PEM block containing JSON `null`, `{}`,
+or null trust-bundle fields decoded to zero values and loaded as legacy state.
+That could silently discard persisted generations and pending confirmations on
+restart instead of treating the file as corrupt.
+
+**What the user said**: Not user-initiated; local review found the fail-open
+deserialization path before publication.
+
+**Root cause**: `DisallowUnknownFields` was treated as presence validation,
+but Go's JSON decoder accepts null and leaves absent value fields at zero.
+
+**Harness fix**: `CLAUDE.md` now requires presence tracking and null rejection
+for required JSON object fields. The wire shape uses pointers for both required
+trust bundles, rejects legacy-empty state when a continuity block is present,
+and retains absence of the entire block as the only legacy representation.
+
+**Prevention**: Deserialization tests cover top-level null, an empty object,
+each required field set to null, and a present but legacy-empty continuity
+state before semantic validation.
+
+## 2026-07-23 — Concurrent rotations raced in the trust-bundle recorder
+
+**What happened**: Narrowing the synthetic commit trigger allowed the agent
+and gateway transitions to publish concurrently as intended, but their shared
+test distributor appended both publications to an unprotected slice.
+
+**What the user said**: Not user-initiated; the final race-detector sweep found
+the recorder race after all functional tests passed.
+
+**Root cause**: The test double was written for sequential transition tests
+and reused in a real concurrency acceptance test without synchronizing its
+mutable observation state.
+
+**Harness fix**: `CLAUDE.md` now requires shared concurrency-test recorders to
+synchronize writes. The trust-bundle recorder serializes error inspection and
+publication capture with a mutex.
+
+**Prevention**: Every shared fake used by concurrent actors is included in the
+race-detector sweep; synchronization covers the recorder itself rather than
+reintroducing artificial ordering between production operations.
+
+## 2026-07-23 — Migration refusal test matched a generic noun
+
+**What happened**: The populated legacy-revocation test accepted any database
+error containing `issuer`, so an unrelated issuer-column or constraint failure
+could satisfy the intended migration refusal assertion.
+
+**What the user said**: Not user-initiated; remote review identified the
+vacuous discriminator before merge.
+
+**Root cause**: The test checked a topic word instead of the migration's stable
+clean-break refusal message.
+
+**Harness fix**: The existing negative-test rule already requires an exact
+sentinel or stable category, so no duplicate rule was added. The test now
+matches the full legacy-revocation refusal text.
+
+**Prevention**: Migration failure tests distinguish the intended guard from
+all later PostgreSQL errors by asserting the complete operator-facing refusal.
+
+## 2026-07-23 — Gateway renewal fixture reused enrollment bundle versions
+
+**What happened**: The first-renewal test returned generation/revision 1/1
+from both enrollment and renewal, then asserted only confirmation call counts.
+It could not prove which persisted bundle the signed confirmations described.
+
+**What the user said**: Not user-initiated; local review identified the
+non-discriminating fixture.
+
+**Root cause**: The test treated successful control flow as proof of state
+provenance even though its two producer stages emitted identical values.
+
+**Harness fix**: `CLAUDE.md` now requires successive fixture states to be
+observably distinct. Renewal returns revision two, the handler captures exact
+confirmation requests, and the test verifies their signatures and fields
+against the atomically published renewal identity. The shared assertion now
+derives the expected CRL sequence from that identity instead of hard-coding a
+different fixture's sequence.
+
+**Prevention**: Multi-stage tests assign distinct versions at each stage and
+assert the downstream artifact against the intended stage, not just call
+cardinality.
+
+## 2026-07-23 — Control confirmation lookup duplicated its join key
+
+**What happened**: The control confirmation write path declared its reserved
+reporter ID, but the lookup path repeated the literal. Editing only one copy
+would make durable receipts permanently undiscoverable.
+
+**What the user said**: Not user-initiated; local review found the duplicated
+identity literal.
+
+**Root cause**: A security-sensitive persistence join key was treated as local
+syntax instead of one shared domain constant.
+
+**Harness fix**: `CLAUDE.md` now explicitly requires call sites to reuse
+declared join keys. Both write and lookup paths reference `controlReporterID`.
+
+**Prevention**: Reserved stream identities are declared once at package scope
+and reused by every persistence and lookup path.
 
 ## 2026-07-23 — Confirmation deduplication moved the guard convention
 
