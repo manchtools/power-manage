@@ -2147,3 +2147,21 @@ descriptors in its unary-method matrix.
 
 **Prevention**: Pair exact descriptor counts with explicit lookup and shape
 validation for every member in the expected set.
+
+## 2026-07-23 — Whole-spec request stopped after one milestone
+
+**What happened**: SPEC-007 was requested in full, but work stopped after M1
+and waited for another prompt.
+
+**What the user said**: “okay i told you to implement spec 7 and not spec 7
+m1”
+
+**Root cause**: The “one session = one milestone” rule was misread as a
+user-facing stop condition despite the autonomous continuation rule.
+
+**Harness fix**: `CLAUDE.md` now states that whole-spec requests run milestone
+branch/PR sessions sequentially without another prompt.
+
+**Prevention**: Milestone isolation controls branch and PR scope, not whether
+execution pauses; continue until the requested spec is complete or genuinely
+blocked.

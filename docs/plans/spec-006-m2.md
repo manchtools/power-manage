@@ -28,7 +28,7 @@ GUARD-006-2/6.
   - validate both at construction and expose the sole agent command-verify and
     result-sign chokepoints; no CA private key is accepted or held.
 <!-- docref: end -->
-<!-- docref: begin src=server/internal/control/runtime.go#NewRuntime:fdf06ee4 -->
+<!-- docref: begin src=server/internal/control/runtime.go#NewRuntime:3f4f9b43 -->
 - `server/internal/control/runtime.go`
   - add the control composition-root constructor with narrow interfaces for
     device-signature verification, device/gateway binding resolution, and CRL
