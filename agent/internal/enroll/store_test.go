@@ -20,7 +20,7 @@ import (
 	"github.com/manchtools/power-manage/contract/identity"
 )
 
-func TestFileCredentialStore_LoadsExactValidatedBundle(t *testing.T) {
+func TestAgentCredentialStore_PreservesDistinctGatewayTrustAnchor(t *testing.T) {
 	bundle := newStoredCredentialBundleFixture(t)
 	encoded, err := encodeCredentialBundle(bundle)
 	if err != nil {
@@ -44,6 +44,7 @@ func TestFileCredentialStore_LoadsExactValidatedBundle(t *testing.T) {
 	}
 	if loaded.DeviceID != bundle.DeviceID || !bytes.Equal(loaded.CertificateDER, bundle.CertificateDER) ||
 		!bytes.Equal(loaded.CertificateAuthorityDER, bundle.CertificateAuthorityDER) ||
+		!bytes.Equal(loaded.GatewayCertificateAuthorityDER, bundle.GatewayCertificateAuthorityDER) ||
 		!publicKeysMatch(t, loaded.PrivateKey.Public(), bundle.PrivateKey.Public()) ||
 		!bytes.Equal(loaded.SealingPrivateKey.Bytes(), bundle.SealingPrivateKey.Bytes()) {
 		t.Fatal("loaded credential bundle differs from exact stored identity")
@@ -74,17 +75,18 @@ func TestFileCredentialStore_LoadRejectsNonCanonicalOrInvalidPEM(t *testing.T) {
 		data []byte
 		want string
 	}{
-		{name: "missing block", data: encodeBlocks(blocks[:3]...), want: "exact ordered POWER MANAGE SEALING PRIVATE KEY"},
-		{name: "duplicate block", data: encodeBlocks(blocks[0], blocks[1], blocks[2], blocks[2], blocks[3]), want: "exact ordered POWER MANAGE SEALING PRIVATE KEY"},
-		{name: "unknown block", data: encodeBlocks(blocks[0], blocks[1], &pem.Block{Type: "UNKNOWN", Bytes: []byte{1}}, blocks[3]), want: "exact ordered POWER MANAGE AGENT CA CERTIFICATE"},
+		{name: "missing block", data: encodeBlocks(blocks[:4]...), want: "exact ordered POWER MANAGE SEALING PRIVATE KEY"},
+		{name: "duplicate block", data: encodeBlocks(blocks[0], blocks[1], blocks[2], blocks[3], blocks[3], blocks[4]), want: "exact ordered POWER MANAGE SEALING PRIVATE KEY"},
+		{name: "unknown block", data: encodeBlocks(blocks[0], blocks[1], &pem.Block{Type: "UNKNOWN", Bytes: []byte{1}}, blocks[3], blocks[4]), want: "exact ordered POWER MANAGE AGENT CA CERTIFICATE"},
 		{name: "trailing bytes", data: append(bytes.Clone(encoded), []byte("trailing")...), want: "duplicate, unknown, or trailing data"},
 		{name: "leading bytes", data: append([]byte("leading\n"), encoded...), want: "exact ordered POWER MANAGE AGENT CERTIFICATE"},
-		{name: "PEM headers", data: encodeBlocks(blocks[0], &pem.Block{Type: blocks[1].Type, Headers: map[string]string{"X": "Y"}, Bytes: blocks[1].Bytes}, blocks[2], blocks[3]), want: "invalid POWER MANAGE AGENT PRIVATE KEY"},
-		{name: "malformed signing key", data: encodeBlocks(blocks[0], &pem.Block{Type: blocks[1].Type, Bytes: []byte("bad")}, blocks[2], blocks[3]), want: "parse stored mTLS private key"},
-		{name: "malformed certificate", data: encodeBlocks(&pem.Block{Type: blocks[0].Type, Bytes: []byte("bad")}, blocks[1], blocks[2], blocks[3]), want: "parse stored agent certificate"},
-		{name: "certificate and signing key mismatch", data: encodeBlocks(blocks[0], otherBlocks[1], blocks[2], blocks[3]), want: "stored certificate public key mismatch"},
-		{name: "certificate and CA mismatch", data: encodeBlocks(blocks[0], blocks[1], otherBlocks[2], blocks[3]), want: "verify stored certificate authority"},
-		{name: "wrong sealing key type", data: encodeBlocks(blocks[0], blocks[1], blocks[2], &pem.Block{Type: blocks[3].Type, Bytes: blocks[1].Bytes}), want: "stored sealing private key is not X25519"},
+		{name: "PEM headers", data: encodeBlocks(blocks[0], &pem.Block{Type: blocks[1].Type, Headers: map[string]string{"X": "Y"}, Bytes: blocks[1].Bytes}, blocks[2], blocks[3], blocks[4]), want: "invalid POWER MANAGE AGENT PRIVATE KEY"},
+		{name: "malformed signing key", data: encodeBlocks(blocks[0], &pem.Block{Type: blocks[1].Type, Bytes: []byte("bad")}, blocks[2], blocks[3], blocks[4]), want: "parse stored mTLS private key"},
+		{name: "malformed certificate", data: encodeBlocks(&pem.Block{Type: blocks[0].Type, Bytes: []byte("bad")}, blocks[1], blocks[2], blocks[3], blocks[4]), want: "parse stored agent certificate"},
+		{name: "certificate and signing key mismatch", data: encodeBlocks(blocks[0], otherBlocks[1], blocks[2], blocks[3], blocks[4]), want: "stored certificate public key mismatch"},
+		{name: "certificate and CA mismatch", data: encodeBlocks(blocks[0], blocks[1], otherBlocks[2], blocks[3], blocks[4]), want: "verify stored certificate authority"},
+		{name: "malformed gateway CA", data: encodeBlocks(blocks[0], blocks[1], blocks[2], &pem.Block{Type: blocks[3].Type, Bytes: []byte("bad")}, blocks[4]), want: "parse stored gateway CA certificate"},
+		{name: "wrong sealing key type", data: encodeBlocks(blocks[0], blocks[1], blocks[2], blocks[3], &pem.Block{Type: blocks[4].Type, Bytes: blocks[1].Bytes}), want: "stored sealing private key is not X25519"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -144,6 +146,7 @@ func newStoredCredentialBundleFixture(t *testing.T) CredentialBundle {
 		t.Fatalf("generate credential sealing key: %v", err)
 	}
 	ca, caSigner := newClientTestCA(t)
+	gatewayCA, _ := newClientTestCA(t)
 	now := time.Now().UTC().Truncate(time.Second)
 	template := &x509.Certificate{
 		SerialNumber:          big.NewInt(11),
@@ -162,11 +165,12 @@ func newStoredCredentialBundleFixture(t *testing.T) CredentialBundle {
 		t.Fatalf("create stored credential certificate: %v", err)
 	}
 	return CredentialBundle{
-		DeviceID:                enrolledClientDeviceID,
-		CertificateDER:          certificateDER,
-		CertificateAuthorityDER: bytes.Clone(ca.Raw),
-		PrivateKey:              privateKey,
-		SealingPrivateKey:       sealingPrivateKey,
+		DeviceID:                       enrolledClientDeviceID,
+		CertificateDER:                 certificateDER,
+		CertificateAuthorityDER:        bytes.Clone(ca.Raw),
+		GatewayCertificateAuthorityDER: bytes.Clone(gatewayCA.Raw),
+		PrivateKey:                     privateKey,
+		SealingPrivateKey:              sealingPrivateKey,
 	}
 }
 

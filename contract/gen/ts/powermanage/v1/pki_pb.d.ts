@@ -63,6 +63,11 @@ export declare type EnrollAgentResponse = Message<"powermanage.v1.EnrollAgentRes
    * @generated from field: bytes certificate_authority_der = 2;
    */
   certificateAuthorityDer: Uint8Array;
+
+  /**
+   * @generated from field: bytes gateway_certificate_authority_der = 3;
+   */
+  gatewayCertificateAuthorityDer: Uint8Array;
 };
 
 /**
@@ -117,6 +122,11 @@ export declare type RenewAgentResponse = Message<"powermanage.v1.RenewAgentRespo
    * @generated from field: bytes certificate_authority_der = 2;
    */
   certificateAuthorityDer: Uint8Array;
+
+  /**
+   * @generated from field: bytes gateway_certificate_authority_der = 3;
+   */
+  gatewayCertificateAuthorityDer: Uint8Array;
 };
 
 /**
@@ -190,6 +200,127 @@ export declare type ForceRenewAgentResponse = Message<"powermanage.v1.ForceRenew
 export declare const ForceRenewAgentResponseSchema: GenMessage<ForceRenewAgentResponse>;
 
 /**
+ * EnrollGatewayRequest carries only the gateway-held proof and a
+ * gateway-purpose token. DNS identity is control-owned token metadata.
+ *
+ * @generated from message powermanage.v1.EnrollGatewayRequest
+ */
+export declare type EnrollGatewayRequest = Message<"powermanage.v1.EnrollGatewayRequest"> & {
+  /**
+   * @generated from field: string registration_token = 1;
+   */
+  registrationToken: string;
+
+  /**
+   * @generated from field: bytes certificate_signing_request_der = 2;
+   */
+  certificateSigningRequestDer: Uint8Array;
+};
+
+/**
+ * Describes the message powermanage.v1.EnrollGatewayRequest.
+ * Use `create(EnrollGatewayRequestSchema)` to create a new message.
+ */
+export declare const EnrollGatewayRequestSchema: GenMessage<EnrollGatewayRequest>;
+
+/**
+ * @generated from message powermanage.v1.EnrollGatewayResponse
+ */
+export declare type EnrollGatewayResponse = Message<"powermanage.v1.EnrollGatewayResponse"> & {
+  /**
+   * @generated from field: bytes certificate_der = 1;
+   */
+  certificateDer: Uint8Array;
+
+  /**
+   * @generated from field: bytes certificate_authority_der = 2;
+   */
+  certificateAuthorityDer: Uint8Array;
+};
+
+/**
+ * Describes the message powermanage.v1.EnrollGatewayResponse.
+ * Use `create(EnrollGatewayResponseSchema)` to create a new message.
+ */
+export declare const EnrollGatewayResponseSchema: GenMessage<EnrollGatewayResponse>;
+
+/**
+ * RenewGatewayRequest proves continuity from the exact current certificate
+ * to a CSR signed by the same in-memory gateway key.
+ *
+ * @generated from message powermanage.v1.RenewGatewayRequest
+ */
+export declare type RenewGatewayRequest = Message<"powermanage.v1.RenewGatewayRequest"> & {
+  /**
+   * @generated from field: bytes certificate_der = 1;
+   */
+  certificateDer: Uint8Array;
+
+  /**
+   * @generated from field: bytes certificate_signing_request_der = 2;
+   */
+  certificateSigningRequestDer: Uint8Array;
+};
+
+/**
+ * Describes the message powermanage.v1.RenewGatewayRequest.
+ * Use `create(RenewGatewayRequestSchema)` to create a new message.
+ */
+export declare const RenewGatewayRequestSchema: GenMessage<RenewGatewayRequest>;
+
+/**
+ * @generated from message powermanage.v1.RenewGatewayResponse
+ */
+export declare type RenewGatewayResponse = Message<"powermanage.v1.RenewGatewayResponse"> & {
+  /**
+   * @generated from field: bytes certificate_der = 1;
+   */
+  certificateDer: Uint8Array;
+
+  /**
+   * @generated from field: bytes certificate_authority_der = 2;
+   */
+  certificateAuthorityDer: Uint8Array;
+};
+
+/**
+ * Describes the message powermanage.v1.RenewGatewayResponse.
+ * Use `create(RenewGatewayResponseSchema)` to create a new message.
+ */
+export declare const RenewGatewayResponseSchema: GenMessage<RenewGatewayResponse>;
+
+/**
+ * RevokeGatewayRequest identifies the exact currently stored gateway
+ * certificate. Operator authorization remains transport metadata.
+ *
+ * @generated from message powermanage.v1.RevokeGatewayRequest
+ */
+export declare type RevokeGatewayRequest = Message<"powermanage.v1.RevokeGatewayRequest"> & {
+  /**
+   * @generated from field: bytes certificate_der = 1;
+   */
+  certificateDer: Uint8Array;
+};
+
+/**
+ * Describes the message powermanage.v1.RevokeGatewayRequest.
+ * Use `create(RevokeGatewayRequestSchema)` to create a new message.
+ */
+export declare const RevokeGatewayRequestSchema: GenMessage<RevokeGatewayRequest>;
+
+/**
+ * @generated from message powermanage.v1.RevokeGatewayResponse
+ */
+export declare type RevokeGatewayResponse = Message<"powermanage.v1.RevokeGatewayResponse"> & {
+};
+
+/**
+ * Describes the message powermanage.v1.RevokeGatewayResponse.
+ * Use `create(RevokeGatewayResponseSchema)` to create a new message.
+ */
+export declare const RevokeGatewayResponseSchema: GenMessage<RevokeGatewayResponse>;
+
+/**
  * @generated from service powermanage.v1.PkiService
  */
 export declare const PkiService: GenService<{
@@ -224,6 +355,30 @@ export declare const PkiService: GenService<{
     methodKind: "unary";
     input: typeof ForceRenewAgentRequestSchema;
     output: typeof ForceRenewAgentResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.PkiService.EnrollGateway
+   */
+  enrollGateway: {
+    methodKind: "unary";
+    input: typeof EnrollGatewayRequestSchema;
+    output: typeof EnrollGatewayResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.PkiService.RenewGateway
+   */
+  renewGateway: {
+    methodKind: "unary";
+    input: typeof RenewGatewayRequestSchema;
+    output: typeof RenewGatewayResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.PkiService.RevokeGateway
+   */
+  revokeGateway: {
+    methodKind: "unary";
+    input: typeof RevokeGatewayRequestSchema;
+    output: typeof RevokeGatewayResponseSchema;
   },
 }>;
 

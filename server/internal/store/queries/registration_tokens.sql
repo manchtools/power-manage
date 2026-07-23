@@ -3,16 +3,20 @@ INSERT INTO registration_tokens (
     token_id,
     projection_version,
     token_hash,
+    purpose,
+    dns_names,
     max_uses,
     uses,
     expires_at,
     owner,
     disabled,
     updated_at
-) VALUES ($1, $2, $3, $4, 0, $5, $6, false, $7)
+) VALUES ($1, $2, $3, $4, $5, $6, 0, $7, $8, false, $9)
 ON CONFLICT (token_id) DO UPDATE SET
     projection_version = EXCLUDED.projection_version,
     token_hash = EXCLUDED.token_hash,
+    purpose = EXCLUDED.purpose,
+    dns_names = EXCLUDED.dns_names,
     max_uses = EXCLUDED.max_uses,
     uses = 0,
     expires_at = EXCLUDED.expires_at,
@@ -41,7 +45,7 @@ WHERE token_id = $1
   AND NOT disabled;
 
 -- name: GetRegistrationToken :one
-SELECT token_id, projection_version, token_hash, max_uses, uses,
+SELECT token_id, projection_version, token_hash, purpose, dns_names, max_uses, uses,
        expires_at, owner, disabled, updated_at
 FROM registration_tokens
 WHERE token_id = $1;

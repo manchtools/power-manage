@@ -12,6 +12,7 @@ import (
 	"go/token"
 	"io"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -36,6 +37,7 @@ func TestRegistrationTokens_MintStoresOnlyHash(t *testing.T) {
 	clock := newMutableClock(time.Date(2026, time.July, 22, 9, 0, 0, 0, time.UTC))
 	service, pool := newTestRegistrationTokens(t, deterministicRandom(1), clock, noWait)
 	minted, err := service.Mint(context.Background(), RegistrationTokenOptions{
+		Purpose:   RegistrationTokenPurposeAgent,
 		MaxUses:   3,
 		ExpiresAt: clock.Now().Add(time.Hour),
 		Owner:     "owner@example.com",
@@ -58,7 +60,8 @@ func TestRegistrationTokens_MintStoresOnlyHash(t *testing.T) {
 	if persisted.Hash != wantHash {
 		t.Fatalf("persisted hash = %x; want SHA-256(secret) %x", persisted.Hash, wantHash)
 	}
-	if persisted.MaxUses != 3 || persisted.Uses != 0 || persisted.Owner != "owner@example.com" || persisted.Disabled {
+	if persisted.Purpose != store.RegistrationTokenPurposeAgent || len(persisted.DNSNames) != 0 ||
+		persisted.MaxUses != 3 || persisted.Uses != 0 || persisted.Owner != "owner@example.com" || persisted.Disabled {
 		t.Fatalf("persisted token metadata = %+v; want unused enabled owner-bound token", persisted)
 	}
 	rows, err := pool.Query(context.Background(), `SELECT payload FROM events WHERE stream_id = $1`, minted.TokenID)
@@ -80,6 +83,77 @@ func TestRegistrationTokens_MintStoresOnlyHash(t *testing.T) {
 	}
 }
 
+// TestGatewayRegistrationToken_CrossPurposeUseRejectsWithoutConsumption
+// proves token purpose is an authorization boundary, not enrollment metadata.
+func TestGatewayRegistrationToken_CrossPurposeUseRejectsWithoutConsumption(t *testing.T) {
+	clock := newMutableClock(time.Date(2026, time.July, 22, 9, 0, 0, 0, time.UTC))
+	service, pool := newTestRegistrationTokens(t, deterministicRandom(2), clock, noWait)
+	agent, err := service.Mint(context.Background(), RegistrationTokenOptions{
+		Purpose:   RegistrationTokenPurposeAgent,
+		MaxUses:   1,
+		ExpiresAt: clock.Now().Add(time.Hour),
+		Owner:     "agent-owner@example.com",
+	})
+	if err != nil {
+		t.Fatalf("mint agent registration token: %v", err)
+	}
+	gatewayDNSNames := []string{"gateway-1.internal.example"}
+	gateway, err := service.Mint(context.Background(), RegistrationTokenOptions{
+		Purpose:   RegistrationTokenPurposeGateway,
+		MaxUses:   1,
+		ExpiresAt: clock.Now().Add(time.Hour),
+		DNSNames:  gatewayDNSNames,
+	})
+	if err != nil {
+		t.Fatalf("mint gateway registration token: %v", err)
+	}
+
+	tests := []struct {
+		name            string
+		token           MintedRegistrationToken
+		expectedPurpose RegistrationTokenPurpose
+	}{
+		{name: "agent token on gateway enrollment", token: agent, expectedPurpose: RegistrationTokenPurposeGateway},
+		{name: "gateway token on agent enrollment", token: gateway, expectedPurpose: RegistrationTokenPurposeAgent},
+	}
+	for index, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			grant, err := service.Consume(
+				context.Background(),
+				fmt.Sprintf("cross-purpose-%d", index),
+				test.token.Token,
+				test.expectedPurpose,
+			)
+			assertEmptyRegistrationTokenGrant(t, grant)
+			if !errors.Is(err, ErrInvalidRegistrationToken) || err.Error() != ErrInvalidRegistrationToken.Error() {
+				t.Fatalf("cross-purpose rejection = %v; want uniform invalid-token sentinel", err)
+			}
+			state, err := service.eventStore.RegistrationToken(context.Background(), test.token.TokenID)
+			if err != nil {
+				t.Fatalf("read token after cross-purpose rejection: %v", err)
+			}
+			if state.Uses != 0 || state.ProjectionVersion != 1 || tokenEventCount(t, pool, test.token.TokenID) != 1 {
+				t.Fatalf("token state after cross-purpose rejection = %+v; want unconsumed version one", state)
+			}
+		})
+	}
+
+	agentGrant, err := service.Consume(context.Background(), "agent-purpose", agent.Token, RegistrationTokenPurposeAgent)
+	if err != nil {
+		t.Fatalf("consume matching agent token: %v", err)
+	}
+	if agentGrant.Purpose != RegistrationTokenPurposeAgent || len(agentGrant.DNSNames) != 0 {
+		t.Fatalf("agent grant = %+v; want agent purpose without DNS names", agentGrant)
+	}
+	gatewayGrant, err := service.Consume(context.Background(), "gateway-purpose", gateway.Token, RegistrationTokenPurposeGateway)
+	if err != nil {
+		t.Fatalf("consume matching gateway token: %v", err)
+	}
+	if gatewayGrant.Purpose != RegistrationTokenPurposeGateway || !slices.Equal(gatewayGrant.DNSNames, gatewayDNSNames) {
+		t.Fatalf("gateway grant = %+v; want gateway purpose and DNS names %v", gatewayGrant, gatewayDNSNames)
+	}
+}
+
 // TestRegistrationTokens_ConcurrentConsumeHonorsMaxUses is AC-2's real
 // Postgres N+k race: explicit fresh CAS attempts grant exactly N callers.
 func TestRegistrationTokens_ConcurrentConsumeHonorsMaxUses(t *testing.T) {
@@ -90,7 +164,7 @@ func TestRegistrationTokens_ConcurrentConsumeHonorsMaxUses(t *testing.T) {
 		callers = 8
 	)
 	minted, err := service.Mint(context.Background(), RegistrationTokenOptions{
-		MaxUses: maxUses, ExpiresAt: clock.Now().Add(time.Hour),
+		Purpose: RegistrationTokenPurposeAgent, MaxUses: maxUses, ExpiresAt: clock.Now().Add(time.Hour),
 	})
 	if err != nil {
 		t.Fatalf("mint registration token: %v", err)
@@ -101,7 +175,7 @@ func TestRegistrationTokens_ConcurrentConsumeHonorsMaxUses(t *testing.T) {
 		go func() {
 			<-start
 			_, err := service.Consume(
-				context.Background(), fmt.Sprintf("source-%d", caller), minted.Token,
+				context.Background(), fmt.Sprintf("source-%d", caller), minted.Token, RegistrationTokenPurposeAgent,
 			)
 			results <- err
 		}()
@@ -141,12 +215,12 @@ func TestRegistrationTokens_CASRetriesAreBoundedAndBackedOff(t *testing.T) {
 	service, pool := newTestRegistrationTokens(t, deterministicRandom(1), clock, waits.WaitUntil)
 	service.casAttempts = 3
 	minted, err := service.Mint(context.Background(), RegistrationTokenOptions{
-		MaxUses: 4, ExpiresAt: clock.Now().Add(time.Hour),
+		Purpose: RegistrationTokenPurposeAgent, MaxUses: 4, ExpiresAt: clock.Now().Add(time.Hour),
 	})
 	if err != nil {
 		t.Fatalf("mint CAS-retry fixture: %v", err)
 	}
-	if _, err := service.Consume(context.Background(), "primer", minted.Token); err != nil {
+	if _, err := service.Consume(context.Background(), "primer", minted.Token, RegistrationTokenPurposeAgent); err != nil {
 		t.Fatalf("consume CAS-retry fixture: %v", err)
 	}
 	if _, err := pool.Exec(context.Background(), `
@@ -156,10 +230,8 @@ func TestRegistrationTokens_CASRetriesAreBoundedAndBackedOff(t *testing.T) {
 		t.Fatalf("stale registration-token projection: %v", err)
 	}
 
-	grant, err := service.Consume(context.Background(), "bounded-retry", minted.Token)
-	if grant != (RegistrationTokenGrant{}) {
-		t.Fatalf("CAS retry exhaustion returned grant %+v", grant)
-	}
+	grant, err := service.Consume(context.Background(), "bounded-retry", minted.Token, RegistrationTokenPurposeAgent)
+	assertEmptyRegistrationTokenGrant(t, grant)
 	if err == nil || !strings.Contains(err.Error(), "consume exceeded CAS retry limit") {
 		t.Fatalf("CAS retry exhaustion error = %v; want consume retry-limit category", err)
 	}
@@ -185,13 +257,13 @@ func TestRegistrationTokens_RejectionsAreUniform(t *testing.T) {
 	waits := &recordingWaiter{}
 	service, pool := newTestRegistrationTokens(t, deterministicRandom(3), clock, waits.WaitUntil)
 	expired, err := service.Mint(context.Background(), RegistrationTokenOptions{
-		MaxUses: 2, ExpiresAt: clock.Now().Add(time.Hour),
+		Purpose: RegistrationTokenPurposeAgent, MaxUses: 2, ExpiresAt: clock.Now().Add(time.Hour),
 	})
 	if err != nil {
 		t.Fatalf("mint expiry fixture: %v", err)
 	}
 	disabled, err := service.Mint(context.Background(), RegistrationTokenOptions{
-		MaxUses: 2, ExpiresAt: clock.Now().Add(time.Hour),
+		Purpose: RegistrationTokenPurposeAgent, MaxUses: 2, ExpiresAt: clock.Now().Add(time.Hour),
 	})
 	if err != nil {
 		t.Fatalf("mint disabled fixture: %v", err)
@@ -206,12 +278,12 @@ func TestRegistrationTokens_RejectionsAreUniform(t *testing.T) {
 		t.Fatalf("disabled token event count = %d; want one mint and one disable", got)
 	}
 	exhausted, err := service.Mint(context.Background(), RegistrationTokenOptions{
-		MaxUses: 1, ExpiresAt: clock.Now().Add(time.Hour),
+		Purpose: RegistrationTokenPurposeAgent, MaxUses: 1, ExpiresAt: clock.Now().Add(time.Hour),
 	})
 	if err != nil {
 		t.Fatalf("mint exhausted fixture: %v", err)
 	}
-	if _, err := service.Consume(context.Background(), "exhaust-primer", exhausted.Token); err != nil {
+	if _, err := service.Consume(context.Background(), "exhaust-primer", exhausted.Token, RegistrationTokenPurposeAgent); err != nil {
 		t.Fatalf("consume exhaustion fixture: %v", err)
 	}
 
@@ -235,10 +307,8 @@ func TestRegistrationTokens_RejectionsAreUniform(t *testing.T) {
 	}
 	for index, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			grant, err := service.Consume(context.Background(), fmt.Sprintf("reject-%d", index), test.token)
-			if grant != (RegistrationTokenGrant{}) {
-				t.Fatalf("rejected consume returned grant %+v", grant)
-			}
+			grant, err := service.Consume(context.Background(), fmt.Sprintf("reject-%d", index), test.token, RegistrationTokenPurposeAgent)
+			assertEmptyRegistrationTokenGrant(t, grant)
 			if !errors.Is(err, ErrInvalidRegistrationToken) || err.Error() != ErrInvalidRegistrationToken.Error() {
 				t.Fatalf("rejection = %v; want byte-identical invalid-token sentinel", err)
 			}
@@ -266,24 +336,24 @@ func TestRegistrationTokens_RateLimitsFiveAttemptsPerSlidingMinute(t *testing.T)
 	clock := newMutableClock(time.Date(2026, time.July, 22, 9, 0, 0, 0, time.UTC))
 	service, _ := newTestRegistrationTokens(t, deterministicRandom(1), clock, noWait)
 	minted, err := service.Mint(context.Background(), RegistrationTokenOptions{
-		MaxUses: 10, ExpiresAt: clock.Now().Add(time.Hour),
+		Purpose: RegistrationTokenPurposeAgent, MaxUses: 10, ExpiresAt: clock.Now().Add(time.Hour),
 	})
 	if err != nil {
 		t.Fatalf("mint rate-limit fixture: %v", err)
 	}
 	for attempt := range 5 {
-		if _, err := service.Consume(context.Background(), "same-source", minted.Token); err != nil {
+		if _, err := service.Consume(context.Background(), "same-source", minted.Token, RegistrationTokenPurposeAgent); err != nil {
 			t.Fatalf("allowed attempt %d: %v", attempt+1, err)
 		}
 	}
-	if _, err := service.Consume(context.Background(), "same-source", minted.Token); !errors.Is(err, ErrRegistrationRateLimited) {
+	if _, err := service.Consume(context.Background(), "same-source", minted.Token, RegistrationTokenPurposeAgent); !errors.Is(err, ErrRegistrationRateLimited) {
 		t.Fatalf("sixth attempt error = %v; want rate-limit sentinel", err)
 	}
-	if _, err := service.Consume(context.Background(), "different-source", minted.Token); err != nil {
+	if _, err := service.Consume(context.Background(), "different-source", minted.Token, RegistrationTokenPurposeAgent); err != nil {
 		t.Fatalf("independent source rejected: %v", err)
 	}
 	clock.Advance(time.Minute + time.Nanosecond)
-	if _, err := service.Consume(context.Background(), "same-source", minted.Token); err != nil {
+	if _, err := service.Consume(context.Background(), "same-source", minted.Token, RegistrationTokenPurposeAgent); err != nil {
 		t.Fatalf("source rejected after sliding window elapsed: %v", err)
 	}
 }
@@ -298,11 +368,14 @@ func TestRegistrationTokens_MintFailureWritesNothing(t *testing.T) {
 		options RegistrationTokenOptions
 		want    string
 	}{
-		{name: "nil context", options: RegistrationTokenOptions{MaxUses: 1, ExpiresAt: clock.Now().Add(time.Hour)}, want: "nil context"},
-		{name: "zero max uses", ctx: context.Background(), options: RegistrationTokenOptions{ExpiresAt: clock.Now().Add(time.Hour)}, want: "max uses"},
-		{name: "past expiry", ctx: context.Background(), options: RegistrationTokenOptions{MaxUses: 1, ExpiresAt: clock.Now()}, want: "future"},
-		{name: "invalid owner", ctx: context.Background(), options: RegistrationTokenOptions{MaxUses: 1, ExpiresAt: clock.Now().Add(time.Hour), Owner: "bad\x00owner"}, want: "owner"},
-		{name: "randomness failure", ctx: context.Background(), options: RegistrationTokenOptions{MaxUses: 1, ExpiresAt: clock.Now().Add(time.Hour)}, want: wantRNG.Error()},
+		{name: "nil context", options: RegistrationTokenOptions{Purpose: RegistrationTokenPurposeAgent, MaxUses: 1, ExpiresAt: clock.Now().Add(time.Hour)}, want: "nil context"},
+		{name: "invalid purpose", ctx: context.Background(), options: RegistrationTokenOptions{MaxUses: 1, ExpiresAt: clock.Now().Add(time.Hour)}, want: "purpose"},
+		{name: "zero max uses", ctx: context.Background(), options: RegistrationTokenOptions{Purpose: RegistrationTokenPurposeAgent, ExpiresAt: clock.Now().Add(time.Hour)}, want: "max uses"},
+		{name: "past expiry", ctx: context.Background(), options: RegistrationTokenOptions{Purpose: RegistrationTokenPurposeAgent, MaxUses: 1, ExpiresAt: clock.Now()}, want: "future"},
+		{name: "invalid owner", ctx: context.Background(), options: RegistrationTokenOptions{Purpose: RegistrationTokenPurposeAgent, MaxUses: 1, ExpiresAt: clock.Now().Add(time.Hour), Owner: "bad\x00owner"}, want: "owner"},
+		{name: "agent token with DNS names", ctx: context.Background(), options: RegistrationTokenOptions{Purpose: RegistrationTokenPurposeAgent, MaxUses: 1, ExpiresAt: clock.Now().Add(time.Hour), DNSNames: []string{"gateway.internal.example"}}, want: "DNS"},
+		{name: "gateway token without DNS names", ctx: context.Background(), options: RegistrationTokenOptions{Purpose: RegistrationTokenPurposeGateway, MaxUses: 1, ExpiresAt: clock.Now().Add(time.Hour)}, want: "DNS"},
+		{name: "randomness failure", ctx: context.Background(), options: RegistrationTokenOptions{Purpose: RegistrationTokenPurposeAgent, MaxUses: 1, ExpiresAt: clock.Now().Add(time.Hour)}, want: wantRNG.Error()},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -314,6 +387,45 @@ func TestRegistrationTokens_MintFailureWritesNothing(t *testing.T) {
 	}
 	if got := allEventCount(t, pool); got != 0 {
 		t.Fatalf("events after rejected mints = %d; want 0", got)
+	}
+}
+
+func TestRegistrationTokens_MintGatewayWithoutDNSRejectsAtPKIBoundary(t *testing.T) {
+	clock := newMutableClock(time.Date(2026, time.July, 22, 9, 0, 0, 0, time.UTC))
+	random := &countingRandomReader{}
+	service, pool := newTestRegistrationTokens(t, random, clock, noWait)
+	minted, err := service.Mint(context.Background(), RegistrationTokenOptions{
+		Purpose:   RegistrationTokenPurposeGateway,
+		MaxUses:   1,
+		ExpiresAt: clock.Now().Add(time.Hour),
+		DNSNames:  []string{},
+	})
+	if err == nil {
+		t.Fatal("Mint accepted a gateway registration token without DNS names")
+	}
+	message := strings.ToLower(err.Error())
+	if !strings.Contains(message, "pki:") ||
+		!strings.Contains(message, "gateway registration token") ||
+		!strings.Contains(message, "dns name") {
+		t.Errorf("Mint error = %q; want friendly PKI gateway-DNS validation category", err)
+	}
+	for _, leakedLayer := range []string{"store:", "sqlstate", "constraint", "registration_tokens_dns_names_check"} {
+		if strings.Contains(message, leakedLayer) {
+			t.Errorf("Mint error = %q; must not expose lower-layer category %q", err, leakedLayer)
+		}
+	}
+	if minted.TokenID != "" || minted.Token != "" || random.readCalls != 0 {
+		t.Fatalf("rejected Mint returned/consumed token material = (%q, %q, %d random reads); want none", minted.TokenID, minted.Token, random.readCalls)
+	}
+	if events := allEventCount(t, pool); events != 0 {
+		t.Fatalf("events after rejected gateway Mint = %d; want zero", events)
+	}
+	var projections int
+	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM registration_tokens`).Scan(&projections); err != nil {
+		t.Fatalf("count registration-token projections: %v", err)
+	}
+	if projections != 0 {
+		t.Fatalf("registration-token projections after rejected gateway Mint = %d; want zero", projections)
 	}
 }
 
@@ -410,6 +522,13 @@ func decodeMintedToken(t *testing.T, token string) (string, []byte) {
 	return id, secret
 }
 
+func assertEmptyRegistrationTokenGrant(t *testing.T, grant RegistrationTokenGrant) {
+	t.Helper()
+	if grant.TokenID != "" || grant.Owner != "" || grant.Purpose != "" || len(grant.DNSNames) != 0 {
+		t.Fatalf("rejected consume returned grant %+v; want empty grant", grant)
+	}
+}
+
 func tokenEventCount(t *testing.T, pool *pgxpool.Pool, tokenID string) int {
 	t.Helper()
 	var count int
@@ -473,3 +592,13 @@ func noWait(context.Context, time.Time) error { return nil }
 type errorReader struct{ err error }
 
 func (r errorReader) Read([]byte) (int, error) { return 0, r.err }
+
+type countingRandomReader struct{ readCalls int }
+
+func (r *countingRandomReader) Read(buffer []byte) (int, error) {
+	r.readCalls++
+	for index := range buffer {
+		buffer[index] = byte(index + 1)
+	}
+	return len(buffer), nil
+}

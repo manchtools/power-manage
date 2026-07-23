@@ -114,20 +114,12 @@ func (s *EnrollmentService) RenewAgent(
 		return lifecycle.AppendEvent(ctx, event, current.ProjectionVersion)
 	})
 	if err != nil {
-		switch {
-		case errors.Is(err, errRenewalAuthRejected):
-			return nil, connect.NewError(connect.CodeUnauthenticated, errRenewalAuthRejected)
-		case errors.Is(err, context.Canceled):
-			return nil, connect.NewError(connect.CodeCanceled, context.Canceled)
-		case errors.Is(err, context.DeadlineExceeded):
-			return nil, connect.NewError(connect.CodeDeadlineExceeded, context.DeadlineExceeded)
-		default:
-			return nil, connect.NewError(connect.CodeInternal, errRenewalTemporarilyFailed)
-		}
+		return nil, mapRenewalError(err)
 	}
 	return connect.NewResponse(&powermanagev1.RenewAgentResponse{
-		CertificateDer:          certificateDER,
-		CertificateAuthorityDer: certificateAuthorityDER,
+		CertificateDer:                 certificateDER,
+		CertificateAuthorityDer:        certificateAuthorityDER,
+		GatewayCertificateAuthorityDer: bytes.Clone(s.authorities.gatewayCA.certificate.Raw),
 	}), nil
 }
 

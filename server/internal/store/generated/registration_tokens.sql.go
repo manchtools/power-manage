@@ -11,19 +11,35 @@ import (
 )
 
 const getRegistrationToken = `-- name: GetRegistrationToken :one
-SELECT token_id, projection_version, token_hash, max_uses, uses,
+SELECT token_id, projection_version, token_hash, purpose, dns_names, max_uses, uses,
        expires_at, owner, disabled, updated_at
 FROM registration_tokens
 WHERE token_id = $1
 `
 
-func (q *Queries) GetRegistrationToken(ctx context.Context, tokenID string) (RegistrationToken, error) {
+type GetRegistrationTokenRow struct {
+	TokenID           string
+	ProjectionVersion int64
+	TokenHash         []byte
+	Purpose           string
+	DnsNames          []string
+	MaxUses           int32
+	Uses              int32
+	ExpiresAt         time.Time
+	Owner             string
+	Disabled          bool
+	UpdatedAt         time.Time
+}
+
+func (q *Queries) GetRegistrationToken(ctx context.Context, tokenID string) (GetRegistrationTokenRow, error) {
 	row := q.db.QueryRow(ctx, getRegistrationToken, tokenID)
-	var i RegistrationToken
+	var i GetRegistrationTokenRow
 	err := row.Scan(
 		&i.TokenID,
 		&i.ProjectionVersion,
 		&i.TokenHash,
+		&i.Purpose,
+		&i.DnsNames,
 		&i.MaxUses,
 		&i.Uses,
 		&i.ExpiresAt,
@@ -97,16 +113,20 @@ INSERT INTO registration_tokens (
     token_id,
     projection_version,
     token_hash,
+    purpose,
+    dns_names,
     max_uses,
     uses,
     expires_at,
     owner,
     disabled,
     updated_at
-) VALUES ($1, $2, $3, $4, 0, $5, $6, false, $7)
+) VALUES ($1, $2, $3, $4, $5, $6, 0, $7, $8, false, $9)
 ON CONFLICT (token_id) DO UPDATE SET
     projection_version = EXCLUDED.projection_version,
     token_hash = EXCLUDED.token_hash,
+    purpose = EXCLUDED.purpose,
+    dns_names = EXCLUDED.dns_names,
     max_uses = EXCLUDED.max_uses,
     uses = 0,
     expires_at = EXCLUDED.expires_at,
@@ -120,6 +140,8 @@ type UpsertRegistrationTokenParams struct {
 	TokenID           string
 	ProjectionVersion int64
 	TokenHash         []byte
+	Purpose           string
+	DnsNames          []string
 	MaxUses           int32
 	ExpiresAt         time.Time
 	Owner             string
@@ -131,6 +153,8 @@ func (q *Queries) UpsertRegistrationToken(ctx context.Context, arg UpsertRegistr
 		arg.TokenID,
 		arg.ProjectionVersion,
 		arg.TokenHash,
+		arg.Purpose,
+		arg.DnsNames,
 		arg.MaxUses,
 		arg.ExpiresAt,
 		arg.Owner,

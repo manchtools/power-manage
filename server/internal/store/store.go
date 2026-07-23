@@ -71,10 +71,11 @@ type Projector func(context.Context, ProjectionTx, PersistedEvent) error
 
 // RebuildTarget describes one projection reset and the events that reproduce it.
 type RebuildTarget struct {
-	Tables      []string
-	StreamTypes []string
-	EventTypes  []string
-	Reset       func(context.Context, ProjectionTx) error
+	Tables       []string
+	SharedTables []string
+	StreamTypes  []string
+	EventTypes   []string
+	Reset        func(context.Context, ProjectionTx) error
 }
 
 // Store appends events and invokes their registered projectors atomically.
@@ -139,6 +140,7 @@ func copyRebuildTargets(
 	}
 
 	tableOwners := make(map[string]string)
+	sharedTableOwners := make(map[string]map[string]struct{})
 	streamOwners := make(map[string]string)
 	eventOwners := make(map[string]string)
 	registry := make(map[string]RebuildTarget, len(targets))
@@ -152,7 +154,13 @@ func copyRebuildTargets(
 		}
 
 		var err error
-		target.Tables, err = claimRebuildValues(name, "table", target.Tables, tableOwners)
+		target.Tables, target.SharedTables, err = claimRebuildTables(
+			name,
+			target.Tables,
+			target.SharedTables,
+			tableOwners,
+			sharedTableOwners,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -182,6 +190,54 @@ func copyRebuildTargets(
 		}
 	}
 	return registry, nil
+}
+
+func claimRebuildTables(
+	targetName string,
+	tables []string,
+	sharedTables []string,
+	owners map[string]string,
+	sharedOwners map[string]map[string]struct{},
+) ([]string, []string, error) {
+	if len(tables)+len(sharedTables) == 0 {
+		return nil, nil, fmt.Errorf("store: rebuild target %q has no tables", targetName)
+	}
+	tables = slices.Clone(tables)
+	sharedTables = slices.Clone(sharedTables)
+	for _, table := range tables {
+		if strings.TrimSpace(table) == "" {
+			return nil, nil, fmt.Errorf("store: rebuild target %q has an empty table", targetName)
+		}
+		if owner, ok := owners[table]; ok {
+			return nil, nil, fmt.Errorf("store: rebuild table %q is owned by both %q and %q", table, owner, targetName)
+		}
+		if shared := sharedOwners[table]; len(shared) != 0 {
+			return nil, nil, fmt.Errorf("store: rebuild table %q is both exclusive and shared", table)
+		}
+		owners[table] = targetName
+	}
+	seen := make(map[string]struct{}, len(sharedTables))
+	for _, table := range sharedTables {
+		if strings.TrimSpace(table) == "" {
+			return nil, nil, fmt.Errorf("store: rebuild target %q has an empty shared table", targetName)
+		}
+		if _, duplicate := seen[table]; duplicate {
+			return nil, nil, fmt.Errorf("store: rebuild target %q repeats shared table %q", targetName, table)
+		}
+		seen[table] = struct{}{}
+		if owner, ok := owners[table]; ok {
+			return nil, nil, fmt.Errorf("store: rebuild table %q is both exclusive to %q and shared by %q", table, owner, targetName)
+		}
+		if sharedOwners[table] == nil {
+			sharedOwners[table] = make(map[string]struct{})
+		}
+		sharedOwners[table][targetName] = struct{}{}
+	}
+	return tables, sharedTables, nil
+}
+
+func rebuildTargetTables(target RebuildTarget) []string {
+	return append(slices.Clone(target.Tables), target.SharedTables...)
 }
 
 func claimRebuildValues(

@@ -102,6 +102,45 @@ func ParseCertificateIdentity(cert *x509.Certificate) (Class, string, error) {
 	return class, cert.Subject.CommonName, nil
 }
 
+// RequireDNSAndURISANs rejects certificate SAN encodings that contain any
+// GeneralName kind other than dNSName or uniformResourceIdentifier. Parsed
+// x509 fields omit several GeneralName kinds, so callers enforcing an exact
+// server certificate profile must inspect the raw extension.
+func RequireDNSAndURISANs(cert *x509.Certificate) error {
+	if cert == nil {
+		return fmt.Errorf("identity: nil certificate")
+	}
+	subjectAlternativeNameOID := asn1.ObjectIdentifier{2, 5, 29, 17}
+	found := false
+	for _, extension := range cert.Extensions {
+		if !extension.Id.Equal(subjectAlternativeNameOID) {
+			continue
+		}
+		if found {
+			return fmt.Errorf("identity: certificate contains duplicate subjectAltName extensions")
+		}
+		found = true
+
+		var names []asn1.RawValue
+		rest, err := asn1.Unmarshal(extension.Value, &names)
+		if err != nil || len(rest) != 0 {
+			return fmt.Errorf("identity: certificate subjectAltName extension is malformed")
+		}
+		if len(names) == 0 {
+			return fmt.Errorf("identity: certificate subjectAltName extension is empty")
+		}
+		for _, name := range names {
+			if name.Class != asn1.ClassContextSpecific || name.IsCompound || (name.Tag != 2 && name.Tag != 6) {
+				return fmt.Errorf("identity: certificate subjectAltName contains an unsupported GeneralName")
+			}
+		}
+	}
+	if !found {
+		return fmt.Errorf("identity: certificate subjectAltName extension is missing")
+	}
+	return nil
+}
+
 // RequireCertificateClass rejects cert unless its exact identity profile has
 // the expected class.
 func RequireCertificateClass(cert *x509.Certificate, expected Class) error {

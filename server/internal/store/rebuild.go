@@ -41,11 +41,12 @@ func (s *Store) RebuildAll(ctx context.Context, targetName string) (retErr error
 	}()
 	queries := generated.New(tx)
 
-	closure, err := queries.RebuildTableClosure(ctx, target.Tables)
+	targetTables := rebuildTargetTables(target)
+	closure, err := queries.RebuildTableClosure(ctx, targetTables)
 	if err != nil {
 		return fmt.Errorf("store: inspect rebuild target %q FK closure: %w", targetName, err)
 	}
-	if err := validateRebuildClosure(targetName, target.Tables, closure); err != nil {
+	if err := validateRebuildClosure(targetName, targetTables, closure); err != nil {
 		return err
 	}
 	if err := target.Reset(ctx, projectionTx{DBTX: tx, skipWork: true}); err != nil {

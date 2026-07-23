@@ -18,48 +18,87 @@ func TestPkiServiceShape(t *testing.T) {
 		t.Fatalf("find PkiService: %v", err)
 	}
 	methods := service.Methods()
-	if methods.Len() != 4 {
-		t.Fatalf("PkiService methods = %d; want four lifecycle methods", methods.Len())
+	if methods.Len() != 7 {
+		t.Fatalf("PkiService methods = %d; want seven agent and gateway lifecycle methods", methods.Len())
 	}
-	enroll := methods.ByName("EnrollAgent")
-	renew := methods.ByName("RenewAgent")
-	revoke := methods.ByName("RevokeAgent")
-	forceRenew := methods.ByName("ForceRenewAgent")
-	for _, method := range []protoreflect.MethodDescriptor{enroll, renew, revoke, forceRenew} {
+	enrollAgent := methods.ByName("EnrollAgent")
+	renewAgent := methods.ByName("RenewAgent")
+	revokeAgent := methods.ByName("RevokeAgent")
+	forceRenewAgent := methods.ByName("ForceRenewAgent")
+	enrollGateway := methods.ByName("EnrollGateway")
+	renewGateway := methods.ByName("RenewGateway")
+	revokeGateway := methods.ByName("RevokeGateway")
+	for _, method := range []protoreflect.MethodDescriptor{
+		enrollAgent,
+		renewAgent,
+		revokeAgent,
+		forceRenewAgent,
+		enrollGateway,
+		renewGateway,
+		revokeGateway,
+	} {
 		if method == nil || method.IsStreamingClient() || method.IsStreamingServer() {
 			t.Fatalf("PkiService method = %v; want a unary method", method)
 		}
 	}
 
-	assertMessageFields(t, enroll.Input(), []string{
+	assertMessageFields(t, enrollAgent.Input(), []string{
 		"registration_token",
 		"certificate_signing_request_der",
 		"sealing_public_key",
 	})
-	assertMessageFields(t, enroll.Output(), []string{
+	assertMessageFields(t, enrollAgent.Output(), []string{
 		"certificate_der",
 		"certificate_authority_der",
+		"gateway_certificate_authority_der",
 	})
-	assertStringMaxLen(t, enroll.Input().Fields().ByName("registration_token"), 512)
-	assertBytesBounds(t, enroll.Input().Fields().ByName("certificate_signing_request_der"), 1, 65536)
-	assertBytesLen(t, enroll.Input().Fields().ByName("sealing_public_key"), 32)
-	assertCertificateResponseBounds(t, enroll.Output())
+	assertStringMaxLen(t, enrollAgent.Input().Fields().ByName("registration_token"), 512)
+	assertBytesBounds(t, enrollAgent.Input().Fields().ByName("certificate_signing_request_der"), 1, 65536)
+	assertBytesLen(t, enrollAgent.Input().Fields().ByName("sealing_public_key"), 32)
+	assertCertificateResponseBounds(t, enrollAgent.Output())
+	assertBytesBounds(t, enrollAgent.Output().Fields().ByName("gateway_certificate_authority_der"), 1, 65536)
 
-	assertMessageFields(t, renew.Input(), []string{
+	assertMessageFields(t, renewAgent.Input(), []string{
 		"certificate_der",
 		"certificate_signing_request_der",
 		"sealing_public_key",
 	})
-	assertMessageFields(t, renew.Output(), []string{
+	assertMessageFields(t, renewAgent.Output(), []string{
+		"certificate_der",
+		"certificate_authority_der",
+		"gateway_certificate_authority_der",
+	})
+	assertBytesBounds(t, renewAgent.Input().Fields().ByName("certificate_der"), 1, 65536)
+	assertBytesBounds(t, renewAgent.Input().Fields().ByName("certificate_signing_request_der"), 1, 65536)
+	assertBytesLen(t, renewAgent.Input().Fields().ByName("sealing_public_key"), 32)
+	assertCertificateResponseBounds(t, renewAgent.Output())
+	assertBytesBounds(t, renewAgent.Output().Fields().ByName("gateway_certificate_authority_der"), 1, 65536)
+
+	assertMessageFields(t, enrollGateway.Input(), []string{
+		"registration_token",
+		"certificate_signing_request_der",
+	})
+	assertStringMaxLen(t, enrollGateway.Input().Fields().ByName("registration_token"), 512)
+	assertBytesBounds(t, enrollGateway.Input().Fields().ByName("certificate_signing_request_der"), 1, 65536)
+	assertMessageFields(t, enrollGateway.Output(), []string{
 		"certificate_der",
 		"certificate_authority_der",
 	})
-	assertBytesBounds(t, renew.Input().Fields().ByName("certificate_der"), 1, 65536)
-	assertBytesBounds(t, renew.Input().Fields().ByName("certificate_signing_request_der"), 1, 65536)
-	assertBytesLen(t, renew.Input().Fields().ByName("sealing_public_key"), 32)
-	assertCertificateResponseBounds(t, renew.Output())
+	assertCertificateResponseBounds(t, enrollGateway.Output())
 
-	for _, method := range []protoreflect.MethodDescriptor{revoke, forceRenew} {
+	assertMessageFields(t, renewGateway.Input(), []string{
+		"certificate_der",
+		"certificate_signing_request_der",
+	})
+	assertBytesBounds(t, renewGateway.Input().Fields().ByName("certificate_der"), 1, 65536)
+	assertBytesBounds(t, renewGateway.Input().Fields().ByName("certificate_signing_request_der"), 1, 65536)
+	assertMessageFields(t, renewGateway.Output(), []string{
+		"certificate_der",
+		"certificate_authority_der",
+	})
+	assertCertificateResponseBounds(t, renewGateway.Output())
+
+	for _, method := range []protoreflect.MethodDescriptor{revokeAgent, forceRenewAgent, revokeGateway} {
 		assertMessageFields(t, method.Input(), []string{"certificate_der"})
 		assertBytesBounds(t, method.Input().Fields().ByName("certificate_der"), 1, 65536)
 		assertMessageFields(t, method.Output(), nil)

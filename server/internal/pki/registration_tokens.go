@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	mathrand "math/rand/v2"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -45,11 +46,21 @@ var (
 	dummyRegistrationTokenHash = sha256.Sum256([]byte("power-manage:registration-token:dummy:v1"))
 )
 
+// RegistrationTokenPurpose is the enrollment class authorized by a token.
+type RegistrationTokenPurpose = store.RegistrationTokenPurpose
+
+const (
+	RegistrationTokenPurposeAgent   = store.RegistrationTokenPurposeAgent
+	RegistrationTokenPurposeGateway = store.RegistrationTokenPurposeGateway
+)
+
 // RegistrationTokenOptions are the durable bounds stamped at mint time.
 type RegistrationTokenOptions struct {
+	Purpose   RegistrationTokenPurpose
 	MaxUses   int32
 	ExpiresAt time.Time
 	Owner     string
+	DNSNames  []string
 }
 
 // MintedRegistrationToken is returned once; Token is never persisted.
@@ -60,8 +71,10 @@ type MintedRegistrationToken struct {
 
 // RegistrationTokenGrant carries admission metadata for the future enroll handler.
 type RegistrationTokenGrant struct {
-	TokenID string
-	Owner   string
+	TokenID  string
+	Owner    string
+	Purpose  RegistrationTokenPurpose
+	DNSNames []string
 }
 
 // RegistrationTokens owns hash-only token minting and bounded-use admission.
@@ -120,12 +133,10 @@ func (r *RegistrationTokens) Mint(
 		return MintedRegistrationToken{}, errors.New("pki: registration-token expiry must be in the future")
 	}
 	var zeroHash [sha256.Size]byte
-	if _, err := store.RegistrationTokenMintedEvent(
+	if _, err := registrationTokenMintedEvent(
 		dummyRegistrationTokenID,
 		zeroHash,
-		options.MaxUses,
-		options.ExpiresAt,
-		options.Owner,
+		options,
 	); err != nil {
 		return MintedRegistrationToken{}, fmt.Errorf("pki: validate registration-token options: %w", err)
 	}
@@ -140,12 +151,10 @@ func (r *RegistrationTokens) Mint(
 	}
 	secret := material[registrationTokenEntropyBytes:]
 	hash := sha256.Sum256(secret)
-	event, err := store.RegistrationTokenMintedEvent(
+	event, err := registrationTokenMintedEvent(
 		tokenID,
 		hash,
-		options.MaxUses,
-		options.ExpiresAt,
-		options.Owner,
+		options,
 	)
 	if err != nil {
 		return MintedRegistrationToken{}, fmt.Errorf("pki: create registration-token mint event: %w", err)
@@ -164,12 +173,16 @@ func (r *RegistrationTokens) Consume(
 	ctx context.Context,
 	source string,
 	rawToken string,
+	expectedPurpose RegistrationTokenPurpose,
 ) (RegistrationTokenGrant, error) {
 	if err := r.validateCall(ctx); err != nil {
 		return RegistrationTokenGrant{}, err
 	}
 	if err := validateRegistrationSource(source); err != nil {
 		return RegistrationTokenGrant{}, err
+	}
+	if expectedPurpose != RegistrationTokenPurposeAgent && expectedPurpose != RegistrationTokenPurposeGateway {
+		return RegistrationTokenGrant{}, errors.New("pki: invalid expected registration-token purpose")
 	}
 	startedAt := r.now()
 	if !r.limiter.Allow(source, startedAt) {
@@ -198,6 +211,9 @@ func (r *RegistrationTokens) Consume(
 		if state.Uses >= state.MaxUses {
 			return RegistrationTokenGrant{}, r.reject(ctx, startedAt)
 		}
+		if state.Purpose != expectedPurpose {
+			return RegistrationTokenGrant{}, r.reject(ctx, startedAt)
+		}
 
 		event, err := store.RegistrationTokenConsumedEvent(state.TokenID)
 		if err != nil {
@@ -206,7 +222,12 @@ func (r *RegistrationTokens) Consume(
 		err = r.eventStore.AppendEventWithVersion(ctx, event, state.ProjectionVersion)
 		switch {
 		case err == nil:
-			return RegistrationTokenGrant{TokenID: state.TokenID, Owner: state.Owner}, nil
+			return RegistrationTokenGrant{
+				TokenID:  state.TokenID,
+				Owner:    state.Owner,
+				Purpose:  state.Purpose,
+				DNSNames: slices.Clone(state.DNSNames),
+			}, nil
 		case store.IsVersionConflict(err):
 			// Another caller progressed. Re-read and re-authorize the new state
 			// before submitting another explicit CAS; the stale append is never
@@ -219,6 +240,40 @@ func (r *RegistrationTokens) Consume(
 		}
 	}
 	return RegistrationTokenGrant{}, errors.New("pki: registration-token consume exceeded CAS retry limit")
+}
+
+func registrationTokenMintedEvent(
+	tokenID string,
+	hash [sha256.Size]byte,
+	options RegistrationTokenOptions,
+) (store.Event, error) {
+	switch options.Purpose {
+	case RegistrationTokenPurposeAgent:
+		if len(options.DNSNames) != 0 {
+			return store.Event{}, errors.New("pki: agent registration token must not contain DNS names")
+		}
+		return store.RegistrationTokenMintedEvent(
+			tokenID,
+			hash,
+			options.MaxUses,
+			options.ExpiresAt,
+			options.Owner,
+		)
+	case RegistrationTokenPurposeGateway:
+		if len(options.DNSNames) == 0 {
+			return store.Event{}, errors.New("pki: gateway registration token must contain at least one DNS name")
+		}
+		return store.GatewayRegistrationTokenMintedEvent(
+			tokenID,
+			hash,
+			options.MaxUses,
+			options.ExpiresAt,
+			options.Owner,
+			options.DNSNames,
+		)
+	default:
+		return store.Event{}, errors.New("pki: registration-token purpose is invalid")
+	}
 }
 
 // Disable durably and idempotently activates one token's kill switch.

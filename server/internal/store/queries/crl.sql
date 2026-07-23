@@ -31,6 +31,10 @@ ORDER BY revoked_at, certificate_fingerprint;
 DELETE FROM certificate_revocations
 WHERE certificate_class = 'agent';
 
+-- name: ResetGatewayCertificateRevocations :exec
+DELETE FROM certificate_revocations
+WHERE certificate_class = 'gateway';
+
 -- name: GetCRLState :one
 SELECT certificate_class, sequence, crl_der, issued_at,
        source_stream_type, source_stream_id, source_stream_version

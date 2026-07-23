@@ -54,27 +54,43 @@ func (i *CRLIssuer) WorkHandlers() map[string]store.WorkHandler {
 	if i == nil {
 		return nil
 	}
-	return map[string]store.WorkHandler{store.PublishAgentCRLWorkKind: i.HandleAgentCRLWork}
+	return map[string]store.WorkHandler{
+		store.PublishAgentCRLWorkKind:   i.HandleAgentCRLWork,
+		store.PublishGatewayCRLWorkKind: i.HandleGatewayCRLWork,
+	}
 }
 
 // HandleAgentCRLWork validates durable work before issuing an agent CRL.
 func (i *CRLIssuer) HandleAgentCRLWork(ctx context.Context, item store.WorkItem) error {
+	return i.handleCRLWork(ctx, item, store.PublishAgentCRLWorkKind, "device", "agent", store.CertificateClassAgent)
+}
+
+// HandleGatewayCRLWork validates durable work before issuing a gateway CRL.
+func (i *CRLIssuer) HandleGatewayCRLWork(ctx context.Context, item store.WorkItem) error {
+	return i.handleCRLWork(ctx, item, store.PublishGatewayCRLWorkKind, "gateway", "gateway", store.CertificateClassGateway)
+}
+
+func (i *CRLIssuer) handleCRLWork(
+	ctx context.Context,
+	item store.WorkItem,
+	wantKind string,
+	wantStreamType string,
+	workClass string,
+	certificateClass store.CertificateClass,
+) error {
 	if err := i.validateWiring(); err != nil {
 		return err
 	}
 	if ctx == nil {
-		return errors.New("pki: nil agent CRL work context")
+		return fmt.Errorf("pki: nil %s CRL work context", workClass)
 	}
-	if item.Kind != store.PublishAgentCRLWorkKind || item.PayloadVersion != 1 || !bytes.Equal(item.Payload, []byte(`{}`)) ||
-		item.SourceStreamType != "device" || !identity.IsCanonicalULID(item.SourceStreamID) || item.SourceStreamVersion < 2 {
-		return errors.New("pki: invalid agent CRL work item")
+	if item.Kind != wantKind || item.PayloadVersion != 1 || !bytes.Equal(item.Payload, []byte(`{}`)) ||
+		item.SourceStreamType != wantStreamType || !identity.IsCanonicalULID(item.SourceStreamID) || item.SourceStreamVersion < 2 {
+		return fmt.Errorf("pki: invalid %s CRL work item", workClass)
 	}
-	source := store.CRLSource{
-		StreamType:    item.SourceStreamType,
-		StreamID:      item.SourceStreamID,
-		StreamVersion: item.SourceStreamVersion,
-	}
-	_, err := i.issue(ctx, store.CertificateClassAgent, source)
+	_, err := i.issue(ctx, certificateClass, store.CRLSource{
+		StreamType: item.SourceStreamType, StreamID: item.SourceStreamID, StreamVersion: item.SourceStreamVersion,
+	})
 	return err
 }
 

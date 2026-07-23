@@ -59,6 +59,9 @@ func TestClient_RenewReusesSigningKeyRotatesSealingAndAtomicallyReplaces(t *test
 	if !bytes.Equal(fixture.store.bundle.CertificateAuthorityDER, fixture.ca.Raw) || fixture.store.bundle.DeviceID != enrolledClientDeviceID {
 		t.Fatal("replacement changed the enrolled CA or device identity")
 	}
+	if !bytes.Equal(fixture.store.bundle.GatewayCertificateAuthorityDER, fixture.gatewayCA.Raw) {
+		t.Fatal("replacement changed the enrolled gateway trust anchor")
+	}
 }
 
 func TestClient_RenewReusesPendingSealingKeyAfterRemoteFailure(t *testing.T) {
@@ -100,6 +103,12 @@ func TestClient_RenewRefusesResponseSubstitutionBeforeReplacement(t *testing.T) 
 			handler.ca = otherCA
 			handler.caSigner = otherSigner
 		}, want: "differs from enrolled authority"},
+		{name: "different gateway CA", mutate: func(t *testing.T, handler *renewalClientHandler) {
+			handler.gatewayCA, _ = newClientTestCA(t)
+		}, want: "gateway certificate authority differs"},
+		{name: "malformed gateway CA", mutate: func(_ *testing.T, handler *renewalClientHandler) {
+			handler.responseGatewayCA = []byte("bad")
+		}, want: "gateway certificate authority"},
 		{name: "malformed certificate", mutate: func(_ *testing.T, handler *renewalClientHandler) { handler.responseCertificate = []byte("bad") }, want: "parse issued certificate"},
 	}
 	for _, test := range tests {
@@ -113,6 +122,7 @@ func TestClient_RenewRefusesResponseSubstitutionBeforeReplacement(t *testing.T) 
 			}
 			if fixture.store.replaceCalls != 0 || !bytes.Equal(fixture.store.bundle.CertificateDER, before.CertificateDER) ||
 				!bytes.Equal(fixture.store.bundle.CertificateAuthorityDER, before.CertificateAuthorityDER) ||
+				!bytes.Equal(fixture.store.bundle.GatewayCertificateAuthorityDER, before.GatewayCertificateAuthorityDER) ||
 				fixture.store.bundle.PrivateKey != before.PrivateKey || fixture.store.bundle.SealingPrivateKey != before.SealingPrivateKey {
 				t.Fatal("rejected renewal changed stored credentials")
 			}
@@ -125,6 +135,7 @@ type renewalClientFixture struct {
 	store                 *capturingCredentialStore
 	handler               *renewalClientHandler
 	ca                    *x509.Certificate
+	gatewayCA             *x509.Certificate
 	currentCertificateDER []byte
 }
 
@@ -136,6 +147,8 @@ type renewalClientHandler struct {
 	class               identity.Class
 	deviceID            string
 	responseCA          []byte
+	gatewayCA           *x509.Certificate
+	responseGatewayCA   []byte
 	responseCertificate []byte
 	substituteKey       bool
 	omitClientAuth      bool
@@ -148,6 +161,7 @@ type renewalClientHandler struct {
 func newRenewalClientFixture(t *testing.T) renewalClientFixture {
 	t.Helper()
 	ca, caSigner := newClientTestCA(t)
+	gatewayCA, _ := newClientTestCA(t)
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		t.Fatalf("generate current mTLS key: %v", err)
@@ -159,13 +173,14 @@ func newRenewalClientFixture(t *testing.T) renewalClientFixture {
 	now := time.Now().UTC().Truncate(time.Second)
 	currentCertificateDER := newRenewalClientCertificate(t, ca, caSigner, privateKey.Public(), identity.AgentClass, enrolledClientDeviceID, now, 17)
 	store := &capturingCredentialStore{bundle: CredentialBundle{
-		DeviceID:                enrolledClientDeviceID,
-		CertificateDER:          currentCertificateDER,
-		CertificateAuthorityDER: bytes.Clone(ca.Raw),
-		PrivateKey:              privateKey,
-		SealingPrivateKey:       sealingKey,
+		DeviceID:                       enrolledClientDeviceID,
+		CertificateDER:                 currentCertificateDER,
+		CertificateAuthorityDER:        bytes.Clone(ca.Raw),
+		GatewayCertificateAuthorityDER: bytes.Clone(gatewayCA.Raw),
+		PrivateKey:                     privateKey,
+		SealingPrivateKey:              sealingKey,
 	}}
-	handler := &renewalClientHandler{ca: ca, caSigner: caSigner, class: identity.AgentClass, deviceID: enrolledClientDeviceID}
+	handler := &renewalClientHandler{ca: ca, caSigner: caSigner, gatewayCA: gatewayCA, class: identity.AgentClass, deviceID: enrolledClientDeviceID}
 	path, httpHandler := powermanagev1connect.NewPkiServiceHandler(handler)
 	mux := http.NewServeMux()
 	mux.Handle(path, httpHandler)
@@ -176,7 +191,7 @@ func newRenewalClientFixture(t *testing.T) renewalClientFixture {
 		t.Fatalf("NewClient: %v", err)
 	}
 	client.now = func() time.Time { return now }
-	return renewalClientFixture{client: client, store: store, handler: handler, ca: ca, currentCertificateDER: currentCertificateDER}
+	return renewalClientFixture{client: client, store: store, handler: handler, ca: ca, gatewayCA: gatewayCA, currentCertificateDER: currentCertificateDER}
 }
 
 func (h *renewalClientHandler) EnrollAgent(context.Context, *connect.Request[powermanagev1.EnrollAgentRequest]) (*connect.Response[powermanagev1.EnrollAgentResponse], error) {
@@ -216,9 +231,17 @@ func (h *renewalClientHandler) RenewAgent(_ context.Context, request *connect.Re
 		return nil, connect.NewError(connect.CodeUnavailable, errors.New("response lost after issuance"))
 	}
 	return connect.NewResponse(&powermanagev1.RenewAgentResponse{
-		CertificateDer:          certificateDER,
-		CertificateAuthorityDer: caDER,
+		CertificateDer:                 certificateDER,
+		CertificateAuthorityDer:        caDER,
+		GatewayCertificateAuthorityDer: h.gatewayCertificateAuthorityDER(),
 	}), nil
+}
+
+func (h *renewalClientHandler) gatewayCertificateAuthorityDER() []byte {
+	if h.responseGatewayCA != nil {
+		return h.responseGatewayCA
+	}
+	return h.gatewayCA.Raw
 }
 
 func newRenewalClientCertificateForHandler(h *renewalClientHandler, publicKey crypto.PublicKey) ([]byte, error) {

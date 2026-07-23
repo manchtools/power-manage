@@ -121,6 +121,12 @@ Minimum prior knowledge, restated:
   - rate-limited 5/min on BOTH sides (device socket and server);
   - trust-on-first-use for the CA, with an optional out-of-band
     CA-fingerprint pin;
+  <!-- docref: begin src=contract/proto/powermanage/v1/pki.proto#EnrollAgentResponse.gateway_certificate_authority_der:d2abc1d1,contract/proto/powermanage/v1/pki.proto#RenewAgentResponse.gateway_certificate_authority_der:d2abc1d1,agent/internal/enroll/client.go#Client.Enroll:f7977f41,agent/internal/enroll/client.go#Client.Renew:b6d3352e -->
+  - enrollment and renewal deliver the distinct gateway CA alongside the
+    agent issuing CA. The agent validates and persists both trust anchors so
+    gateway TLS verification uses only the enrolled gateway CA, never system
+    roots.
+  <!-- docref: end -->
   - the token is read from stdin (prompt on a TTY, pipe otherwise) or
     `--token-file` ONLY. No argv token flag exists anywhere in the
     install/enroll flow.
