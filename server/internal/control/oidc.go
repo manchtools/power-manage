@@ -77,7 +77,7 @@ func (s *SessionService) StartOidcSession(
 func (s *SessionService) CompleteOidcSession(
 	ctx context.Context,
 	request *connect.Request[powermanagev1.CompleteOidcSessionRequest],
-) (*connect.Response[powermanagev1.RefreshSessionResponse], error) {
+) (*connect.Response[powermanagev1.CompleteOidcSessionResponse], error) {
 	if err := s.validateOIDCWiring(); err != nil {
 		return nil, connect.NewError(connect.CodeUnavailable, errOIDCUnavailable)
 	}
@@ -99,7 +99,7 @@ func (s *SessionService) CompleteOidcSession(
 	tokens, completeErr := s.oidc.Complete(ctx, state, request.Msg.GetCode())
 	switch {
 	case completeErr == nil:
-		return connect.NewResponse(&powermanagev1.RefreshSessionResponse{
+		return connect.NewResponse(&powermanagev1.CompleteOidcSessionResponse{
 			AccessToken:  tokens.AccessToken,
 			RefreshToken: tokens.RefreshToken,
 		}), nil

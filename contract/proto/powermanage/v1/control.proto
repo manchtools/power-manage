@@ -12,7 +12,7 @@ option go_package = "github.com/manchtools/power-manage/contract/gen/go/powerman
 service ControlService {
   rpc RefreshSession(RefreshSessionRequest) returns (RefreshSessionResponse);
   rpc StartOidcSession(StartOidcSessionRequest) returns (StartOidcSessionResponse);
-  rpc CompleteOidcSession(CompleteOidcSessionRequest) returns (RefreshSessionResponse);
+  rpc CompleteOidcSession(CompleteOidcSessionRequest) returns (CompleteOidcSessionResponse);
 }
 
 message RefreshSessionRequest {
@@ -60,5 +60,16 @@ message CompleteOidcSessionRequest {
   string code = 2 [(buf.validate.field).string = {
     min_len: 1
     max_len: 4096
+  }];
+}
+
+message CompleteOidcSessionResponse {
+  string access_token = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 8192
+  }];
+  string refresh_token = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 8192
   }];
 }

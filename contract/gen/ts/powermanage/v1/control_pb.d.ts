@@ -110,6 +110,27 @@ export declare type CompleteOidcSessionRequest = Message<"powermanage.v1.Complet
 export declare const CompleteOidcSessionRequestSchema: GenMessage<CompleteOidcSessionRequest>;
 
 /**
+ * @generated from message powermanage.v1.CompleteOidcSessionResponse
+ */
+export declare type CompleteOidcSessionResponse = Message<"powermanage.v1.CompleteOidcSessionResponse"> & {
+  /**
+   * @generated from field: string access_token = 1;
+   */
+  accessToken: string;
+
+  /**
+   * @generated from field: string refresh_token = 2;
+   */
+  refreshToken: string;
+};
+
+/**
+ * Describes the message powermanage.v1.CompleteOidcSessionResponse.
+ * Use `create(CompleteOidcSessionResponseSchema)` to create a new message.
+ */
+export declare const CompleteOidcSessionResponseSchema: GenMessage<CompleteOidcSessionResponse>;
+
+/**
  * @generated from service powermanage.v1.ControlService
  */
 export declare const ControlService: GenService<{
@@ -135,7 +156,7 @@ export declare const ControlService: GenService<{
   completeOidcSession: {
     methodKind: "unary";
     input: typeof CompleteOidcSessionRequestSchema;
-    output: typeof RefreshSessionResponseSchema;
+    output: typeof CompleteOidcSessionResponseSchema;
   },
 }>;
 

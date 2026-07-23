@@ -25,7 +25,7 @@ func TestControlServiceOIDCShape(t *testing.T) {
 		},
 		"CompleteOidcSession": {
 			"powermanage.v1.CompleteOidcSessionRequest",
-			"powermanage.v1.RefreshSessionResponse",
+			"powermanage.v1.CompleteOidcSessionResponse",
 		},
 	}
 	var names []string

@@ -270,6 +270,58 @@ func (x *CompleteOidcSessionRequest) GetCode() string {
 	return ""
 }
 
+type CompleteOidcSessionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AccessToken   string                 `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
+	RefreshToken  string                 `protobuf:"bytes,2,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CompleteOidcSessionResponse) Reset() {
+	*x = CompleteOidcSessionResponse{}
+	mi := &file_powermanage_v1_control_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompleteOidcSessionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompleteOidcSessionResponse) ProtoMessage() {}
+
+func (x *CompleteOidcSessionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_v1_control_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CompleteOidcSessionResponse.ProtoReflect.Descriptor instead.
+func (*CompleteOidcSessionResponse) Descriptor() ([]byte, []int) {
+	return file_powermanage_v1_control_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *CompleteOidcSessionResponse) GetAccessToken() string {
+	if x != nil {
+		return x.AccessToken
+	}
+	return ""
+}
+
+func (x *CompleteOidcSessionResponse) GetRefreshToken() string {
+	if x != nil {
+		return x.RefreshToken
+	}
+	return ""
+}
+
 var File_powermanage_v1_control_proto protoreflect.FileDescriptor
 
 const file_powermanage_v1_control_proto_rawDesc = "" +
@@ -294,11 +346,16 @@ const file_powermanage_v1_control_proto_rawDesc = "" +
 	"\x05state\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x02R\x05state\x12\x1e\n" +
 	"\x04code\x18\x02 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80 R\x04code2\xc3\x02\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80 R\x04code\"}\n" +
+	"\x1bCompleteOidcSessionResponse\x12-\n" +
+	"\faccess_token\x18\x01 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80@R\vaccessToken\x12/\n" +
+	"\rrefresh_token\x18\x02 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80@R\frefreshToken2\xc8\x02\n" +
 	"\x0eControlService\x12_\n" +
 	"\x0eRefreshSession\x12%.powermanage.v1.RefreshSessionRequest\x1a&.powermanage.v1.RefreshSessionResponse\x12e\n" +
-	"\x10StartOidcSession\x12'.powermanage.v1.StartOidcSessionRequest\x1a(.powermanage.v1.StartOidcSessionResponse\x12i\n" +
-	"\x13CompleteOidcSession\x12*.powermanage.v1.CompleteOidcSessionRequest\x1a&.powermanage.v1.RefreshSessionResponseBQZOgithub.com/manchtools/power-manage/contract/gen/go/powermanage/v1;powermanagev1b\x06proto3"
+	"\x10StartOidcSession\x12'.powermanage.v1.StartOidcSessionRequest\x1a(.powermanage.v1.StartOidcSessionResponse\x12n\n" +
+	"\x13CompleteOidcSession\x12*.powermanage.v1.CompleteOidcSessionRequest\x1a+.powermanage.v1.CompleteOidcSessionResponseBQZOgithub.com/manchtools/power-manage/contract/gen/go/powermanage/v1;powermanagev1b\x06proto3"
 
 var (
 	file_powermanage_v1_control_proto_rawDescOnce sync.Once
@@ -312,13 +369,14 @@ func file_powermanage_v1_control_proto_rawDescGZIP() []byte {
 	return file_powermanage_v1_control_proto_rawDescData
 }
 
-var file_powermanage_v1_control_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_powermanage_v1_control_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_powermanage_v1_control_proto_goTypes = []any{
-	(*RefreshSessionRequest)(nil),      // 0: powermanage.v1.RefreshSessionRequest
-	(*RefreshSessionResponse)(nil),     // 1: powermanage.v1.RefreshSessionResponse
-	(*StartOidcSessionRequest)(nil),    // 2: powermanage.v1.StartOidcSessionRequest
-	(*StartOidcSessionResponse)(nil),   // 3: powermanage.v1.StartOidcSessionResponse
-	(*CompleteOidcSessionRequest)(nil), // 4: powermanage.v1.CompleteOidcSessionRequest
+	(*RefreshSessionRequest)(nil),       // 0: powermanage.v1.RefreshSessionRequest
+	(*RefreshSessionResponse)(nil),      // 1: powermanage.v1.RefreshSessionResponse
+	(*StartOidcSessionRequest)(nil),     // 2: powermanage.v1.StartOidcSessionRequest
+	(*StartOidcSessionResponse)(nil),    // 3: powermanage.v1.StartOidcSessionResponse
+	(*CompleteOidcSessionRequest)(nil),  // 4: powermanage.v1.CompleteOidcSessionRequest
+	(*CompleteOidcSessionResponse)(nil), // 5: powermanage.v1.CompleteOidcSessionResponse
 }
 var file_powermanage_v1_control_proto_depIdxs = []int32{
 	0, // 0: powermanage.v1.ControlService.RefreshSession:input_type -> powermanage.v1.RefreshSessionRequest
@@ -326,7 +384,7 @@ var file_powermanage_v1_control_proto_depIdxs = []int32{
 	4, // 2: powermanage.v1.ControlService.CompleteOidcSession:input_type -> powermanage.v1.CompleteOidcSessionRequest
 	1, // 3: powermanage.v1.ControlService.RefreshSession:output_type -> powermanage.v1.RefreshSessionResponse
 	3, // 4: powermanage.v1.ControlService.StartOidcSession:output_type -> powermanage.v1.StartOidcSessionResponse
-	1, // 5: powermanage.v1.ControlService.CompleteOidcSession:output_type -> powermanage.v1.RefreshSessionResponse
+	5, // 5: powermanage.v1.ControlService.CompleteOidcSession:output_type -> powermanage.v1.CompleteOidcSessionResponse
 	3, // [3:6] is the sub-list for method output_type
 	0, // [0:3] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
@@ -345,7 +403,7 @@ func file_powermanage_v1_control_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_powermanage_v1_control_proto_rawDesc), len(file_powermanage_v1_control_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
