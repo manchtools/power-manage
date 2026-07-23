@@ -30,6 +30,7 @@ var (
 // SessionService implements public refresh-token rotation for ControlService.
 type SessionService struct {
 	refresh          *auth.RefreshService
+	oidc             *auth.OIDCService
 	failureLadder    *auth.FailureLadder
 	clientIPResolver *auth.ClientIPResolver
 	now              func() time.Time
@@ -41,15 +42,42 @@ func NewSessionService(
 	trustedProxies []netip.Prefix,
 	now func() time.Time,
 ) (*SessionService, error) {
+	return newSessionService(refresh, nil, trustedProxies, now)
+}
+
+// NewSessionServiceWithOIDC validates both public session boundaries.
+func NewSessionServiceWithOIDC(
+	refresh *auth.RefreshService,
+	oidc *auth.OIDCService,
+	trustedProxies []netip.Prefix,
+	now func() time.Time,
+) (*SessionService, error) {
+	if oidc == nil || oidc.ValidateWiring() != nil {
+		return nil, errors.New("control: oidc service is not wired")
+	}
+	return newSessionService(refresh, oidc, trustedProxies, now)
+}
+
+func newSessionService(
+	refresh *auth.RefreshService,
+	oidc *auth.OIDCService,
+	trustedProxies []netip.Prefix,
+	now func() time.Time,
+) (*SessionService, error) {
 	if refresh == nil || refresh.ValidateWiring() != nil {
 		return nil, errors.New("control: refresh service is not wired")
 	}
 	if now == nil {
 		return nil, errors.New("control: session clock is not wired")
 	}
-	failureLadder, err := auth.NewFailureLadder(map[string]auth.RateLimitPolicy{
+	policies := map[string]auth.RateLimitPolicy{
 		powermanagev1connect.ControlServiceRefreshSessionProcedure: refreshRateLimitPolicy(),
-	})
+	}
+	if oidc != nil {
+		policies[powermanagev1connect.ControlServiceStartOidcSessionProcedure] = oidcRateLimitPolicy()
+		policies[powermanagev1connect.ControlServiceCompleteOidcSessionProcedure] = oidcRateLimitPolicy()
+	}
+	failureLadder, err := auth.NewFailureLadder(policies)
 	if err != nil {
 		return nil, fmt.Errorf("control: create refresh failure ladder: %w", err)
 	}
@@ -59,6 +87,7 @@ func NewSessionService(
 	}
 	return &SessionService{
 		refresh:          refresh,
+		oidc:             oidc,
 		failureLadder:    failureLadder,
 		clientIPResolver: clientIPResolver,
 		now:              now,

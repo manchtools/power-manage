@@ -593,7 +593,7 @@ func TestGuard_SignatureDomains(t *testing.T) {
 	// verifies commands and signs results; auth alone owns JWT's JOSE-specific
 	// raw ECDSA encoding (AUTH-1, SPEC-007).
 	var scanViolations []string
-	sites := Discover(t, "server/agent signature chokepoints", 6, func() ([]SignatureSite, error) {
+	sites := Discover(t, "server/agent signature chokepoints", 8, func() ([]SignatureSite, error) {
 		sites, violations, err := ScanSignatureSites(archtestRepoRoot(t))
 		scanViolations = violations
 		return sites, err
@@ -602,18 +602,21 @@ func TestGuard_SignatureDomains(t *testing.T) {
 		t.Errorf("%s — call contract/sign directly only from the approved owning chokepoint (GUARD-006-2, SPEC-006)", violation)
 	}
 	requireSignatureSiteSet(t, sites, map[string]signatureSiteWant{
-		"SignCommand":   {file: "server/internal/pki/authorities.go", function: "Authorities.SignCommand"},
-		"VerifyResult":  {file: "server/internal/pki/authorities.go", function: "DERResultVerifier.VerifyResult"},
-		"VerifyCommand": {file: "agent/internal/signing/signing.go", function: "Profile.VerifyCommand"},
-		"SignResult":    {file: "agent/internal/signing/signing.go", function: "Profile.SignResult"},
-		"ecdsa.Sign":    {file: "server/internal/auth/tokens.go", function: "Signer.mint"},
-		"ecdsa.Verify":  {file: "server/internal/auth/tokens.go", function: "Verifier.verify"},
+		"SignCommand":          {file: "server/internal/pki/authorities.go", function: "Authorities.SignCommand"},
+		"VerifyResult":         {file: "server/internal/pki/authorities.go", function: "DERResultVerifier.VerifyResult"},
+		"VerifyCommand":        {file: "agent/internal/signing/signing.go", function: "Profile.VerifyCommand"},
+		"SignResult":           {file: "agent/internal/signing/signing.go", function: "Profile.SignResult"},
+		"ecdsa.Sign":           {file: "server/internal/auth/tokens.go", function: "Signer.mint"},
+		"session ecdsa verify": {operation: "ecdsa.Verify", file: "server/internal/auth/tokens.go", function: "Verifier.verify"},
+		"oidc ecdsa verify":    {operation: "ecdsa.Verify", file: "server/internal/auth/oidc.go", function: "verifyOIDCSignature"},
+		"oidc rsa verify":      {operation: "rsa.VerifyPKCS1v15", file: "server/internal/auth/oidc.go", function: "verifyOIDCSignature"},
 	})
 }
 
 type signatureSiteWant struct {
-	file     string
-	function string
+	operation string
+	file      string
+	function  string
 }
 
 // TestSignatureSiteScan_Liveness exercises the GUARD-006-2 matcher's threat
@@ -723,23 +726,33 @@ func TestSignatureSiteScan_Liveness(t *testing.T) {
 func requireSignatureSiteSet(t *testing.T, got []SignatureSite, want map[string]signatureSiteWant) {
 	t.Helper()
 	if len(got) != len(want) {
-		t.Fatalf("signature sites = %v, want exactly one owning site for each of %v", got, want)
+		t.Fatalf("signature sites = %v, want exact owning sites %v", got, want)
 	}
-	seen := make(map[string]int, len(got))
+	expectedSites := make(map[SignatureSite]string, len(want))
+	for label, expected := range want {
+		operation := expected.operation
+		if operation == "" {
+			operation = label
+		}
+		expectedSites[SignatureSite{
+			Operation: operation,
+			File:      expected.file,
+			Function:  expected.function,
+		}] = label
+	}
+	seen := make(map[SignatureSite]int, len(got))
 	for _, site := range got {
-		seen[site.Operation]++
-		expected, ok := want[site.Operation]
+		site.File = filepath.ToSlash(site.File)
+		seen[site]++
+		_, ok := expectedSites[site]
 		if !ok {
-			t.Errorf("unexpected shared signature operation %q at %s in %s — add no new path without a spec change", site.Operation, site.File, site.Function)
-			continue
-		}
-		if filepath.ToSlash(site.File) != expected.file || site.Function != expected.function {
-			t.Errorf("%s site = %s in %s, want %s in %s — signature custody belongs to the named chokepoint", site.Operation, filepath.ToSlash(site.File), site.Function, expected.file, expected.function)
+			t.Errorf("unexpected signature operation %q at %s in %s — add no new path without a spec change", site.Operation, site.File, site.Function)
 		}
 	}
-	for operation := range want {
-		if seen[operation] != 1 {
-			t.Errorf("%s discovered %d times, want exactly once — missing and duplicate signature paths both fail closed", operation, seen[operation])
+	for site, label := range expectedSites {
+		if seen[site] != 1 {
+			t.Errorf("%s discovered %d times, want exactly once at %s in %s — missing and duplicate signature paths both fail closed",
+				label, seen[site], site.File, site.Function)
 		}
 	}
 }

@@ -3,8 +3,10 @@ package server_test
 import (
 	"fmt"
 	"go/ast"
+	"go/importer"
 	"go/parser"
 	"go/token"
+	"go/types"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -61,32 +63,49 @@ func TestGuard_ProjectionWritesOnlyFromProjectors(t *testing.T) {
 	// These are the only generated projection mutations sanctioned by ES-2;
 	// each owner is the projector or reset function that may call it.
 	allowed := map[string]string{
-		"UpsertInventorySnapshot":            "projectInventorySnapshot",
-		"UpsertInventoryTombstone":           "projectInventoryTombstone",
-		"ResetInventorySnapshots":            "resetInventorySnapshots",
-		"UpsertRegistrationToken":            "projectRegistrationTokenMint",
-		"ProjectRegistrationTokenConsume":    "projectRegistrationTokenConsume",
-		"ProjectRegistrationTokenDisable":    "projectRegistrationTokenDisable",
-		"ResetRegistrationTokens":            "resetRegistrationTokens",
-		"UpsertDeviceEnrollment":             "projectAgentEnrollment",
-		"UpdateDeviceRenewal":                "projectAgentCertificateRenewal",
-		"UpdateDeviceLifecycleState":         "projectAgentLifecycleState",
-		"InsertCertificateRevocation":        "projectCertificateRevocation",
-		"ResetAgentCertificateRevocations":   "resetDevices",
-		"ResetDevices":                       "resetDevices",
-		"UpsertGatewayEnrollment":            "projectGatewayEnrollment",
-		"UpdateGatewayRenewal":               "projectGatewayRenewal",
-		"UpdateGatewayLifecycleState":        "projectGatewayRevocation",
-		"ResetGatewayCertificateRevocations": "resetGateways",
-		"ResetGateways":                      "resetGateways",
+		"UpsertInventorySnapshot":              "projectInventorySnapshot",
+		"UpsertInventoryTombstone":             "projectInventoryTombstone",
+		"ResetInventorySnapshots":              "resetInventorySnapshots",
+		"UpsertRegistrationToken":              "projectRegistrationTokenMint",
+		"ProjectRegistrationTokenConsume":      "projectRegistrationTokenConsume",
+		"ProjectRegistrationTokenDisable":      "projectRegistrationTokenDisable",
+		"ResetRegistrationTokens":              "resetRegistrationTokens",
+		"UpsertDeviceEnrollment":               "projectAgentEnrollment",
+		"UpdateDeviceRenewal":                  "projectAgentCertificateRenewal",
+		"UpdateDeviceLifecycleState":           "projectAgentLifecycleState",
+		"InsertCertificateRevocation":          "projectCertificateRevocation",
+		"ResetAgentCertificateRevocations":     "resetDevices",
+		"ResetDevices":                         "resetDevices",
+		"UpsertGatewayEnrollment":              "projectGatewayEnrollment",
+		"UpdateGatewayRenewal":                 "projectGatewayRenewal",
+		"UpdateGatewayLifecycleState":          "projectGatewayRevocation",
+		"ResetGatewayCertificateRevocations":   "resetGateways",
+		"ResetGateways":                        "resetGateways",
+		"InsertPersonalAccessToken":            "projectPersonalAccessTokenMint",
+		"ProjectPersonalAccessTokenRevocation": "projectPersonalAccessTokenRevocation",
+		"ResetPersonalAccessTokens":            "resetPersonalAccessTokens",
+		"InsertUser":                           "projectUserCreation",
+		"InsertOIDCIdentity":                   "projectOIDCIdentityLink",
+		"AdvanceUserProjectionVersion":         "projectOIDCIdentityLink",
+		"ResetOIDCIdentities":                  "resetUsers",
+		"ResetUsers":                           "resetUsers",
 	}
 	var violations []string
-	guardtest.Discover(t, "projection mutation call sites", 18, func() ([]string, error) {
+	guardtest.Discover(t, "projection mutation call sites", 26, func() ([]string, error) {
 		var discovered int
 		var err error
 		violations, discovered, err = scanProjectionWrites(
 			".",
-			map[string]bool{"certificate_revocations": true, "devices": true, "gateways": true, "inventory_snapshots": true, "registration_tokens": true},
+			map[string]bool{
+				"certificate_revocations": true,
+				"devices":                 true,
+				"gateways":                true,
+				"inventory_snapshots":     true,
+				"oidc_identities":         true,
+				"personal_access_tokens":  true,
+				"registration_tokens":     true,
+				"users":                   true,
+			},
 			allowed,
 		)
 		return make([]string, discovered), err
@@ -115,6 +134,23 @@ func TestProjectionWriteGuard_FixtureDetected(t *testing.T) {
 	}
 	if discovered != 1 || len(violations) != 1 {
 		t.Fatalf("planted projection scan = (%d, %v); want one discovered violation", discovered, violations)
+	}
+}
+
+func TestProjectionWriteGuard_RejectsSameNamedUnrelatedReceiver(t *testing.T) {
+	violations, discovered, err := scanProjectionWrites(
+		"testdata/guards/projection_same_name",
+		map[string]bool{"inventory_snapshots": true},
+		map[string]string{"UpsertInventorySnapshot": "projectInventorySnapshot"},
+	)
+	if err != nil {
+		t.Fatalf("scan same-named mutation fixture: %v", err)
+	}
+	if discovered != 0 ||
+		len(violations) != 1 ||
+		!strings.Contains(violations[0], "does not use the generated query receiver") {
+		t.Fatalf("same-named mutation scan = (%d, %v); want one receiver violation",
+			discovered, violations)
 	}
 }
 
@@ -249,6 +285,7 @@ func countRecognizerCalls(t *testing.T, root string) int {
 var (
 	queryHeaderPattern          = regexp.MustCompile(`(?m)^-- name: ([A-Za-z][A-Za-z0-9_]*)\s+:[a-z]+\s*$`)
 	mutationPattern             = regexp.MustCompile(`(?i)\b(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+(?:"?public"?\.)?"?([a-z_][a-z0-9_]*)"?`)
+	generatedQueryPackage       = "github.com/manchtools/power-manage/server/internal/store/generated"
 	directDatabaseCallAllowlist = map[string]int{
 		// Template-cloned test databases require dynamically named CREATE and
 		// DROP statements. The exact two Exec sites are test infrastructure,
@@ -289,6 +326,7 @@ func scanProjectionWrites(
 
 	discovered := 0
 	seen := make(map[string]int)
+	typeImporter := newProjectionGuardImporter()
 	err = filepath.WalkDir(root, func(filePath string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -312,6 +350,17 @@ func scanProjectionWrites(
 			return err
 		}
 		rel = filepath.ToSlash(rel)
+		typeInfo := &types.Info{
+			Types:      make(map[ast.Expr]types.TypeAndValue),
+			Defs:       make(map[*ast.Ident]types.Object),
+			Uses:       make(map[*ast.Ident]types.Object),
+			Selections: make(map[*ast.SelectorExpr]*types.Selection),
+		}
+		typeConfig := types.Config{
+			Importer: typeImporter,
+			Error:    func(error) {},
+		}
+		_, _ = typeConfig.Check(file.Name.Name, fset, []*ast.File{file}, typeInfo)
 		ast.Inspect(file, func(node ast.Node) bool {
 			literal, ok := node.(*ast.BasicLit)
 			if !ok || literal.Kind != token.STRING {
@@ -346,6 +395,15 @@ func scanProjectionWrites(
 				if !ok {
 					return true
 				}
+				if !isGeneratedQueryReceiver(selector.X, typeInfo) {
+					violations = append(violations, fmt.Sprintf(
+						"%s:%d: same-named mutation %s does not use the generated query receiver",
+						rel,
+						fset.Position(call.Pos()).Line,
+						selector.Sel.Name,
+					))
+					return true
+				}
 				discovered++
 				seen[selector.Sel.Name]++
 				if function.Name.Name != owner {
@@ -368,6 +426,65 @@ func scanProjectionWrites(
 	}
 	sort.Strings(violations)
 	return violations, discovered, nil
+}
+
+func isGeneratedQueryReceiver(
+	expression ast.Expr,
+	info *types.Info,
+) bool {
+	if info == nil {
+		return false
+	}
+	receiverType := info.TypeOf(expression)
+	pointer, ok := receiverType.(*types.Pointer)
+	if !ok {
+		return false
+	}
+	named, ok := pointer.Elem().(*types.Named)
+	if !ok || named.Obj() == nil || named.Obj().Pkg() == nil {
+		return false
+	}
+	return named.Obj().Name() == "Queries" &&
+		named.Obj().Pkg().Path() == generatedQueryPackage
+}
+
+type projectionGuardImporter struct {
+	fallback  types.Importer
+	generated *types.Package
+}
+
+func newProjectionGuardImporter() projectionGuardImporter {
+	pkg := types.NewPackage(generatedQueryPackage, "generated")
+	queriesName := types.NewTypeName(token.NoPos, pkg, "Queries", nil)
+	queries := types.NewNamed(queriesName, types.NewStruct(nil, nil), nil)
+	pkg.Scope().Insert(queriesName)
+	emptyInterface := types.NewInterfaceType(nil, nil)
+	emptyInterface.Complete()
+	parameters := types.NewTuple(types.NewParam(token.NoPos, pkg, "db", emptyInterface))
+	results := types.NewTuple(types.NewParam(
+		token.NoPos,
+		pkg,
+		"",
+		types.NewPointer(queries),
+	))
+	pkg.Scope().Insert(types.NewFunc(
+		token.NoPos,
+		pkg,
+		"New",
+		types.NewSignatureType(nil, nil, nil, parameters, results, false),
+	))
+	pkg.MarkComplete()
+	return projectionGuardImporter{
+		fallback:  importer.Default(),
+		generated: pkg,
+	}
+}
+
+func (i projectionGuardImporter) Import(path string) (*types.Package, error) {
+	if path == generatedQueryPackage {
+		return i.generated, nil
+	}
+	return i.fallback.Import(path)
 }
 
 func projectionMutationQueries(

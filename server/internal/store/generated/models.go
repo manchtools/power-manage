@@ -111,6 +111,25 @@ type InventorySnapshot struct {
 	UpdatedAt         time.Time
 }
 
+type OidcIdentity struct {
+	Issuer            string
+	ExternalSubject   string
+	ProviderSlug      string
+	UserID            string
+	Email             string
+	ProjectionVersion int64
+	UpdatedAt         time.Time
+}
+
+type OidcLoginState struct {
+	StateHash    []byte
+	ProviderSlug string
+	RedirectUri  string
+	Nonce        string
+	CodeVerifier string
+	ExpiresAt    time.Time
+}
+
 type PersonalAccessToken struct {
 	TokenID           string
 	Subject           string
@@ -150,6 +169,13 @@ type RegistrationToken struct {
 	UpdatedAt         time.Time
 	Purpose           string
 	DnsNames          []string
+}
+
+type User struct {
+	UserID            string
+	Email             string
+	ProjectionVersion int64
+	UpdatedAt         time.Time
 }
 
 type WorkItem struct {

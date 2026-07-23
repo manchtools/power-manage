@@ -37,9 +37,11 @@ func ProductionTableClassification() TableClassification {
 			"refresh_families",
 			"refresh_tokens",
 			"registration_tokens",
+			"oidc_identities",
+			"users",
 		},
 		Work:        []string{"work_items"},
-		Operational: []string{"crl_state", "crl_work_receipts", "execution_output_chunks", "execution_outputs"},
+		Operational: []string{"crl_state", "crl_work_receipts", "execution_output_chunks", "execution_outputs", "oidc_login_states"},
 		Migrations:  []string{"goose_db_version"},
 		Exceptions:  []string{"user_encryption_keys"},
 	}

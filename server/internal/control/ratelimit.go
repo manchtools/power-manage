@@ -9,7 +9,9 @@ import (
 )
 
 var publicRateLimitPolicies = map[string]auth.RateLimitPolicy{
+	powermanagev1connect.ControlServiceCompleteOidcSessionProcedure:  oidcRateLimitPolicy(),
 	powermanagev1connect.ControlServiceRefreshSessionProcedure:       refreshRateLimitPolicy(),
+	powermanagev1connect.ControlServiceStartOidcSessionProcedure:     oidcRateLimitPolicy(),
 	powermanagev1connect.PkiServiceEnrollAgentProcedure:              pkiAuthenticationRateLimitPolicy(),
 	powermanagev1connect.PkiServiceRenewAgentProcedure:               pkiAuthenticationRateLimitPolicy(),
 	powermanagev1connect.PkiServiceRevokeAgentProcedure:              pkiAuthenticationRateLimitPolicy(),
@@ -22,6 +24,11 @@ var publicRateLimitPolicies = map[string]auth.RateLimitPolicy{
 }
 
 func refreshRateLimitPolicy() auth.RateLimitPolicy {
+	limit := auth.FailureLimit{Attempts: 5, Window: time.Minute}
+	return auth.RateLimitPolicy{PerIP: limit, PerAccount: limit}
+}
+
+func oidcRateLimitPolicy() auth.RateLimitPolicy {
 	limit := auth.FailureLimit{Attempts: 5, Window: time.Minute}
 	return auth.RateLimitPolicy{PerIP: limit, PerAccount: limit}
 }

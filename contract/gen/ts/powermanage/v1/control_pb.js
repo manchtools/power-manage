@@ -13,7 +13,7 @@ import { file_buf_validate_validate } from "../../buf/validate/validate_pb";
  * Describes the file powermanage/v1/control.proto.
  */
 export const file_powermanage_v1_control = /*@__PURE__*/
-  fileDesc("Chxwb3dlcm1hbmFnZS92MS9jb250cm9sLnByb3RvEg5wb3dlcm1hbmFnZS52MSI6ChVSZWZyZXNoU2Vzc2lvblJlcXVlc3QSIQoNcmVmcmVzaF90b2tlbhgBIAEoCUIKukgHcgUQARiAQCJdChZSZWZyZXNoU2Vzc2lvblJlc3BvbnNlEiAKDGFjY2Vzc190b2tlbhgBIAEoCUIKukgHcgUQARiAQBIhCg1yZWZyZXNoX3Rva2VuGAIgASgJQgq6SAdyBRABGIBAMnEKDkNvbnRyb2xTZXJ2aWNlEl8KDlJlZnJlc2hTZXNzaW9uEiUucG93ZXJtYW5hZ2UudjEuUmVmcmVzaFNlc3Npb25SZXF1ZXN0GiYucG93ZXJtYW5hZ2UudjEuUmVmcmVzaFNlc3Npb25SZXNwb25zZUJRWk9naXRodWIuY29tL21hbmNodG9vbHMvcG93ZXItbWFuYWdlL2NvbnRyYWN0L2dlbi9nby9wb3dlcm1hbmFnZS92MTtwb3dlcm1hbmFnZXYxYgZwcm90bzM", [file_buf_validate_validate]);
+  fileDesc("Chxwb3dlcm1hbmFnZS92MS9jb250cm9sLnByb3RvEg5wb3dlcm1hbmFnZS52MSI6ChVSZWZyZXNoU2Vzc2lvblJlcXVlc3QSIQoNcmVmcmVzaF90b2tlbhgBIAEoCUIKukgHcgUQARiAQCJdChZSZWZyZXNoU2Vzc2lvblJlc3BvbnNlEiAKDGFjY2Vzc190b2tlbhgBIAEoCUIKukgHcgUQARiAQBIhCg1yZWZyZXNoX3Rva2VuGAIgASgJQgq6SAdyBRABGIBAInAKF1N0YXJ0T2lkY1Nlc3Npb25SZXF1ZXN0EjMKDXByb3ZpZGVyX3NsdWcYASABKAlCHLpIGXIXEAEYQDIRXlthLXpdW2EtejAtOS1dKiQSIAoMcmVkaXJlY3RfdXJpGAIgASgJQgq6SAdyBRABGIAQIkEKGFN0YXJ0T2lkY1Nlc3Npb25SZXNwb25zZRIlChFhdXRob3JpemF0aW9uX3VybBgBIAEoCUIKukgHcgUQARiAQCJRChpDb21wbGV0ZU9pZGNTZXNzaW9uUmVxdWVzdBIZCgVzdGF0ZRgBIAEoCUIKukgHcgUQARiAAhIYCgRjb2RlGAIgASgJQgq6SAdyBRABGIAgMsMCCg5Db250cm9sU2VydmljZRJfCg5SZWZyZXNoU2Vzc2lvbhIlLnBvd2VybWFuYWdlLnYxLlJlZnJlc2hTZXNzaW9uUmVxdWVzdBomLnBvd2VybWFuYWdlLnYxLlJlZnJlc2hTZXNzaW9uUmVzcG9uc2USZQoQU3RhcnRPaWRjU2Vzc2lvbhInLnBvd2VybWFuYWdlLnYxLlN0YXJ0T2lkY1Nlc3Npb25SZXF1ZXN0GigucG93ZXJtYW5hZ2UudjEuU3RhcnRPaWRjU2Vzc2lvblJlc3BvbnNlEmkKE0NvbXBsZXRlT2lkY1Nlc3Npb24SKi5wb3dlcm1hbmFnZS52MS5Db21wbGV0ZU9pZGNTZXNzaW9uUmVxdWVzdBomLnBvd2VybWFuYWdlLnYxLlJlZnJlc2hTZXNzaW9uUmVzcG9uc2VCUVpPZ2l0aHViLmNvbS9tYW5jaHRvb2xzL3Bvd2VyLW1hbmFnZS9jb250cmFjdC9nZW4vZ28vcG93ZXJtYW5hZ2UvdjE7cG93ZXJtYW5hZ2V2MWIGcHJvdG8z", [file_buf_validate_validate]);
 
 /**
  * Describes the message powermanage.v1.RefreshSessionRequest.
@@ -28,6 +28,27 @@ export const RefreshSessionRequestSchema = /*@__PURE__*/
  */
 export const RefreshSessionResponseSchema = /*@__PURE__*/
   messageDesc(file_powermanage_v1_control, 1);
+
+/**
+ * Describes the message powermanage.v1.StartOidcSessionRequest.
+ * Use `create(StartOidcSessionRequestSchema)` to create a new message.
+ */
+export const StartOidcSessionRequestSchema = /*@__PURE__*/
+  messageDesc(file_powermanage_v1_control, 2);
+
+/**
+ * Describes the message powermanage.v1.StartOidcSessionResponse.
+ * Use `create(StartOidcSessionResponseSchema)` to create a new message.
+ */
+export const StartOidcSessionResponseSchema = /*@__PURE__*/
+  messageDesc(file_powermanage_v1_control, 3);
+
+/**
+ * Describes the message powermanage.v1.CompleteOidcSessionRequest.
+ * Use `create(CompleteOidcSessionRequestSchema)` to create a new message.
+ */
+export const CompleteOidcSessionRequestSchema = /*@__PURE__*/
+  messageDesc(file_powermanage_v1_control, 4);
 
 /**
  * @generated from service powermanage.v1.ControlService

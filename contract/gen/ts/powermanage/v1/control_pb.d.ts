@@ -52,6 +52,64 @@ export declare type RefreshSessionResponse = Message<"powermanage.v1.RefreshSess
 export declare const RefreshSessionResponseSchema: GenMessage<RefreshSessionResponse>;
 
 /**
+ * @generated from message powermanage.v1.StartOidcSessionRequest
+ */
+export declare type StartOidcSessionRequest = Message<"powermanage.v1.StartOidcSessionRequest"> & {
+  /**
+   * @generated from field: string provider_slug = 1;
+   */
+  providerSlug: string;
+
+  /**
+   * @generated from field: string redirect_uri = 2;
+   */
+  redirectUri: string;
+};
+
+/**
+ * Describes the message powermanage.v1.StartOidcSessionRequest.
+ * Use `create(StartOidcSessionRequestSchema)` to create a new message.
+ */
+export declare const StartOidcSessionRequestSchema: GenMessage<StartOidcSessionRequest>;
+
+/**
+ * @generated from message powermanage.v1.StartOidcSessionResponse
+ */
+export declare type StartOidcSessionResponse = Message<"powermanage.v1.StartOidcSessionResponse"> & {
+  /**
+   * @generated from field: string authorization_url = 1;
+   */
+  authorizationUrl: string;
+};
+
+/**
+ * Describes the message powermanage.v1.StartOidcSessionResponse.
+ * Use `create(StartOidcSessionResponseSchema)` to create a new message.
+ */
+export declare const StartOidcSessionResponseSchema: GenMessage<StartOidcSessionResponse>;
+
+/**
+ * @generated from message powermanage.v1.CompleteOidcSessionRequest
+ */
+export declare type CompleteOidcSessionRequest = Message<"powermanage.v1.CompleteOidcSessionRequest"> & {
+  /**
+   * @generated from field: string state = 1;
+   */
+  state: string;
+
+  /**
+   * @generated from field: string code = 2;
+   */
+  code: string;
+};
+
+/**
+ * Describes the message powermanage.v1.CompleteOidcSessionRequest.
+ * Use `create(CompleteOidcSessionRequestSchema)` to create a new message.
+ */
+export declare const CompleteOidcSessionRequestSchema: GenMessage<CompleteOidcSessionRequest>;
+
+/**
  * @generated from service powermanage.v1.ControlService
  */
 export declare const ControlService: GenService<{
@@ -61,6 +119,22 @@ export declare const ControlService: GenService<{
   refreshSession: {
     methodKind: "unary";
     input: typeof RefreshSessionRequestSchema;
+    output: typeof RefreshSessionResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.StartOidcSession
+   */
+  startOidcSession: {
+    methodKind: "unary";
+    input: typeof StartOidcSessionRequestSchema;
+    output: typeof StartOidcSessionResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.CompleteOidcSession
+   */
+  completeOidcSession: {
+    methodKind: "unary";
+    input: typeof CompleteOidcSessionRequestSchema;
     output: typeof RefreshSessionResponseSchema;
   },
 }>;
