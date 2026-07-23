@@ -194,6 +194,102 @@ Minimum prior knowledge, restated:
   shipped with control, never a hand-run openssl recipe (surfaced in
   SPEC-016 operations).
 
+  Agent and gateway authorities rotate independently. A successor consists of
+  an exactly self-issued and self-signed root plus a transition certificate
+  signed by the current root. The transition certificate has the successor's
+  exact subject, public key, subject-key identifier, CA constraints,
+  path-length constraints, and key usages. Its raw issuer and authority-key
+  identifier bind to the current root; unsupported critical extensions,
+  invalid validity windows, profile drift, and reused authority keys reject.
+  The transition certificate proves one change and is never itself persisted
+  as the new trust anchor, accepted as a general TLS intermediate, or served
+  in peer certificate chains.
+
+  Each certificate class has an independently monotonic, never-reused
+  generation and a monotonic bundle revision within that generation. Every
+  durable state names its exact desired root bundle rather than inferring it
+  from the phase:
+
+  1. `stable` issues from and desires the current root only;
+  2. `trust` still issues from the current root and desires current+successor;
+     migrate is blocked until every consumer has confirmed that exact bundle
+     and every CRL enforcer has acknowledged a published successor-issuer CRL;
+  3. `migrate` issues from the successor, retains both roots and both
+     issuer-scoped CRLs, and returns the old-root-signed transition proof; and
+  4. `retire` begins only after every non-revoked leaf of that class confirms
+     its successor-issued credential, desires successor-only, and retains the
+     predecessor material until every affected consumer confirms pruning.
+
+  `trust → stable` is the only abort: it publishes an old-only bundle at a
+  higher revision and completes only after successor-prune confirmations. A
+  successful abort leaves no abandoned successor signer, proof, or CRL in any
+  usable authority lookup. `retire → stable` normalizes the successor only
+  after predecessor-prune confirmations. Neither an aborted generation nor
+  any acknowledgement from it is reusable. `migrate` cannot abort or skip
+  retirement. Historical events remain append-only. Any invalid transition
+  payload, failed gate, or pre-commit error leaves the durable event version,
+  issuer selection, CRLs, and effective authority snapshot unchanged.
+
+  A root consumer is in every add/prune gate when its durable enrollment row
+  is non-revoked, regardless of connection, live-registry presence, or last
+  contact; revocation is the only exclusion. Control's gateway verifier is an
+  intrinsic consumer. Gateways consume agent roots and enforce agent CRLs.
+  Agents consume gateway roots but do not receive gateway CRLs; control
+  enforces gateway CRLs and records its own root/CRL adoption. A reporter may
+  acknowledge only the root class and issuer-scoped CRL receipt authorized by
+  this closed role matrix.
+
+  CRL state is keyed by certificate class and exact issuer fingerprint. Old-
+  and successor-issued revocations remain on independently monotonic lists
+  signed by their own issuers throughout overlap; identical serial numbers
+  under the old and successor issuers remain independent entries. The
+  successor list must be valid, published, and acknowledged before successor
+  issuance. Under the issuer fence, a receipt is valid exactly when
+  `required_sequence <= receipt_sequence <= current_published_sequence`.
+  Cross-class, cross-issuer, below-baseline, and beyond-published receipts
+  reject.
+
+  Issuance and adoption are distinct durable states. Enrollment and renewal
+  return exact canonical one-or-two-root bundles for both classes with their
+  generation and revision. Each adoption confirmation contains exactly one
+  independently applicable class claim, the exact stored reporter
+  certificate, ordered root fingerprints, an authorized CRL receipt when
+  required, and a domain-separated reporter signature. Unknown, stale,
+  revoked, wrong-key, wrong-generation, and superseded reporters have one
+  anti-enumerating external response class. Exact replay is idempotent.
+
+  A client atomically stores its credential, both effective bundles, their
+  generation/revision tuples, transition proofs, and separate per-class
+  pending confirmations before sending confirmation. Restart retries the
+  exact pending claim. The opposite class advancing does not invalidate it;
+  an authenticated newer generation or higher same-generation revision may
+  supersede it only after complete continuity validation. Fresh enrollment
+  receives the durable desired bundles for the current substate and survives
+  a crash or lost confirmation response after local credential commit by
+  confirming that same identity without another token use or identity row.
+  Gateway renewal publishes its validated successor serving identity before
+  confirmation; confirmation failure leaves that identity active with exact
+  pending state. Retirement is blocked until required claims succeed.
+
+  Enrollment and renewal take shared Postgres transaction fences for both
+  classes in canonical order and retain them through durable commit.
+  Trust-state claims take deduplicated shared fences for the reporter class
+  and claimed class; CRL work takes the issuer-class shared fence. Phase
+  transitions take the exclusive target-class fence. No lock upgrade exists.
+  After fencing, every operation reloads durable generation and phase, selects
+  retry material by verifying stored certificate DER, and commits its event
+  before publishing an immutable local authority snapshot. Commit failure
+  keeps the prior snapshot; a stale process reloads or refuses the operation.
+
+  Rotation phase, public authority material, desired bundles, CRL state, leaf
+  adoption, and consumer confirmations are event-sourced and reconstructible.
+  Boot fails when configured private signers do not match rebuilt public
+  state. The migration report is bounded and cursor-stable, derives issuer
+  identity from stored certificate DER, and distinguishes successor-issued
+  from successor-confirmed. An unavailable remote bundle distributor blocks
+  its dependent transition until SPEC-012 supplies delivery; SPEC-017 owns the
+  real deployment exact-set gate.
+
 ### 3.10 No re-enrollment
 
 - **[AG-18]** There is NO re-enrollment machinery, online or offline. A device
@@ -244,7 +340,15 @@ Minimum prior knowledge, restated:
   connected gateway.
 - **AC-13** On renewal, an agent presented a CA that is neither byte-identical
   to nor cross-signed by its enrolled CA refuses adoption and keeps its
-  current trust anchor.
+  current trust anchor. Agent and gateway classes independently complete the
+  durable stable→trust→migrate→retire→stable graph with exact versioned root
+  bundles, issuer-scoped CRLs, signed adoption confirmations, shared/exclusive
+  cross-process fencing, restart reconstruction, and DER-derived migration
+  reporting. Offline non-revoked consumers block every applicable add, prune,
+  and retirement gate; revoked consumers do not. A lost renewal response
+  reuses exact committed certificate DER even when the class phase
+  subsequently advances. A lost confirmation after local enrollment or
+  renewal commit reuses the exact identity and pending state.
 - **AC-14** Device-signature verification (WIRE-20, SPEC-003) reads its key
   by parsing the stored DER certificate; corrupting the projection row does
   not change the verification outcome.
@@ -300,7 +404,41 @@ neutralizing edit, never a revert), then implement:
 7. **DER-provenance**: projection-corruption test proving verification reads
    stored DER (AC-14).
 8. **Boot fail-closed**: unwired verifier/resolver/signer boot tests (AC-15).
-9. **Deployment E2E gate** (SPEC-017): any change to TLS material, listener
+9. **CA continuity and rotation** (AC-13): the trust-boundary test writer
+   authors every named test below RED before implementation, including the
+   guard. Tests use real TLS and real Postgres where the behavior crosses
+   those boundaries:
+   - `TestClient_RenewAcceptsProofOnlyForNewOrExactPendingRoot`
+   - `TestClient_RenewAdoptsCrossSignedAgentAndGatewayCAsAtomically`
+   - `TestClient_EnrollReceivesExactDualGatewayBundleDuringOverlap`
+   - `TestClient_RenewRejectsInvalidCATransitionWithoutReplacement`
+   - `TestRotationManager_TransitionsAbortNormalizeAndRotateAgain`
+   - `TestRotationManager_ConsumerBundlesGateMigrateAbortAndNormalize`
+   - `TestRenewalHandler_MigrationPhaseIssuesFromSuccessorAndReturnsExactProofs`
+   - `TestClient_RestartRetriesPendingConfirmationBeforeRenewal`
+   - `TestRotationManagers_SharedPostgresFenceDrainsIssuanceThroughCommit`
+   - `TestRotationManagers_CrossClassConsumerFencesBlockTransitionRaces`
+   - `TestCRLIssuer_MigrationPublishesIssuerScopedLists`
+   - `TestCRLDistributor_OverlapSeedsAndPreservesBothIssuers`
+   - `TestCAMigrationReport_PaginatesAndClassifiesFromStoredCertificateDER`
+   - `TestRotationManager_RetireRequiresEveryNonRevokedDeviceMigrated`
+   - `TestRotationManager_RestartRebuildsEveryPhaseAndConfirmationGate`
+   - `TestGatewayClient_RenewsPublishesIdentityBeforeConfirmingTrustState`
+   - `TestGuard_PkiRotationPhasesFencesAndState`
+
+   The rejection test covers every transition-certificate field above,
+   malformed/trailing DER, validity, unchanged-root proof injection, and TLS
+   intermediate misuse without credential replacement. The transition-graph
+   test proves every invalid, gated, and failed pre-commit attempt preserves
+   durable and effective state and that abort removes all usable abandoned
+   material. Consumer-gate tests prove offline non-revoked rows block and
+   revoked rows do not. Renewal retry tests cover current-issued DER committed
+   in `trust` and retried after `migrate`, successor-issued retries, and the
+   mirror gateway cases. Restart tests cover lost confirmation after locally
+   committed fresh enrollment without another token use or identity row.
+   CRL tests use identical serials under both issuers and exercise the exact
+   fenced receipt bounds plus cross-class and cross-issuer rejection.
+10. **Deployment E2E gate** (SPEC-017): any change to TLS material, listener
    wiring, or cert lifecycle boots the REAL compose stack from real
    artifacts. TLS tests reproduce production ownership/modes and image UID
    drops (including root-owned 0600 private keys) — a world-readable test key
@@ -333,6 +471,12 @@ fails):
   the scan must find > 0 verification sites.
 - **GUARD-006-6** Boot fail-closed probes: nil verifier, nil binding
   resolver, nil CRL signer each produce a boot failure (never a logged skip).
+- **GUARD-006-7** Rotation coverage self-discovers every phase constant and
+  every agent/gateway issuance and CRL-signing site. It requires canonical
+  shared/exclusive fences to remain held through event append, exact leaf and
+  consumer confirmation-event coverage, issuer identity in every CRL-state
+  key, and every PkiService method in the public limiter. Every discovery set
+  is matches-zero protected.
 
 ## 8. Historical lessons
 
@@ -398,7 +542,8 @@ Each ends green (vet, staticcheck, full `-race` suite):
    DNS SANs + dual EKU), revoked-gateway halt.
 8. **CA continuity.** Cross-sign adoption rule on the agent, 4-phase rotation
    tooling, live trust-bundle reload, per-device CA-migration report.
-   Deployment E2E gate wired for the whole surface.
+   Typed gateway-stream integration is ready for SPEC-012; the real deployment
+   exact-set E2E gate remains owned by SPEC-017.
 
 ## 10. Out of scope
 
