@@ -189,10 +189,10 @@ func exerciseGatewayRenewalInvalidResponses(t *testing.T) {
 			wantErr string
 			mutate  func(*testing.T, *gatewayRenewalContinuityFixture, *powermanagev1.RenewGatewayResponse)
 		}{
-			{name: "missing agent bundle", wantErr: "agent", mutate: func(_ *testing.T, _ *gatewayRenewalContinuityFixture, response *powermanagev1.RenewGatewayResponse) {
+			{name: "missing agent bundle", wantErr: "missing the agent trust bundle", mutate: func(_ *testing.T, _ *gatewayRenewalContinuityFixture, response *powermanagev1.RenewGatewayResponse) {
 				response.AgentTrustBundle = nil
 			}},
-			{name: "missing gateway bundle", wantErr: "gateway", mutate: func(_ *testing.T, _ *gatewayRenewalContinuityFixture, response *powermanagev1.RenewGatewayResponse) {
+			{name: "missing gateway bundle", wantErr: "missing the gateway trust bundle", mutate: func(_ *testing.T, _ *gatewayRenewalContinuityFixture, response *powermanagev1.RenewGatewayResponse) {
 				response.GatewayTrustBundle = nil
 			}},
 			{name: "missing issued leaf", wantErr: "certificate", mutate: func(_ *testing.T, _ *gatewayRenewalContinuityFixture, response *powermanagev1.RenewGatewayResponse) {

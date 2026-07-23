@@ -97,8 +97,8 @@ branch; after any merge-command error, check remote PR state before retrying.
   binary.
 - **Tags `vYYYY.MM.PP` only on explicit operator instruction** — never tag
   unprompted.
-- Fail closed; validate deserialized state before indexing; validate-then-authorize;
-  no secrets in logs/URLs/errors/argv — full rules load from `.claude/rules/`.
+- Fail closed; validate deserialized state before indexing; discard pooled sessions
+  after uncertain cleanup; no secrets in logs/URLs/errors/argv.
 
 ## Verification honesty
 
@@ -126,11 +126,12 @@ branch; after any merge-command error, check remote PR state before retrying.
   code generation, inspect generated field/method spelling before referencing it;
   when handwritten and generated types differ only by casing, verify each use
   against its receiver type after patching.
-- Build listener-boundary registration keys from `guardtest.ListenerSites`
-  output after the production call sites exist; do not infer receiver syntax.
+- Build guard ownership from production call sites, never inferred receiver
+  syntax; cardinality-changing refactors update exact sets and liveness fixtures.
 - In PostgreSQL migrations, explicitly name table-level constraints so they
   cannot collide with PostgreSQL's `<table>_<column>_check` names for
-  column-level checks; exercise every new migration from an empty database.
+  column-level checks; test empty and populated pre-upgrade states, failing
+  when identity-bearing data cannot be backfilled exactly.
 - Parameterized pgx `Exec` calls carry one SQL statement; split test-fixture
   mutations instead of sending multiple commands through the prepared path.
 - Projection-corruption fixtures must write constraint-valid but semantically
@@ -142,11 +143,10 @@ branch; after any merge-command error, check remote PR state before retrying.
 - Before adding an importable test-support package with dynamic database calls,
   inspect repository static-SQL guards; any necessary exemption must be keyed
   to the exact file and method with a matches-zero-protected call count; blocking fixtures use dedicated connections outside the application pool.
-- Review an uncommitted milestone with
-  `coderabbit review --base main --include-untracked`; plain text is the
-  default in the installed CLI, so do not pass the removed `--plain` or
-  `--type` flags. Re-read this rule immediately before every local review and
-  copy the command literally; conversational summaries are not CLI authority.
+- Review uncommitted work with `coderabbit review --base main --include-untracked`;
+  do not pass removed output flags. Before declaring remote review complete,
+  query unresolved PR threads even when the newest-head check is rate-limited;
+  a head status does not summarize earlier reviews.
 - After editing a shell file containing heredocs, inspect the numbered changed
   region; `bash -n` cannot detect code accidentally swallowed as fixture text.
 - Negative tests assert the intended failure message, never only a nonzero exit.

@@ -18,37 +18,7 @@ func (s *EnrollmentService) ConfirmAgentTrustState(
 	ctx context.Context,
 	request *connect.Request[powermanagev1.ConfirmTrustStateRequest],
 ) (*connect.Response[powermanagev1.ConfirmTrustStateResponse], error) {
-	if s == nil || s.rotationManager == nil || s.eventStore == nil || ctx == nil || request == nil || request.Msg == nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("trust confirmation unavailable"))
-	}
-	confirmation := trustStateConfirmationFromRequest(store.CertificateClassAgent, request.Msg)
-	claimedClass := store.CertificateClass(request.Msg.GetClaimedClass())
-	err := s.rotationManager.withTrustStateFences(ctx, store.CertificateClassAgent, claimedClass, func() error {
-		leaf, consumer, reporterClass, validatedClass, err := s.rotationManager.validateTrustStateConfirmation(ctx, confirmation)
-		if err != nil {
-			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				return err
-			}
-			return ErrTrustStateRejected
-		}
-		if reporterClass != store.CertificateClassAgent || validatedClass != claimedClass {
-			return ErrTrustStateRejected
-		}
-		if leaf != nil {
-			if err := s.eventStore.RecordLeafTrustConfirmation(ctx, *leaf); err != nil {
-				return err
-			}
-			return s.eventStore.AppendEvents(ctx, nil)
-		}
-		if err := s.eventStore.RecordConsumerTrustConfirmation(ctx, *consumer); err != nil {
-			return err
-		}
-		return s.eventStore.AppendEvents(ctx, nil)
-	})
-	if err != nil {
-		return nil, mapTrustConfirmationError(err)
-	}
-	return connect.NewResponse(&powermanagev1.ConfirmTrustStateResponse{}), nil
+	return s.confirmTrustState(ctx, store.CertificateClassAgent, request)
 }
 
 // ConfirmGatewayTrustState accepts signed receipts only from an active gateway certificate.
@@ -56,20 +26,28 @@ func (s *EnrollmentService) ConfirmGatewayTrustState(
 	ctx context.Context,
 	request *connect.Request[powermanagev1.ConfirmTrustStateRequest],
 ) (*connect.Response[powermanagev1.ConfirmTrustStateResponse], error) {
+	return s.confirmTrustState(ctx, store.CertificateClassGateway, request)
+}
+
+func (s *EnrollmentService) confirmTrustState(
+	ctx context.Context,
+	reporterClass store.CertificateClass,
+	request *connect.Request[powermanagev1.ConfirmTrustStateRequest],
+) (*connect.Response[powermanagev1.ConfirmTrustStateResponse], error) {
 	if s == nil || s.rotationManager == nil || s.eventStore == nil || ctx == nil || request == nil || request.Msg == nil {
 		return nil, connect.NewError(connect.CodeInternal, errors.New("trust confirmation unavailable"))
 	}
-	confirmation := trustStateConfirmationFromRequest(store.CertificateClassGateway, request.Msg)
+	confirmation := trustStateConfirmationFromRequest(reporterClass, request.Msg)
 	claimedClass := store.CertificateClass(request.Msg.GetClaimedClass())
-	err := s.rotationManager.withTrustStateFences(ctx, store.CertificateClassGateway, claimedClass, func() error {
-		leaf, consumer, reporterClass, validatedClass, err := s.rotationManager.validateTrustStateConfirmation(ctx, confirmation)
+	err := s.rotationManager.withTrustStateFences(ctx, reporterClass, claimedClass, func() error {
+		leaf, consumer, validatedReporterClass, validatedClass, err := s.rotationManager.validateTrustStateConfirmation(ctx, confirmation)
 		if err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return err
 			}
 			return ErrTrustStateRejected
 		}
-		if reporterClass != store.CertificateClassGateway || validatedClass != claimedClass {
+		if validatedReporterClass != reporterClass || validatedClass != claimedClass {
 			return ErrTrustStateRejected
 		}
 		if leaf != nil {

@@ -28,7 +28,7 @@ AC-1/AC-2/AC-16; GUARD-006-1).
   projection version. Rebuild, golden-event, table-classification, static-SQL,
   and recovery registries expand with the projection.
 <!-- docref: end -->
-<!-- docref: begin src=contract/seal/x25519.go#ValidateX25519PublicKey:8ad04b05,agent/internal/enroll/client.go#Client.Enroll:b528331b,agent/internal/enroll/client.go#validateEnrollmentResponse:b7f812e5,agent/internal/enroll/store.go#FileCredentialStore.Create:0c1160f4,sdk/fsafe/write_new_linux.go#WriteFileNew:e284194b -->
+<!-- docref: begin src=contract/seal/x25519.go#ValidateX25519PublicKey:8ad04b05,agent/internal/enroll/client.go#Client.Enroll:7b2dbd50,agent/internal/enroll/client.go#validateEnrollmentResponse:b7f812e5,agent/internal/enroll/store.go#FileCredentialStore.Create:0c1160f4,sdk/fsafe/write_new_linux.go#WriteFileNew:e284194b -->
 - Add an agent enrollment client that generates the ECDSA P-256 mTLS key and
   X25519 sealing key locally, sends only the CSR/public key, validates the
   returned CA/certificate/profile/key match, applies optional SHA-256 CA

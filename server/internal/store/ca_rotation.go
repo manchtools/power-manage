@@ -495,13 +495,14 @@ func equalByteSlices(first, second [][]byte) bool {
 
 // HasControlTrustConfirmation reports control's exact durable gateway-root receipt.
 func (s *Store) HasControlTrustConfirmation(ctx context.Context, confirmation ControlTrustConfirmation) (bool, error) {
-	if confirmation.ClaimedClass != CertificateClassGateway || confirmation.Generation == 0 || confirmation.Revision == 0 {
+	if confirmation.ClaimedClass != CertificateClassGateway || confirmation.Generation == 0 ||
+		confirmation.Revision == 0 || len(confirmation.RootFingerprints) == 0 ||
+		confirmation.CRLIssuerFingerprint != ([sha256.Size]byte{}) || confirmation.CRLSequence != 0 {
 		return false, errors.New("store: invalid control trust confirmation lookup")
 	}
 	payload := controlTrustConfirmationPayload{
 		ClaimedClass: confirmation.ClaimedClass, Generation: confirmation.Generation, Revision: confirmation.Revision,
 		RootFingerprints: cloneFingerprintBytes(confirmation.RootFingerprints),
-		CRLSequence:      confirmation.CRLSequence,
 	}
 	encoded, err := json.Marshal(payload)
 	if err != nil {

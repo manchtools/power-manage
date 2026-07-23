@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto"
 	"crypto/x509/pkix"
+	"errors"
 	"strings"
 	"sync"
 	"testing"
@@ -55,11 +56,10 @@ func TestRotationManagers_SharedPostgresFenceDrainsIssuanceThroughCommit(t *test
 	go func() {
 		issuanceDone <- fixture.manager.withIssuanceFences(context.Background(), func(agent, gateway AuthoritySnapshot) error {
 			issuanceEntered <- agent
-			<-releaseIssuance
-			return nil
+			return waitForFenceSignal(releaseIssuance)
 		})
 	}()
-	stable := <-issuanceEntered
+	stable := receiveFenceValue(t, issuanceEntered)
 	if stable.Phase != RotationPhaseStable || stable.Generation != 1 {
 		t.Fatalf("fenced issuance snapshot = %+v; want durable stable generation one", stable)
 	}
@@ -76,13 +76,13 @@ func TestRotationManagers_SharedPostgresFenceDrainsIssuanceThroughCommit(t *test
 			fixture.agentSuccessor.signer,
 		)
 	}()
-	<-transitionStarted
+	receiveFenceValue(t, transitionStarted)
 	waitForPostgresAdvisoryWaiters(t, fixture.pool, 1)
 	close(releaseIssuance)
-	if err := <-issuanceDone; err != nil {
+	if err := receiveFenceValue(t, issuanceDone); err != nil {
 		t.Fatalf("complete fenced issuance: %v", err)
 	}
-	if err := <-transitionDone; err != nil {
+	if err := receiveFenceValue(t, transitionDone); err != nil {
 		t.Fatalf("transition after issuance commit: %v", err)
 	}
 
@@ -158,11 +158,10 @@ func TestRotationManagers_CrossClassConsumerFencesBlockTransitionRaces(t *testin
 			go func() {
 				operationDone <- test.operation(context.Background(), fixture.manager, func() error {
 					close(entered)
-					<-release
-					return nil
+					return waitForFenceSignal(release)
 				})
 			}()
-			<-entered
+			receiveFenceValue(t, entered)
 			successor := fixture.successor(test.targetClass)
 			transitionDER := crossSignRotationCA(t, fixture.current(test.targetClass), successor)
 			transitionDone := make(chan error, 1)
@@ -174,13 +173,13 @@ func TestRotationManagers_CrossClassConsumerFencesBlockTransitionRaces(t *testin
 					transitionDER, successor.signer,
 				)
 			}()
-			<-transitionStarted
+			receiveFenceValue(t, transitionStarted)
 			waitForPostgresAdvisoryWaiters(t, fixture.pool, 1)
 			close(release)
-			if err := <-operationDone; err != nil {
+			if err := receiveFenceValue(t, operationDone); err != nil {
 				t.Fatalf("complete shared operation: %v", err)
 			}
-			if err := <-transitionDone; err != nil {
+			if err := receiveFenceValue(t, transitionDone); err != nil {
 				t.Fatalf("transition after shared operation commit: %v", err)
 			}
 		})
@@ -211,11 +210,11 @@ func exerciseRealConfirmationAndCRLWorkFences(t *testing.T) {
 		}()
 		waitForPostgresAdvisoryWaiters(t, fixture.pool, 3)
 		release()
-		if err := <-confirmDone; err != nil {
+		if err := receiveFenceValue(t, confirmDone); err != nil {
 			t.Fatalf("commit real confirmation: %v", err)
 		}
 		for range 2 {
-			if err := <-transitionDone; err != nil {
+			if err := receiveFenceValue(t, transitionDone); err != nil {
 				t.Fatalf("transition after confirmation commit: %v", err)
 			}
 		}
@@ -249,10 +248,10 @@ func exerciseRealConfirmationAndCRLWorkFences(t *testing.T) {
 		}()
 		waitForPostgresAdvisoryWaiters(t, fixture.pool, 2)
 		release()
-		if err := <-workDone; err != nil {
+		if err := receiveFenceValue(t, workDone); err != nil {
 			t.Fatalf("commit real issuer work: %v", err)
 		}
-		if err := <-transitionDone; err != nil {
+		if err := receiveFenceValue(t, transitionDone); err != nil {
 			t.Fatalf("transition after CRL commit: %v", err)
 		}
 		fingerprint := sha256Fingerprint(fixture.agentCurrent.root.Raw)
@@ -324,11 +323,11 @@ func exerciseRealIssuanceRPCFences(t *testing.T) {
 			// are the class transitions blocked by the handler's shared fences.
 			waitForPostgresAdvisoryWaiters(t, fixture.pool, 3)
 			release()
-			if err := <-workDone; err != nil {
+			if err := receiveFenceValue(t, workDone); err != nil {
 				t.Fatalf("real %s work: %v", name, err)
 			}
 			for range 2 {
-				if err := <-transitionDone; err != nil {
+				if err := receiveFenceValue(t, transitionDone); err != nil {
 					t.Fatalf("transition after %s commit: %v", name, err)
 				}
 			}
@@ -389,6 +388,31 @@ func attachFenceManager(t *testing.T, fixture enrollmentHandlerFixture, class st
 	manager.now = fixture.service.now
 	fixture.service.rotationManager = manager
 	return manager, successor
+}
+
+func receiveFenceValue[T any](t *testing.T, values <-chan T) T {
+	t.Helper()
+	timer := time.NewTimer(5 * time.Second)
+	defer timer.Stop()
+	select {
+	case value := <-values:
+		return value
+	case <-timer.C:
+		t.Fatal("timed out waiting for concurrent fence test")
+		var zero T
+		return zero
+	}
+}
+
+func waitForFenceSignal(signal <-chan struct{}) error {
+	timer := time.NewTimer(5 * time.Second)
+	defer timer.Stop()
+	select {
+	case <-signal:
+		return nil
+	case <-timer.C:
+		return errors.New("timed out waiting for concurrent fence-test release")
+	}
 }
 
 func installBlockingCommitTrigger(t *testing.T, pool *pgxpool.Pool, table string, key int64) func() {

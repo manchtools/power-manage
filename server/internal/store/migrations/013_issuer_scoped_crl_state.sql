@@ -4,11 +4,19 @@
 
 -- +goose StatementBegin
 -- docref: begin issuer-scoped-revocation-schema
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM certificate_revocations) THEN
+        RAISE EXCEPTION 'issuer-scoped revocation migration requires empty legacy certificate_revocations';
+    END IF;
+END
+$$;
+
 ALTER TABLE certificate_revocations
 DROP CONSTRAINT certificate_revocations_class_serial_key;
 
 ALTER TABLE certificate_revocations
-ADD COLUMN issuer_identifier bytea NOT NULL DEFAULT '\x00';
+ADD COLUMN issuer_identifier bytea NOT NULL;
 
 ALTER TABLE certificate_revocations
 ADD CONSTRAINT certificate_revocations_issuer_identifier_length_check CHECK (
@@ -30,6 +38,9 @@ ALTER TABLE events ADD CONSTRAINT events_stream_id_check CHECK (
 
 CREATE SEQUENCE events_global_position_seq AS bigint;
 ALTER TABLE events ADD COLUMN global_position bigint;
+-- This V1 clean-break migration deliberately stays transactional: existing
+-- rows are backfilled under stopped writers so failure rolls the schema back
+-- atomically. Concurrent index creation cannot preserve that guarantee.
 WITH ordered_events AS (
     SELECT ctid, row_number() OVER (
         ORDER BY created_at, stream_type, stream_id, stream_version

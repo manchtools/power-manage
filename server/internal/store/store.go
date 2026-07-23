@@ -472,18 +472,18 @@ func (s *Store) WithAdvisoryLocks(ctx context.Context, keys []int64, shared bool
 	defer func() {
 		unlockCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), rollbackTimeout)
 		defer cancel()
-		for index := len(locked) - 1; index >= 0; index-- {
-			var unlocked bool
-			var err error
-			if shared {
-				unlocked, err = queries.ReleaseAdvisoryLockShared(unlockCtx, locked[index])
-			} else {
-				unlocked, err = queries.ReleaseAdvisoryLock(unlockCtx, locked[index])
-			}
-			if err != nil {
-				retErr = errors.Join(retErr, fmt.Errorf("store: release advisory lock: %w", err))
-			} else if !unlocked {
-				retErr = errors.Join(retErr, errors.New("store: advisory lock was not held during release"))
+		release := queries.ReleaseAdvisoryLock
+		if shared {
+			release = queries.ReleaseAdvisoryLockShared
+		}
+		dirty, releaseErr := releaseAdvisoryLocks(unlockCtx, locked, release)
+		retErr = errors.Join(retErr, releaseErr)
+		if dirty {
+			connectionToClose := connection.Hijack()
+			closeCtx, cancelClose := context.WithTimeout(context.Background(), rollbackTimeout)
+			defer cancelClose()
+			if err := connectionToClose.Close(closeCtx); err != nil {
+				retErr = errors.Join(retErr, fmt.Errorf("store: close advisory-lock connection: %w", err))
 			}
 		}
 	}()
@@ -500,6 +500,24 @@ func (s *Store) WithAdvisoryLocks(ctx context.Context, keys []int64, shared bool
 		locked = append(locked, key)
 	}
 	return action()
+}
+
+func releaseAdvisoryLocks(
+	ctx context.Context,
+	locked []int64,
+	release func(context.Context, int64) (bool, error),
+) (dirty bool, retErr error) {
+	for index := len(locked) - 1; index >= 0; index-- {
+		unlocked, err := release(ctx, locked[index])
+		if err != nil {
+			dirty = true
+			retErr = errors.Join(retErr, fmt.Errorf("store: release advisory lock: %w", err))
+		} else if !unlocked {
+			dirty = true
+			retErr = errors.Join(retErr, errors.New("store: advisory lock was not held during release"))
+		}
+	}
+	return dirty, retErr
 }
 
 // IsVersionConflict recognizes the stable error returned by version-pinned appends.

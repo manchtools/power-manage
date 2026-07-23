@@ -77,13 +77,20 @@ func TestGuard_PkiRotationPhasesFencesAndState(t *testing.T) {
 	}) {
 		t.Fatalf("trust confirmation sites = %v; want exact public reporter-class handlers", confirmationSites)
 	}
-	confirmationPersistenceSites := guardtest.Discover(t, "trust confirmation persistence call sites", 4, func() ([]string, error) {
+	confirmationDelegationSites := guardtest.Discover(t, "trust confirmation reporter-class delegations", 2, func() ([]string, error) {
+		return coverage.confirmationDelegationSites, nil
+	})
+	slices.Sort(confirmationDelegationSites)
+	if want := expectedConfirmationDelegationSites(); !slices.Equal(confirmationDelegationSites, want) {
+		t.Fatalf("trust confirmation delegations = %v; want exact reporter-class bindings %v", confirmationDelegationSites, want)
+	}
+	confirmationPersistenceSites := guardtest.Discover(t, "trust confirmation persistence call sites", 2, func() ([]string, error) {
 		return coverage.confirmationPersistenceSites, nil
 	})
 	slices.Sort(confirmationPersistenceSites)
 	wantConfirmationPersistenceSites := expectedConfirmationPersistenceSites()
 	if !slices.Equal(confirmationPersistenceSites, wantConfirmationPersistenceSites) {
-		t.Fatalf("trust confirmation persistence calls = %v; want exact leaf/consumer × reporter-handler set %v",
+		t.Fatalf("trust confirmation persistence calls = %v; want exact shared leaf/consumer set %v",
 			confirmationPersistenceSites, wantConfirmationPersistenceSites)
 	}
 	if !slices.Equal(confirmationEvents, wantConfirmationEvents) {
@@ -124,6 +131,7 @@ type pkiRotationCoverage struct {
 	transitionMethods            []string
 	confirmationEvents           []string
 	confirmationSites            []string
+	confirmationDelegationSites  []string
 	confirmationPersistenceSites []string
 	limitedProcedures            []string
 	violations                   []string
@@ -192,14 +200,14 @@ func assertConfirmationPersistenceGuardDeletion(t *testing.T) {
 	source := `package fixture
 
 func ConfirmAgentTrustState() {
-	withTrustStateFences(func() {
-		RecordLeafTrustConfirmation()
-		RecordConsumerTrustConfirmation()
-		AppendEvent()
-	})
+	confirmTrustState(ctx, store.CertificateClassAgent, request)
 }
 
 func ConfirmGatewayTrustState() {
+	confirmTrustState(ctx, store.CertificateClassGateway, request)
+}
+
+func confirmTrustState(ctx Context, class store.CertificateClass, request Request) {
 	withTrustStateFences(func() {
 		RecordLeafTrustConfirmation()
 		RecordConsumerTrustConfirmation()
@@ -220,6 +228,21 @@ func ConfirmGatewayTrustState() {
 	if !slices.Equal(coverage.confirmationPersistenceSites, want) {
 		t.Fatalf("complete confirmation persistence fixture = %v; want %v", coverage.confirmationPersistenceSites, want)
 	}
+	if !slices.Equal(coverage.confirmationDelegationSites, expectedConfirmationDelegationSites()) {
+		t.Fatalf("complete confirmation delegation fixture = %v; want exact reporter-class bindings", coverage.confirmationDelegationSites)
+	}
+
+	wrongClass := strings.Replace(source, "confirmTrustState(ctx, store.CertificateClassGateway, request)", "confirmTrustState(ctx, store.CertificateClassAgent, request)", 1)
+	if err := os.WriteFile(path, []byte(wrongClass), 0o600); err != nil {
+		t.Fatalf("plant wrong confirmation reporter class in liveness fixture: %v", err)
+	}
+	coverage, err = scanPKIRotationCoverage(root)
+	if err != nil {
+		t.Fatalf("scan wrong confirmation reporter-class fixture: %v", err)
+	}
+	if len(coverage.confirmationDelegationSites) != 1 || !strings.Contains(strings.Join(coverage.violations, "\n"), "exact CertificateClassGateway binding") {
+		t.Fatalf("wrong reporter-class binding did not trip delegation guard: sites=%v violations=%v", coverage.confirmationDelegationSites, coverage.violations)
+	}
 
 	withoutOneSite := strings.Replace(source, "RecordConsumerTrustConfirmation()", "removedConsumerConfirmationPersistence()", 1)
 	if err := os.WriteFile(path, []byte(withoutOneSite), 0o600); err != nil {
@@ -237,10 +260,15 @@ func ConfirmGatewayTrustState() {
 
 func expectedConfirmationPersistenceSites() []string {
 	return []string{
-		"confirmation.go:ConfirmAgentTrustState:RecordConsumerTrustConfirmation",
-		"confirmation.go:ConfirmAgentTrustState:RecordLeafTrustConfirmation",
-		"confirmation.go:ConfirmGatewayTrustState:RecordConsumerTrustConfirmation",
-		"confirmation.go:ConfirmGatewayTrustState:RecordLeafTrustConfirmation",
+		"confirmation.go:confirmTrustState:RecordConsumerTrustConfirmation",
+		"confirmation.go:confirmTrustState:RecordLeafTrustConfirmation",
+	}
+}
+
+func expectedConfirmationDelegationSites() []string {
+	return []string{
+		"confirmation.go:ConfirmAgentTrustState:CertificateClassAgent",
+		"confirmation.go:ConfirmGatewayTrustState:CertificateClassGateway",
 	}
 }
 
@@ -309,6 +337,16 @@ func scanPKIRotationCoverage(root string) (pkiRotationCoverage, error) {
 				}
 				if value.Name.Name == "ConfirmAgentTrustState" || value.Name.Name == "ConfirmGatewayTrustState" {
 					coverage.confirmationSites = append(coverage.confirmationSites, location)
+					expectedClass := "CertificateClassAgent"
+					if value.Name.Name == "ConfirmGatewayTrustState" {
+						expectedClass = "CertificateClassGateway"
+					}
+					delegations := namedCalls(value.Body, "confirmTrustState")
+					if len(delegations) != 1 || len(delegations[0].Args) != 3 || selectorName(delegations[0].Args[1]) != expectedClass {
+						coverage.violations = append(coverage.violations, location+" does not delegate once with exact "+expectedClass+" binding")
+					} else {
+						coverage.confirmationDelegationSites = append(coverage.confirmationDelegationSites, location+":"+expectedClass)
+					}
 				}
 				if rotationManagerReceiver(value.Recv) && slices.Contains([]string{"BeginTrust", "Abort", "Migrate", "Retire", "Normalize"}, value.Name.Name) {
 					coverage.transitionMethods = append(coverage.transitionMethods, value.Name.Name)
@@ -336,6 +374,7 @@ func scanPKIRotationCoverage(root string) (pkiRotationCoverage, error) {
 	coverage.transitionMethods = uniqueSorted(coverage.transitionMethods)
 	coverage.confirmationEvents = uniqueSorted(coverage.confirmationEvents)
 	coverage.confirmationSites = uniqueSorted(coverage.confirmationSites)
+	coverage.confirmationDelegationSites = uniqueSorted(coverage.confirmationDelegationSites)
 	coverage.confirmationPersistenceSites = uniqueSorted(coverage.confirmationPersistenceSites)
 	coverage.limitedProcedures = uniqueSorted(coverage.limitedProcedures)
 	return coverage, nil
@@ -567,6 +606,14 @@ func callName(call *ast.CallExpr) string {
 	default:
 		return ""
 	}
+}
+
+func selectorName(expression ast.Expr) string {
+	selector, ok := expression.(*ast.SelectorExpr)
+	if !ok {
+		return ""
+	}
+	return selector.Sel.Name
 }
 
 func rotationManagerReceiver(receivers *ast.FieldList) bool {

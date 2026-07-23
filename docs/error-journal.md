@@ -1749,3 +1749,69 @@ from their appropriate directories.
 **Prevention**: Before using a module workdir, strip the module prefix from
 every path argument, or run repository-relative file operations from the
 repository root.
+
+## 2026-07-23 — Rate-limited head check hid an earlier remote review
+
+**What happened**: The newest CodeRabbit status completed as rate-limited and
+looked terminal, while a full review against the preceding head had already
+posted unresolved inline findings. Reading only the newest status would have
+left those findings unaddressed.
+
+**What the user said**: The publication workflow requires every CodeRabbit
+finding to be addressed before merge.
+
+**Root cause**: Head-check status and PR-wide review-thread state were treated
+as equivalent even though review threads survive later commits and a
+rate-limited incremental review contains no thread summary.
+
+**Harness fix**: `CLAUDE.md` now requires a thread-aware unresolved-comment
+query before remote review is considered complete, including when the newest
+head is rate-limited. It also records the two implementation lessons exposed
+by that review: uncertain advisory cleanup poisons a pooled session, and
+identity-bearing migrations test populated pre-upgrade state.
+
+**Prevention**: Publication checks both the current commit status and all
+unresolved PR review threads; neither substitutes for the other.
+
+## 2026-07-23 — Confirmation deduplication moved the guard convention
+
+**What happened**: Collapsing the two trust-confirmation handlers into one
+class-parameterized helper correctly reduced four duplicated persistence call
+sites to two, but the rotation guard still required the old four-site shape.
+The full gate failed after all focused behavior tests passed.
+
+**What the user said**: Not user-initiated; the guard correctly refused a
+convention change that had not updated its exact-set model.
+
+**Root cause**: The refactor was validated as runtime behavior only. Its
+self-discovering architectural consumer was not included in the focused test
+set before the full gate.
+
+**Harness fix**: GUARD-006-7 and its liveness fixture now prove two independent
+properties: each public handler delegates exactly once with its reporter-class
+constant, and the shared helper owns both fenced persistence paths. The
+matches-zero floors remain intact for the new convention.
+
+**Prevention**: When a refactor deliberately changes call-site cardinality,
+search guard scanners for the moved symbol and update the discovered ownership
+shape before running only behavior-focused tests.
+
+## 2026-07-23 — Gateway negative test matched the universal prefix
+
+**What happened**: The missing-gateway-bundle case accepted `"gateway"` as its
+error category even though every renewal error starts with `gateway:`. Any
+unrelated failure would have satisfied the assertion.
+
+**What the user said**: Not user-initiated; the final local review identified
+the vacuous discriminator.
+
+**Root cause**: The invalid-response matrix checked a mutation-related noun
+without comparing it against the operation-wide error prefix.
+
+**Harness fix**: The existing `CLAUDE.md` negative-test rule already requires
+the intended stable category, so no duplicate rule was added. Both missing
+bundle rows now assert their full `missing the ... trust bundle` category.
+
+**Prevention**: For table-driven error substrings, compare every candidate
+against the shared wrapper prefix; a discriminator must add information beyond
+that prefix.

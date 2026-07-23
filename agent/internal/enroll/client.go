@@ -176,15 +176,13 @@ func (c *Client) Enroll(ctx context.Context, token, caFingerprint string) (strin
 		AgentTrustBundle:               agentTrust,
 		GatewayTrustBundle:             gatewayTrust,
 	}
-	if response.Msg.GetAgentTrustBundle() != nil && response.Msg.GetGatewayTrustBundle() != nil {
-		bundle.PendingAgentTrustConfirmation, err = newPendingTrustConfirmation(bundle, "agent", agentTrust)
-		if err != nil {
-			return "", err
-		}
-		bundle.PendingGatewayTrustConfirmation, err = newPendingTrustConfirmation(bundle, "gateway", gatewayTrust)
-		if err != nil {
-			return "", err
-		}
+	bundle.PendingAgentTrustConfirmation, err = newPendingTrustConfirmation(bundle, "agent", agentTrust)
+	if err != nil {
+		return "", err
+	}
+	bundle.PendingGatewayTrustConfirmation, err = newPendingTrustConfirmation(bundle, "gateway", gatewayTrust)
+	if err != nil {
+		return "", err
 	}
 	if err := c.store.Create(ctx, bundle); err != nil {
 		return "", fmt.Errorf("enroll: store credentials: %w", err)

@@ -121,7 +121,7 @@ Minimum prior knowledge, restated:
   - rate-limited 5/min on BOTH sides (device socket and server);
   - trust-on-first-use for the CA, with an optional out-of-band
     CA-fingerprint pin;
-  <!-- docref: begin src=contract/proto/powermanage/v1/pki.proto#EnrollAgentResponse.gateway_certificate_authority_der:d2abc1d1,contract/proto/powermanage/v1/pki.proto#RenewAgentResponse.gateway_certificate_authority_der:d2abc1d1,agent/internal/enroll/client.go#Client.Enroll:b528331b,agent/internal/enroll/client.go#Client.Renew:9186de8f -->
+  <!-- docref: begin src=contract/proto/powermanage/v1/pki.proto#EnrollAgentResponse.gateway_certificate_authority_der:d2abc1d1,contract/proto/powermanage/v1/pki.proto#RenewAgentResponse.gateway_certificate_authority_der:d2abc1d1,agent/internal/enroll/client.go#Client.Enroll:7b2dbd50,agent/internal/enroll/client.go#Client.Renew:9186de8f -->
   - enrollment and renewal deliver the distinct gateway CA alongside the
     agent issuing CA. The agent validates and persists both trust anchors so
     gateway TLS verification uses only the enrolled gateway CA, never system
@@ -281,6 +281,15 @@ Minimum prior knowledge, restated:
   before publishing an immutable local authority snapshot. Commit failure
   keeps the prior snapshot; a stale process reloads or refuses the operation.
 
+  <!-- docref: begin src=server/internal/store/store.go#Store.WithAdvisoryLocks:4007afb8,server/internal/store/migrations/013_issuer_scoped_crl_state.sql#@issuer-scoped-revocation-schema:9114f063 -->
+  The M8 issuer-scoped schema transition is atomic startup work under stopped
+  writers, not an online migration. Because SQL cannot authenticate and parse
+  legacy certificate DER into exact issuer identity, any pre-M8 revocation row
+  refuses the migration instead of receiving a placeholder issuer. An advisory
+  lock release error or false unlock result discards that database session
+  rather than returning possibly locked state to the pool.
+  <!-- docref: end -->
+
   Rotation phase, public authority material, desired bundles, CRL state, leaf
   adoption, and consumer confirmations are event-sourced and reconstructible.
   Boot fails when configured private signers do not match rebuilt public
@@ -348,7 +357,9 @@ Minimum prior knowledge, restated:
   and retirement gate; revoked consumers do not. A lost renewal response
   reuses exact committed certificate DER even when the class phase
   subsequently advances. A lost confirmation after local enrollment or
-  renewal commit reuses the exact identity and pending state.
+  renewal commit reuses the exact identity and pending state. The issuer-scope
+  migration rejects legacy revocations without exact issuer identity, and an
+  uncertain advisory-lock release destroys its database session.
 - **AC-14** Device-signature verification (WIRE-20, SPEC-003) reads its key
   by parsing the stored DER certificate; corrupting the projection row does
   not change the verification outcome.
@@ -376,6 +387,8 @@ Minimum prior knowledge, restated:
 | Revocation state unavailable at handshake time | Deny (fail closed) |
 | SignedCommand `target_device_id` ≠ agent's own identity | Agent refuses; nothing executes |
 | Renewal delivers a CA neither byte-identical nor cross-signed | Agent refuses adoption; keeps enrolled CA |
+| M8 migration encounters a legacy revocation without exact issuer identity | Reject and roll back the migration; never install a placeholder issuer |
+| Advisory fence unlock errors or reports no held lock | Return the cleanup error and discard the pooled database session |
 | Ed25519, unsupported-curve, malformed, or RSA <2048 configured as a signing key | Refuse to boot |
 | Verifier / resolver / CRL signer unwired | Refuse to boot (never a silent skip) |
 | Token passed as argv | Structurally impossible — the flag does not exist |
@@ -425,6 +438,9 @@ neutralizing edit, never a revert), then implement:
    - `TestRotationManager_RestartRebuildsEveryPhaseAndConfirmationGate`
    - `TestGatewayClient_RenewsPublishesIdentityBeforeConfirmingTrustState`
    - `TestGuard_PkiRotationPhasesFencesAndState`
+   - `TestControlTrustConfirmationLookup_RejectsForbiddenCRLReceipt`
+   - `TestCARotationMigration_RejectsLegacyRevocationsWithoutIssuerIdentity`
+   - `TestReleaseAdvisoryLocks_MarksSessionUnusableOnUncertainRelease`
 
    The rejection test covers every transition-certificate field above,
    malformed/trailing DER, validity, unchanged-root proof injection, and TLS
@@ -474,9 +490,11 @@ fails):
 - **GUARD-006-7** Rotation coverage self-discovers every phase constant and
   every agent/gateway issuance and CRL-signing site. It requires canonical
   shared/exclusive fences to remain held through event append, exact leaf and
-  consumer confirmation-event coverage, issuer identity in every CRL-state
-  key, and every PkiService method in the public limiter. Every discovery set
-  is matches-zero protected.
+  consumer confirmation-event coverage, both public confirmation handlers to
+  bind their exact reporter class into one shared helper, both helper
+  persistence paths, issuer identity in every CRL-state key, and every
+  PkiService method in the public limiter. Every discovery set is matches-zero
+  protected.
 
 ## 8. Historical lessons
 

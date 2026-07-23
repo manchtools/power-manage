@@ -145,6 +145,50 @@ func TestCARotationMigration_BackfillsGlobalPositionDeterministically(t *testing
 	}
 }
 
+func TestCARotationMigration_RejectsLegacyRevocationsWithoutIssuerIdentity(t *testing.T) {
+	const caRotationVersion = 13
+	var migrationPath string
+	for _, migration := range discoverSQLMigrations(t, "migrations") {
+		if migration.version == caRotationVersion {
+			migrationPath = migration.path
+			break
+		}
+	}
+	if migrationPath == "" {
+		t.Fatal("CA rotation migration 013 is absent")
+	}
+
+	database := testPostgres(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	if _, err := database.Exec(ctx, migrationDownSQL(t, migrationPath), pgx.QueryExecModeSimpleProtocol); err != nil {
+		t.Fatalf("roll back migration 013 fixture: %v", err)
+	}
+	const streamID = "01J00000000000000000000004"
+	if _, err := database.Exec(ctx, `
+		INSERT INTO events (
+			stream_type, stream_id, stream_version, event_type,
+			payload_version, payload
+		) VALUES ('device', $1, 1, 'AgentCertificateRevoked', 1, '{}')`, streamID); err != nil {
+		t.Fatalf("seed legacy revocation source event: %v", err)
+	}
+	if _, err := database.Exec(ctx, `
+		INSERT INTO certificate_revocations (
+			certificate_class, certificate_fingerprint, certificate_der,
+			serial_number, revoked_at, reason_code,
+			source_stream_type, source_stream_id, source_stream_version
+		) VALUES ('agent', $1, $2, $3, now(), 0, 'device', $4, 1)`,
+		make([]byte, 32), []byte{1}, []byte{1}, streamID,
+	); err != nil {
+		t.Fatalf("seed legacy certificate revocation: %v", err)
+	}
+
+	_, err := database.Exec(ctx, migrationUpSQL(t, migrationPath), pgx.QueryExecModeSimpleProtocol)
+	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "issuer") {
+		t.Fatalf("migration 013 with legacy revocation error = %v; want explicit issuer-identity refusal", err)
+	}
+}
+
 type sqlMigration struct {
 	version int
 	path    string
