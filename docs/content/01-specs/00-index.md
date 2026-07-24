@@ -23,7 +23,7 @@ spec's own header, which is authoritative.
 | 004 | [sdk-core](004-sdk-core.md) | 000–002 | sdk | Implemented |
 | 005 | [event-store](005-event-store.md) | 000–003 | server | Implemented |
 | 006 | [pki-and-identity](006-pki-and-identity.md) | 003, 005 | contract, server, agent | In progress (M8 done) |
-| 007 | [authentication](007-authentication.md) | 003, 005 | server | In progress (M7 done) |
+| 007 | [authentication](007-authentication.md) | 003, 005 | server | In progress (M8 done) |
 | 008 | [authorization](008-authorization.md) | 005, 007 | server | Spec ready |
 | 009 | [crud-kernel-search-and-domains](009-crud-kernel-search-and-domains.md) | 005, 007, 008 | server | Spec ready |
 | 010 | [artifact-store](010-artifact-store.md) | 003, 005 | server | Spec ready |
@@ -128,6 +128,8 @@ SPEC-007 M5 — hash-only scoped personal access tokens with one-time secret ret
 SPEC-007 M6 — OIDC authorization-code sign-in with PKCE, one-shot state and nonce binding, provider-key verification, durable user/identity projections, ordinary rotating refresh sessions, and exact public-RPC boundary guards (AC-7, SPEC-007), (AC-8, SPEC-007), (AC-9, SPEC-007), (GUARD-007-4, SPEC-007) — PR #52
 
 SPEC-007 M7 — host-authorized bootstrap-admin identity creation, hash-only ten-minute login URLs, exact-version single-use consumption, ordinary rotating refresh sessions, bounded cookie-free HTTP exchange, and rebuildable audit projections (AC-10, SPEC-007), (AC-11, SPEC-007) — PR #53
+
+SPEC-007 M8 — provider-scoped SCIM v2 discovery, user and group sync, one-time bcrypt-backed bearer management, pre-bcrypt dual-dimension limiting, indistinguishable authentication failures, atomic version-pinned membership replacement, last-link deprovisioning, and rebuild-safe projections (AC-12, SPEC-007), (AC-13, SPEC-007), (GUARD-007-3, SPEC-007), (GUARD-007-5, SPEC-007), (GUARD-007-7, SPEC-007) — PR #54
 
 ## Rules
 
