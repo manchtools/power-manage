@@ -6,7 +6,7 @@ ALTER TABLE users
     ADD COLUMN session_version bigint NOT NULL DEFAULT 1,
     ADD COLUMN disabled boolean NOT NULL DEFAULT false,
     ADD CONSTRAINT users_session_version_check
-        CHECK (session_version > 0);
+        CHECK (session_version > 0) NOT VALID;
 -- +goose StatementEnd
 -- docref: end session-invalidation-schema
 

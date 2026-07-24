@@ -68,6 +68,42 @@ func TestGatewayTokenChecks_UseDeferredValidationMigration(t *testing.T) {
 	t.Fatalf("no forward migration later than 011 validates both exact constraints %v", constraintNames)
 }
 
+func TestUserSessionVersionCheck_UsesDeferredValidationMigration(t *testing.T) {
+	const sessionInvalidationVersion = 19
+	const sessionValidationVersion = 20
+	const constraintName = "users_session_version_check"
+	const usersTablePattern = `(?:"?public"?\s*\.\s*)?"?users"?`
+
+	migrationPath := migrationPathByVersion(t, sessionInvalidationVersion)
+	up := migrationUpSQL(t, migrationPath)
+	addsNotValid := regexp.MustCompile(
+		`(?is)\bALTER\s+TABLE\s+(?:ONLY\s+)?` + usersTablePattern +
+			`[^;]*\bADD\s+CONSTRAINT\s+"?` +
+			regexp.QuoteMeta(constraintName) +
+			`"?\s+CHECK\s*\(\s*session_version\s*>\s*0\s*\)\s+NOT\s+VALID\s*;`,
+	)
+	if !addsNotValid.MatchString(up) {
+		t.Fatalf("migration 019 must add CHECK constraint %q as NOT VALID", constraintName)
+	}
+	separateAlterFixture := `
+		ALTER TABLE ONLY public.users
+		ADD CONSTRAINT users_session_version_check
+		CHECK (session_version > 0) NOT VALID;
+	`
+	if !addsNotValid.MatchString(separateAlterFixture) {
+		t.Fatal("session-version constraint guard rejected a separate ALTER TABLE ONLY statement")
+	}
+
+	validatesLater := regexp.MustCompile(
+		`(?is)\bALTER\s+TABLE\s+(?:ONLY\s+)?` + usersTablePattern +
+			`\s+VALIDATE\s+CONSTRAINT\s+"?` + regexp.QuoteMeta(constraintName) + `"?\s*;`,
+	)
+	validationUp := migrationUpSQL(t, migrationPathByVersion(t, sessionValidationVersion))
+	if !validatesLater.MatchString(validationUp) {
+		t.Fatalf("migration 020 must validate constraint %q", constraintName)
+	}
+}
+
 func TestCARotationMigration_BackfillsGlobalPositionDeterministically(t *testing.T) {
 	migrationPath := migrationPathByVersion(t, 13)
 

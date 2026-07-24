@@ -64,19 +64,21 @@ Spec milestone: SPEC-007 M9 (`AUTH-2`; AC-14; GUARD-007-4).
 
 ## Implementation
 
-<!-- docref: begin src=server/internal/store/migrations/019_session_invalidation.sql#@session-invalidation-schema:4497a448,server/internal/store/session_invalidation.go#projectSessionInvalidation:7b89659f,server/internal/auth/tokens.go#tokenClaims.SessionVersion:e6bd9366,server/internal/auth/session_invalidation.go#SessionAuthenticator.AuthenticateAccess:3fbec363,server/internal/auth/refresh.go#RefreshService.Rotate:f2a0775d -->
-The user projection stores a positive session version. The single invalidation
-projector owns all four invalidating reactions, while access authentication and
-refresh rotation compare the signed version with current durable user state.
+<!-- docref: begin src=server/internal/store/migrations/019_session_invalidation.sql#@session-invalidation-schema:af9e592d,server/internal/store/migrations/020_validate_user_session_version.sql#@user-session-version-constraint-validation:f6827c68,server/internal/store/session_invalidation.go#projectSessionInvalidation:7b89659f,server/internal/auth/tokens.go#tokenClaims.SessionVersion:e6bd9366,server/internal/auth/session_invalidation.go#SessionAuthenticator.AuthenticateAccess:3fbec363,server/internal/auth/refresh.go#RefreshService.Rotate:f2a0775d -->
+The user projection stores a positive session version. The constraint is added
+without a blocking validation scan and validated in the following migration.
+The single invalidation projector owns all four invalidating reactions, while
+access authentication and refresh rotation compare the signed version with
+current durable user state.
 <!-- docref: end -->
 
 ## Verification
 
-<!-- docref: begin src=server/internal/store/session_invalidation_test.go#TestSessionInvalidationProjection_ExactEventsBumpOrDeleteUser:465a385e,server/internal/control/session_invalidation_test.go#TestSessionAuthenticator_InvalidatingEventsRejectExistingAccess:549caa33,server/internal/control/session_invalidation_test.go#TestSessionAuthenticator_NonInvalidatingSCIMUnlinkKeepsAccess:98dc73be,server/internal/control/session_invalidation_test.go#TestRefreshService_InvalidatedSessionCannotRotate:549494d6,server/internal/store/session_invalidation_test.go#TestGuard_SessionInvalidatingEventsUseOneProjector:b7f0ef66,server/internal/store/inventory_test.go#TestGuard_GoldenEventCorpus:599bf3a4,sdk/guardtest/arch_test.go#TestGuard_GatewayPurity:f13b7f07 -->
+<!-- docref: begin src=server/internal/store/session_invalidation_test.go#TestSessionInvalidationProjection_ExactEventsBumpOrDeleteUser:465a385e,server/internal/control/session_invalidation_test.go#TestSessionAuthenticator_InvalidatingEventsRejectExistingAccess:549caa33,server/internal/control/session_invalidation_test.go#TestSessionAuthenticator_NonInvalidatingSCIMUnlinkKeepsAccess:98dc73be,server/internal/control/session_invalidation_test.go#TestRefreshService_InvalidatedSessionCannotRotate:549494d6,server/internal/store/session_invalidation_test.go#TestGuard_SessionInvalidatingEventsUseOneProjector:b7f0ef66,server/internal/store/migration_guard_test.go#TestUserSessionVersionCheck_UsesDeferredValidationMigration:c6424656,server/internal/store/inventory_test.go#TestGuard_GoldenEventCorpus:599bf3a4,sdk/guardtest/arch_test.go#TestGuard_GatewayPurity:f13b7f07 -->
 - Passed: every invalidating event, access next-use rejection, refresh
   rejection, rebuild parity, and the non-terminal SCIM unlink control.
-- Passed: exact event-set, sole SQL writer/caller, and complete auth-event
-  golden-corpus pinning guards.
+- Passed: exact event-set, sole SQL writer/caller, deferred constraint
+  validation, and complete auth-event golden-corpus pinning guards.
 - Failed: none.
 - Skipped: the canonical gate's pre-existing dormant gateway-purity guard.
 <!-- docref: end -->
