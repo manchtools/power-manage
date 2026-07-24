@@ -68,7 +68,8 @@ type projectionTx struct {
 
 type preparedEvent struct {
 	Event
-	projector Projector
+	projector        Projector
+	protectLastAdmin bool
 }
 
 // Projector updates a read model using the same transaction as its event.
@@ -85,10 +86,11 @@ type RebuildTarget struct {
 
 // Store appends events and invokes their registered projectors atomically.
 type Store struct {
-	pool           *pgxpool.Pool
-	projectors     map[string]Projector
-	rebuildTargets map[string]RebuildTarget
-	eventTargets   map[string]string
+	pool                     *pgxpool.Pool
+	projectors               map[string]Projector
+	rebuildTargets           map[string]RebuildTarget
+	eventTargets             map[string]string
+	lastAdminReductionEvents map[string]struct{}
 }
 
 // New returns a Store with defensively copied, exactly matched projector and
@@ -369,7 +371,7 @@ func (s *Store) AppendEventWithVersion(ctx context.Context, event Event, expecte
 	if currentVersion != expectedVersion {
 		return fmt.Errorf("%w: expected %d, current %d", errVersionConflict, expectedVersion, currentVersion)
 	}
-	if err := appendPrepared(ctx, tx, queries, prepared, expectedVersion+1); err != nil {
+	if err := appendPrepared(ctx, tx, prepared, expectedVersion+1); err != nil {
 		if isStreamVersionConflict(err) {
 			return fmt.Errorf("%w: expected %d", errVersionConflict, expectedVersion)
 		}
@@ -472,7 +474,7 @@ func (s *Store) AppendEventsWithVersion(
 	}
 	for index, event := range prepared {
 		version := expectedVersion + int64(index) + 1
-		if err := appendPrepared(ctx, tx, queries, event, version); err != nil {
+		if err := appendPrepared(ctx, tx, event, version); err != nil {
 			if isStreamVersionConflict(err) {
 				return fmt.Errorf("%w: expected %d", errVersionConflict, expectedVersion)
 			}
@@ -514,7 +516,7 @@ func (s *Store) AppendEventBeforeCommit(ctx context.Context, event Event, before
 	if err != nil {
 		return fmt.Errorf("store: read callback append stream version: %w", err)
 	}
-	if err := appendPrepared(ctx, tx, queries, prepared, currentVersion+1); err != nil {
+	if err := appendPrepared(ctx, tx, prepared, currentVersion+1); err != nil {
 		return fmt.Errorf("store: callback append: %w", err)
 	}
 	callbackCtx, cancelCallback := context.WithTimeout(ctx, beforeCommitCallbackTimeout)
@@ -638,7 +640,12 @@ func (s *Store) prepareEvent(event Event) (preparedEvent, error) {
 			event.EventType,
 		)
 	}
-	return preparedEvent{Event: event, projector: projector}, nil
+	_, protectLastAdmin := s.lastAdminReductionEvents[event.EventType]
+	return preparedEvent{
+		Event:            event,
+		projector:        projector,
+		protectLastAdmin: protectLastAdmin,
+	}, nil
 }
 
 func (s *Store) appendAutoBatchOnce(ctx context.Context, events []preparedEvent) (retry bool, retErr error) {
@@ -662,7 +669,7 @@ func (s *Store) appendAutoBatchOnce(ctx context.Context, events []preparedEvent)
 		if err != nil {
 			return false, fmt.Errorf("event %d: read stream version: %w", i, err)
 		}
-		if err := appendPrepared(ctx, tx, queries, event, currentVersion+1); err != nil {
+		if err := appendPrepared(ctx, tx, event, currentVersion+1); err != nil {
 			if isStreamVersionConflict(err) {
 				return true, nil
 			}
@@ -679,27 +686,36 @@ func (s *Store) appendAutoBatchOnce(ctx context.Context, events []preparedEvent)
 func appendPrepared(
 	ctx context.Context,
 	tx pgx.Tx,
-	queries *generated.Queries,
 	event preparedEvent,
 	streamVersion int64,
 ) error {
-	row, err := queries.InsertEvent(ctx, generated.InsertEventParams{
-		StreamType:     event.StreamType,
-		StreamID:       event.StreamID,
-		StreamVersion:  streamVersion,
-		EventType:      event.EventType,
-		PayloadVersion: event.PayloadVersion,
-		Payload:        event.Payload,
-	})
-	if err != nil {
-		return fmt.Errorf("insert event: %w", err)
-	}
-
-	persisted := persistedEvent(row)
-	if err := event.projector(ctx, projectionTx{DBTX: tx, sourceEvent: &persisted}, persisted); err != nil {
-		return fmt.Errorf("project event %q: %w", event.EventType, err)
-	}
-	return nil
+	return protectLastAdminMutation(
+		ctx,
+		tx,
+		event.protectLastAdmin,
+		func(queries *generated.Queries) error {
+			row, err := queries.InsertEvent(ctx, generated.InsertEventParams{
+				StreamType:     event.StreamType,
+				StreamID:       event.StreamID,
+				StreamVersion:  streamVersion,
+				EventType:      event.EventType,
+				PayloadVersion: event.PayloadVersion,
+				Payload:        event.Payload,
+			})
+			if err != nil {
+				return fmt.Errorf("insert event: %w", err)
+			}
+			persisted := persistedEvent(row)
+			if err := event.projector(
+				ctx,
+				projectionTx{DBTX: tx, sourceEvent: &persisted},
+				persisted,
+			); err != nil {
+				return fmt.Errorf("project event %q: %w", event.EventType, err)
+			}
+			return nil
+		},
+	)
 }
 
 func persistedEvent(row generated.Event) PersistedEvent {

@@ -7,7 +7,7 @@ SPEC-005), (ES-6, SPEC-005), (ES-9, SPEC-005), (ES-10, SPEC-005), and
 
 ## Delta
 
-<!-- docref: begin src=server/internal/store/migrations/003_inventory.sql#@inventory-snapshots-schema:ba8dd66a,server/internal/store/inventory.go#NewProduction:90e147fc,server/internal/store/inventory.go#InventorySnapshotEvent:53edfa8e,server/internal/store/inventory.go#InventoryTombstoneEvent:c28922aa,server/internal/store/inventory.go#projectInventorySnapshot:4434cec2,server/internal/store/inventory.go#projectInventoryTombstone:1f93361d,server/internal/store/inventory.go#validateGoldenEventCorpus:ddb6c04f,server/internal/store/inventory.go#validateEventPayloadTypes:cb8577dd -->
+<!-- docref: begin src=server/internal/store/migrations/003_inventory.sql#@inventory-snapshots-schema:ba8dd66a,server/internal/store/inventory.go#NewProduction:ba58ee74,server/internal/store/inventory.go#InventorySnapshotEvent:53edfa8e,server/internal/store/inventory.go#InventoryTombstoneEvent:c28922aa,server/internal/store/inventory.go#projectInventorySnapshot:4434cec2,server/internal/store/inventory.go#projectInventoryTombstone:1f93361d,server/internal/store/inventory.go#validateGoldenEventCorpus:ddb6c04f,server/internal/store/inventory.go#validateEventPayloadTypes:cb8577dd -->
 - Add the first production event registry: versioned inventory snapshot and
   tombstone events, deterministic payload codecs, an exact golden corpus, and
   an inventory projection whose `projection_version` rejects older writes and

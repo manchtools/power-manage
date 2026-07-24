@@ -726,6 +726,14 @@ func (s *SCIMService) writeSCIMStoreError(response http.ResponseWriter, err erro
 		writeSCIMError(response, http.StatusNotFound, "resource not found")
 		return
 	}
+	if store.IsLastAdmin(err) {
+		writeSCIMError(
+			response,
+			http.StatusConflict,
+			errCRUDFailedPrecondition.Error(),
+		)
+		return
+	}
 	if store.IsSCIMInvalid(err) {
 		writeSCIMError(response, http.StatusBadRequest, "invalid request")
 		return

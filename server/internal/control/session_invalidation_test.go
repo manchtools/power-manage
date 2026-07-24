@@ -10,9 +10,10 @@ import (
 
 func TestSessionAuthenticator_InvalidatingEventsRejectExistingAccess(t *testing.T) {
 	for _, test := range []struct {
-		name       string
-		setup      func(*testing.T) []store.Event
-		invalidate func(*testing.T) []store.Event
+		name               string
+		setup              func(*testing.T) []store.Event
+		invalidate         func(*testing.T) []store.Event
+		needsFallbackAdmin bool
 	}{
 		{
 			name: "user disabled",
@@ -28,7 +29,8 @@ func TestSessionAuthenticator_InvalidatingEventsRejectExistingAccess(t *testing.
 			},
 		},
 		{
-			name: "role revoked",
+			name:               "role revoked",
+			needsFallbackAdmin: true,
 			setup: func(t *testing.T) []store.Event {
 				granted, err := store.BootstrapAdminRoleGrantedEvent(refreshTestSubject)
 				if err != nil {
@@ -108,6 +110,9 @@ func TestSessionAuthenticator_InvalidatingEventsRejectExistingAccess(t *testing.
 			setup := test.setup(t)
 			if err := eventStore.AppendEvents(t.Context(), setup); err != nil {
 				t.Fatalf("append session setup: %v", err)
+			}
+			if test.needsFallbackAdmin {
+				appendSessionFallbackAdmin(t, eventStore)
 			}
 			user, err := eventStore.UserByID(t.Context(), refreshTestSubject)
 			if err != nil {
@@ -217,6 +222,7 @@ func TestRefreshService_InvalidatedSessionCannotRotate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("start refresh session: %v", err)
 	}
+	appendSessionFallbackAdmin(t, eventStore)
 	revoked, err := store.RoleRevokedEvent(refreshTestSubject, "admin")
 	if err != nil {
 		t.Fatalf("create refresh-session role revocation: %v", err)
@@ -239,4 +245,23 @@ func sessionUserCreated(t *testing.T) store.Event {
 		t.Fatalf("create session user: %v", err)
 	}
 	return event
+}
+
+func appendSessionFallbackAdmin(t *testing.T, eventStore *store.Store) {
+	t.Helper()
+	const fallbackID = "01J00000000000000000000221"
+	created, err := store.UserCreatedEvent(fallbackID, "fallback-admin@example.test")
+	if err != nil {
+		t.Fatalf("create fallback admin: %v", err)
+	}
+	granted, err := store.BootstrapAdminRoleGrantedEvent(fallbackID)
+	if err != nil {
+		t.Fatalf("create fallback admin role: %v", err)
+	}
+	if err := eventStore.AppendEvents(
+		t.Context(),
+		[]store.Event{created, granted},
+	); err != nil {
+		t.Fatalf("append fallback admin: %v", err)
+	}
 }

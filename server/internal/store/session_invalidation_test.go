@@ -1,6 +1,8 @@
 package store
 
 import (
+	"bytes"
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -16,11 +18,12 @@ import (
 
 func TestSessionInvalidationProjection_ExactEventsBumpOrDeleteUser(t *testing.T) {
 	for _, test := range []struct {
-		name         string
-		setup        func(*testing.T) []Event
-		invalidate   func(*testing.T) []Event
-		wantDisabled bool
-		wantDeleted  bool
+		name               string
+		setup              func(*testing.T) []Event
+		invalidate         func(*testing.T) []Event
+		needsFallbackAdmin bool
+		wantDisabled       bool
+		wantDeleted        bool
 	}{
 		{
 			name: "user disabled",
@@ -37,7 +40,8 @@ func TestSessionInvalidationProjection_ExactEventsBumpOrDeleteUser(t *testing.T)
 			wantDisabled: true,
 		},
 		{
-			name: "role revoked",
+			name:               "role revoked",
+			needsFallbackAdmin: true,
 			setup: func(t *testing.T) []Event {
 				created := sessionTestUserCreated(t)
 				granted, err := BootstrapAdminRoleGrantedEvent(testBootstrapUserID)
@@ -121,6 +125,9 @@ func TestSessionInvalidationProjection_ExactEventsBumpOrDeleteUser(t *testing.T)
 			setup := test.setup(t)
 			if err := eventStore.AppendEvents(t.Context(), setup); err != nil {
 				t.Fatalf("append invalidation setup: %v", err)
+			}
+			if test.needsFallbackAdmin {
+				seedFallbackAdmin(t, eventStore)
 			}
 			before, err := eventStore.UserByID(t.Context(), testBootstrapUserID)
 			if err != nil {
@@ -301,6 +308,39 @@ func sessionInvalidationSwitchCases(path string) ([]string, error) {
 	}
 	slices.Sort(result)
 	return result, nil
+}
+
+func TestGuard_BootstrapAdminRevocationPayloadMatchesLastAdminSQL(t *testing.T) {
+	const literal = `{"role":"admin"}`
+
+	guardtest.Discover(t, "bootstrap-admin revocation payload contracts", 1, func() ([]string, error) {
+		event, ok := sessionInvalidationGoldenCorpus()[roleRevokedEventType]
+		if !ok {
+			return nil, fmt.Errorf("golden corpus lacks %q", roleRevokedEventType)
+		}
+		if !bytes.Equal(event.Payload, []byte(literal)) {
+			return nil, fmt.Errorf(
+				"role-revoked payload = %q; want %q",
+				event.Payload,
+				literal,
+			)
+		}
+
+		query, err := os.ReadFile(filepath.Join("queries", "authorization.sql"))
+		if err != nil {
+			return nil, fmt.Errorf("read authorization query: %w", err)
+		}
+		wantClause := []byte(
+			"revoked.payload = convert_to('" + literal + "', 'UTF8')",
+		)
+		if !bytes.Contains(query, wantClause) {
+			return nil, fmt.Errorf(
+				"authorization query lacks canonical %q payload comparison",
+				roleRevokedEventType,
+			)
+		}
+		return []string{roleRevokedEventType}, nil
+	})
 }
 
 func sessionVersionSQLWriters() ([]string, error) {

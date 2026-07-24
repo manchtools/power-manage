@@ -94,24 +94,27 @@ func OIDCIdentityUnlinkedEvent(
 func sessionInvalidationEventDefinitions() map[string]eventDefinition {
 	return map[string]eventDefinition{
 		userDisabledEventType: {
-			PayloadVersion: userPayloadVersion,
-			PayloadType:    userDisabledPayload{},
+			PayloadVersion:  userPayloadVersion,
+			PayloadType:     userDisabledPayload{},
+			LastAdminEffect: lastAdminMayReduce,
 			GoldenPayload: func() ([]byte, error) {
 				return json.Marshal(userDisabledPayload{})
 			},
 			Projector: projectSessionInvalidation,
 		},
 		roleRevokedEventType: {
-			PayloadVersion: userPayloadVersion,
-			PayloadType:    roleRevokedPayload{},
+			PayloadVersion:  userPayloadVersion,
+			PayloadType:     roleRevokedPayload{},
+			LastAdminEffect: lastAdminMayReduce,
 			GoldenPayload: func() ([]byte, error) {
 				return json.Marshal(roleRevokedPayload{Role: "admin"})
 			},
 			Projector: projectSessionInvalidation,
 		},
 		oidcIdentityUnlinkedEventType: {
-			PayloadVersion: userPayloadVersion,
-			PayloadType:    oidcIdentityUnlinkedPayload{},
+			PayloadVersion:  userPayloadVersion,
+			PayloadType:     oidcIdentityUnlinkedPayload{},
+			LastAdminEffect: lastAdminUnaffected,
 			GoldenPayload: func() ([]byte, error) {
 				return json.Marshal(oidcIdentityUnlinkedPayload{
 					ProviderSlug:    "corporate",
@@ -122,8 +125,9 @@ func sessionInvalidationEventDefinitions() map[string]eventDefinition {
 			Projector: projectSessionInvalidation,
 		},
 		scimUserDeprovisionedEventType: {
-			PayloadVersion: scimPayloadVersion,
-			PayloadType:    scimUserDeprovisionedPayload{},
+			PayloadVersion:  scimPayloadVersion,
+			PayloadType:     scimUserDeprovisionedPayload{},
+			LastAdminEffect: lastAdminMayReduce,
 			GoldenPayload: func() ([]byte, error) {
 				return json.Marshal(scimUserDeprovisionedPayload{})
 			},

@@ -137,6 +137,76 @@ WHERE (
 )
 ORDER BY grants.grant_id;
 
+-- name: AcquireLastAdminMutationLock :exec
+-- One global key intentionally serializes the cross-aggregate admin count.
+SELECT pg_advisory_xact_lock(
+    hashtextextended('power-manage:last-admin', 0)
+);
+
+-- name: CountEnabledAdmins :one
+WITH memberships AS (
+    SELECT group_id, user_id FROM scim_group_members
+    UNION ALL
+    SELECT group_id, user_id FROM managed_user_group_members
+),
+dynamic_admins AS (
+    SELECT users.user_id
+    FROM users
+    WHERE NOT users.disabled
+      AND EXISTS (
+          SELECT 1
+          FROM authorization_grants AS grants
+          JOIN authorization_roles AS roles ON roles.role_id = grants.role_id
+          WHERE grants.scope_kind = 'global'
+            AND sqlc.arg(admin_permission)::text = ANY(roles.permissions)
+            AND (
+                (
+                    grants.principal_type = 'user'
+                    AND grants.principal_id = users.user_id
+                )
+                OR (
+                    grants.principal_type = 'user-group'
+                    AND EXISTS (
+                        SELECT 1
+                        FROM memberships
+                        WHERE memberships.group_id = grants.principal_id
+                          AND memberships.user_id = users.user_id
+                    )
+                )
+            )
+      )
+),
+bootstrap_admins AS (
+    SELECT users.user_id
+    FROM users
+    WHERE NOT users.disabled
+      AND EXISTS (
+          -- events_stream_version_key supports this stream-prefix lookup.
+          -- Compare canonical bytes so malformed historical payloads cannot
+          -- make the correctness-critical count query fail.
+          SELECT 1
+          FROM events AS granted
+          WHERE granted.stream_type = 'user'
+            AND granted.stream_id = users.user_id
+            AND granted.event_type = 'BootstrapAdminRoleGranted'
+            AND NOT EXISTS (
+                SELECT 1
+                FROM events AS revoked
+                WHERE revoked.stream_type = granted.stream_type
+                  AND revoked.stream_id = granted.stream_id
+                  AND revoked.stream_version > granted.stream_version
+                  AND revoked.event_type = 'RoleRevoked'
+                  AND revoked.payload = convert_to('{"role":"admin"}', 'UTF8')
+            )
+      )
+)
+SELECT count(*)::bigint
+FROM (
+    SELECT user_id FROM dynamic_admins
+    UNION
+    SELECT user_id FROM bootstrap_admins
+) AS enabled_admins;
+
 -- name: ResetAuthorizationGrants :exec
 DELETE FROM authorization_grants;
 

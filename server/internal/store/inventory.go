@@ -36,10 +36,11 @@ type inventorySnapshotPayload struct {
 type inventoryTombstonePayload struct{}
 
 type eventDefinition struct {
-	PayloadVersion int32
-	PayloadType    any
-	GoldenPayload  func() ([]byte, error)
-	Projector      Projector
+	PayloadVersion  int32
+	PayloadType     any
+	GoldenPayload   func() ([]byte, error)
+	Projector       Projector
+	LastAdminEffect lastAdminEffect
 }
 
 type goldenEvent struct {
@@ -56,6 +57,17 @@ func NewProduction(pool *pgxpool.Pool) (*Store, error) {
 	if err := validateEventPayloadTypes(definitions); err != nil {
 		return nil, err
 	}
+	targets := productionRebuildTargets()
+	lastAdminDefinitions, err := lastAdminSensitiveEventDefinitions(
+		definitions,
+		targets,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateLastAdminEffects(lastAdminDefinitions); err != nil {
+		return nil, err
+	}
 	projectors := make(map[string]Projector, len(definitions))
 	for eventType, definition := range definitions {
 		if definition.Projector == nil {
@@ -63,7 +75,14 @@ func NewProduction(pool *pgxpool.Pool) (*Store, error) {
 		}
 		projectors[eventType] = definition.Projector
 	}
-	return New(pool, projectors, productionRebuildTargets())
+	eventStore, err := New(pool, projectors, targets)
+	if err != nil {
+		return nil, err
+	}
+	eventStore.lastAdminReductionEvents = lastAdminReductionEventSet(
+		lastAdminDefinitions,
+	)
+	return eventStore, nil
 }
 
 // ProductionRebuildTargetNames returns the exact CLI recovery-target set.
