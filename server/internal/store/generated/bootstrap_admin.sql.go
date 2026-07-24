@@ -44,6 +44,7 @@ SET consumed = true,
     projection_version = $1,
     updated_at = $2
 WHERE login_id = $3
+  AND consumed = false
   AND projection_version = $4
 `
 

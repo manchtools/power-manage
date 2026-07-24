@@ -157,6 +157,45 @@ func TestBootstrapAdminProjection_RejectsInvalidTransitions(t *testing.T) {
 	}
 }
 
+func TestBootstrapAdminProjection_RejectsSecondConsumeAtLatestVersion(t *testing.T) {
+	pool := testPostgres(t)
+	eventStore, err := NewProduction(pool)
+	if err != nil {
+		t.Fatalf("create production store: %v", err)
+	}
+	created, err := UserCreatedEvent(testBootstrapUserID, "admin@example.test")
+	if err != nil {
+		t.Fatalf("create bootstrap user event: %v", err)
+	}
+	if err := eventStore.AppendEventWithVersion(t.Context(), created, 0); err != nil {
+		t.Fatalf("append bootstrap user: %v", err)
+	}
+	tokenHash := sha256.Sum256([]byte("second-consume-regression"))
+	minted, err := BootstrapLoginMintedEvent(
+		testBootstrapLoginID,
+		testBootstrapUserID,
+		tokenHash,
+		testBootstrapExpiry,
+	)
+	if err != nil {
+		t.Fatalf("create bootstrap login mint event: %v", err)
+	}
+	if err := eventStore.AppendEventWithVersion(t.Context(), minted, 0); err != nil {
+		t.Fatalf("append bootstrap login mint: %v", err)
+	}
+	consumed, err := BootstrapLoginConsumedEvent(testBootstrapLoginID)
+	if err != nil {
+		t.Fatalf("create bootstrap login consume event: %v", err)
+	}
+	if err := eventStore.AppendEventWithVersion(t.Context(), consumed, 1); err != nil {
+		t.Fatalf("append first bootstrap login consume: %v", err)
+	}
+	if err := eventStore.AppendEventWithVersion(t.Context(), consumed, 2); err == nil ||
+		!strings.Contains(err.Error(), "affected 0 rows") {
+		t.Fatalf("second consume error = %v; want unconsumed-state rejection", err)
+	}
+}
+
 func assertBootstrapLogin(
 	t *testing.T,
 	eventStore *Store,

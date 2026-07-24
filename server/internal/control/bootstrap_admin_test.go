@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/manchtools/power-manage/server/internal/auth"
 )
 
@@ -153,7 +155,12 @@ func TestBootstrapAdmin_ConcurrentConsumeHasOneWinner(t *testing.T) {
 	}
 	rawToken := bootstrapTokenFromURL(t, loginURL)
 
-	lockTx, err := pool.Begin(t.Context())
+	barrierPool, err := pgxpool.New(t.Context(), pool.Config().ConnString())
+	if err != nil {
+		t.Fatalf("create bootstrap race barrier pool: %v", err)
+	}
+	defer barrierPool.Close()
+	lockTx, err := barrierPool.Begin(t.Context())
 	if err != nil {
 		t.Fatalf("begin bootstrap race barrier: %v", err)
 	}
@@ -184,10 +191,10 @@ func TestBootstrapAdmin_ConcurrentConsumeHasOneWinner(t *testing.T) {
 	}
 	close(start)
 	deadline := time.Now().Add(5 * time.Second)
-	for pool.Stat().AcquiredConns() < 3 && time.Now().Before(deadline) {
+	for pool.Stat().AcquiredConns() < 2 && time.Now().Before(deadline) {
 		time.Sleep(time.Millisecond)
 	}
-	if pool.Stat().AcquiredConns() < 3 {
+	if pool.Stat().AcquiredConns() < 2 {
 		t.Fatalf(
 			"bootstrap consumers did not reach the append barrier: %d acquired connections",
 			pool.Stat().AcquiredConns(),

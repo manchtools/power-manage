@@ -45,6 +45,7 @@ SET consumed = true,
     projection_version = sqlc.arg(projection_version),
     updated_at = sqlc.arg(updated_at)
 WHERE login_id = sqlc.arg(login_id)
+  AND consumed = false
   AND projection_version = sqlc.arg(previous_projection_version);
 
 -- name: ResetBootstrapLogins :exec
