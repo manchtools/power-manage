@@ -16,12 +16,13 @@ import (
 )
 
 const testSubject = "01K0QJ3E5E8R4M0D8EV3Y4N6J7"
+const testSessionVersion int64 = 1
 
 var testNow = time.Date(2026, 7, 23, 12, 0, 0, 0, time.UTC)
 
 func TestTokenService_MintsAndVerifiesPinnedTypesAndLifetimes(t *testing.T) {
 	_, signer, verifier, clock := tokenService(t)
-	want := Claims{Subject: testSubject}
+	want := Claims{Subject: testSubject, SessionVersion: testSessionVersion}
 
 	access := mintAccess(t, signer, testSubject)
 	refresh := mintRefresh(t, signer, testSubject)
@@ -81,6 +82,9 @@ func TestTokenService_ExposesOnlyExpiryAsDistinct(t *testing.T) {
 		"bad signature":     corruptSignature(t, access),
 		"wrong signing key": resignToken(t, otherKey, access, nil),
 		"missing subject":   resignToken(t, key, access, func(claims map[string]any) { delete(claims, "sub") }),
+		"missing session":   resignToken(t, key, access, func(claims map[string]any) { delete(claims, "session_version") }),
+		"zero session":      resignToken(t, key, access, func(claims map[string]any) { claims["session_version"] = 0 }),
+		"invalid session":   resignToken(t, key, access, func(claims map[string]any) { claims["session_version"] = "one" }),
 		"missing expiry":    resignToken(t, key, access, func(claims map[string]any) { delete(claims, "exp") }),
 		"invalid expiry":    resignToken(t, key, access, func(claims map[string]any) { claims["exp"] = "later" }),
 	}
@@ -155,15 +159,18 @@ func TestTokenService_RejectsInvalidConstructionAndClaims(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new verifier: %v", err)
 	}
-	for _, mint := range []func(string) (string, error){signer.MintAccess, signer.MintRefresh} {
-		if _, err := mint(""); !errors.Is(err, ErrInvalid) {
+	for _, mint := range []func(string, int64) (string, error){signer.MintAccess, signer.MintRefresh} {
+		if _, err := mint("", testSessionVersion); !errors.Is(err, ErrInvalid) {
 			t.Fatalf("empty subject mint error = %v, want ErrInvalid", err)
 		}
 		clock.now = time.Time{}
-		if _, err := mint(testSubject); !errors.Is(err, ErrInvalid) {
+		if _, err := mint(testSubject, testSessionVersion); !errors.Is(err, ErrInvalid) {
 			t.Fatalf("zero mint time error = %v, want ErrInvalid", err)
 		}
 		clock.now = testNow
+		if _, err := mint(testSubject, 0); !errors.Is(err, ErrInvalid) {
+			t.Fatalf("zero session version mint error = %v, want ErrInvalid", err)
+		}
 	}
 	if _, err := verifier.VerifyAccess(""); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("empty token error = %v, want ErrInvalid", err)
@@ -202,7 +209,7 @@ func tokenService(t *testing.T) (*ecdsa.PrivateKey, *Signer, *Verifier, *testClo
 
 func mintAccess(t *testing.T, signer *Signer, subject string) string {
 	t.Helper()
-	token, err := signer.MintAccess(subject)
+	token, err := signer.MintAccess(subject, testSessionVersion)
 	if err != nil {
 		t.Fatalf("mint access: %v", err)
 	}
@@ -211,7 +218,7 @@ func mintAccess(t *testing.T, signer *Signer, subject string) string {
 
 func mintRefresh(t *testing.T, signer *Signer, subject string) string {
 	t.Helper()
-	token, err := signer.MintRefresh(subject)
+	token, err := signer.MintRefresh(subject, testSessionVersion)
 	if err != nil {
 		t.Fatalf("mint refresh: %v", err)
 	}
@@ -223,8 +230,8 @@ func assertClaims(t *testing.T, want Claims, got Claims, err error) {
 	if err != nil {
 		t.Fatalf("verify token: %v", err)
 	}
-	if got.Subject != want.Subject {
-		t.Fatalf("claims = %+v, want subject %q", got, want.Subject)
+	if got != want {
+		t.Fatalf("claims = %+v, want %+v", got, want)
 	}
 }
 

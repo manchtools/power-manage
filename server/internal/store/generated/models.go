@@ -218,6 +218,8 @@ type User struct {
 	Email             string
 	ProjectionVersion int64
 	UpdatedAt         time.Time
+	SessionVersion    int64
+	Disabled          bool
 }
 
 type WorkItem struct {

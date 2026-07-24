@@ -699,14 +699,6 @@ func scimUserEventDefinitions() map[string]eventDefinition {
 			},
 			Projector: projectSCIMIdentityUnlinked,
 		},
-		scimUserDeprovisionedEventType: {
-			PayloadVersion: scimPayloadVersion,
-			PayloadType:    scimUserDeprovisionedPayload{},
-			GoldenPayload: func() ([]byte, error) {
-				return json.Marshal(scimUserDeprovisionedPayload{})
-			},
-			Projector: projectSCIMUserDeprovisioned,
-		},
 	}
 }
 
@@ -723,10 +715,6 @@ func scimUserGoldenCorpus() map[string]goldenEvent {
 			Payload: []byte(
 				`{"provider_slug":"corporate","external_id":"external-user-1"}`,
 			),
-		},
-		scimUserDeprovisionedEventType: {
-			PayloadVersion: scimPayloadVersion,
-			Payload:        []byte(`{}`),
 		},
 	}
 }
@@ -1006,49 +994,6 @@ func advanceSCIMUser(
 	}
 	if affected != 1 {
 		return fmt.Errorf("store: SCIM identity change affected %d users; want one", affected)
-	}
-	return nil
-}
-
-func projectSCIMUserDeprovisioned(
-	ctx context.Context,
-	tx ProjectionTx,
-	event PersistedEvent,
-) error {
-	if event.StreamVersion <= 1 {
-		return errors.New("store: SCIM user deprovision requires a prior user")
-	}
-	if _, err := decodeEventPayload[scimUserDeprovisionedPayload](
-		event,
-		scimPayloadVersion,
-	); err != nil {
-		return err
-	}
-	userID, err := canonicalUserID(event.StreamID)
-	if err != nil || userID != event.StreamID {
-		return errors.New("store: SCIM user deprovision stream ID is invalid")
-	}
-	queries := generated.New(tx)
-	if count, err := queries.CountUserIdentityLinks(ctx, userID); err != nil {
-		return fmt.Errorf("store: count links before SCIM user deprovision: %w", err)
-	} else if count != 0 {
-		return errors.New("store: SCIM user deprovision requires zero remaining links")
-	}
-	if err := queries.DeleteSCIMGroupMembershipsForUser(ctx, userID); err != nil {
-		return fmt.Errorf("store: delete SCIM memberships for deprovisioned user: %w", err)
-	}
-	affected, err := queries.DeleteUserProjection(
-		ctx,
-		generated.DeleteUserProjectionParams{
-			UserID:                    userID,
-			PreviousProjectionVersion: event.StreamVersion - 1,
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("store: project SCIM user deprovision: %w", err)
-	}
-	if affected != 1 {
-		return fmt.Errorf("store: SCIM user deprovision affected %d users; want one", affected)
 	}
 	return nil
 }

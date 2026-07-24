@@ -41,7 +41,8 @@ var (
 
 // Claims are the authenticated values returned from a verified token.
 type Claims struct {
-	Subject string
+	Subject        string
+	SessionVersion int64
 }
 
 type tokenHeader struct {
@@ -50,10 +51,11 @@ type tokenHeader struct {
 }
 
 type tokenClaims struct {
-	Subject   string `json:"sub"`
-	TokenType string `json:"token_type"`
-	IssuedAt  int64  `json:"iat"`
-	ExpiresAt int64  `json:"exp"`
+	Subject        string `json:"sub"`
+	TokenType      string `json:"token_type"`
+	SessionVersion int64  `json:"session_version"`
+	IssuedAt       int64  `json:"iat"`
+	ExpiresAt      int64  `json:"exp"`
 }
 
 // Signer mints purpose-separated session tokens with the setup signing key.
@@ -108,17 +110,23 @@ func NewVerifier(key *ecdsa.PublicKey, now func() time.Time) (*Verifier, error) 
 }
 
 // MintAccess mints a five-minute access token.
-func (s *Signer) MintAccess(subject string) (string, error) {
-	return s.mint(subject, tokenTypeAccess, accessTokenLifetime)
+func (s *Signer) MintAccess(subject string, sessionVersion int64) (string, error) {
+	return s.mint(subject, sessionVersion, tokenTypeAccess, accessTokenLifetime)
 }
 
 // MintRefresh mints a seven-day refresh token.
-func (s *Signer) MintRefresh(subject string) (string, error) {
-	return s.mint(subject, tokenTypeRefresh, refreshTokenLifetime)
+func (s *Signer) MintRefresh(subject string, sessionVersion int64) (string, error) {
+	return s.mint(subject, sessionVersion, tokenTypeRefresh, refreshTokenLifetime)
 }
 
-func (s *Signer) mint(subject, tokenType string, lifetime time.Duration) (string, error) {
-	if s == nil || s.key == nil || s.now == nil || !validSubject(subject) {
+func (s *Signer) mint(
+	subject string,
+	sessionVersion int64,
+	tokenType string,
+	lifetime time.Duration,
+) (string, error) {
+	if s == nil || s.key == nil || s.now == nil ||
+		!validSubject(subject) || sessionVersion <= 0 {
 		return "", ErrInvalid
 	}
 	now := s.now()
@@ -135,7 +143,11 @@ func (s *Signer) mint(subject, tokenType string, lifetime time.Duration) (string
 		return "", fmt.Errorf("auth: encode token header: %w", err)
 	}
 	payload, err := json.Marshal(tokenClaims{
-		Subject: subject, TokenType: tokenType, IssuedAt: issuedAt, ExpiresAt: expiresAt,
+		Subject:        subject,
+		TokenType:      tokenType,
+		SessionVersion: sessionVersion,
+		IssuedAt:       issuedAt,
+		ExpiresAt:      expiresAt,
 	})
 	if err != nil {
 		return "", fmt.Errorf("auth: encode token claims: %w", err)
@@ -203,6 +215,7 @@ func (v *Verifier) verify(
 	if err := decodeSegmentJSON(parts[1], &raw); err != nil ||
 		!validSubject(raw.Subject) ||
 		raw.TokenType != expectedType ||
+		raw.SessionVersion <= 0 ||
 		raw.IssuedAt <= 0 ||
 		raw.ExpiresAt <= raw.IssuedAt ||
 		raw.ExpiresAt-raw.IssuedAt != int64(lifetime/time.Second) {
@@ -214,7 +227,7 @@ func (v *Verifier) verify(
 		}
 		return Claims{}, ErrInvalid
 	}
-	return Claims{Subject: raw.Subject}, nil
+	return Claims{Subject: raw.Subject, SessionVersion: raw.SessionVersion}, nil
 }
 
 func encodeSegment(value []byte) string {

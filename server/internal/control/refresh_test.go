@@ -18,7 +18,7 @@ import (
 const refreshTestSubject = "01K0QJ3E5E8R4M0D8EV3Y4N6J7"
 
 func TestRefreshService_RotatesAndReplayRevokesFamily(t *testing.T) {
-	service, _, verifier, _, eventStore, pool := newTestRefreshService(t)
+	service, _, verifier, _, eventStore, pool := newTestRefreshServiceWithUser(t)
 	first, err := service.StartSession(t.Context(), refreshTestSubject)
 	if err != nil {
 		t.Fatalf("start session: %v", err)
@@ -63,7 +63,7 @@ func TestRefreshService_RotatesAndReplayRevokesFamily(t *testing.T) {
 }
 
 func TestRefreshService_ConcurrentRotationHasOneWinnerAndRevokesFamily(t *testing.T) {
-	service, _, _, _, _, _ := newTestRefreshService(t)
+	service, _, _, _, _, _ := newTestRefreshServiceWithUser(t)
 	first, err := service.StartSession(t.Context(), refreshTestSubject)
 	if err != nil {
 		t.Fatalf("start session: %v", err)
@@ -139,7 +139,7 @@ func TestRefreshService_FailureCausesHaveParity(t *testing.T) {
 			_ *refreshTestClock,
 		) string {
 			t.Helper()
-			token, err := signer.MintRefresh(refreshTestSubject)
+			token, err := signer.MintRefresh(refreshTestSubject, 1)
 			if err != nil {
 				t.Fatalf("mint nonexistent refresh fixture: %v", err)
 			}
@@ -213,7 +213,7 @@ func TestRefreshService_FailureCausesHaveParity(t *testing.T) {
 			t.Fatalf("registered refresh parity cause %q has no fixture", cause)
 		}
 		t.Run(string(cause), func(t *testing.T) {
-			service, signer, _, clock, _, _ := newTestRefreshService(t)
+			service, signer, _, clock, _, _ := newTestRefreshServiceWithUser(t)
 			samples := make([]time.Duration, 0, samplesPerCause)
 			for range samplesPerCause {
 				token := fixture(t, service, signer, clock)
@@ -257,7 +257,7 @@ func TestRefreshService_FailureCausesHaveParity(t *testing.T) {
 }
 
 func TestRefreshService_StartPersistsOnlyHash(t *testing.T) {
-	service, _, _, _, _, pool := newTestRefreshService(t)
+	service, _, _, _, _, pool := newTestRefreshServiceWithUser(t)
 	tokens, err := service.StartSession(t.Context(), refreshTestSubject)
 	if err != nil {
 		t.Fatalf("start session: %v", err)
@@ -362,17 +362,45 @@ func newTestRefreshService(
 	return service, signer, verifier, clock, eventStore, pool
 }
 
+func newTestRefreshServiceWithUser(
+	t *testing.T,
+) (
+	*auth.RefreshService,
+	*auth.Signer,
+	*auth.Verifier,
+	*refreshTestClock,
+	*store.Store,
+	*pgxpool.Pool,
+) {
+	t.Helper()
+	service, signer, verifier, clock, eventStore, pool := newTestRefreshService(t)
+	if err := eventStore.AppendEventWithVersion(t.Context(), sessionUserCreated(t), 0); err != nil {
+		t.Fatalf("append refresh test user: %v", err)
+	}
+	return service, signer, verifier, clock, eventStore, pool
+}
+
 func assertSessionTokens(t *testing.T, verifier *auth.Verifier, tokens auth.SessionTokens) {
 	t.Helper()
 	if tokens.AccessToken == "" || tokens.RefreshToken == "" {
 		t.Fatalf("session tokens = %+v; want non-empty access and refresh values", tokens)
 	}
 	access, err := verifier.VerifyAccess(tokens.AccessToken)
-	if err != nil || access.Subject != refreshTestSubject {
-		t.Fatalf("verify access token = (%+v, %v); want subject %s", access, err, refreshTestSubject)
+	if err != nil || access.Subject != refreshTestSubject || access.SessionVersion != 1 {
+		t.Fatalf(
+			"verify access token = (%+v, %v); want subject %s at session version one",
+			access,
+			err,
+			refreshTestSubject,
+		)
 	}
 	refresh, err := verifier.VerifyRefresh(tokens.RefreshToken)
-	if err != nil || refresh.Subject != refreshTestSubject {
-		t.Fatalf("verify refresh token = (%+v, %v); want subject %s", refresh, err, refreshTestSubject)
+	if err != nil || refresh.Subject != refreshTestSubject || refresh.SessionVersion != 1 {
+		t.Fatalf(
+			"verify refresh token = (%+v, %v); want subject %s at session version one",
+			refresh,
+			err,
+			refreshTestSubject,
+		)
 	}
 }

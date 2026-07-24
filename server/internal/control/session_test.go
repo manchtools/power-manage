@@ -19,7 +19,7 @@ import (
 )
 
 func TestRefreshHandler_UsesRealBoundaryAndFailureOnlyLimits(t *testing.T) {
-	refresh, _, verifier, clock, _, _ := newTestRefreshService(t)
+	refresh, _, verifier, clock, _, _ := newTestRefreshServiceWithUser(t)
 	session, err := NewSessionService(
 		refresh,
 		[]netip.Prefix{netip.MustParsePrefix("127.0.0.0/8")},
