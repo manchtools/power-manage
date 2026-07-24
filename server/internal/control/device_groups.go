@@ -40,7 +40,15 @@ func NewManagementService(
 	if eventStore == nil {
 		return nil, errors.New("control: management store is not wired")
 	}
-	domain := deviceGroupDomain(crudDomainStoreFuncs{
+	kernel, err := newCRUDKernel(eventStore, gate, managementDomains(eventStore))
+	if err != nil {
+		return nil, err
+	}
+	return &ManagementService{kernel: kernel}, nil
+}
+
+func managementDomains(eventStore *store.Store) []crudDomain {
+	return []crudDomain{deviceGroupDomain(crudDomainStoreFuncs{
 		createEvent: func(request *powermanagev1.CreateDeviceGroupRequest) (store.Event, error) {
 			return store.DeviceGroupCreatedEvent(
 				request.GetId(),
@@ -59,6 +67,9 @@ func NewManagementService(
 			return store.DeviceGroupDeletedEvent(request.GetId())
 		},
 		get: func(ctx context.Context, id string, scope CRUDScope) (store.DeviceGroup, error) {
+			if eventStore == nil {
+				return store.DeviceGroup{}, errors.New("control: management store is not wired")
+			}
 			return eventStore.DeviceGroupByID(
 				ctx,
 				id,
@@ -71,6 +82,9 @@ func NewManagementService(
 			scope CRUDScope,
 			limit int32,
 		) ([]store.DeviceGroup, error) {
+			if eventStore == nil {
+				return nil, errors.New("control: management store is not wired")
+			}
 			return eventStore.ListDeviceGroups(
 				ctx,
 				scope.Global,
@@ -78,12 +92,7 @@ func NewManagementService(
 				limit,
 			)
 		},
-	})
-	kernel, err := newCRUDKernel(eventStore, gate, []crudDomain{domain})
-	if err != nil {
-		return nil, err
-	}
-	return &ManagementService{kernel: kernel}, nil
+	})}
 }
 
 // CreateDeviceGroup delegates device-group creation to the shared CRUD kernel.
