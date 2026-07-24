@@ -444,6 +444,7 @@ func (s *OIDCService) resolveUser(
 	return store.User{
 		UserID:            userID,
 		Email:             email,
+		SessionVersion:    1,
 		ProjectionVersion: 2,
 	}, nil
 }

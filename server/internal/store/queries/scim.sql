@@ -92,11 +92,6 @@ SELECT (
     (SELECT count(*) FROM scim_identities WHERE scim_identities.user_id = sqlc.arg(lookup_user_id))
 )::bigint;
 
--- name: DeleteUserProjection :execrows
-DELETE FROM users
-WHERE user_id = sqlc.arg(user_id)
-  AND projection_version = sqlc.arg(previous_projection_version);
-
 -- name: AdvanceUserProjectionVersionForSCIM :execrows
 UPDATE users
 SET projection_version = sqlc.arg(projection_version),

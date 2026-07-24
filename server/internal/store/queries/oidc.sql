@@ -2,11 +2,15 @@
 INSERT INTO users (
     user_id,
     email,
+    session_version,
+    disabled,
     projection_version,
     updated_at
 ) VALUES (
     sqlc.arg(user_id),
     sqlc.arg(email),
+    1,
+    false,
     sqlc.arg(projection_version),
     sqlc.arg(updated_at)
 );
@@ -39,17 +43,22 @@ WHERE user_id = sqlc.arg(user_id)
   AND projection_version = sqlc.arg(previous_projection_version);
 
 -- name: GetUserByID :one
-SELECT user_id, email, projection_version
+SELECT user_id, email, session_version, disabled, projection_version
 FROM users
 WHERE user_id = sqlc.arg(user_id);
 
 -- name: GetUserByEmail :one
-SELECT user_id, email, projection_version
+SELECT user_id, email, session_version, disabled, projection_version
 FROM users
 WHERE email = sqlc.arg(email);
 
 -- name: GetUserByOIDCIdentity :one
-SELECT users.user_id, users.email, users.projection_version
+SELECT
+    users.user_id,
+    users.email,
+    users.session_version,
+    users.disabled,
+    users.projection_version
 FROM oidc_identities
 JOIN users ON users.user_id = oidc_identities.user_id
 WHERE oidc_identities.issuer = sqlc.arg(issuer)

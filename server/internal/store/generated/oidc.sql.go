@@ -95,7 +95,7 @@ func (q *Queries) DeleteExpiredOIDCLoginStates(ctx context.Context, now time.Tim
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT user_id, email, projection_version
+SELECT user_id, email, session_version, disabled, projection_version
 FROM users
 WHERE email = $1
 `
@@ -103,18 +103,26 @@ WHERE email = $1
 type GetUserByEmailRow struct {
 	UserID            string
 	Email             string
+	SessionVersion    int64
+	Disabled          bool
 	ProjectionVersion int64
 }
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEmailRow, error) {
 	row := q.db.QueryRow(ctx, getUserByEmail, email)
 	var i GetUserByEmailRow
-	err := row.Scan(&i.UserID, &i.Email, &i.ProjectionVersion)
+	err := row.Scan(
+		&i.UserID,
+		&i.Email,
+		&i.SessionVersion,
+		&i.Disabled,
+		&i.ProjectionVersion,
+	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT user_id, email, projection_version
+SELECT user_id, email, session_version, disabled, projection_version
 FROM users
 WHERE user_id = $1
 `
@@ -122,18 +130,31 @@ WHERE user_id = $1
 type GetUserByIDRow struct {
 	UserID            string
 	Email             string
+	SessionVersion    int64
+	Disabled          bool
 	ProjectionVersion int64
 }
 
 func (q *Queries) GetUserByID(ctx context.Context, userID string) (GetUserByIDRow, error) {
 	row := q.db.QueryRow(ctx, getUserByID, userID)
 	var i GetUserByIDRow
-	err := row.Scan(&i.UserID, &i.Email, &i.ProjectionVersion)
+	err := row.Scan(
+		&i.UserID,
+		&i.Email,
+		&i.SessionVersion,
+		&i.Disabled,
+		&i.ProjectionVersion,
+	)
 	return i, err
 }
 
 const getUserByOIDCIdentity = `-- name: GetUserByOIDCIdentity :one
-SELECT users.user_id, users.email, users.projection_version
+SELECT
+    users.user_id,
+    users.email,
+    users.session_version,
+    users.disabled,
+    users.projection_version
 FROM oidc_identities
 JOIN users ON users.user_id = oidc_identities.user_id
 WHERE oidc_identities.issuer = $1
@@ -148,13 +169,21 @@ type GetUserByOIDCIdentityParams struct {
 type GetUserByOIDCIdentityRow struct {
 	UserID            string
 	Email             string
+	SessionVersion    int64
+	Disabled          bool
 	ProjectionVersion int64
 }
 
 func (q *Queries) GetUserByOIDCIdentity(ctx context.Context, arg GetUserByOIDCIdentityParams) (GetUserByOIDCIdentityRow, error) {
 	row := q.db.QueryRow(ctx, getUserByOIDCIdentity, arg.Issuer, arg.ExternalSubject)
 	var i GetUserByOIDCIdentityRow
-	err := row.Scan(&i.UserID, &i.Email, &i.ProjectionVersion)
+	err := row.Scan(
+		&i.UserID,
+		&i.Email,
+		&i.SessionVersion,
+		&i.Disabled,
+		&i.ProjectionVersion,
+	)
 	return i, err
 }
 
@@ -250,11 +279,15 @@ const insertUser = `-- name: InsertUser :execrows
 INSERT INTO users (
     user_id,
     email,
+    session_version,
+    disabled,
     projection_version,
     updated_at
 ) VALUES (
     $1,
     $2,
+    1,
+    false,
     $3,
     $4
 )

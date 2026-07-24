@@ -32,6 +32,8 @@ const UserRebuildTarget = "users"
 type User struct {
 	UserID            string
 	Email             string
+	SessionVersion    int64
+	Disabled          bool
 	ProjectionVersion int64
 }
 
@@ -135,7 +137,13 @@ func (s *Store) UserByID(ctx context.Context, userID string) (User, error) {
 	if err != nil {
 		return User{}, fmt.Errorf("store: read user by ID: %w", err)
 	}
-	return validateUserProjection(row.UserID, row.Email, row.ProjectionVersion)
+	return validateUserProjection(
+		row.UserID,
+		row.Email,
+		row.SessionVersion,
+		row.Disabled,
+		row.ProjectionVersion,
+	)
 }
 
 // UserByEmail reads one user by canonicalized email.
@@ -154,7 +162,13 @@ func (s *Store) UserByEmail(ctx context.Context, email string) (User, error) {
 	if err != nil {
 		return User{}, fmt.Errorf("store: read user by email: %w", err)
 	}
-	return validateUserProjection(row.UserID, row.Email, row.ProjectionVersion)
+	return validateUserProjection(
+		row.UserID,
+		row.Email,
+		row.SessionVersion,
+		row.Disabled,
+		row.ProjectionVersion,
+	)
 }
 
 // UserByOIDCIdentity resolves one exact issuer/subject pair.
@@ -186,7 +200,13 @@ func (s *Store) UserByOIDCIdentity(
 	if err != nil {
 		return User{}, fmt.Errorf("store: read user by OIDC identity: %w", err)
 	}
-	return validateUserProjection(row.UserID, row.Email, row.ProjectionVersion)
+	return validateUserProjection(
+		row.UserID,
+		row.Email,
+		row.SessionVersion,
+		row.Disabled,
+		row.ProjectionVersion,
+	)
 }
 
 // UserOIDCIdentityCount returns the number of configured-provider links.
@@ -296,6 +316,9 @@ func userEventDefinitions() map[string]eventDefinition {
 	for eventType, definition := range scimUserEventDefinitions() {
 		definitions[eventType] = definition
 	}
+	for eventType, definition := range sessionInvalidationEventDefinitions() {
+		definitions[eventType] = definition
+	}
 	return definitions
 }
 
@@ -317,6 +340,9 @@ func userGoldenCorpus() map[string]goldenEvent {
 		},
 	}
 	for eventType, event := range scimUserGoldenCorpus() {
+		corpus[eventType] = event
+	}
+	for eventType, event := range sessionInvalidationGoldenCorpus() {
 		corpus[eventType] = event
 	}
 	return corpus
@@ -480,7 +506,12 @@ func projectOIDCIdentityLink(ctx context.Context, tx ProjectionTx, event Persist
 	return nil
 }
 
-func validateUserProjection(userID, email string, version int64) (User, error) {
+func validateUserProjection(
+	userID, email string,
+	sessionVersion int64,
+	disabled bool,
+	version int64,
+) (User, error) {
 	canonicalID, err := canonicalUserID(userID)
 	if err != nil || canonicalID != userID {
 		return User{}, errors.New("store: user projection has an invalid user ID")
@@ -489,10 +520,16 @@ func validateUserProjection(userID, email string, version int64) (User, error) {
 	if err != nil || canonicalEmail != email {
 		return User{}, errors.New("store: user projection has an invalid email")
 	}
-	if version <= 0 {
+	if sessionVersion <= 0 || version <= 0 {
 		return User{}, errors.New("store: user projection has an invalid version")
 	}
-	return User{UserID: userID, Email: email, ProjectionVersion: version}, nil
+	return User{
+		UserID:            userID,
+		Email:             email,
+		SessionVersion:    sessionVersion,
+		Disabled:          disabled,
+		ProjectionVersion: version,
+	}, nil
 }
 
 func resetUsers(ctx context.Context, tx ProjectionTx) error {

@@ -401,7 +401,12 @@ func (s *SCIMService) createSCIMUser(
 			request.Context(),
 			[]store.Event{created, link},
 		)
-		user = store.User{UserID: userID, Email: email, ProjectionVersion: 2}
+		user = store.User{
+			UserID:            userID,
+			Email:             email,
+			SessionVersion:    1,
+			ProjectionVersion: 2,
+		}
 	default:
 		s.writeSCIMStoreError(response, err)
 		return

@@ -145,25 +145,6 @@ func (q *Queries) DeleteSCIMIdentity(ctx context.Context, arg DeleteSCIMIdentity
 	return result.RowsAffected(), nil
 }
 
-const deleteUserProjection = `-- name: DeleteUserProjection :execrows
-DELETE FROM users
-WHERE user_id = $1
-  AND projection_version = $2
-`
-
-type DeleteUserProjectionParams struct {
-	UserID                    string
-	PreviousProjectionVersion int64
-}
-
-func (q *Queries) DeleteUserProjection(ctx context.Context, arg DeleteUserProjectionParams) (int64, error) {
-	result, err := q.db.Exec(ctx, deleteUserProjection, arg.UserID, arg.PreviousProjectionVersion)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
-}
-
 const disableSCIMProvider = `-- name: DisableSCIMProvider :execrows
 UPDATE scim_providers
 SET disabled = true,

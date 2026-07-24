@@ -38,6 +38,7 @@ func TestUserProjection_CreatesLinksAndRebuildsAtomically(t *testing.T) {
 	want := User{
 		UserID:            testOIDCUserID,
 		Email:             testOIDCEmail,
+		SessionVersion:    1,
 		ProjectionVersion: 2,
 	}
 	assertUser(t, eventStore, want)

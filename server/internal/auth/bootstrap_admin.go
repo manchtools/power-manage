@@ -213,7 +213,12 @@ func (m *BootstrapAdminMinter) createFirstBootUser(
 	if err := m.eventStore.AppendEvents(ctx, []store.Event{created, granted}); err != nil {
 		return store.User{}, fmt.Errorf("%w: persist user and admin grant", ErrBootstrapUnavailable)
 	}
-	return store.User{UserID: userID, Email: email, ProjectionVersion: 2}, nil
+	return store.User{
+		UserID:            userID,
+		Email:             email,
+		SessionVersion:    1,
+		ProjectionVersion: 2,
+	}, nil
 }
 
 func (m *BootstrapAdminMinter) newLoginMaterial(now time.Time) (string, string, error) {

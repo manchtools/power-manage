@@ -93,11 +93,21 @@ func (s *RefreshService) StartSession(ctx context.Context, subject string) (Sess
 	if !validTime(now) {
 		return SessionTokens{}, ErrRefreshUnavailable
 	}
+	user, err := s.eventStore.UserByID(ctx, subject)
+	if err != nil {
+		if store.IsNotFound(err) {
+			return SessionTokens{}, ErrRefreshRejected
+		}
+		return SessionTokens{}, fmt.Errorf("%w: read session user", ErrRefreshUnavailable)
+	}
+	if user.Disabled {
+		return SessionTokens{}, ErrRefreshRejected
+	}
 	familyID, err := s.newFamilyID(now)
 	if err != nil {
 		return SessionTokens{}, fmt.Errorf("%w: mint family ID", ErrRefreshUnavailable)
 	}
-	tokens, err := s.mintTokens(subject)
+	tokens, err := s.mintTokens(subject, user.SessionVersion)
 	if err != nil {
 		return SessionTokens{}, fmt.Errorf("%w: mint session tokens", ErrRefreshUnavailable)
 	}
@@ -128,8 +138,20 @@ func (s *RefreshService) Rotate(ctx context.Context, presented string) (SessionT
 	if stateErr != nil && !store.IsNotFound(stateErr) {
 		return SessionTokens{}, fmt.Errorf("%w: read refresh family", ErrRefreshUnavailable)
 	}
-	if verifyErr != nil || stateErr != nil ||
+	var (
+		user    store.User
+		userErr error
+	)
+	if verifyErr == nil && stateErr == nil && claims.Subject == state.Subject {
+		user, userErr = s.eventStore.UserByID(ctx, state.Subject)
+		if userErr != nil && !store.IsNotFound(userErr) {
+			return SessionTokens{}, fmt.Errorf("%w: read refresh session user", ErrRefreshUnavailable)
+		}
+	}
+	if verifyErr != nil || stateErr != nil || userErr != nil ||
 		claims.Subject != state.Subject ||
+		claims.SessionVersion != user.SessionVersion ||
+		user.Disabled ||
 		state.Revoked ||
 		!s.activeAt(state, presentedHash) {
 		if stateErr == nil && state.Superseded && !state.Revoked {
@@ -140,7 +162,7 @@ func (s *RefreshService) Rotate(ctx context.Context, presented string) (SessionT
 		return SessionTokens{}, rejectRefresh(ctx, startedAt)
 	}
 
-	tokens, err := s.mintTokens(state.Subject)
+	tokens, err := s.mintTokens(state.Subject, user.SessionVersion)
 	if err != nil {
 		return SessionTokens{}, fmt.Errorf("%w: mint rotated session tokens", ErrRefreshUnavailable)
 	}
@@ -174,12 +196,12 @@ func (s *RefreshService) newFamilyID(now time.Time) (string, error) {
 	return ulidx.NewWithReader(now, s.random)
 }
 
-func (s *RefreshService) mintTokens(subject string) (SessionTokens, error) {
-	accessToken, err := s.signer.MintAccess(subject)
+func (s *RefreshService) mintTokens(subject string, sessionVersion int64) (SessionTokens, error) {
+	accessToken, err := s.signer.MintAccess(subject, sessionVersion)
 	if err != nil {
 		return SessionTokens{}, err
 	}
-	refreshToken, err := s.signer.MintRefresh(subject)
+	refreshToken, err := s.signer.MintRefresh(subject, sessionVersion)
 	if err != nil {
 		return SessionTokens{}, err
 	}
