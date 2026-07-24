@@ -93,9 +93,19 @@ func productionRebuildTargets() map[string]RebuildTarget {
 			StreamTypes: []string{userStreamType},
 			EventTypes: []string{
 				userCreatedEventType,
+				bootstrapAdminGrantedType,
 				oidcIdentityLinkedEventType,
 			},
 			Reset: resetUsers,
+		},
+		BootstrapLoginRebuildTarget: {
+			Tables:      []string{"bootstrap_logins"},
+			StreamTypes: []string{bootstrapLoginStreamType},
+			EventTypes: []string{
+				bootstrapLoginMintedEventType,
+				bootstrapLoginConsumedEventType,
+			},
+			Reset: resetBootstrapLogins,
 		},
 		RegistrationTokenRebuildTarget: {
 			Tables:      []string{"registration_tokens"},
@@ -236,6 +246,9 @@ func productionEventDefinitions() map[string]eventDefinition {
 	for eventType, definition := range userEventDefinitions() {
 		definitions[eventType] = definition
 	}
+	for eventType, definition := range bootstrapLoginEventDefinitions() {
+		definitions[eventType] = definition
+	}
 	for eventType, definition := range refreshFamilyEventDefinitions() {
 		definitions[eventType] = definition
 	}
@@ -269,6 +282,9 @@ func goldenEventCorpus() map[string]goldenEvent {
 		corpus[eventType] = event
 	}
 	for eventType, event := range userGoldenCorpus() {
+		corpus[eventType] = event
+	}
+	for eventType, event := range bootstrapLoginGoldenCorpus() {
 		corpus[eventType] = event
 	}
 	for eventType, event := range refreshFamilyGoldenCorpus() {

@@ -28,6 +28,7 @@ func ProductionTableClassification() TableClassification {
 	return TableClassification{
 		Events: []string{"events"},
 		Projections: []string{
+			"bootstrap_logins",
 			"ca_rotation_state",
 			"certificate_revocations",
 			"devices",

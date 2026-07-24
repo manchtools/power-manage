@@ -46,12 +46,13 @@ Verification gate (run before every commit):
 
 ## Binaries
 
-<!-- docref: begin src=server/cmd/power-manage-recovery/main.go#main:603fb0f9,server/cmd/power-manage-recovery/main.go#run:f60ffb8b,agent/cmd/power-manage-agent/main.go#main:ee5c09e0,agent/cmd/power-manage-agent/main.go#run:d2ed7925 -->
+<!-- docref: begin src=server/cmd/control/main.go#main:5fdfb70e,server/cmd/control/main.go#run:d0d6edf4,server/cmd/power-manage-recovery/main.go#main:603fb0f9,server/cmd/power-manage-recovery/main.go#run:f60ffb8b,agent/cmd/power-manage-agent/main.go#main:ee5c09e0,agent/cmd/power-manage-agent/main.go#run:d2ed7925 -->
 The server module includes the CLI-only projection recovery binary delivered by
-SPEC-005. The agent module includes the token-safe local enrollment CLI delivered
-by SPEC-006 M4. The networked control, gateway, and full agent daemon remain
-planned for their owning milestones; use the verification gate above until they
-land.
+SPEC-005 and the host-only `control bootstrap-admin` break-glass command
+delivered by SPEC-007 M7. The agent module includes the token-safe local
+enrollment CLI delivered by SPEC-006 M4. The networked control server, gateway,
+and full agent daemon remain planned for their owning milestones; use the
+verification gate above until they land.
 <!-- docref: end -->
 
 Versioning: `vYYYY.MM.PP`. Conventional commits.
