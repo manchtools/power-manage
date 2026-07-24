@@ -11,7 +11,8 @@ INSERT INTO scim_providers (
     false,
     sqlc.arg(projection_version),
     sqlc.arg(updated_at)
-);
+)
+ON CONFLICT (provider_slug) DO NOTHING;
 
 -- name: RotateSCIMProviderToken :execrows
 UPDATE scim_providers
@@ -33,6 +34,22 @@ WHERE provider_slug = sqlc.arg(provider_slug)
 SELECT provider_slug, token_hash, disabled, projection_version
 FROM scim_providers
 WHERE provider_slug = sqlc.arg(provider_slug);
+
+-- name: GetSCIMProviderMetadata :one
+SELECT provider_slug, disabled, projection_version
+FROM scim_providers
+WHERE provider_slug = sqlc.arg(provider_slug);
+
+-- name: ListSCIMProviders :many
+SELECT provider_slug, disabled, projection_version
+FROM scim_providers
+ORDER BY provider_slug
+LIMIT sqlc.arg(page_limit);
+
+-- name: DeleteSCIMProvider :execrows
+DELETE FROM scim_providers
+WHERE provider_slug = sqlc.arg(provider_slug)
+  AND projection_version = sqlc.arg(previous_projection_version);
 
 -- name: ResetSCIMProviders :exec
 DELETE FROM scim_providers;
@@ -71,6 +88,12 @@ SELECT provider_slug, external_id, user_id, email, projection_version
 FROM scim_identities
 WHERE provider_slug = sqlc.arg(provider_slug)
   AND user_id = sqlc.arg(user_id);
+
+-- name: ReplaceSCIMIdentityEmailsForManagedUser :exec
+UPDATE scim_identities
+SET email = sqlc.arg(email),
+    updated_at = sqlc.arg(updated_at)
+WHERE user_id = sqlc.arg(user_id);
 
 -- name: ListSCIMUsers :many
 SELECT

@@ -18,6 +18,26 @@ SELECT role_id, name, permissions, projection_version
 FROM authorization_roles
 WHERE role_id = sqlc.arg(role_id);
 
+-- name: ListAuthorizationRoles :many
+SELECT role_id, name, permissions, projection_version
+FROM authorization_roles
+ORDER BY role_id
+LIMIT sqlc.arg(page_limit);
+
+-- name: ReplaceAuthorizationRole :execrows
+UPDATE authorization_roles
+SET name = sqlc.arg(name),
+    permissions = sqlc.arg(permissions),
+    projection_version = sqlc.arg(projection_version),
+    updated_at = sqlc.arg(updated_at)
+WHERE role_id = sqlc.arg(role_id)
+  AND projection_version = sqlc.arg(previous_projection_version);
+
+-- name: DeleteAuthorizationRole :execrows
+DELETE FROM authorization_roles
+WHERE role_id = sqlc.arg(role_id)
+  AND projection_version = sqlc.arg(projection_version);
+
 -- name: InsertAuthorizationGrant :execrows
 INSERT INTO authorization_grants (
     grant_id,
@@ -39,6 +59,36 @@ INSERT INTO authorization_grants (
     sqlc.arg(updated_at)
 );
 
+-- name: GetAuthorizationGrant :one
+SELECT grant_id, principal_type, principal_id, role_id, scope_kind, scope_ids,
+       projection_version
+FROM authorization_grants
+WHERE grant_id = sqlc.arg(grant_id);
+
+-- name: ListAuthorizationGrants :many
+SELECT grant_id, principal_type, principal_id, role_id, scope_kind, scope_ids,
+       projection_version
+FROM authorization_grants
+ORDER BY grant_id
+LIMIT sqlc.arg(page_limit);
+
+-- name: ReplaceAuthorizationGrant :execrows
+UPDATE authorization_grants
+SET principal_type = sqlc.arg(principal_type),
+    principal_id = sqlc.arg(principal_id),
+    role_id = sqlc.arg(role_id),
+    scope_kind = sqlc.arg(scope_kind),
+    scope_ids = sqlc.arg(scope_ids),
+    projection_version = sqlc.arg(projection_version),
+    updated_at = sqlc.arg(updated_at)
+WHERE grant_id = sqlc.arg(grant_id)
+  AND projection_version = sqlc.arg(previous_projection_version);
+
+-- name: DeleteAuthorizationGrant :execrows
+DELETE FROM authorization_grants
+WHERE grant_id = sqlc.arg(grant_id)
+  AND projection_version = sqlc.arg(projection_version);
+
 -- name: AuthorizationPrincipalExists :one
 SELECT CASE sqlc.arg(principal_type)::text
     WHEN 'user' THEN EXISTS (
@@ -49,6 +99,10 @@ SELECT CASE sqlc.arg(principal_type)::text
     WHEN 'user-group' THEN EXISTS (
         SELECT 1
         FROM scim_groups
+        WHERE group_id = sqlc.arg(principal_id)
+    ) OR EXISTS (
+        SELECT 1
+        FROM managed_user_groups
         WHERE group_id = sqlc.arg(principal_id)
     )
     ELSE false
@@ -72,9 +126,13 @@ WHERE (
     grants.principal_type = 'user-group'
     AND EXISTS (
         SELECT 1
-        FROM scim_group_members
-        WHERE scim_group_members.group_id = grants.principal_id
-          AND scim_group_members.user_id = sqlc.arg(user_id)
+        FROM (
+            SELECT group_id, user_id FROM scim_group_members
+            UNION ALL
+            SELECT group_id, user_id FROM managed_user_group_members
+        ) AS memberships
+        WHERE memberships.group_id = grants.principal_id
+          AND memberships.user_id = sqlc.arg(user_id)
     )
 )
 ORDER BY grants.grant_id;

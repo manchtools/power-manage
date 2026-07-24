@@ -10,6 +10,25 @@ import (
 	"time"
 )
 
+const deletePersonalAccessTokenProjection = `-- name: DeletePersonalAccessTokenProjection :execrows
+DELETE FROM personal_access_tokens
+WHERE token_id = $1
+  AND projection_version = $2
+`
+
+type DeletePersonalAccessTokenProjectionParams struct {
+	TokenID                   string
+	PreviousProjectionVersion int64
+}
+
+func (q *Queries) DeletePersonalAccessTokenProjection(ctx context.Context, arg DeletePersonalAccessTokenProjectionParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deletePersonalAccessTokenProjection, arg.TokenID, arg.PreviousProjectionVersion)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getPersonalAccessTokenByHash = `-- name: GetPersonalAccessTokenByHash :one
 SELECT
     token_id,
@@ -86,6 +105,69 @@ func (q *Queries) GetPersonalAccessTokenByID(ctx context.Context, tokenID string
 	return i, err
 }
 
+const getScopedPersonalAccessToken = `-- name: GetScopedPersonalAccessToken :one
+SELECT
+    p.token_id,
+    p.subject,
+    p.scopes,
+    p.expires_at,
+    p.revoked,
+    p.projection_version
+FROM personal_access_tokens AS p
+WHERE p.token_id = $1
+  AND (
+      $2::boolean
+      OR p.subject = $3
+      OR EXISTS (
+          SELECT 1
+          FROM managed_user_group_members AS m
+          WHERE m.group_id = ANY($4::text[])
+            AND m.user_id = p.subject
+      )
+      OR EXISTS (
+          SELECT 1
+          FROM scim_group_members AS m
+          WHERE m.group_id = ANY($4::text[])
+            AND m.user_id = p.subject
+      )
+  )
+`
+
+type GetScopedPersonalAccessTokenParams struct {
+	TokenID      string
+	GlobalScope  bool
+	SelfID       string
+	UserGroupIds []string
+}
+
+type GetScopedPersonalAccessTokenRow struct {
+	TokenID           string
+	Subject           string
+	Scopes            []string
+	ExpiresAt         time.Time
+	Revoked           bool
+	ProjectionVersion int64
+}
+
+func (q *Queries) GetScopedPersonalAccessToken(ctx context.Context, arg GetScopedPersonalAccessTokenParams) (GetScopedPersonalAccessTokenRow, error) {
+	row := q.db.QueryRow(ctx, getScopedPersonalAccessToken,
+		arg.TokenID,
+		arg.GlobalScope,
+		arg.SelfID,
+		arg.UserGroupIds,
+	)
+	var i GetScopedPersonalAccessTokenRow
+	err := row.Scan(
+		&i.TokenID,
+		&i.Subject,
+		&i.Scopes,
+		&i.ExpiresAt,
+		&i.Revoked,
+		&i.ProjectionVersion,
+	)
+	return i, err
+}
+
 const insertPersonalAccessToken = `-- name: InsertPersonalAccessToken :execrows
 INSERT INTO personal_access_tokens (
     token_id,
@@ -134,6 +216,81 @@ func (q *Queries) InsertPersonalAccessToken(ctx context.Context, arg InsertPerso
 	return result.RowsAffected(), nil
 }
 
+const listScopedPersonalAccessTokens = `-- name: ListScopedPersonalAccessTokens :many
+SELECT
+    p.token_id,
+    p.subject,
+    p.scopes,
+    p.expires_at,
+    p.revoked,
+    p.projection_version
+FROM personal_access_tokens AS p
+WHERE $1::boolean
+   OR p.subject = $2
+   OR EXISTS (
+       SELECT 1
+       FROM managed_user_group_members AS m
+       WHERE m.group_id = ANY($3::text[])
+         AND m.user_id = p.subject
+   )
+   OR EXISTS (
+       SELECT 1
+       FROM scim_group_members AS m
+       WHERE m.group_id = ANY($3::text[])
+         AND m.user_id = p.subject
+   )
+ORDER BY p.token_id
+LIMIT $4
+`
+
+type ListScopedPersonalAccessTokensParams struct {
+	GlobalScope  bool
+	SelfID       string
+	UserGroupIds []string
+	PageLimit    int32
+}
+
+type ListScopedPersonalAccessTokensRow struct {
+	TokenID           string
+	Subject           string
+	Scopes            []string
+	ExpiresAt         time.Time
+	Revoked           bool
+	ProjectionVersion int64
+}
+
+func (q *Queries) ListScopedPersonalAccessTokens(ctx context.Context, arg ListScopedPersonalAccessTokensParams) ([]ListScopedPersonalAccessTokensRow, error) {
+	rows, err := q.db.Query(ctx, listScopedPersonalAccessTokens,
+		arg.GlobalScope,
+		arg.SelfID,
+		arg.UserGroupIds,
+		arg.PageLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListScopedPersonalAccessTokensRow
+	for rows.Next() {
+		var i ListScopedPersonalAccessTokensRow
+		if err := rows.Scan(
+			&i.TokenID,
+			&i.Subject,
+			&i.Scopes,
+			&i.ExpiresAt,
+			&i.Revoked,
+			&i.ProjectionVersion,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const projectPersonalAccessTokenRevocation = `-- name: ProjectPersonalAccessTokenRevocation :execrows
 UPDATE personal_access_tokens
 SET revoked = true,
@@ -152,6 +309,43 @@ type ProjectPersonalAccessTokenRevocationParams struct {
 
 func (q *Queries) ProjectPersonalAccessTokenRevocation(ctx context.Context, arg ProjectPersonalAccessTokenRevocationParams) (int64, error) {
 	result, err := q.db.Exec(ctx, projectPersonalAccessTokenRevocation, arg.ProjectionVersion, arg.UpdatedAt, arg.TokenID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const replacePersonalAccessTokenMetadata = `-- name: ReplacePersonalAccessTokenMetadata :execrows
+UPDATE personal_access_tokens
+SET scopes = $1,
+    expires_at = $2,
+    revoked = revoked OR $3::boolean,
+    projection_version = $4,
+    updated_at = $5
+WHERE token_id = $6
+  AND projection_version = $7
+`
+
+type ReplacePersonalAccessTokenMetadataParams struct {
+	Scopes                    []string
+	ExpiresAt                 time.Time
+	Revoked                   bool
+	ProjectionVersion         int64
+	UpdatedAt                 time.Time
+	TokenID                   string
+	PreviousProjectionVersion int64
+}
+
+func (q *Queries) ReplacePersonalAccessTokenMetadata(ctx context.Context, arg ReplacePersonalAccessTokenMetadataParams) (int64, error) {
+	result, err := q.db.Exec(ctx, replacePersonalAccessTokenMetadata,
+		arg.Scopes,
+		arg.ExpiresAt,
+		arg.Revoked,
+		arg.ProjectionVersion,
+		arg.UpdatedAt,
+		arg.TokenID,
+		arg.PreviousProjectionVersion,
+	)
 	if err != nil {
 		return 0, err
 	}

@@ -30,7 +30,8 @@ func (q *Queries) DeleteDeviceGroup(ctx context.Context, arg DeleteDeviceGroupPa
 }
 
 const getScopedDeviceGroup = `-- name: GetScopedDeviceGroup :one
-SELECT device_group_id, name, dynamic_query, projection_version, updated_at
+SELECT device_group_id, name, dynamic_query, static_device_ids,
+       projection_version, updated_at
 FROM device_groups
 WHERE device_group_id = $1
   AND (
@@ -45,13 +46,23 @@ type GetScopedDeviceGroupParams struct {
 	DeviceGroupIds []string
 }
 
-func (q *Queries) GetScopedDeviceGroup(ctx context.Context, arg GetScopedDeviceGroupParams) (DeviceGroup, error) {
+type GetScopedDeviceGroupRow struct {
+	DeviceGroupID     string
+	Name              string
+	DynamicQuery      string
+	StaticDeviceIds   []string
+	ProjectionVersion int64
+	UpdatedAt         time.Time
+}
+
+func (q *Queries) GetScopedDeviceGroup(ctx context.Context, arg GetScopedDeviceGroupParams) (GetScopedDeviceGroupRow, error) {
 	row := q.db.QueryRow(ctx, getScopedDeviceGroup, arg.DeviceGroupID, arg.GlobalScope, arg.DeviceGroupIds)
-	var i DeviceGroup
+	var i GetScopedDeviceGroupRow
 	err := row.Scan(
 		&i.DeviceGroupID,
 		&i.Name,
 		&i.DynamicQuery,
+		&i.StaticDeviceIds,
 		&i.ProjectionVersion,
 		&i.UpdatedAt,
 	)
@@ -63,9 +74,10 @@ INSERT INTO device_groups (
     device_group_id,
     name,
     dynamic_query,
+    static_device_ids,
     projection_version,
     updated_at
-) VALUES ($1, $2, $3, $4, $5)
+) VALUES ($1, $2, $3, $4, $5, $6)
 ON CONFLICT (device_group_id) DO NOTHING
 `
 
@@ -73,6 +85,7 @@ type InsertDeviceGroupParams struct {
 	DeviceGroupID     string
 	Name              string
 	DynamicQuery      string
+	StaticDeviceIds   []string
 	ProjectionVersion int64
 	UpdatedAt         time.Time
 }
@@ -82,6 +95,7 @@ func (q *Queries) InsertDeviceGroup(ctx context.Context, arg InsertDeviceGroupPa
 		arg.DeviceGroupID,
 		arg.Name,
 		arg.DynamicQuery,
+		arg.StaticDeviceIds,
 		arg.ProjectionVersion,
 		arg.UpdatedAt,
 	)
@@ -92,7 +106,8 @@ func (q *Queries) InsertDeviceGroup(ctx context.Context, arg InsertDeviceGroupPa
 }
 
 const listScopedDeviceGroups = `-- name: ListScopedDeviceGroups :many
-SELECT device_group_id, name, dynamic_query, projection_version, updated_at
+SELECT device_group_id, name, dynamic_query, static_device_ids,
+       projection_version, updated_at
 FROM device_groups
 WHERE $1::boolean
    OR device_group_id = ANY($2::text[])
@@ -106,19 +121,29 @@ type ListScopedDeviceGroupsParams struct {
 	PageLimit      int32
 }
 
-func (q *Queries) ListScopedDeviceGroups(ctx context.Context, arg ListScopedDeviceGroupsParams) ([]DeviceGroup, error) {
+type ListScopedDeviceGroupsRow struct {
+	DeviceGroupID     string
+	Name              string
+	DynamicQuery      string
+	StaticDeviceIds   []string
+	ProjectionVersion int64
+	UpdatedAt         time.Time
+}
+
+func (q *Queries) ListScopedDeviceGroups(ctx context.Context, arg ListScopedDeviceGroupsParams) ([]ListScopedDeviceGroupsRow, error) {
 	rows, err := q.db.Query(ctx, listScopedDeviceGroups, arg.GlobalScope, arg.DeviceGroupIds, arg.PageLimit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []DeviceGroup
+	var items []ListScopedDeviceGroupsRow
 	for rows.Next() {
-		var i DeviceGroup
+		var i ListScopedDeviceGroupsRow
 		if err := rows.Scan(
 			&i.DeviceGroupID,
 			&i.Name,
 			&i.DynamicQuery,
+			&i.StaticDeviceIds,
 			&i.ProjectionVersion,
 			&i.UpdatedAt,
 		); err != nil {
@@ -136,15 +161,17 @@ const replaceDeviceGroup = `-- name: ReplaceDeviceGroup :execrows
 UPDATE device_groups
 SET name = $1,
     dynamic_query = $2,
-    projection_version = $3,
-    updated_at = $4
-WHERE device_group_id = $5
-  AND projection_version = $6
+    static_device_ids = $3,
+    projection_version = $4,
+    updated_at = $5
+WHERE device_group_id = $6
+  AND projection_version = $7
 `
 
 type ReplaceDeviceGroupParams struct {
 	Name                      string
 	DynamicQuery              string
+	StaticDeviceIds           []string
 	ProjectionVersion         int64
 	UpdatedAt                 time.Time
 	DeviceGroupID             string
@@ -155,6 +182,7 @@ func (q *Queries) ReplaceDeviceGroup(ctx context.Context, arg ReplaceDeviceGroup
 	result, err := q.db.Exec(ctx, replaceDeviceGroup,
 		arg.Name,
 		arg.DynamicQuery,
+		arg.StaticDeviceIds,
 		arg.ProjectionVersion,
 		arg.UpdatedAt,
 		arg.DeviceGroupID,

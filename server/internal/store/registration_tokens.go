@@ -22,6 +22,8 @@ const (
 	gatewayTokenMintedEventType        = "GatewayRegistrationTokenMinted"
 	registrationTokenConsumedEventType = "RegistrationTokenConsumed"
 	registrationTokenDisabledEventType = "RegistrationTokenDisabled"
+	registrationTokenUpdatedEventType  = "RegistrationTokenUpdated"
+	registrationTokenDeletedEventType  = "RegistrationTokenDeleted"
 	registrationTokenPayloadVersion    = 1
 	maxRegistrationTokenOwnerBytes     = 256
 	maxGatewayDNSNames                 = 16
@@ -53,6 +55,19 @@ type RegistrationToken struct {
 	ProjectionVersion int64
 }
 
+// RegistrationTokenMetadata is the verifier-free management projection.
+type RegistrationTokenMetadata struct {
+	TokenID           string
+	Purpose           RegistrationTokenPurpose
+	DNSNames          []string
+	MaxUses           int32
+	Uses              int32
+	ExpiresAt         time.Time
+	Owner             string
+	Disabled          bool
+	ProjectionVersion int64
+}
+
 type registrationTokenMintedPayload struct {
 	TokenHash []byte    `json:"token_hash"`
 	MaxUses   int32     `json:"max_uses"`
@@ -70,6 +85,15 @@ type gatewayRegistrationTokenMintedPayload struct {
 
 type registrationTokenConsumedPayload struct{}
 type registrationTokenDisabledPayload struct{}
+type registrationTokenUpdatedPayload struct {
+	MaxUses   int32     `json:"max_uses"`
+	ExpiresAt time.Time `json:"expires_at"`
+	Owner     string    `json:"owner"`
+	Disabled  bool      `json:"disabled"`
+}
+type registrationTokenDeletedPayload struct{}
+
+var errRegistrationTokenExists = errors.New("store: registration token already exists")
 
 // RegistrationTokenMintedEvent returns the hash-only token creation event.
 func RegistrationTokenMintedEvent(
@@ -158,6 +182,47 @@ func RegistrationTokenDisabledEvent(tokenID string) (Event, error) {
 	return registrationTokenEvent(tokenID, registrationTokenDisabledEventType, payload), nil
 }
 
+// RegistrationTokenUpdatedEvent replaces mutable token metadata without
+// exposing or changing the stored verifier.
+func RegistrationTokenUpdatedEvent(
+	tokenID string,
+	maxUses int32,
+	expiresAt time.Time,
+	owner string,
+	disabled bool,
+) (Event, error) {
+	tokenID, err := canonicalRegistrationTokenID(tokenID)
+	if err != nil {
+		return Event{}, err
+	}
+	if err := validateRegistrationTokenMetadata(maxUses, expiresAt, owner); err != nil {
+		return Event{}, err
+	}
+	payload, err := json.Marshal(registrationTokenUpdatedPayload{
+		MaxUses:   maxUses,
+		ExpiresAt: expiresAt.UTC(),
+		Owner:     owner,
+		Disabled:  disabled,
+	})
+	if err != nil {
+		return Event{}, fmt.Errorf("store: encode registration-token update: %w", err)
+	}
+	return registrationTokenEvent(tokenID, registrationTokenUpdatedEventType, payload), nil
+}
+
+// RegistrationTokenDeletedEvent removes one token projection.
+func RegistrationTokenDeletedEvent(tokenID string) (Event, error) {
+	tokenID, err := canonicalRegistrationTokenID(tokenID)
+	if err != nil {
+		return Event{}, err
+	}
+	payload, err := json.Marshal(registrationTokenDeletedPayload{})
+	if err != nil {
+		return Event{}, fmt.Errorf("store: encode registration-token deletion: %w", err)
+	}
+	return registrationTokenEvent(tokenID, registrationTokenDeletedEventType, payload), nil
+}
+
 // RegistrationToken reads and validates one hash-only token projection row.
 func (s *Store) RegistrationToken(ctx context.Context, tokenID string) (RegistrationToken, error) {
 	if s == nil || s.pool == nil {
@@ -174,6 +239,131 @@ func (s *Store) RegistrationToken(ctx context.Context, tokenID string) (Registra
 	if err != nil {
 		return RegistrationToken{}, fmt.Errorf("store: read registration token: %w", err)
 	}
+	return registrationTokenFromRow(tokenID, registrationTokenProjection{
+		TokenID: row.TokenID, ProjectionVersion: row.ProjectionVersion,
+		TokenHash: row.TokenHash, Purpose: row.Purpose, DNSNames: row.DnsNames,
+		MaxUses: row.MaxUses, Uses: row.Uses, ExpiresAt: row.ExpiresAt,
+		Owner: row.Owner, Disabled: row.Disabled,
+	})
+}
+
+// RegistrationTokenMetadataByID returns verifier-free management metadata.
+func (s *Store) RegistrationTokenMetadataByID(
+	ctx context.Context,
+	tokenID string,
+) (RegistrationTokenMetadata, error) {
+	if s == nil || s.pool == nil || ctx == nil {
+		return RegistrationTokenMetadata{}, errors.New("store: invalid registration-token metadata lookup")
+	}
+	tokenID, err := canonicalRegistrationTokenID(tokenID)
+	if err != nil {
+		return RegistrationTokenMetadata{}, err
+	}
+	row, err := generated.New(s.pool).GetRegistrationTokenMetadata(ctx, tokenID)
+	if err != nil {
+		return RegistrationTokenMetadata{}, fmt.Errorf("store: read registration-token metadata: %w", err)
+	}
+	return registrationTokenMetadataFromValues(
+		row.TokenID,
+		row.ProjectionVersion,
+		row.Purpose,
+		row.DnsNames,
+		row.MaxUses,
+		row.Uses,
+		row.ExpiresAt,
+		row.Owner,
+		row.Disabled,
+	)
+}
+
+// ListRegistrationTokens returns a bounded verifier-free metadata page.
+func (s *Store) ListRegistrationTokens(
+	ctx context.Context,
+	limit int32,
+) ([]RegistrationTokenMetadata, error) {
+	if s == nil || s.pool == nil || ctx == nil || limit < 1 || limit > 200 {
+		return nil, errors.New("store: invalid registration-token list")
+	}
+	rows, err := generated.New(s.pool).ListRegistrationTokens(ctx, limit)
+	if err != nil {
+		return nil, fmt.Errorf("store: list registration tokens: %w", err)
+	}
+	tokens := make([]RegistrationTokenMetadata, len(rows))
+	for index, row := range rows {
+		tokens[index], err = registrationTokenMetadataFromValues(
+			row.TokenID,
+			row.ProjectionVersion,
+			row.Purpose,
+			row.DnsNames,
+			row.MaxUses,
+			row.Uses,
+			row.ExpiresAt,
+			row.Owner,
+			row.Disabled,
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return tokens, nil
+}
+
+func registrationTokenMetadataFromValues(
+	tokenID string,
+	projectionVersion int64,
+	purposeValue string,
+	dnsNamesValue []string,
+	maxUses int32,
+	uses int32,
+	expiresAt time.Time,
+	owner string,
+	disabled bool,
+) (RegistrationTokenMetadata, error) {
+	canonicalID, err := canonicalRegistrationTokenID(tokenID)
+	if err != nil || canonicalID != tokenID || projectionVersion <= 0 {
+		return RegistrationTokenMetadata{}, errors.New("store: registration-token metadata is invalid")
+	}
+	if err := validateRegistrationTokenMetadata(maxUses, expiresAt, owner); err != nil {
+		return RegistrationTokenMetadata{}, fmt.Errorf("store: invalid registration-token metadata: %w", err)
+	}
+	purpose := RegistrationTokenPurpose(purposeValue)
+	dnsNames, err := validateRegistrationTokenPurpose(purpose, dnsNamesValue)
+	if err != nil {
+		return RegistrationTokenMetadata{}, fmt.Errorf("store: invalid registration-token metadata: %w", err)
+	}
+	if uses < 0 || uses > maxUses {
+		return RegistrationTokenMetadata{}, errors.New("store: registration-token metadata has an invalid use count")
+	}
+	return RegistrationTokenMetadata{
+		TokenID:           tokenID,
+		Purpose:           purpose,
+		DNSNames:          dnsNames,
+		MaxUses:           maxUses,
+		Uses:              uses,
+		ExpiresAt:         expiresAt.UTC(),
+		Owner:             owner,
+		Disabled:          disabled,
+		ProjectionVersion: projectionVersion,
+	}, nil
+}
+
+type registrationTokenProjection struct {
+	TokenID           string
+	ProjectionVersion int64
+	TokenHash         []byte
+	Purpose           string
+	DNSNames          []string
+	MaxUses           int32
+	Uses              int32
+	ExpiresAt         time.Time
+	Owner             string
+	Disabled          bool
+}
+
+func registrationTokenFromRow(
+	tokenID string,
+	row registrationTokenProjection,
+) (RegistrationToken, error) {
 	if row.TokenID != tokenID {
 		return RegistrationToken{}, errors.New("store: registration-token projection returned a mismatched ID")
 	}
@@ -187,7 +377,7 @@ func (s *Store) RegistrationToken(ctx context.Context, tokenID string) (Registra
 		return RegistrationToken{}, fmt.Errorf("store: invalid registration-token projection: %w", err)
 	}
 	purpose := RegistrationTokenPurpose(row.Purpose)
-	dnsNames, err := validateRegistrationTokenPurpose(purpose, row.DnsNames)
+	dnsNames, err := validateRegistrationTokenPurpose(purpose, row.DNSNames)
 	if err != nil {
 		return RegistrationToken{}, fmt.Errorf("store: invalid registration-token projection: %w", err)
 	}
@@ -207,6 +397,21 @@ func (s *Store) RegistrationToken(ctx context.Context, tokenID string) (Registra
 	}
 	copy(state.Hash[:], row.TokenHash)
 	return state, nil
+}
+
+// IsRegistrationTokenExists recognizes duplicate token creation.
+func IsRegistrationTokenExists(err error) bool {
+	return errors.Is(err, errRegistrationTokenExists)
+}
+
+// RegistrationTokenManagementEventTypes returns token metadata mutations.
+func RegistrationTokenManagementEventTypes() []string {
+	return []string{
+		registrationTokenMintedEventType,
+		gatewayTokenMintedEventType,
+		registrationTokenUpdatedEventType,
+		registrationTokenDeletedEventType,
+	}
 }
 
 func registrationTokenEvent(tokenID, eventType string, payload []byte) Event {
@@ -233,6 +438,10 @@ func validateRegistrationTokenMetadata(maxUses int32, expiresAt time.Time, owner
 	if expiresAt.IsZero() {
 		return errors.New("store: registration-token expiry is zero")
 	}
+	return validateRegistrationTokenOwner(owner)
+}
+
+func validateRegistrationTokenOwner(owner string) error {
 	if !utf8.ValidString(owner) || strings.ContainsRune(owner, '\x00') {
 		return errors.New("store: registration-token owner is invalid")
 	}
@@ -338,6 +547,27 @@ func registrationTokenEventDefinitions() map[string]eventDefinition {
 			},
 			Projector: projectRegistrationTokenDisable,
 		},
+		registrationTokenUpdatedEventType: {
+			PayloadVersion: registrationTokenPayloadVersion,
+			PayloadType:    registrationTokenUpdatedPayload{},
+			GoldenPayload: func() ([]byte, error) {
+				return json.Marshal(registrationTokenUpdatedPayload{
+					MaxUses:   4,
+					ExpiresAt: time.Date(2030, 1, 2, 3, 4, 5, 0, time.UTC),
+					Owner:     "updated-owner",
+					Disabled:  true,
+				})
+			},
+			Projector: projectRegistrationTokenUpdate,
+		},
+		registrationTokenDeletedEventType: {
+			PayloadVersion: registrationTokenPayloadVersion,
+			PayloadType:    registrationTokenDeletedPayload{},
+			GoldenPayload: func() ([]byte, error) {
+				return json.Marshal(registrationTokenDeletedPayload{})
+			},
+			Projector: projectRegistrationTokenDelete,
+		},
 	}
 }
 
@@ -363,12 +593,24 @@ func registrationTokenGoldenCorpus() map[string]goldenEvent {
 			PayloadVersion: registrationTokenPayloadVersion,
 			Payload:        []byte(`{}`),
 		},
+		registrationTokenUpdatedEventType: {
+			PayloadVersion: registrationTokenPayloadVersion,
+			Payload:        []byte(`{"max_uses":4,"expires_at":"2030-01-02T03:04:05Z","owner":"updated-owner","disabled":true}`),
+		},
+		registrationTokenDeletedEventType: {
+			PayloadVersion: registrationTokenPayloadVersion,
+			Payload:        []byte(`{}`),
+		},
 	}
 }
 
 func projectRegistrationTokenMint(ctx context.Context, tx ProjectionTx, event PersistedEvent) error {
 	if event.StreamVersion != 1 {
-		return fmt.Errorf("store: registration-token mint must be stream version 1, got %d", event.StreamVersion)
+		return fmt.Errorf(
+			"store: registration-token mint must be stream version 1, got %d: %w",
+			event.StreamVersion,
+			errRegistrationTokenExists,
+		)
 	}
 	var (
 		tokenHash []byte
@@ -471,6 +713,77 @@ func projectRegistrationTokenDisable(ctx context.Context, tx ProjectionTx, event
 		return fmt.Errorf("store: project registration-token disable: %w", err)
 	}
 	return validateRegistrationTokenProjectionResult(ctx, tx, event, affected, "disable")
+}
+
+func projectRegistrationTokenUpdate(ctx context.Context, tx ProjectionTx, event PersistedEvent) error {
+	if event.StreamVersion <= 1 {
+		return errors.New("store: registration-token update requires a prior mint")
+	}
+	payload, err := decodeEventPayload[registrationTokenUpdatedPayload](
+		event,
+		registrationTokenPayloadVersion,
+	)
+	if err != nil {
+		return err
+	}
+	if err := validateRegistrationTokenMetadata(
+		payload.MaxUses,
+		payload.ExpiresAt,
+		payload.Owner,
+	); err != nil {
+		return err
+	}
+	queries := generated.New(tx)
+	current, err := queries.GetRegistrationToken(ctx, event.StreamID)
+	if err != nil {
+		return fmt.Errorf("store: inspect registration token before update: %w", err)
+	}
+	if current.Uses > payload.MaxUses {
+		return errors.New("store: registration-token max uses cannot be lower than current uses")
+	}
+	affected, err := queries.ReplaceRegistrationTokenMetadata(
+		ctx,
+		generated.ReplaceRegistrationTokenMetadataParams{
+			MaxUses:                   payload.MaxUses,
+			ExpiresAt:                 payload.ExpiresAt,
+			Owner:                     payload.Owner,
+			Disabled:                  payload.Disabled,
+			ProjectionVersion:         event.StreamVersion,
+			UpdatedAt:                 event.CreatedAt,
+			TokenID:                   event.StreamID,
+			PreviousProjectionVersion: event.StreamVersion - 1,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("store: project registration-token update: %w", err)
+	}
+	return validateRegistrationTokenProjectionResult(ctx, tx, event, affected, "update")
+}
+
+func projectRegistrationTokenDelete(ctx context.Context, tx ProjectionTx, event PersistedEvent) error {
+	if event.StreamVersion <= 1 {
+		return errors.New("store: registration-token deletion requires a prior mint")
+	}
+	if _, err := decodeEventPayload[registrationTokenDeletedPayload](
+		event,
+		registrationTokenPayloadVersion,
+	); err != nil {
+		return err
+	}
+	affected, err := generated.New(tx).DeleteRegistrationTokenProjection(
+		ctx,
+		generated.DeleteRegistrationTokenProjectionParams{
+			TokenID:                   event.StreamID,
+			PreviousProjectionVersion: event.StreamVersion - 1,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("store: project registration-token deletion: %w", err)
+	}
+	if affected != 1 {
+		return fmt.Errorf("store: registration-token deletion affected %d rows; want one", affected)
+	}
+	return nil
 }
 
 func resetRegistrationTokens(ctx context.Context, tx ProjectionTx) error {

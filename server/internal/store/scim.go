@@ -22,6 +22,7 @@ const (
 	scimProviderCreatedEventType            = "SCIMProviderCreated"
 	scimProviderTokenRotatedEventType       = "SCIMProviderTokenRotated"
 	scimProviderDisabledEventType           = "SCIMProviderDisabled"
+	scimProviderDeletedEventType            = "SCIMProviderDeleted"
 	scimIdentityLinkedEventType             = "SCIMIdentityLinked"
 	scimIdentityUnlinkedEventType           = "SCIMIdentityUnlinked"
 	scimUserDeprovisionedEventType          = "SCIMUserDeprovisioned"
@@ -43,13 +44,23 @@ const (
 	SCIMGroupRebuildTarget = "scim-groups"
 )
 
-// ErrSCIMInvalid identifies a rejected SCIM projection transition.
-var ErrSCIMInvalid = errors.New("store: invalid SCIM transition")
+var (
+	// ErrSCIMInvalid identifies a rejected SCIM projection transition.
+	ErrSCIMInvalid        = errors.New("store: invalid SCIM transition")
+	errSCIMProviderExists = errors.New("store: SCIM provider already exists")
+)
 
 // SCIMProvider is one event-derived provider credential projection.
 type SCIMProvider struct {
 	Slug              string
 	TokenHash         string
+	Disabled          bool
+	ProjectionVersion int64
+}
+
+// SCIMProviderMetadata is the verifier-free management projection.
+type SCIMProviderMetadata struct {
+	Slug              string
 	Disabled          bool
 	ProjectionVersion int64
 }
@@ -125,6 +136,18 @@ func SCIMProviderDisabledEvent(providerSlug string) (Event, error) {
 		return Event{}, fmt.Errorf("store: encode SCIM provider disable: %w", err)
 	}
 	return scimProviderEvent(providerSlug, scimProviderDisabledEventType, payload)
+}
+
+// SCIMProviderDeletedEvent removes one provider credential projection.
+func SCIMProviderDeletedEvent(providerSlug string) (Event, error) {
+	if !validProviderSlug(providerSlug) {
+		return Event{}, errors.New("store: SCIM provider slug is invalid")
+	}
+	payload, err := json.Marshal(scimProviderPayload{ProviderSlug: providerSlug})
+	if err != nil {
+		return Event{}, fmt.Errorf("store: encode SCIM provider deletion: %w", err)
+	}
+	return scimProviderEvent(providerSlug, scimProviderDeletedEventType, payload)
 }
 
 func newSCIMProviderEvent(providerSlug string, tokenHash []byte, eventType string) (Event, error) {
@@ -360,16 +383,98 @@ func (s *Store) SCIMProvider(ctx context.Context, providerSlug string) (SCIMProv
 	if err != nil {
 		return SCIMProvider{}, fmt.Errorf("store: read SCIM provider: %w", err)
 	}
-	if !validProviderSlug(row.ProviderSlug) ||
-		validateSCIMTokenHash(row.TokenHash) != nil ||
-		row.ProjectionVersion <= 0 {
+	return validateSCIMProviderProjection(
+		row.ProviderSlug,
+		row.TokenHash,
+		row.Disabled,
+		row.ProjectionVersion,
+	)
+}
+
+// SCIMProviderMetadataBySlug returns verifier-free management metadata.
+func (s *Store) SCIMProviderMetadataBySlug(
+	ctx context.Context,
+	providerSlug string,
+) (SCIMProviderMetadata, error) {
+	if s == nil || s.pool == nil || ctx == nil || !validProviderSlug(providerSlug) {
+		return SCIMProviderMetadata{}, errors.New("store: invalid SCIM provider metadata lookup")
+	}
+	row, err := generated.New(s.pool).GetSCIMProviderMetadata(ctx, providerSlug)
+	if err != nil {
+		return SCIMProviderMetadata{}, fmt.Errorf("store: read SCIM provider metadata: %w", err)
+	}
+	return validateSCIMProviderMetadata(row.ProviderSlug, row.Disabled, row.ProjectionVersion)
+}
+
+// ListSCIMProviders returns one deterministic verifier-free metadata page.
+func (s *Store) ListSCIMProviders(ctx context.Context, limit int32) ([]SCIMProviderMetadata, error) {
+	if s == nil || s.pool == nil || ctx == nil || limit < 1 || limit > 200 {
+		return nil, errors.New("store: invalid SCIM provider list")
+	}
+	rows, err := generated.New(s.pool).ListSCIMProviders(ctx, limit)
+	if err != nil {
+		return nil, fmt.Errorf("store: list SCIM providers: %w", err)
+	}
+	providers := make([]SCIMProviderMetadata, len(rows))
+	for index, row := range rows {
+		providers[index], err = validateSCIMProviderMetadata(
+			row.ProviderSlug,
+			row.Disabled,
+			row.ProjectionVersion,
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return providers, nil
+}
+
+func validateSCIMProviderMetadata(
+	providerSlug string,
+	disabled bool,
+	projectionVersion int64,
+) (SCIMProviderMetadata, error) {
+	if !validProviderSlug(providerSlug) || projectionVersion < 1 {
+		return SCIMProviderMetadata{}, errors.New("store: SCIM provider metadata is invalid")
+	}
+	return SCIMProviderMetadata{
+		Slug:              providerSlug,
+		Disabled:          disabled,
+		ProjectionVersion: projectionVersion,
+	}, nil
+}
+
+// SCIMProviderManagementEventTypes returns the exact management mutation set.
+func SCIMProviderManagementEventTypes() []string {
+	return []string{
+		scimProviderCreatedEventType,
+		scimProviderTokenRotatedEventType,
+		scimProviderDisabledEventType,
+		scimProviderDeletedEventType,
+	}
+}
+
+// IsSCIMProviderExists recognizes duplicate provider creation.
+func IsSCIMProviderExists(err error) bool {
+	return errors.Is(err, errSCIMProviderExists)
+}
+
+func validateSCIMProviderProjection(
+	slug string,
+	tokenHash []byte,
+	disabled bool,
+	version int64,
+) (SCIMProvider, error) {
+	if !validProviderSlug(slug) ||
+		validateSCIMTokenHash(tokenHash) != nil ||
+		version <= 0 {
 		return SCIMProvider{}, errors.New("store: SCIM provider projection is invalid")
 	}
 	return SCIMProvider{
-		Slug:              row.ProviderSlug,
-		TokenHash:         string(row.TokenHash),
-		Disabled:          row.Disabled,
-		ProjectionVersion: row.ProjectionVersion,
+		Slug:              slug,
+		TokenHash:         string(tokenHash),
+		Disabled:          disabled,
+		ProjectionVersion: version,
 	}, nil
 }
 
@@ -649,6 +754,14 @@ func scimProviderEventDefinitions() map[string]eventDefinition {
 			},
 			Projector: projectSCIMProviderDisabled,
 		},
+		scimProviderDeletedEventType: {
+			PayloadVersion: scimPayloadVersion,
+			PayloadType:    scimProviderPayload{},
+			GoldenPayload: func() ([]byte, error) {
+				return json.Marshal(scimProviderPayload{ProviderSlug: "corporate"})
+			},
+			Projector: projectSCIMProviderDeleted,
+		},
 	}
 }
 
@@ -668,6 +781,10 @@ func scimProviderGoldenCorpus() map[string]goldenEvent {
 			),
 		},
 		scimProviderDisabledEventType: {
+			PayloadVersion: scimPayloadVersion,
+			Payload:        []byte(`{"provider_slug":"corporate"}`),
+		},
+		scimProviderDeletedEventType: {
 			PayloadVersion: scimPayloadVersion,
 			Payload:        []byte(`{"provider_slug":"corporate"}`),
 		},
@@ -784,8 +901,8 @@ func scimGroupGoldenCorpus() map[string]goldenEvent {
 }
 
 func projectSCIMProviderCreated(ctx context.Context, tx ProjectionTx, event PersistedEvent) error {
-	if event.StreamVersion != 1 {
-		return errors.New("store: SCIM provider creation must be stream version one")
+	if event.StreamVersion < 1 {
+		return errSCIMProviderExists
 	}
 	payload, err := decodeEventPayload[scimProviderPayload](event, scimPayloadVersion)
 	if err != nil {
@@ -807,7 +924,7 @@ func projectSCIMProviderCreated(ctx context.Context, tx ProjectionTx, event Pers
 		return fmt.Errorf("store: project SCIM provider creation: %w", err)
 	}
 	if affected != 1 {
-		return fmt.Errorf("store: SCIM provider creation affected %d rows; want one", affected)
+		return errSCIMProviderExists
 	}
 	return nil
 }
@@ -867,6 +984,33 @@ func projectSCIMProviderDisabled(ctx context.Context, tx ProjectionTx, event Per
 	}
 	if affected != 1 {
 		return fmt.Errorf("store: SCIM provider disable affected %d rows; want one", affected)
+	}
+	return nil
+}
+
+func projectSCIMProviderDeleted(ctx context.Context, tx ProjectionTx, event PersistedEvent) error {
+	if event.StreamVersion <= 1 {
+		return errors.New("store: SCIM provider deletion requires a prior provider")
+	}
+	payload, err := decodeEventPayload[scimProviderPayload](event, scimPayloadVersion)
+	if err != nil {
+		return err
+	}
+	if err := validateSCIMProviderEvent(event, payload, false); err != nil {
+		return err
+	}
+	affected, err := generated.New(tx).DeleteSCIMProvider(
+		ctx,
+		generated.DeleteSCIMProviderParams{
+			ProviderSlug:              payload.ProviderSlug,
+			PreviousProjectionVersion: event.StreamVersion - 1,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("store: project SCIM provider deletion: %w", err)
+	}
+	if affected != 1 {
+		return errors.New("store: SCIM provider deletion conflicts with projection")
 	}
 	return nil
 }

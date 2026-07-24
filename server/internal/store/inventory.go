@@ -73,12 +73,45 @@ func ProductionRebuildTargetNames() []string {
 
 func productionRebuildTargets() map[string]RebuildTarget {
 	return map[string]RebuildTarget{
+		ActionRebuildTarget: {
+			Tables:      []string{"managed_actions"},
+			StreamTypes: []string{actionStreamType},
+			EventTypes: []string{
+				actionCreatedType,
+				actionUpdatedType,
+				actionDeletedType,
+			},
+			Reset: resetManagedActions,
+		},
+		ActionSetRebuildTarget: {
+			Tables:      []string{"managed_action_sets"},
+			StreamTypes: []string{actionSetStreamType},
+			EventTypes: []string{
+				actionSetCreatedType,
+				actionSetUpdatedType,
+				actionSetDeletedType,
+			},
+			Reset: resetManagedActionSets,
+		},
+		AssignmentRebuildTarget: {
+			Tables:      []string{"assignments"},
+			StreamTypes: []string{assignmentStreamType},
+			EventTypes: []string{
+				assignmentCreatedType,
+				assignmentDeletedType,
+			},
+			Reset: resetAssignments,
+		},
 		AuthorizationRebuildTarget: {
 			Tables:      []string{"authorization_grants", "authorization_roles"},
 			StreamTypes: []string{authorizationGrantStreamType, authorizationRoleStreamType},
 			EventTypes: []string{
 				authorizationGrantCreatedType,
+				authorizationGrantUpdatedType,
+				authorizationGrantDeletedType,
 				authorizationRoleCreatedType,
+				authorizationRoleUpdatedType,
+				authorizationRoleDeletedType,
 			},
 			Reset: resetAuthorization,
 		},
@@ -88,12 +121,24 @@ func productionRebuildTargets() map[string]RebuildTarget {
 			EventTypes:  []string{inventorySnapshotEventType, inventoryTombstoneEventType},
 			Reset:       resetInventorySnapshots,
 		},
+		OIDCProviderConfigRebuildTarget: {
+			Tables:      []string{"oidc_providers"},
+			StreamTypes: []string{oidcProviderConfigStreamType},
+			EventTypes: []string{
+				oidcProviderConfigCreatedType,
+				oidcProviderConfigUpdatedType,
+				oidcProviderConfigDeletedType,
+			},
+			Reset: resetOIDCProviderConfigs,
+		},
 		PersonalAccessTokenRebuildTarget: {
 			Tables:      []string{"personal_access_tokens"},
 			StreamTypes: []string{personalAccessTokenStreamType},
 			EventTypes: []string{
 				personalAccessTokenMintedEventType,
 				personalAccessTokenRevokedEventType,
+				personalAccessTokenUpdatedEventType,
+				personalAccessTokenDeletedEventType,
 			},
 			Reset: resetPersonalAccessTokens,
 		},
@@ -102,6 +147,8 @@ func productionRebuildTargets() map[string]RebuildTarget {
 			StreamTypes: []string{userStreamType},
 			EventTypes: []string{
 				userCreatedEventType,
+				userManagedUpdatedEventType,
+				userManagedDeletedEventType,
 				bootstrapAdminGrantedType,
 				oidcIdentityLinkedEventType,
 				oidcIdentityUnlinkedEventType,
@@ -113,6 +160,17 @@ func productionRebuildTargets() map[string]RebuildTarget {
 			},
 			Reset: resetUsers,
 		},
+		UserGroupRebuildTarget: {
+			Tables:      []string{"managed_user_groups", "managed_user_group_members"},
+			StreamTypes: []string{userGroupStreamType},
+			EventTypes: []string{
+				userGroupCreatedEventType,
+				userGroupUpdatedEventType,
+				userGroupMetadataUpdatedEventType,
+				userGroupDeletedEventType,
+			},
+			Reset: resetUserGroups,
+		},
 		SCIMProviderRebuildTarget: {
 			Tables:      []string{"scim_providers"},
 			StreamTypes: []string{scimProviderStreamType},
@@ -120,6 +178,7 @@ func productionRebuildTargets() map[string]RebuildTarget {
 				scimProviderCreatedEventType,
 				scimProviderTokenRotatedEventType,
 				scimProviderDisabledEventType,
+				scimProviderDeletedEventType,
 			},
 			Reset: resetSCIMProviders,
 		},
@@ -133,6 +192,16 @@ func productionRebuildTargets() map[string]RebuildTarget {
 				scimGroupDeletedEventType,
 			},
 			Reset: resetSCIMGroups,
+		},
+		ServerSettingRebuildTarget: {
+			Tables:      []string{"server_settings"},
+			StreamTypes: []string{serverSettingStreamType},
+			EventTypes: []string{
+				serverSettingCreatedType,
+				serverSettingUpdatedType,
+				serverSettingDeletedType,
+			},
+			Reset: resetServerSettings,
 		},
 		BootstrapLoginRebuildTarget: {
 			Tables:      []string{"bootstrap_logins"},
@@ -151,6 +220,8 @@ func productionRebuildTargets() map[string]RebuildTarget {
 				gatewayTokenMintedEventType,
 				registrationTokenConsumedEventType,
 				registrationTokenDisabledEventType,
+				registrationTokenUpdatedEventType,
+				registrationTokenDeletedEventType,
 			},
 			Reset: resetRegistrationTokens,
 		},
@@ -173,6 +244,8 @@ func productionRebuildTargets() map[string]RebuildTarget {
 				agentCertificateRenewedEventType,
 				agentCertificateRevokedEventType,
 				agentForceRenewalRequiredEventType,
+				agentOwnerUpdatedEventType,
+				agentDeletedEventType,
 			},
 			Reset: resetDevices,
 		},
@@ -213,6 +286,16 @@ func productionRebuildTargets() map[string]RebuildTarget {
 				controlTrustStateRecordedEventType,
 			},
 			Reset: resetCARotationState,
+		},
+		CompliancePolicyRebuildTarget: {
+			Tables:      []string{"compliance_policies"},
+			StreamTypes: []string{compliancePolicyStreamType},
+			EventTypes: []string{
+				compliancePolicyCreatedType,
+				compliancePolicyUpdatedType,
+				compliancePolicyDeletedType,
+			},
+			Reset: resetCompliancePolicies,
 		},
 	}
 }
@@ -292,6 +375,9 @@ func productionEventDefinitions() map[string]eventDefinition {
 	for eventType, definition := range userEventDefinitions() {
 		definitions[eventType] = definition
 	}
+	for eventType, definition := range userGroupEventDefinitions() {
+		definitions[eventType] = definition
+	}
 	for eventType, definition := range bootstrapLoginEventDefinitions() {
 		definitions[eventType] = definition
 	}
@@ -319,6 +405,24 @@ func productionEventDefinitions() map[string]eventDefinition {
 	for eventType, definition := range authorizationEventDefinitions() {
 		definitions[eventType] = definition
 	}
+	for eventType, definition := range oidcProviderConfigEventDefinitions() {
+		definitions[eventType] = definition
+	}
+	for eventType, definition := range serverSettingEventDefinitions() {
+		definitions[eventType] = definition
+	}
+	for eventType, definition := range actionEventDefinitions() {
+		definitions[eventType] = definition
+	}
+	for eventType, definition := range actionSetEventDefinitions() {
+		definitions[eventType] = definition
+	}
+	for eventType, definition := range assignmentEventDefinitions() {
+		definitions[eventType] = definition
+	}
+	for eventType, definition := range compliancePolicyEventDefinitions() {
+		definitions[eventType] = definition
+	}
 	return definitions
 }
 
@@ -340,6 +444,9 @@ func goldenEventCorpus() map[string]goldenEvent {
 		corpus[eventType] = event
 	}
 	for eventType, event := range userGoldenCorpus() {
+		corpus[eventType] = event
+	}
+	for eventType, event := range userGroupGoldenCorpus() {
 		corpus[eventType] = event
 	}
 	for eventType, event := range bootstrapLoginGoldenCorpus() {
@@ -367,6 +474,24 @@ func goldenEventCorpus() map[string]goldenEvent {
 		corpus[eventType] = event
 	}
 	for eventType, event := range authorizationGoldenCorpus() {
+		corpus[eventType] = event
+	}
+	for eventType, event := range oidcProviderConfigGoldenCorpus() {
+		corpus[eventType] = event
+	}
+	for eventType, event := range serverSettingGoldenCorpus() {
+		corpus[eventType] = event
+	}
+	for eventType, event := range actionGoldenCorpus() {
+		corpus[eventType] = event
+	}
+	for eventType, event := range actionSetGoldenCorpus() {
+		corpus[eventType] = event
+	}
+	for eventType, event := range assignmentGoldenCorpus() {
+		corpus[eventType] = event
+	}
+	for eventType, event := range compliancePolicyGoldenCorpus() {
 		corpus[eventType] = event
 	}
 	return corpus

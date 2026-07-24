@@ -19,6 +19,8 @@ const (
 	personalAccessTokenStreamType       = "personal-access-token"
 	personalAccessTokenMintedEventType  = "PersonalAccessTokenMinted"
 	personalAccessTokenRevokedEventType = "PersonalAccessTokenRevoked"
+	personalAccessTokenUpdatedEventType = "PersonalAccessTokenUpdated"
+	personalAccessTokenDeletedEventType = "PersonalAccessTokenDeleted"
 	personalAccessTokenPayloadVersion   = 1
 	maxPATSubjectBytes                  = 1024
 	maxPATScopes                        = 64
@@ -39,6 +41,16 @@ type PersonalAccessToken struct {
 	ProjectionVersion int64
 }
 
+// PersonalAccessTokenMetadata is the verifier-free management projection.
+type PersonalAccessTokenMetadata struct {
+	TokenID           string
+	Subject           string
+	Scopes            []string
+	ExpiresAt         time.Time
+	Revoked           bool
+	ProjectionVersion int64
+}
+
 type personalAccessTokenMintedPayload struct {
 	Subject   string    `json:"subject"`
 	Scopes    []string  `json:"scopes"`
@@ -47,6 +59,15 @@ type personalAccessTokenMintedPayload struct {
 }
 
 type personalAccessTokenRevokedPayload struct{}
+type personalAccessTokenUpdatedPayload struct {
+	Subject   string    `json:"subject"`
+	Scopes    []string  `json:"scopes"`
+	ExpiresAt time.Time `json:"expires_at"`
+	Revoked   bool      `json:"revoked"`
+}
+type personalAccessTokenDeletedPayload struct{}
+
+var errPersonalAccessTokenExists = errors.New("store: personal access token already exists")
 
 // PersonalAccessTokenMintedEvent creates one hash-only PAT stream.
 func PersonalAccessTokenMintedEvent(
@@ -94,6 +115,53 @@ func PersonalAccessTokenRevokedEvent(tokenID string) (Event, error) {
 	return personalAccessTokenEvent(tokenID, personalAccessTokenRevokedEventType, payload), nil
 }
 
+// PersonalAccessTokenUpdatedEvent replaces public PAT metadata while retaining
+// the hash-only credential binding.
+func PersonalAccessTokenUpdatedEvent(
+	tokenID string,
+	subject string,
+	scopes []string,
+	expiresAt time.Time,
+	revoked bool,
+) (Event, error) {
+	tokenID, err := canonicalPATID(tokenID)
+	if err != nil {
+		return Event{}, err
+	}
+	if err := validatePATSubject(subject); err != nil {
+		return Event{}, err
+	}
+	if err := validatePATScopes(scopes); err != nil {
+		return Event{}, err
+	}
+	if err := validatePATExpiry(expiresAt); err != nil {
+		return Event{}, err
+	}
+	payload, err := json.Marshal(personalAccessTokenUpdatedPayload{
+		Subject:   subject,
+		Scopes:    slices.Clone(scopes),
+		ExpiresAt: expiresAt.UTC(),
+		Revoked:   revoked,
+	})
+	if err != nil {
+		return Event{}, fmt.Errorf("store: encode PAT update: %w", err)
+	}
+	return personalAccessTokenEvent(tokenID, personalAccessTokenUpdatedEventType, payload), nil
+}
+
+// PersonalAccessTokenDeletedEvent removes one PAT projection.
+func PersonalAccessTokenDeletedEvent(tokenID string) (Event, error) {
+	tokenID, err := canonicalPATID(tokenID)
+	if err != nil {
+		return Event{}, err
+	}
+	payload, err := json.Marshal(personalAccessTokenDeletedPayload{})
+	if err != nil {
+		return Event{}, fmt.Errorf("store: encode PAT deletion: %w", err)
+	}
+	return personalAccessTokenEvent(tokenID, personalAccessTokenDeletedEventType, payload), nil
+}
+
 // PersonalAccessTokenByHash reads and validates a PAT by secret digest.
 func (s *Store) PersonalAccessTokenByHash(
 	ctx context.Context,
@@ -132,6 +200,109 @@ func (s *Store) PersonalAccessTokenByID(
 		return PersonalAccessToken{}, fmt.Errorf("store: read PAT by ID: %w", err)
 	}
 	return personalAccessTokenFromIDRow(row)
+}
+
+// ScopedPersonalAccessTokenByID reads metadata through its subject relation.
+func (s *Store) ScopedPersonalAccessTokenByID(
+	ctx context.Context,
+	tokenID string,
+	global bool,
+	userGroupIDs []string,
+	selfID string,
+) (PersonalAccessTokenMetadata, error) {
+	if s == nil || s.pool == nil || ctx == nil {
+		return PersonalAccessTokenMetadata{}, errors.New("store: invalid scoped PAT lookup")
+	}
+	tokenID, err := canonicalPATID(tokenID)
+	if err != nil {
+		return PersonalAccessTokenMetadata{}, err
+	}
+	userGroupIDs, err = normalizeUserScopeIDs(userGroupIDs)
+	if err != nil {
+		return PersonalAccessTokenMetadata{}, err
+	}
+	if selfID != "" {
+		selfID, err = canonicalUserID(selfID)
+		if err != nil {
+			return PersonalAccessTokenMetadata{}, err
+		}
+	}
+	row, err := generated.New(s.pool).GetScopedPersonalAccessToken(
+		ctx,
+		generated.GetScopedPersonalAccessTokenParams{
+			TokenID:      tokenID,
+			GlobalScope:  global,
+			SelfID:       selfID,
+			UserGroupIds: userGroupIDs,
+		},
+	)
+	if err != nil {
+		return PersonalAccessTokenMetadata{}, fmt.Errorf("store: read scoped PAT: %w", err)
+	}
+	return validatePersonalAccessTokenMetadataProjection(
+		row.TokenID, row.Subject, row.Scopes, row.ExpiresAt,
+		row.Revoked, row.ProjectionVersion,
+	)
+}
+
+// ListScopedPersonalAccessTokens returns one subject-confined metadata page.
+func (s *Store) ListScopedPersonalAccessTokens(
+	ctx context.Context,
+	global bool,
+	userGroupIDs []string,
+	selfID string,
+	limit int32,
+) ([]PersonalAccessTokenMetadata, error) {
+	if s == nil || s.pool == nil || ctx == nil || limit < 1 || limit > 200 {
+		return nil, errors.New("store: invalid scoped PAT list")
+	}
+	userGroupIDs, err := normalizeUserScopeIDs(userGroupIDs)
+	if err != nil {
+		return nil, err
+	}
+	if selfID != "" {
+		selfID, err = canonicalUserID(selfID)
+		if err != nil {
+			return nil, err
+		}
+	}
+	rows, err := generated.New(s.pool).ListScopedPersonalAccessTokens(
+		ctx,
+		generated.ListScopedPersonalAccessTokensParams{
+			GlobalScope:  global,
+			SelfID:       selfID,
+			UserGroupIds: userGroupIDs,
+			PageLimit:    limit,
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("store: list scoped PATs: %w", err)
+	}
+	tokens := make([]PersonalAccessTokenMetadata, len(rows))
+	for index, row := range rows {
+		tokens[index], err = validatePersonalAccessTokenMetadataProjection(
+			row.TokenID, row.Subject, row.Scopes, row.ExpiresAt,
+			row.Revoked, row.ProjectionVersion,
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return tokens, nil
+}
+
+// IsPersonalAccessTokenExists recognizes duplicate PAT creation.
+func IsPersonalAccessTokenExists(err error) bool {
+	return errors.Is(err, errPersonalAccessTokenExists)
+}
+
+// PersonalAccessTokenManagementEventTypes returns management-owned PAT events.
+func PersonalAccessTokenManagementEventTypes() []string {
+	return []string{
+		personalAccessTokenMintedEventType,
+		personalAccessTokenUpdatedEventType,
+		personalAccessTokenDeletedEventType,
+	}
 }
 
 func personalAccessTokenEvent(tokenID, eventType string, payload []byte) Event {
@@ -217,6 +388,27 @@ func personalAccessTokenEventDefinitions() map[string]eventDefinition {
 			},
 			Projector: projectPersonalAccessTokenRevocation,
 		},
+		personalAccessTokenUpdatedEventType: {
+			PayloadVersion: personalAccessTokenPayloadVersion,
+			PayloadType:    personalAccessTokenUpdatedPayload{},
+			GoldenPayload: func() ([]byte, error) {
+				return json.Marshal(personalAccessTokenUpdatedPayload{
+					Subject:   "01K0QJ3E5E8R4M0D8EV3Y4N6J8",
+					Scopes:    []string{"audit.read"},
+					ExpiresAt: time.Date(2032, time.March, 4, 5, 6, 7, 0, time.UTC),
+					Revoked:   true,
+				})
+			},
+			Projector: projectPersonalAccessTokenUpdate,
+		},
+		personalAccessTokenDeletedEventType: {
+			PayloadVersion: personalAccessTokenPayloadVersion,
+			PayloadType:    personalAccessTokenDeletedPayload{},
+			GoldenPayload: func() ([]byte, error) {
+				return json.Marshal(personalAccessTokenDeletedPayload{})
+			},
+			Projector: projectPersonalAccessTokenDelete,
+		},
 	}
 }
 
@@ -232,6 +424,14 @@ func personalAccessTokenGoldenCorpus() map[string]goldenEvent {
 			PayloadVersion: personalAccessTokenPayloadVersion,
 			Payload:        []byte(`{}`),
 		},
+		personalAccessTokenUpdatedEventType: {
+			PayloadVersion: personalAccessTokenPayloadVersion,
+			Payload:        []byte(`{"subject":"01K0QJ3E5E8R4M0D8EV3Y4N6J8","scopes":["audit.read"],"expires_at":"2032-03-04T05:06:07Z","revoked":true}`),
+		},
+		personalAccessTokenDeletedEventType: {
+			PayloadVersion: personalAccessTokenPayloadVersion,
+			Payload:        []byte(`{}`),
+		},
 	}
 }
 
@@ -241,7 +441,11 @@ func projectPersonalAccessTokenMint(
 	event PersistedEvent,
 ) error {
 	if event.StreamVersion != 1 {
-		return fmt.Errorf("store: PAT mint must be stream version 1, got %d", event.StreamVersion)
+		return fmt.Errorf(
+			"store: PAT mint must be stream version 1, got %d: %w",
+			event.StreamVersion,
+			errPersonalAccessTokenExists,
+		)
 	}
 	payload, err := decodeEventPayload[personalAccessTokenMintedPayload](
 		event,
@@ -305,16 +509,10 @@ func projectPersonalAccessTokenRevocation(
 		}
 		return fmt.Errorf("store: inspect PAT before revocation: %w", err)
 	}
-	if current.ProjectionVersion != 1 {
-		if current.Revoked {
-			return errors.New("store: PAT is already revoked")
-		}
-		return errors.New("store: PAT projection version is inconsistent")
-	}
 	if current.Revoked {
 		return errors.New("store: PAT is already revoked")
 	}
-	if event.StreamVersion != 2 {
+	if current.ProjectionVersion != event.StreamVersion-1 {
 		return errors.New("store: PAT projection version is inconsistent")
 	}
 	affected, err := queries.ProjectPersonalAccessTokenRevocation(
@@ -330,6 +528,90 @@ func projectPersonalAccessTokenRevocation(
 	}
 	if affected != 1 {
 		return fmt.Errorf("store: PAT revocation affected %d tokens; want one", affected)
+	}
+	return nil
+}
+
+func projectPersonalAccessTokenUpdate(
+	ctx context.Context,
+	tx ProjectionTx,
+	event PersistedEvent,
+) error {
+	if event.StreamVersion <= 1 {
+		return errors.New("store: PAT update requires a prior mint")
+	}
+	payload, err := decodeEventPayload[personalAccessTokenUpdatedPayload](
+		event,
+		personalAccessTokenPayloadVersion,
+	)
+	if err != nil {
+		return err
+	}
+	if err := validatePATSubject(payload.Subject); err != nil {
+		return err
+	}
+	if err := validatePATScopes(payload.Scopes); err != nil {
+		return err
+	}
+	if err := validatePATExpiry(payload.ExpiresAt); err != nil {
+		return err
+	}
+	current, err := generated.New(tx).GetPersonalAccessTokenByID(ctx, event.StreamID)
+	if err != nil {
+		return fmt.Errorf("store: read PAT before update: %w", err)
+	}
+	if current.Subject != payload.Subject ||
+		current.ProjectionVersion != event.StreamVersion-1 ||
+		current.Revoked && !payload.Revoked {
+		return errors.New("store: PAT update conflicts with the current projection")
+	}
+	affected, err := generated.New(tx).ReplacePersonalAccessTokenMetadata(
+		ctx,
+		generated.ReplacePersonalAccessTokenMetadataParams{
+			Scopes:                    payload.Scopes,
+			ExpiresAt:                 payload.ExpiresAt,
+			Revoked:                   payload.Revoked,
+			ProjectionVersion:         event.StreamVersion,
+			UpdatedAt:                 event.CreatedAt,
+			TokenID:                   event.StreamID,
+			PreviousProjectionVersion: event.StreamVersion - 1,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("store: project PAT update: %w", err)
+	}
+	if affected != 1 {
+		return fmt.Errorf("store: PAT update affected %d tokens; want one", affected)
+	}
+	return nil
+}
+
+func projectPersonalAccessTokenDelete(
+	ctx context.Context,
+	tx ProjectionTx,
+	event PersistedEvent,
+) error {
+	if event.StreamVersion <= 1 {
+		return errors.New("store: PAT deletion requires a prior mint")
+	}
+	if _, err := decodeEventPayload[personalAccessTokenDeletedPayload](
+		event,
+		personalAccessTokenPayloadVersion,
+	); err != nil {
+		return err
+	}
+	affected, err := generated.New(tx).DeletePersonalAccessTokenProjection(
+		ctx,
+		generated.DeletePersonalAccessTokenProjectionParams{
+			TokenID:                   event.StreamID,
+			PreviousProjectionVersion: event.StreamVersion - 1,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("store: project PAT deletion: %w", err)
+	}
+	if affected != 1 {
+		return fmt.Errorf("store: PAT deletion affected %d tokens; want one", affected)
 	}
 	return nil
 }
@@ -386,8 +668,7 @@ func validatePersonalAccessTokenProjection(
 	if err := validatePATExpiry(expiresAt); err != nil {
 		return PersonalAccessToken{}, fmt.Errorf("store: invalid PAT projection: %w", err)
 	}
-	if projectionVersion != 1 && projectionVersion != 2 ||
-		revoked != (projectionVersion == 2) {
+	if projectionVersion < 1 {
 		return PersonalAccessToken{}, errors.New("store: PAT projection has an invalid version")
 	}
 	token := PersonalAccessToken{
@@ -400,6 +681,39 @@ func validatePersonalAccessTokenProjection(
 	}
 	copy(token.Hash[:], tokenHash)
 	return token, nil
+}
+
+func validatePersonalAccessTokenMetadataProjection(
+	tokenID string,
+	subject string,
+	scopes []string,
+	expiresAt time.Time,
+	revoked bool,
+	projectionVersion int64,
+) (PersonalAccessTokenMetadata, error) {
+	if _, err := canonicalPATID(tokenID); err != nil {
+		return PersonalAccessTokenMetadata{}, errors.New("store: PAT metadata has an invalid token ID")
+	}
+	if err := validatePATSubject(subject); err != nil {
+		return PersonalAccessTokenMetadata{}, fmt.Errorf("store: invalid PAT metadata: %w", err)
+	}
+	if err := validatePATScopes(scopes); err != nil {
+		return PersonalAccessTokenMetadata{}, fmt.Errorf("store: invalid PAT metadata: %w", err)
+	}
+	if err := validatePATExpiry(expiresAt); err != nil {
+		return PersonalAccessTokenMetadata{}, fmt.Errorf("store: invalid PAT metadata: %w", err)
+	}
+	if projectionVersion < 1 {
+		return PersonalAccessTokenMetadata{}, errors.New("store: PAT metadata has an invalid version")
+	}
+	return PersonalAccessTokenMetadata{
+		TokenID:           tokenID,
+		Subject:           subject,
+		Scopes:            slices.Clone(scopes),
+		ExpiresAt:         expiresAt.UTC(),
+		Revoked:           revoked,
+		ProjectionVersion: projectionVersion,
+	}, nil
 }
 
 func resetPersonalAccessTokens(ctx context.Context, tx ProjectionTx) error {

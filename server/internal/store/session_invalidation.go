@@ -250,7 +250,11 @@ func projectSessionInvalidation(
 			return fmt.Errorf("store: OIDC identity unlink affected %d identities; want one", affected)
 		}
 	case scimUserDeprovisionedEventType:
-		if err := queries.DeleteSCIMGroupMembershipsForUser(ctx, userID); err != nil {
+		if err := deleteSCIMGroupMembershipsForUserProjection(
+			ctx,
+			queries,
+			userID,
+		); err != nil {
 			return fmt.Errorf("store: delete SCIM memberships for deprovisioned user: %w", err)
 		}
 		affected, err := queries.DeleteUserProjectionAfterInvalidation(

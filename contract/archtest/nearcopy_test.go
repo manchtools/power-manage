@@ -4,15 +4,17 @@ package archtest
 // 12). A descriptor walk over every contract message: two messages whose
 // field-name+type multisets are identical are a mirrored near-copy — the shape
 // that drifted field by field in the predecessor (log-query vs osquery). They
-// fail unless allowlisted with a per-entry rationale. Matches-zero protection
-// is the Discover floor on the proto-file population.
+// fail unless allowlisted with a per-entry rationale or they are the
+// operation-specific CRUD envelopes Buf requires. Matches-zero protection is
+// the Discover floor on the proto-file population.
 //
 // Empty (zero-field) messages are excluded: they have no field shape to mirror,
 // and the closed catalog carries 21 empty ActionParams stubs by design (their
 // fields land with SPEC-014). This is the ONLY refinement of the literal
-// criterion — single-field messages stay in scope (a single field can still be
-// a mirrored pair), so the allowlist is where a legitimately-distinct identical
-// pair is recorded.
+// criterion. Single-field messages stay in scope unless they are uniform CRUD
+// envelopes: get/list/delete requests, delete responses, and same-resource
+// create/get/update responses compose canonical types and intentionally repeat
+// only the kernel fields.
 
 import (
 	"fmt"
@@ -28,7 +30,9 @@ import (
 // Every entry is a deliberate, reviewable decision that these two identical
 // shapes are NOT a [WIRE-1] mirrored copy.
 var nearCopyAllowlist = map[string]string{
+	"powermanage.v1.ActionSet|powermanage.v1.UserGroup":                                 "both are named, versioned aggregates, but their independently constrained names and distinct action/user membership relations make them separate domain resources rather than mirrored wire definitions",
 	"powermanage.v1.CompleteOidcSessionResponse|powermanage.v1.RefreshSessionResponse":  "Buf requires operation-specific unary response types; both return the ordinary rotating session token pair, while their authentication ceremonies and future response evolution remain independent",
+	"powermanage.v1.CreateActionSetRequest|powermanage.v1.CreateUserGroupRequest":       "create payloads intentionally share identifier/name primitives while applying different domain-specific name limits and creating distinct action-set versus user-group aggregates",
 	"powermanage.v1.CreateDeviceGroupResponse|powermanage.v1.GetDeviceGroupResponse":    "Buf requires operation-specific unary response types; both expose the same canonical DeviceGroup projection and carry no independently duplicated domain fields",
 	"powermanage.v1.CreateDeviceGroupResponse|powermanage.v1.UpdateDeviceGroupResponse": "Buf requires operation-specific unary response types; create and full-replacement update both compose the same canonical DeviceGroup projection",
 	"powermanage.v1.DeviceConnected|powermanage.v1.DeviceDisconnected":                  "two distinct lifecycle events sharing the minimal addressing-only shape {device_id: ULID}; the discriminant is the frame-oneof tag, not a drifted payload field (GW-3.1)",
@@ -38,6 +42,7 @@ var nearCopyAllowlist = map[string]string{
 	"powermanage.v1.ForceRenewAgentRequest|powermanage.v1.RevokeGatewayRequest":         "operator lifecycle operations identify the exact current certificate while preserving separate agent force-renew and terminal gateway-revocation procedures",
 	"powermanage.v1.RevokeAgentRequest|powermanage.v1.RevokeGatewayRequest":             "agent and gateway revocation both identify the exact current certificate, while separate RPC descriptors preserve class-specific authorization and lifecycle handling",
 	"powermanage.v1.GetDeviceGroupResponse|powermanage.v1.UpdateDeviceGroupResponse":    "Buf requires operation-specific unary response types; both compose the one canonical DeviceGroup projection rather than mirroring its fields",
+	"powermanage.v1.UpdateActionSetRequest|powermanage.v1.UpdateUserGroupRequest":       "full-replacement updates share kernel identifier/version fields plus a name, but enforce distinct action-set and user-group constraints and evolve with separate aggregate semantics",
 }
 
 // TestGuard_NearCopies is G-8 over the real contract: no two messages share an
@@ -138,9 +143,34 @@ func TestNearCopySignature_NameAndType(t *testing.T) {
 	}
 }
 
+func TestCRUDEnvelopePair_OnlyKernelWrappersAreExcluded(t *testing.T) {
+	for _, pair := range [][2]string{
+		{"GetActionRequest", "GetRoleRequest"},
+		{"ListActionsRequest", "ListRolesRequest"},
+		{"DeleteActionRequest", "DeleteRoleRequest"},
+		{"DeleteActionResponse", "DeleteRoleResponse"},
+		{"CreateActionResponse", "GetActionResponse"},
+		{"GetActionResponse", "UpdateActionResponse"},
+	} {
+		if !isCRUDEnvelopePair(requireMessage(t, pair[0]), requireMessage(t, pair[1])) {
+			t.Errorf("%s/%s not recognized as CRUD kernel envelopes", pair[0], pair[1])
+		}
+	}
+	for _, pair := range [][2]string{
+		{"CreateActionRequest", "CreateRoleRequest"},
+		{"UpdateActionRequest", "UpdateRoleRequest"},
+		{"ActionSet", "UserGroup"},
+		{"CreateActionResponse", "GetRoleResponse"},
+	} {
+		if isCRUDEnvelopePair(requireMessage(t, pair[0]), requireMessage(t, pair[1])) {
+			t.Errorf("%s/%s excluded even though domain payloads must remain guarded", pair[0], pair[1])
+		}
+	}
+}
+
 // nearCopyViolations returns a violation per unordered pair of non-empty
 // messages that share an identical field-name/type signature and are not
-// allowlisted.
+// allowlisted or operation-specific CRUD kernel envelopes.
 func nearCopyViolations(files []protoreflect.FileDescriptor) []string {
 	bySig := map[string][]protoreflect.MessageDescriptor{}
 	for _, md := range allMessages(files) {
@@ -159,7 +189,8 @@ func nearCopyViolations(files []protoreflect.FileDescriptor) []string {
 		for i := 0; i < len(group); i++ {
 			for j := i + 1; j < len(group); j++ {
 				a, b := string(group[i].FullName()), string(group[j].FullName())
-				if _, ok := nearCopyAllowlist[a+"|"+b]; ok {
+				if _, ok := nearCopyAllowlist[a+"|"+b]; ok ||
+					isCRUDEnvelopePair(group[i], group[j]) {
 					continue
 				}
 				out = append(out, fmt.Sprintf("%s and %s share an identical field-name/type shape — mirrored near-copies drift field by field ([WIRE-1]); make one the shared definition, or record a rationale in nearCopyAllowlist keyed %q", a, b, a+"|"+b))
@@ -168,6 +199,55 @@ func nearCopyViolations(files []protoreflect.FileDescriptor) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// isCRUDEnvelopePair recognizes only operation-specific wrappers whose
+// identical fields are imposed by the shared CRUD kernel. Domain objects and
+// create/update payloads remain subject to the near-copy guard.
+func isCRUDEnvelopePair(a, b protoreflect.MessageDescriptor) bool {
+	aOperation, aResource, aKind, aOK := splitCRUDEnvelope(a.Name())
+	bOperation, bResource, bKind, bOK := splitCRUDEnvelope(b.Name())
+	if !aOK || !bOK || aKind != bKind {
+		return false
+	}
+	if aKind == "Request" && aOperation == bOperation {
+		return aOperation == "Get" || aOperation == "List" || aOperation == "Delete"
+	}
+	if aKind != "Response" {
+		return false
+	}
+	if aOperation == "Delete" && bOperation == "Delete" {
+		return true
+	}
+	return aResource == bResource &&
+		isCanonicalObjectResponse(aOperation) &&
+		isCanonicalObjectResponse(bOperation)
+}
+
+func splitCRUDEnvelope(
+	name protoreflect.Name,
+) (operation, resource, kind string, ok bool) {
+	value := string(name)
+	for _, candidateKind := range []string{"Request", "Response"} {
+		if !strings.HasSuffix(value, candidateKind) {
+			continue
+		}
+		withoutKind := strings.TrimSuffix(value, candidateKind)
+		for _, candidateOperation := range []string{"Create", "Get", "List", "Update", "Delete"} {
+			if strings.HasPrefix(withoutKind, candidateOperation) &&
+				len(withoutKind) > len(candidateOperation) {
+				return candidateOperation,
+					strings.TrimPrefix(withoutKind, candidateOperation),
+					candidateKind,
+					true
+			}
+		}
+	}
+	return "", "", "", false
+}
+
+func isCanonicalObjectResponse(operation string) bool {
+	return operation == "Create" || operation == "Get" || operation == "Update"
 }
 
 // shapeSignature is the canonical field-name+type multiset of md: sorted

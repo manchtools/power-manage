@@ -10,6 +10,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Assignment struct {
+	AssignmentID      string
+	SourceKind        string
+	SourceID          string
+	TargetKind        string
+	TargetID          string
+	Mode              string
+	ProjectionVersion int64
+	UpdatedAt         time.Time
+}
+
 type AuthorizationGrant struct {
 	GrantID           string
 	PrincipalType     string
@@ -59,6 +70,15 @@ type CertificateRevocation struct {
 	IssuerIdentifier       []byte
 }
 
+type CompliancePolicy struct {
+	PolicyID          string
+	Name              string
+	RuleActionIds     []string
+	GraceHours        int32
+	ProjectionVersion int64
+	UpdatedAt         time.Time
+}
+
 type CrlState struct {
 	CertificateClass    string
 	Sequence            int64
@@ -98,6 +118,7 @@ type DeviceGroup struct {
 	DynamicQuery      string
 	ProjectionVersion int64
 	UpdatedAt         time.Time
+	StaticDeviceIds   []string
 }
 
 type Event struct {
@@ -117,6 +138,7 @@ type ExecutionOutput struct {
 	OutputChunks int32
 	Truncated    bool
 	UpdatedAt    time.Time
+	DeviceID     string
 }
 
 type ExecutionOutputChunk struct {
@@ -148,6 +170,36 @@ type InventorySnapshot struct {
 	UpdatedAt         time.Time
 }
 
+type ManagedAction struct {
+	ActionID          string
+	Name              string
+	Params            []byte
+	SystemManaged     bool
+	ProjectionVersion int64
+	UpdatedAt         time.Time
+}
+
+type ManagedActionSet struct {
+	ActionSetID       string
+	Name              string
+	SystemManaged     bool
+	ProjectionVersion int64
+	UpdatedAt         time.Time
+}
+
+type ManagedUserGroup struct {
+	GroupID           string
+	Name              string
+	ProjectionVersion int64
+	UpdatedAt         time.Time
+}
+
+type ManagedUserGroupMember struct {
+	GroupID           string
+	UserID            string
+	ProjectionVersion int64
+}
+
 type OidcIdentity struct {
 	Issuer            string
 	ExternalSubject   string
@@ -165,6 +217,20 @@ type OidcLoginState struct {
 	Nonce        string
 	CodeVerifier string
 	ExpiresAt    time.Time
+}
+
+type OidcProvider struct {
+	ProviderSlug          string
+	Issuer                string
+	ClientID              string
+	AuthorizationEndpoint string
+	TokenUrl              string
+	JwksUri               string
+	RedirectUris          []string
+	TrustEmailAssertions  bool
+	Disabled              bool
+	ProjectionVersion     int64
+	UpdatedAt             time.Time
 }
 
 type PersonalAccessToken struct {
@@ -236,6 +302,14 @@ type ScimProvider struct {
 	ProviderSlug      string
 	TokenHash         []byte
 	Disabled          bool
+	ProjectionVersion int64
+	UpdatedAt         time.Time
+}
+
+type ServerSetting struct {
+	SettingID         string
+	Name              string
+	Value             string
 	ProjectionVersion int64
 	UpdatedAt         time.Time
 }

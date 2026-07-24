@@ -147,6 +147,136 @@ func TestGatewayRegistrationToken_RebuildPreservesPurposeAndDNSNames(t *testing.
 	assertRegistrationToken(t, eventStore, wantGateway)
 }
 
+func TestManagedRegistrationToken_ListReplaceDeleteAndRebuild(t *testing.T) {
+	eventStore, err := NewProduction(testPostgres(t))
+	if err != nil {
+		t.Fatalf("create production store: %v", err)
+	}
+	digest := sha256.Sum256([]byte("managed registration secret"))
+	expiresAt := time.Date(2030, time.January, 2, 3, 4, 5, 0, time.UTC)
+	minted, err := RegistrationTokenMintedEvent(
+		testRegistrationTokenID,
+		digest,
+		3,
+		expiresAt,
+		"owner@example.com",
+	)
+	if err != nil {
+		t.Fatalf("create token mint: %v", err)
+	}
+	if err := eventStore.AppendEventWithVersion(t.Context(), minted, 0); err != nil {
+		t.Fatalf("append token mint: %v", err)
+	}
+	tokens, err := eventStore.ListRegistrationTokens(t.Context(), 100)
+	if err != nil || len(tokens) != 1 ||
+		tokens[0].TokenID != testRegistrationTokenID ||
+		tokens[0].ProjectionVersion != 1 {
+		t.Fatalf("registration-token list = (%#v, %v); want minted token", tokens, err)
+	}
+
+	replacement, err := RegistrationTokenUpdatedEvent(
+		testRegistrationTokenID,
+		5,
+		expiresAt.Add(time.Hour),
+		"updated@example.com",
+		true,
+	)
+	if err != nil {
+		t.Fatalf("create token replacement: %v", err)
+	}
+	if err := eventStore.AppendEventWithVersion(t.Context(), replacement, 1); err != nil {
+		t.Fatalf("append token replacement: %v", err)
+	}
+	updated, err := eventStore.RegistrationToken(t.Context(), testRegistrationTokenID)
+	if err != nil || updated.Hash != digest || updated.MaxUses != 5 ||
+		updated.Owner != "updated@example.com" || !updated.Disabled ||
+		updated.ProjectionVersion != 2 {
+		t.Fatalf("updated registration token = (%#v, %v); want verifier-preserving version two", updated, err)
+	}
+
+	deleted, err := RegistrationTokenDeletedEvent(testRegistrationTokenID)
+	if err != nil {
+		t.Fatalf("create token deletion: %v", err)
+	}
+	if err := eventStore.AppendEventWithVersion(t.Context(), deleted, 2); err != nil {
+		t.Fatalf("append token deletion: %v", err)
+	}
+	if _, err := eventStore.RegistrationToken(
+		t.Context(),
+		testRegistrationTokenID,
+	); !IsNotFound(err) {
+		t.Fatalf("deleted registration token error = %v; want not found", err)
+	}
+	if err := eventStore.RebuildAll(t.Context(), RegistrationTokenRebuildTarget); err != nil {
+		t.Fatalf("rebuild deleted registration token: %v", err)
+	}
+	if _, err := eventStore.RegistrationToken(
+		t.Context(),
+		testRegistrationTokenID,
+	); !IsNotFound(err) {
+		t.Fatalf("rebuilt deleted registration token error = %v; want not found", err)
+	}
+}
+
+func TestManagedRegistrationToken_RejectsMaxUsesBelowConsumption(t *testing.T) {
+	eventStore, err := NewProduction(testPostgres(t))
+	if err != nil {
+		t.Fatalf("create production store: %v", err)
+	}
+	digest := sha256.Sum256([]byte("consumed registration secret"))
+	expiresAt := time.Date(2030, time.January, 2, 3, 4, 5, 0, time.UTC)
+	minted, err := RegistrationTokenMintedEvent(
+		testRegistrationTokenID,
+		digest,
+		3,
+		expiresAt,
+		"owner@example.com",
+	)
+	if err != nil {
+		t.Fatalf("create registration-token mint: %v", err)
+	}
+	consumed, err := RegistrationTokenConsumedEvent(testRegistrationTokenID)
+	if err != nil {
+		t.Fatalf("create registration-token consume: %v", err)
+	}
+	for expectedVersion, event := range []Event{minted, consumed, consumed} {
+		if err := eventStore.AppendEventWithVersion(
+			t.Context(),
+			event,
+			int64(expectedVersion),
+		); err != nil {
+			t.Fatalf("append registration-token event %d: %v", expectedVersion, err)
+		}
+	}
+	update, err := RegistrationTokenUpdatedEvent(
+		testRegistrationTokenID,
+		1,
+		expiresAt.Add(time.Hour),
+		"owner@example.com",
+		false,
+	)
+	if err != nil {
+		t.Fatalf("create registration-token update: %v", err)
+	}
+	if err := eventStore.AppendEventWithVersion(
+		t.Context(),
+		update,
+		3,
+	); err == nil || !strings.Contains(err.Error(), "cannot be lower than current uses") {
+		t.Fatalf("lower max-uses update error = %v; want consumption conflict", err)
+	}
+	assertRegistrationToken(t, eventStore, RegistrationToken{
+		TokenID:           testRegistrationTokenID,
+		Hash:              digest,
+		Purpose:           RegistrationTokenPurposeAgent,
+		MaxUses:           3,
+		Uses:              2,
+		ExpiresAt:         expiresAt,
+		Owner:             "owner@example.com",
+		ProjectionVersion: 3,
+	})
+}
+
 func TestRegistrationTokenEvents_ValidateAndCanonicalize(t *testing.T) {
 	digest := sha256.Sum256([]byte("registration secret"))
 	expiresAt := time.Date(2030, time.January, 2, 3, 4, 5, 0, time.UTC)

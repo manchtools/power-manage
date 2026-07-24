@@ -10,8 +10,9 @@ import (
 )
 
 const (
-	testPATID      = "01J00000000000000000000005"
-	testPATSubject = "01K0QJ3E5E8R4M0D8EV3Y4N6J8"
+	testPATID           = "01J00000000000000000000005"
+	testPATSubject      = "01K0QJ3E5E8R4M0D8EV3Y4N6J8"
+	testPATOtherSubject = "01K0QJ3E5E8R4M0D8EV3Y4N6J9"
 )
 
 var testPATExpiry = time.Date(2031, time.February, 3, 4, 5, 6, 0, time.UTC)
@@ -134,6 +135,32 @@ func TestPersonalAccessTokenProjection_RejectsInvalidTransitions(t *testing.T) {
 					ExpiresAt:         testPATExpiry,
 					Revoked:           true,
 					ProjectionVersion: 2,
+				})
+			},
+		},
+		{
+			name: "change subject while retaining credential",
+			run: func(t *testing.T, eventStore *Store) {
+				appendPersonalAccessTokenMint(t, eventStore, tokenHash)
+				event, err := PersonalAccessTokenUpdatedEvent(
+					testPATID,
+					testPATOtherSubject,
+					[]string{"actions.read"},
+					testPATExpiry,
+					false,
+				)
+				if err != nil {
+					t.Fatalf("create PAT subject-change event: %v", err)
+				}
+				err = eventStore.AppendEventWithVersion(t.Context(), event, 1)
+				assertPATTransitionError(t, err, "conflicts with the current projection")
+				assertPersonalAccessToken(t, eventStore, tokenHash, PersonalAccessToken{
+					TokenID:           testPATID,
+					Subject:           testPATSubject,
+					Hash:              tokenHash,
+					Scopes:            []string{"actions.read"},
+					ExpiresAt:         testPATExpiry,
+					ProjectionVersion: 1,
 				})
 			},
 		},

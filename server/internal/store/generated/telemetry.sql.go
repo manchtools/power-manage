@@ -36,20 +36,38 @@ func (q *Queries) AdvanceExecutionOutput(ctx context.Context, arg AdvanceExecuti
 	return i, err
 }
 
-const ensureExecutionOutput = `-- name: EnsureExecutionOutput :exec
+const bindExecutionOutputToDevice = `-- name: BindExecutionOutputToDevice :execrows
 INSERT INTO execution_outputs (
     execution_id,
+    device_id,
     output_bytes,
     output_chunks,
     truncated,
     updated_at
-) VALUES ($1, 0, 0, false, clock_timestamp())
-ON CONFLICT (execution_id) DO NOTHING
+) VALUES (
+    $1,
+    $2,
+    0,
+    0,
+    false,
+    clock_timestamp()
+)
+ON CONFLICT (execution_id) DO UPDATE
+SET device_id = EXCLUDED.device_id
+WHERE execution_outputs.device_id = EXCLUDED.device_id
 `
 
-func (q *Queries) EnsureExecutionOutput(ctx context.Context, executionID string) error {
-	_, err := q.db.Exec(ctx, ensureExecutionOutput, executionID)
-	return err
+type BindExecutionOutputToDeviceParams struct {
+	ExecutionID string
+	DeviceID    string
+}
+
+func (q *Queries) BindExecutionOutputToDevice(ctx context.Context, arg BindExecutionOutputToDeviceParams) (int64, error) {
+	result, err := q.db.Exec(ctx, bindExecutionOutputToDevice, arg.ExecutionID, arg.DeviceID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const getExecutionOutputForUpdate = `-- name: GetExecutionOutputForUpdate :one

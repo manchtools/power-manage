@@ -25,7 +25,7 @@ spec's own header, which is authoritative.
 | 006 | [pki-and-identity](006-pki-and-identity.md) | 003, 005 | contract, server, agent | In progress (M8 done) |
 | 007 | [authentication](007-authentication.md) | 003, 005 | server | Implemented |
 | 008 | [authorization](008-authorization.md) | 005, 007 | server | In progress (M3 done) |
-| 009 | [crud-kernel-search-and-domains](009-crud-kernel-search-and-domains.md) | 005, 007, 008 | server | In progress (M2 done) |
+| 009 | [crud-kernel-search-and-domains](009-crud-kernel-search-and-domains.md) | 005, 007, 008 | server | In progress (M3 done) |
 | 010 | [artifact-store](010-artifact-store.md) | 003, 005 | server | Spec ready |
 | 011 | [audit-and-retention](011-audit-and-retention.md) | 005, 008, 010 | server | Spec ready |
 | 012 | [gateway](012-gateway.md) | 003, 006 | server | Spec ready |

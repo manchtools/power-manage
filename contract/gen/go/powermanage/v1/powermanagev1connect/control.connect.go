@@ -61,6 +61,228 @@ const (
 	// ControlServiceDeleteDeviceGroupProcedure is the fully-qualified name of the ControlService's
 	// DeleteDeviceGroup RPC.
 	ControlServiceDeleteDeviceGroupProcedure = "/powermanage.v1.ControlService/DeleteDeviceGroup"
+	// ControlServiceCreateUserProcedure is the fully-qualified name of the ControlService's CreateUser
+	// RPC.
+	ControlServiceCreateUserProcedure = "/powermanage.v1.ControlService/CreateUser"
+	// ControlServiceGetUserProcedure is the fully-qualified name of the ControlService's GetUser RPC.
+	ControlServiceGetUserProcedure = "/powermanage.v1.ControlService/GetUser"
+	// ControlServiceListUsersProcedure is the fully-qualified name of the ControlService's ListUsers
+	// RPC.
+	ControlServiceListUsersProcedure = "/powermanage.v1.ControlService/ListUsers"
+	// ControlServiceUpdateUserProcedure is the fully-qualified name of the ControlService's UpdateUser
+	// RPC.
+	ControlServiceUpdateUserProcedure = "/powermanage.v1.ControlService/UpdateUser"
+	// ControlServiceDeleteUserProcedure is the fully-qualified name of the ControlService's DeleteUser
+	// RPC.
+	ControlServiceDeleteUserProcedure = "/powermanage.v1.ControlService/DeleteUser"
+	// ControlServiceCreateRoleProcedure is the fully-qualified name of the ControlService's CreateRole
+	// RPC.
+	ControlServiceCreateRoleProcedure = "/powermanage.v1.ControlService/CreateRole"
+	// ControlServiceGetRoleProcedure is the fully-qualified name of the ControlService's GetRole RPC.
+	ControlServiceGetRoleProcedure = "/powermanage.v1.ControlService/GetRole"
+	// ControlServiceListRolesProcedure is the fully-qualified name of the ControlService's ListRoles
+	// RPC.
+	ControlServiceListRolesProcedure = "/powermanage.v1.ControlService/ListRoles"
+	// ControlServiceUpdateRoleProcedure is the fully-qualified name of the ControlService's UpdateRole
+	// RPC.
+	ControlServiceUpdateRoleProcedure = "/powermanage.v1.ControlService/UpdateRole"
+	// ControlServiceDeleteRoleProcedure is the fully-qualified name of the ControlService's DeleteRole
+	// RPC.
+	ControlServiceDeleteRoleProcedure = "/powermanage.v1.ControlService/DeleteRole"
+	// ControlServiceCreateGrantProcedure is the fully-qualified name of the ControlService's
+	// CreateGrant RPC.
+	ControlServiceCreateGrantProcedure = "/powermanage.v1.ControlService/CreateGrant"
+	// ControlServiceGetGrantProcedure is the fully-qualified name of the ControlService's GetGrant RPC.
+	ControlServiceGetGrantProcedure = "/powermanage.v1.ControlService/GetGrant"
+	// ControlServiceListGrantsProcedure is the fully-qualified name of the ControlService's ListGrants
+	// RPC.
+	ControlServiceListGrantsProcedure = "/powermanage.v1.ControlService/ListGrants"
+	// ControlServiceUpdateGrantProcedure is the fully-qualified name of the ControlService's
+	// UpdateGrant RPC.
+	ControlServiceUpdateGrantProcedure = "/powermanage.v1.ControlService/UpdateGrant"
+	// ControlServiceDeleteGrantProcedure is the fully-qualified name of the ControlService's
+	// DeleteGrant RPC.
+	ControlServiceDeleteGrantProcedure = "/powermanage.v1.ControlService/DeleteGrant"
+	// ControlServiceCreateUserGroupProcedure is the fully-qualified name of the ControlService's
+	// CreateUserGroup RPC.
+	ControlServiceCreateUserGroupProcedure = "/powermanage.v1.ControlService/CreateUserGroup"
+	// ControlServiceGetUserGroupProcedure is the fully-qualified name of the ControlService's
+	// GetUserGroup RPC.
+	ControlServiceGetUserGroupProcedure = "/powermanage.v1.ControlService/GetUserGroup"
+	// ControlServiceListUserGroupsProcedure is the fully-qualified name of the ControlService's
+	// ListUserGroups RPC.
+	ControlServiceListUserGroupsProcedure = "/powermanage.v1.ControlService/ListUserGroups"
+	// ControlServiceUpdateUserGroupProcedure is the fully-qualified name of the ControlService's
+	// UpdateUserGroup RPC.
+	ControlServiceUpdateUserGroupProcedure = "/powermanage.v1.ControlService/UpdateUserGroup"
+	// ControlServiceDeleteUserGroupProcedure is the fully-qualified name of the ControlService's
+	// DeleteUserGroup RPC.
+	ControlServiceDeleteUserGroupProcedure = "/powermanage.v1.ControlService/DeleteUserGroup"
+	// ControlServiceGetDeviceProcedure is the fully-qualified name of the ControlService's GetDevice
+	// RPC.
+	ControlServiceGetDeviceProcedure = "/powermanage.v1.ControlService/GetDevice"
+	// ControlServiceListDevicesProcedure is the fully-qualified name of the ControlService's
+	// ListDevices RPC.
+	ControlServiceListDevicesProcedure = "/powermanage.v1.ControlService/ListDevices"
+	// ControlServiceUpdateDeviceProcedure is the fully-qualified name of the ControlService's
+	// UpdateDevice RPC.
+	ControlServiceUpdateDeviceProcedure = "/powermanage.v1.ControlService/UpdateDevice"
+	// ControlServiceDeleteDeviceProcedure is the fully-qualified name of the ControlService's
+	// DeleteDevice RPC.
+	ControlServiceDeleteDeviceProcedure = "/powermanage.v1.ControlService/DeleteDevice"
+	// ControlServiceCreateRegistrationTokenProcedure is the fully-qualified name of the
+	// ControlService's CreateRegistrationToken RPC.
+	ControlServiceCreateRegistrationTokenProcedure = "/powermanage.v1.ControlService/CreateRegistrationToken"
+	// ControlServiceGetRegistrationTokenProcedure is the fully-qualified name of the ControlService's
+	// GetRegistrationToken RPC.
+	ControlServiceGetRegistrationTokenProcedure = "/powermanage.v1.ControlService/GetRegistrationToken"
+	// ControlServiceListRegistrationTokensProcedure is the fully-qualified name of the ControlService's
+	// ListRegistrationTokens RPC.
+	ControlServiceListRegistrationTokensProcedure = "/powermanage.v1.ControlService/ListRegistrationTokens"
+	// ControlServiceUpdateRegistrationTokenProcedure is the fully-qualified name of the
+	// ControlService's UpdateRegistrationToken RPC.
+	ControlServiceUpdateRegistrationTokenProcedure = "/powermanage.v1.ControlService/UpdateRegistrationToken"
+	// ControlServiceDeleteRegistrationTokenProcedure is the fully-qualified name of the
+	// ControlService's DeleteRegistrationToken RPC.
+	ControlServiceDeleteRegistrationTokenProcedure = "/powermanage.v1.ControlService/DeleteRegistrationToken"
+	// ControlServiceCreateApiTokenProcedure is the fully-qualified name of the ControlService's
+	// CreateApiToken RPC.
+	ControlServiceCreateApiTokenProcedure = "/powermanage.v1.ControlService/CreateApiToken"
+	// ControlServiceGetApiTokenProcedure is the fully-qualified name of the ControlService's
+	// GetApiToken RPC.
+	ControlServiceGetApiTokenProcedure = "/powermanage.v1.ControlService/GetApiToken"
+	// ControlServiceListApiTokensProcedure is the fully-qualified name of the ControlService's
+	// ListApiTokens RPC.
+	ControlServiceListApiTokensProcedure = "/powermanage.v1.ControlService/ListApiTokens"
+	// ControlServiceUpdateApiTokenProcedure is the fully-qualified name of the ControlService's
+	// UpdateApiToken RPC.
+	ControlServiceUpdateApiTokenProcedure = "/powermanage.v1.ControlService/UpdateApiToken"
+	// ControlServiceDeleteApiTokenProcedure is the fully-qualified name of the ControlService's
+	// DeleteApiToken RPC.
+	ControlServiceDeleteApiTokenProcedure = "/powermanage.v1.ControlService/DeleteApiToken"
+	// ControlServiceCreateIdentityProviderProcedure is the fully-qualified name of the ControlService's
+	// CreateIdentityProvider RPC.
+	ControlServiceCreateIdentityProviderProcedure = "/powermanage.v1.ControlService/CreateIdentityProvider"
+	// ControlServiceGetIdentityProviderProcedure is the fully-qualified name of the ControlService's
+	// GetIdentityProvider RPC.
+	ControlServiceGetIdentityProviderProcedure = "/powermanage.v1.ControlService/GetIdentityProvider"
+	// ControlServiceListIdentityProvidersProcedure is the fully-qualified name of the ControlService's
+	// ListIdentityProviders RPC.
+	ControlServiceListIdentityProvidersProcedure = "/powermanage.v1.ControlService/ListIdentityProviders"
+	// ControlServiceUpdateIdentityProviderProcedure is the fully-qualified name of the ControlService's
+	// UpdateIdentityProvider RPC.
+	ControlServiceUpdateIdentityProviderProcedure = "/powermanage.v1.ControlService/UpdateIdentityProvider"
+	// ControlServiceDeleteIdentityProviderProcedure is the fully-qualified name of the ControlService's
+	// DeleteIdentityProvider RPC.
+	ControlServiceDeleteIdentityProviderProcedure = "/powermanage.v1.ControlService/DeleteIdentityProvider"
+	// ControlServiceCreateScimConfigurationProcedure is the fully-qualified name of the
+	// ControlService's CreateScimConfiguration RPC.
+	ControlServiceCreateScimConfigurationProcedure = "/powermanage.v1.ControlService/CreateScimConfiguration"
+	// ControlServiceGetScimConfigurationProcedure is the fully-qualified name of the ControlService's
+	// GetScimConfiguration RPC.
+	ControlServiceGetScimConfigurationProcedure = "/powermanage.v1.ControlService/GetScimConfiguration"
+	// ControlServiceListScimConfigurationsProcedure is the fully-qualified name of the ControlService's
+	// ListScimConfigurations RPC.
+	ControlServiceListScimConfigurationsProcedure = "/powermanage.v1.ControlService/ListScimConfigurations"
+	// ControlServiceUpdateScimConfigurationProcedure is the fully-qualified name of the
+	// ControlService's UpdateScimConfiguration RPC.
+	ControlServiceUpdateScimConfigurationProcedure = "/powermanage.v1.ControlService/UpdateScimConfiguration"
+	// ControlServiceDeleteScimConfigurationProcedure is the fully-qualified name of the
+	// ControlService's DeleteScimConfiguration RPC.
+	ControlServiceDeleteScimConfigurationProcedure = "/powermanage.v1.ControlService/DeleteScimConfiguration"
+	// ControlServiceCreateServerSettingProcedure is the fully-qualified name of the ControlService's
+	// CreateServerSetting RPC.
+	ControlServiceCreateServerSettingProcedure = "/powermanage.v1.ControlService/CreateServerSetting"
+	// ControlServiceGetServerSettingProcedure is the fully-qualified name of the ControlService's
+	// GetServerSetting RPC.
+	ControlServiceGetServerSettingProcedure = "/powermanage.v1.ControlService/GetServerSetting"
+	// ControlServiceListServerSettingsProcedure is the fully-qualified name of the ControlService's
+	// ListServerSettings RPC.
+	ControlServiceListServerSettingsProcedure = "/powermanage.v1.ControlService/ListServerSettings"
+	// ControlServiceUpdateServerSettingProcedure is the fully-qualified name of the ControlService's
+	// UpdateServerSetting RPC.
+	ControlServiceUpdateServerSettingProcedure = "/powermanage.v1.ControlService/UpdateServerSetting"
+	// ControlServiceDeleteServerSettingProcedure is the fully-qualified name of the ControlService's
+	// DeleteServerSetting RPC.
+	ControlServiceDeleteServerSettingProcedure = "/powermanage.v1.ControlService/DeleteServerSetting"
+	// ControlServiceCreateActionProcedure is the fully-qualified name of the ControlService's
+	// CreateAction RPC.
+	ControlServiceCreateActionProcedure = "/powermanage.v1.ControlService/CreateAction"
+	// ControlServiceGetActionProcedure is the fully-qualified name of the ControlService's GetAction
+	// RPC.
+	ControlServiceGetActionProcedure = "/powermanage.v1.ControlService/GetAction"
+	// ControlServiceListActionsProcedure is the fully-qualified name of the ControlService's
+	// ListActions RPC.
+	ControlServiceListActionsProcedure = "/powermanage.v1.ControlService/ListActions"
+	// ControlServiceUpdateActionProcedure is the fully-qualified name of the ControlService's
+	// UpdateAction RPC.
+	ControlServiceUpdateActionProcedure = "/powermanage.v1.ControlService/UpdateAction"
+	// ControlServiceDeleteActionProcedure is the fully-qualified name of the ControlService's
+	// DeleteAction RPC.
+	ControlServiceDeleteActionProcedure = "/powermanage.v1.ControlService/DeleteAction"
+	// ControlServiceCreateActionSetProcedure is the fully-qualified name of the ControlService's
+	// CreateActionSet RPC.
+	ControlServiceCreateActionSetProcedure = "/powermanage.v1.ControlService/CreateActionSet"
+	// ControlServiceGetActionSetProcedure is the fully-qualified name of the ControlService's
+	// GetActionSet RPC.
+	ControlServiceGetActionSetProcedure = "/powermanage.v1.ControlService/GetActionSet"
+	// ControlServiceListActionSetsProcedure is the fully-qualified name of the ControlService's
+	// ListActionSets RPC.
+	ControlServiceListActionSetsProcedure = "/powermanage.v1.ControlService/ListActionSets"
+	// ControlServiceUpdateActionSetProcedure is the fully-qualified name of the ControlService's
+	// UpdateActionSet RPC.
+	ControlServiceUpdateActionSetProcedure = "/powermanage.v1.ControlService/UpdateActionSet"
+	// ControlServiceDeleteActionSetProcedure is the fully-qualified name of the ControlService's
+	// DeleteActionSet RPC.
+	ControlServiceDeleteActionSetProcedure = "/powermanage.v1.ControlService/DeleteActionSet"
+	// ControlServiceCreateAssignmentProcedure is the fully-qualified name of the ControlService's
+	// CreateAssignment RPC.
+	ControlServiceCreateAssignmentProcedure = "/powermanage.v1.ControlService/CreateAssignment"
+	// ControlServiceGetAssignmentProcedure is the fully-qualified name of the ControlService's
+	// GetAssignment RPC.
+	ControlServiceGetAssignmentProcedure = "/powermanage.v1.ControlService/GetAssignment"
+	// ControlServiceListAssignmentsProcedure is the fully-qualified name of the ControlService's
+	// ListAssignments RPC.
+	ControlServiceListAssignmentsProcedure = "/powermanage.v1.ControlService/ListAssignments"
+	// ControlServiceDeleteAssignmentProcedure is the fully-qualified name of the ControlService's
+	// DeleteAssignment RPC.
+	ControlServiceDeleteAssignmentProcedure = "/powermanage.v1.ControlService/DeleteAssignment"
+	// ControlServiceCreateCompliancePolicyProcedure is the fully-qualified name of the ControlService's
+	// CreateCompliancePolicy RPC.
+	ControlServiceCreateCompliancePolicyProcedure = "/powermanage.v1.ControlService/CreateCompliancePolicy"
+	// ControlServiceGetCompliancePolicyProcedure is the fully-qualified name of the ControlService's
+	// GetCompliancePolicy RPC.
+	ControlServiceGetCompliancePolicyProcedure = "/powermanage.v1.ControlService/GetCompliancePolicy"
+	// ControlServiceListCompliancePoliciesProcedure is the fully-qualified name of the ControlService's
+	// ListCompliancePolicies RPC.
+	ControlServiceListCompliancePoliciesProcedure = "/powermanage.v1.ControlService/ListCompliancePolicies"
+	// ControlServiceUpdateCompliancePolicyProcedure is the fully-qualified name of the ControlService's
+	// UpdateCompliancePolicy RPC.
+	ControlServiceUpdateCompliancePolicyProcedure = "/powermanage.v1.ControlService/UpdateCompliancePolicy"
+	// ControlServiceDeleteCompliancePolicyProcedure is the fully-qualified name of the ControlService's
+	// DeleteCompliancePolicy RPC.
+	ControlServiceDeleteCompliancePolicyProcedure = "/powermanage.v1.ControlService/DeleteCompliancePolicy"
+	// ControlServiceListAuditEventsProcedure is the fully-qualified name of the ControlService's
+	// ListAuditEvents RPC.
+	ControlServiceListAuditEventsProcedure = "/powermanage.v1.ControlService/ListAuditEvents"
+	// ControlServiceGetExecutionProcedure is the fully-qualified name of the ControlService's
+	// GetExecution RPC.
+	ControlServiceGetExecutionProcedure = "/powermanage.v1.ControlService/GetExecution"
+	// ControlServiceListExecutionsProcedure is the fully-qualified name of the ControlService's
+	// ListExecutions RPC.
+	ControlServiceListExecutionsProcedure = "/powermanage.v1.ControlService/ListExecutions"
+	// ControlServiceGetInventorySnapshotProcedure is the fully-qualified name of the ControlService's
+	// GetInventorySnapshot RPC.
+	ControlServiceGetInventorySnapshotProcedure = "/powermanage.v1.ControlService/GetInventorySnapshot"
+	// ControlServiceListInventorySnapshotsProcedure is the fully-qualified name of the ControlService's
+	// ListInventorySnapshots RPC.
+	ControlServiceListInventorySnapshotsProcedure = "/powermanage.v1.ControlService/ListInventorySnapshots"
+	// ControlServiceGetGatewayProcedure is the fully-qualified name of the ControlService's GetGateway
+	// RPC.
+	ControlServiceGetGatewayProcedure = "/powermanage.v1.ControlService/GetGateway"
+	// ControlServiceListGatewaysProcedure is the fully-qualified name of the ControlService's
+	// ListGateways RPC.
+	ControlServiceListGatewaysProcedure = "/powermanage.v1.ControlService/ListGateways"
 )
 
 // ControlServiceClient is a client for the powermanage.v1.ControlService service.
@@ -73,6 +295,81 @@ type ControlServiceClient interface {
 	ListDeviceGroups(context.Context, *connect.Request[v1.ListDeviceGroupsRequest]) (*connect.Response[v1.ListDeviceGroupsResponse], error)
 	UpdateDeviceGroup(context.Context, *connect.Request[v1.UpdateDeviceGroupRequest]) (*connect.Response[v1.UpdateDeviceGroupResponse], error)
 	DeleteDeviceGroup(context.Context, *connect.Request[v1.DeleteDeviceGroupRequest]) (*connect.Response[v1.DeleteDeviceGroupResponse], error)
+	CreateUser(context.Context, *connect.Request[v1.CreateUserRequest]) (*connect.Response[v1.CreateUserResponse], error)
+	GetUser(context.Context, *connect.Request[v1.GetUserRequest]) (*connect.Response[v1.GetUserResponse], error)
+	ListUsers(context.Context, *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error)
+	UpdateUser(context.Context, *connect.Request[v1.UpdateUserRequest]) (*connect.Response[v1.UpdateUserResponse], error)
+	DeleteUser(context.Context, *connect.Request[v1.DeleteUserRequest]) (*connect.Response[v1.DeleteUserResponse], error)
+	CreateRole(context.Context, *connect.Request[v1.CreateRoleRequest]) (*connect.Response[v1.CreateRoleResponse], error)
+	GetRole(context.Context, *connect.Request[v1.GetRoleRequest]) (*connect.Response[v1.GetRoleResponse], error)
+	ListRoles(context.Context, *connect.Request[v1.ListRolesRequest]) (*connect.Response[v1.ListRolesResponse], error)
+	UpdateRole(context.Context, *connect.Request[v1.UpdateRoleRequest]) (*connect.Response[v1.UpdateRoleResponse], error)
+	DeleteRole(context.Context, *connect.Request[v1.DeleteRoleRequest]) (*connect.Response[v1.DeleteRoleResponse], error)
+	CreateGrant(context.Context, *connect.Request[v1.CreateGrantRequest]) (*connect.Response[v1.CreateGrantResponse], error)
+	GetGrant(context.Context, *connect.Request[v1.GetGrantRequest]) (*connect.Response[v1.GetGrantResponse], error)
+	ListGrants(context.Context, *connect.Request[v1.ListGrantsRequest]) (*connect.Response[v1.ListGrantsResponse], error)
+	UpdateGrant(context.Context, *connect.Request[v1.UpdateGrantRequest]) (*connect.Response[v1.UpdateGrantResponse], error)
+	DeleteGrant(context.Context, *connect.Request[v1.DeleteGrantRequest]) (*connect.Response[v1.DeleteGrantResponse], error)
+	CreateUserGroup(context.Context, *connect.Request[v1.CreateUserGroupRequest]) (*connect.Response[v1.CreateUserGroupResponse], error)
+	GetUserGroup(context.Context, *connect.Request[v1.GetUserGroupRequest]) (*connect.Response[v1.GetUserGroupResponse], error)
+	ListUserGroups(context.Context, *connect.Request[v1.ListUserGroupsRequest]) (*connect.Response[v1.ListUserGroupsResponse], error)
+	UpdateUserGroup(context.Context, *connect.Request[v1.UpdateUserGroupRequest]) (*connect.Response[v1.UpdateUserGroupResponse], error)
+	DeleteUserGroup(context.Context, *connect.Request[v1.DeleteUserGroupRequest]) (*connect.Response[v1.DeleteUserGroupResponse], error)
+	GetDevice(context.Context, *connect.Request[v1.GetDeviceRequest]) (*connect.Response[v1.GetDeviceResponse], error)
+	ListDevices(context.Context, *connect.Request[v1.ListDevicesRequest]) (*connect.Response[v1.ListDevicesResponse], error)
+	UpdateDevice(context.Context, *connect.Request[v1.UpdateDeviceRequest]) (*connect.Response[v1.UpdateDeviceResponse], error)
+	DeleteDevice(context.Context, *connect.Request[v1.DeleteDeviceRequest]) (*connect.Response[v1.DeleteDeviceResponse], error)
+	CreateRegistrationToken(context.Context, *connect.Request[v1.CreateRegistrationTokenRequest]) (*connect.Response[v1.CreateRegistrationTokenResponse], error)
+	GetRegistrationToken(context.Context, *connect.Request[v1.GetRegistrationTokenRequest]) (*connect.Response[v1.GetRegistrationTokenResponse], error)
+	ListRegistrationTokens(context.Context, *connect.Request[v1.ListRegistrationTokensRequest]) (*connect.Response[v1.ListRegistrationTokensResponse], error)
+	UpdateRegistrationToken(context.Context, *connect.Request[v1.UpdateRegistrationTokenRequest]) (*connect.Response[v1.UpdateRegistrationTokenResponse], error)
+	DeleteRegistrationToken(context.Context, *connect.Request[v1.DeleteRegistrationTokenRequest]) (*connect.Response[v1.DeleteRegistrationTokenResponse], error)
+	CreateApiToken(context.Context, *connect.Request[v1.CreateApiTokenRequest]) (*connect.Response[v1.CreateApiTokenResponse], error)
+	GetApiToken(context.Context, *connect.Request[v1.GetApiTokenRequest]) (*connect.Response[v1.GetApiTokenResponse], error)
+	ListApiTokens(context.Context, *connect.Request[v1.ListApiTokensRequest]) (*connect.Response[v1.ListApiTokensResponse], error)
+	UpdateApiToken(context.Context, *connect.Request[v1.UpdateApiTokenRequest]) (*connect.Response[v1.UpdateApiTokenResponse], error)
+	DeleteApiToken(context.Context, *connect.Request[v1.DeleteApiTokenRequest]) (*connect.Response[v1.DeleteApiTokenResponse], error)
+	CreateIdentityProvider(context.Context, *connect.Request[v1.CreateIdentityProviderRequest]) (*connect.Response[v1.CreateIdentityProviderResponse], error)
+	GetIdentityProvider(context.Context, *connect.Request[v1.GetIdentityProviderRequest]) (*connect.Response[v1.GetIdentityProviderResponse], error)
+	ListIdentityProviders(context.Context, *connect.Request[v1.ListIdentityProvidersRequest]) (*connect.Response[v1.ListIdentityProvidersResponse], error)
+	UpdateIdentityProvider(context.Context, *connect.Request[v1.UpdateIdentityProviderRequest]) (*connect.Response[v1.UpdateIdentityProviderResponse], error)
+	DeleteIdentityProvider(context.Context, *connect.Request[v1.DeleteIdentityProviderRequest]) (*connect.Response[v1.DeleteIdentityProviderResponse], error)
+	CreateScimConfiguration(context.Context, *connect.Request[v1.CreateScimConfigurationRequest]) (*connect.Response[v1.CreateScimConfigurationResponse], error)
+	GetScimConfiguration(context.Context, *connect.Request[v1.GetScimConfigurationRequest]) (*connect.Response[v1.GetScimConfigurationResponse], error)
+	ListScimConfigurations(context.Context, *connect.Request[v1.ListScimConfigurationsRequest]) (*connect.Response[v1.ListScimConfigurationsResponse], error)
+	UpdateScimConfiguration(context.Context, *connect.Request[v1.UpdateScimConfigurationRequest]) (*connect.Response[v1.UpdateScimConfigurationResponse], error)
+	DeleteScimConfiguration(context.Context, *connect.Request[v1.DeleteScimConfigurationRequest]) (*connect.Response[v1.DeleteScimConfigurationResponse], error)
+	CreateServerSetting(context.Context, *connect.Request[v1.CreateServerSettingRequest]) (*connect.Response[v1.CreateServerSettingResponse], error)
+	GetServerSetting(context.Context, *connect.Request[v1.GetServerSettingRequest]) (*connect.Response[v1.GetServerSettingResponse], error)
+	ListServerSettings(context.Context, *connect.Request[v1.ListServerSettingsRequest]) (*connect.Response[v1.ListServerSettingsResponse], error)
+	UpdateServerSetting(context.Context, *connect.Request[v1.UpdateServerSettingRequest]) (*connect.Response[v1.UpdateServerSettingResponse], error)
+	DeleteServerSetting(context.Context, *connect.Request[v1.DeleteServerSettingRequest]) (*connect.Response[v1.DeleteServerSettingResponse], error)
+	CreateAction(context.Context, *connect.Request[v1.CreateActionRequest]) (*connect.Response[v1.CreateActionResponse], error)
+	GetAction(context.Context, *connect.Request[v1.GetActionRequest]) (*connect.Response[v1.GetActionResponse], error)
+	ListActions(context.Context, *connect.Request[v1.ListActionsRequest]) (*connect.Response[v1.ListActionsResponse], error)
+	UpdateAction(context.Context, *connect.Request[v1.UpdateActionRequest]) (*connect.Response[v1.UpdateActionResponse], error)
+	DeleteAction(context.Context, *connect.Request[v1.DeleteActionRequest]) (*connect.Response[v1.DeleteActionResponse], error)
+	CreateActionSet(context.Context, *connect.Request[v1.CreateActionSetRequest]) (*connect.Response[v1.CreateActionSetResponse], error)
+	GetActionSet(context.Context, *connect.Request[v1.GetActionSetRequest]) (*connect.Response[v1.GetActionSetResponse], error)
+	ListActionSets(context.Context, *connect.Request[v1.ListActionSetsRequest]) (*connect.Response[v1.ListActionSetsResponse], error)
+	UpdateActionSet(context.Context, *connect.Request[v1.UpdateActionSetRequest]) (*connect.Response[v1.UpdateActionSetResponse], error)
+	DeleteActionSet(context.Context, *connect.Request[v1.DeleteActionSetRequest]) (*connect.Response[v1.DeleteActionSetResponse], error)
+	CreateAssignment(context.Context, *connect.Request[v1.CreateAssignmentRequest]) (*connect.Response[v1.CreateAssignmentResponse], error)
+	GetAssignment(context.Context, *connect.Request[v1.GetAssignmentRequest]) (*connect.Response[v1.GetAssignmentResponse], error)
+	ListAssignments(context.Context, *connect.Request[v1.ListAssignmentsRequest]) (*connect.Response[v1.ListAssignmentsResponse], error)
+	DeleteAssignment(context.Context, *connect.Request[v1.DeleteAssignmentRequest]) (*connect.Response[v1.DeleteAssignmentResponse], error)
+	CreateCompliancePolicy(context.Context, *connect.Request[v1.CreateCompliancePolicyRequest]) (*connect.Response[v1.CreateCompliancePolicyResponse], error)
+	GetCompliancePolicy(context.Context, *connect.Request[v1.GetCompliancePolicyRequest]) (*connect.Response[v1.GetCompliancePolicyResponse], error)
+	ListCompliancePolicies(context.Context, *connect.Request[v1.ListCompliancePoliciesRequest]) (*connect.Response[v1.ListCompliancePoliciesResponse], error)
+	UpdateCompliancePolicy(context.Context, *connect.Request[v1.UpdateCompliancePolicyRequest]) (*connect.Response[v1.UpdateCompliancePolicyResponse], error)
+	DeleteCompliancePolicy(context.Context, *connect.Request[v1.DeleteCompliancePolicyRequest]) (*connect.Response[v1.DeleteCompliancePolicyResponse], error)
+	ListAuditEvents(context.Context, *connect.Request[v1.ListAuditEventsRequest]) (*connect.Response[v1.ListAuditEventsResponse], error)
+	GetExecution(context.Context, *connect.Request[v1.GetExecutionRequest]) (*connect.Response[v1.GetExecutionResponse], error)
+	ListExecutions(context.Context, *connect.Request[v1.ListExecutionsRequest]) (*connect.Response[v1.ListExecutionsResponse], error)
+	GetInventorySnapshot(context.Context, *connect.Request[v1.GetInventorySnapshotRequest]) (*connect.Response[v1.GetInventorySnapshotResponse], error)
+	ListInventorySnapshots(context.Context, *connect.Request[v1.ListInventorySnapshotsRequest]) (*connect.Response[v1.ListInventorySnapshotsResponse], error)
+	GetGateway(context.Context, *connect.Request[v1.GetGatewayRequest]) (*connect.Response[v1.GetGatewayResponse], error)
+	ListGateways(context.Context, *connect.Request[v1.ListGatewaysRequest]) (*connect.Response[v1.ListGatewaysResponse], error)
 }
 
 // NewControlServiceClient constructs a client for the powermanage.v1.ControlService service. By
@@ -134,19 +431,544 @@ func NewControlServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(controlServiceMethods.ByName("DeleteDeviceGroup")),
 			connect.WithClientOptions(opts...),
 		),
+		createUser: connect.NewClient[v1.CreateUserRequest, v1.CreateUserResponse](
+			httpClient,
+			baseURL+ControlServiceCreateUserProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("CreateUser")),
+			connect.WithClientOptions(opts...),
+		),
+		getUser: connect.NewClient[v1.GetUserRequest, v1.GetUserResponse](
+			httpClient,
+			baseURL+ControlServiceGetUserProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("GetUser")),
+			connect.WithClientOptions(opts...),
+		),
+		listUsers: connect.NewClient[v1.ListUsersRequest, v1.ListUsersResponse](
+			httpClient,
+			baseURL+ControlServiceListUsersProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("ListUsers")),
+			connect.WithClientOptions(opts...),
+		),
+		updateUser: connect.NewClient[v1.UpdateUserRequest, v1.UpdateUserResponse](
+			httpClient,
+			baseURL+ControlServiceUpdateUserProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("UpdateUser")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteUser: connect.NewClient[v1.DeleteUserRequest, v1.DeleteUserResponse](
+			httpClient,
+			baseURL+ControlServiceDeleteUserProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("DeleteUser")),
+			connect.WithClientOptions(opts...),
+		),
+		createRole: connect.NewClient[v1.CreateRoleRequest, v1.CreateRoleResponse](
+			httpClient,
+			baseURL+ControlServiceCreateRoleProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("CreateRole")),
+			connect.WithClientOptions(opts...),
+		),
+		getRole: connect.NewClient[v1.GetRoleRequest, v1.GetRoleResponse](
+			httpClient,
+			baseURL+ControlServiceGetRoleProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("GetRole")),
+			connect.WithClientOptions(opts...),
+		),
+		listRoles: connect.NewClient[v1.ListRolesRequest, v1.ListRolesResponse](
+			httpClient,
+			baseURL+ControlServiceListRolesProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("ListRoles")),
+			connect.WithClientOptions(opts...),
+		),
+		updateRole: connect.NewClient[v1.UpdateRoleRequest, v1.UpdateRoleResponse](
+			httpClient,
+			baseURL+ControlServiceUpdateRoleProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("UpdateRole")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteRole: connect.NewClient[v1.DeleteRoleRequest, v1.DeleteRoleResponse](
+			httpClient,
+			baseURL+ControlServiceDeleteRoleProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("DeleteRole")),
+			connect.WithClientOptions(opts...),
+		),
+		createGrant: connect.NewClient[v1.CreateGrantRequest, v1.CreateGrantResponse](
+			httpClient,
+			baseURL+ControlServiceCreateGrantProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("CreateGrant")),
+			connect.WithClientOptions(opts...),
+		),
+		getGrant: connect.NewClient[v1.GetGrantRequest, v1.GetGrantResponse](
+			httpClient,
+			baseURL+ControlServiceGetGrantProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("GetGrant")),
+			connect.WithClientOptions(opts...),
+		),
+		listGrants: connect.NewClient[v1.ListGrantsRequest, v1.ListGrantsResponse](
+			httpClient,
+			baseURL+ControlServiceListGrantsProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("ListGrants")),
+			connect.WithClientOptions(opts...),
+		),
+		updateGrant: connect.NewClient[v1.UpdateGrantRequest, v1.UpdateGrantResponse](
+			httpClient,
+			baseURL+ControlServiceUpdateGrantProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("UpdateGrant")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteGrant: connect.NewClient[v1.DeleteGrantRequest, v1.DeleteGrantResponse](
+			httpClient,
+			baseURL+ControlServiceDeleteGrantProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("DeleteGrant")),
+			connect.WithClientOptions(opts...),
+		),
+		createUserGroup: connect.NewClient[v1.CreateUserGroupRequest, v1.CreateUserGroupResponse](
+			httpClient,
+			baseURL+ControlServiceCreateUserGroupProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("CreateUserGroup")),
+			connect.WithClientOptions(opts...),
+		),
+		getUserGroup: connect.NewClient[v1.GetUserGroupRequest, v1.GetUserGroupResponse](
+			httpClient,
+			baseURL+ControlServiceGetUserGroupProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("GetUserGroup")),
+			connect.WithClientOptions(opts...),
+		),
+		listUserGroups: connect.NewClient[v1.ListUserGroupsRequest, v1.ListUserGroupsResponse](
+			httpClient,
+			baseURL+ControlServiceListUserGroupsProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("ListUserGroups")),
+			connect.WithClientOptions(opts...),
+		),
+		updateUserGroup: connect.NewClient[v1.UpdateUserGroupRequest, v1.UpdateUserGroupResponse](
+			httpClient,
+			baseURL+ControlServiceUpdateUserGroupProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("UpdateUserGroup")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteUserGroup: connect.NewClient[v1.DeleteUserGroupRequest, v1.DeleteUserGroupResponse](
+			httpClient,
+			baseURL+ControlServiceDeleteUserGroupProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("DeleteUserGroup")),
+			connect.WithClientOptions(opts...),
+		),
+		getDevice: connect.NewClient[v1.GetDeviceRequest, v1.GetDeviceResponse](
+			httpClient,
+			baseURL+ControlServiceGetDeviceProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("GetDevice")),
+			connect.WithClientOptions(opts...),
+		),
+		listDevices: connect.NewClient[v1.ListDevicesRequest, v1.ListDevicesResponse](
+			httpClient,
+			baseURL+ControlServiceListDevicesProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("ListDevices")),
+			connect.WithClientOptions(opts...),
+		),
+		updateDevice: connect.NewClient[v1.UpdateDeviceRequest, v1.UpdateDeviceResponse](
+			httpClient,
+			baseURL+ControlServiceUpdateDeviceProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("UpdateDevice")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteDevice: connect.NewClient[v1.DeleteDeviceRequest, v1.DeleteDeviceResponse](
+			httpClient,
+			baseURL+ControlServiceDeleteDeviceProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("DeleteDevice")),
+			connect.WithClientOptions(opts...),
+		),
+		createRegistrationToken: connect.NewClient[v1.CreateRegistrationTokenRequest, v1.CreateRegistrationTokenResponse](
+			httpClient,
+			baseURL+ControlServiceCreateRegistrationTokenProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("CreateRegistrationToken")),
+			connect.WithClientOptions(opts...),
+		),
+		getRegistrationToken: connect.NewClient[v1.GetRegistrationTokenRequest, v1.GetRegistrationTokenResponse](
+			httpClient,
+			baseURL+ControlServiceGetRegistrationTokenProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("GetRegistrationToken")),
+			connect.WithClientOptions(opts...),
+		),
+		listRegistrationTokens: connect.NewClient[v1.ListRegistrationTokensRequest, v1.ListRegistrationTokensResponse](
+			httpClient,
+			baseURL+ControlServiceListRegistrationTokensProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("ListRegistrationTokens")),
+			connect.WithClientOptions(opts...),
+		),
+		updateRegistrationToken: connect.NewClient[v1.UpdateRegistrationTokenRequest, v1.UpdateRegistrationTokenResponse](
+			httpClient,
+			baseURL+ControlServiceUpdateRegistrationTokenProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("UpdateRegistrationToken")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteRegistrationToken: connect.NewClient[v1.DeleteRegistrationTokenRequest, v1.DeleteRegistrationTokenResponse](
+			httpClient,
+			baseURL+ControlServiceDeleteRegistrationTokenProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("DeleteRegistrationToken")),
+			connect.WithClientOptions(opts...),
+		),
+		createApiToken: connect.NewClient[v1.CreateApiTokenRequest, v1.CreateApiTokenResponse](
+			httpClient,
+			baseURL+ControlServiceCreateApiTokenProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("CreateApiToken")),
+			connect.WithClientOptions(opts...),
+		),
+		getApiToken: connect.NewClient[v1.GetApiTokenRequest, v1.GetApiTokenResponse](
+			httpClient,
+			baseURL+ControlServiceGetApiTokenProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("GetApiToken")),
+			connect.WithClientOptions(opts...),
+		),
+		listApiTokens: connect.NewClient[v1.ListApiTokensRequest, v1.ListApiTokensResponse](
+			httpClient,
+			baseURL+ControlServiceListApiTokensProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("ListApiTokens")),
+			connect.WithClientOptions(opts...),
+		),
+		updateApiToken: connect.NewClient[v1.UpdateApiTokenRequest, v1.UpdateApiTokenResponse](
+			httpClient,
+			baseURL+ControlServiceUpdateApiTokenProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("UpdateApiToken")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteApiToken: connect.NewClient[v1.DeleteApiTokenRequest, v1.DeleteApiTokenResponse](
+			httpClient,
+			baseURL+ControlServiceDeleteApiTokenProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("DeleteApiToken")),
+			connect.WithClientOptions(opts...),
+		),
+		createIdentityProvider: connect.NewClient[v1.CreateIdentityProviderRequest, v1.CreateIdentityProviderResponse](
+			httpClient,
+			baseURL+ControlServiceCreateIdentityProviderProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("CreateIdentityProvider")),
+			connect.WithClientOptions(opts...),
+		),
+		getIdentityProvider: connect.NewClient[v1.GetIdentityProviderRequest, v1.GetIdentityProviderResponse](
+			httpClient,
+			baseURL+ControlServiceGetIdentityProviderProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("GetIdentityProvider")),
+			connect.WithClientOptions(opts...),
+		),
+		listIdentityProviders: connect.NewClient[v1.ListIdentityProvidersRequest, v1.ListIdentityProvidersResponse](
+			httpClient,
+			baseURL+ControlServiceListIdentityProvidersProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("ListIdentityProviders")),
+			connect.WithClientOptions(opts...),
+		),
+		updateIdentityProvider: connect.NewClient[v1.UpdateIdentityProviderRequest, v1.UpdateIdentityProviderResponse](
+			httpClient,
+			baseURL+ControlServiceUpdateIdentityProviderProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("UpdateIdentityProvider")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteIdentityProvider: connect.NewClient[v1.DeleteIdentityProviderRequest, v1.DeleteIdentityProviderResponse](
+			httpClient,
+			baseURL+ControlServiceDeleteIdentityProviderProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("DeleteIdentityProvider")),
+			connect.WithClientOptions(opts...),
+		),
+		createScimConfiguration: connect.NewClient[v1.CreateScimConfigurationRequest, v1.CreateScimConfigurationResponse](
+			httpClient,
+			baseURL+ControlServiceCreateScimConfigurationProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("CreateScimConfiguration")),
+			connect.WithClientOptions(opts...),
+		),
+		getScimConfiguration: connect.NewClient[v1.GetScimConfigurationRequest, v1.GetScimConfigurationResponse](
+			httpClient,
+			baseURL+ControlServiceGetScimConfigurationProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("GetScimConfiguration")),
+			connect.WithClientOptions(opts...),
+		),
+		listScimConfigurations: connect.NewClient[v1.ListScimConfigurationsRequest, v1.ListScimConfigurationsResponse](
+			httpClient,
+			baseURL+ControlServiceListScimConfigurationsProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("ListScimConfigurations")),
+			connect.WithClientOptions(opts...),
+		),
+		updateScimConfiguration: connect.NewClient[v1.UpdateScimConfigurationRequest, v1.UpdateScimConfigurationResponse](
+			httpClient,
+			baseURL+ControlServiceUpdateScimConfigurationProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("UpdateScimConfiguration")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteScimConfiguration: connect.NewClient[v1.DeleteScimConfigurationRequest, v1.DeleteScimConfigurationResponse](
+			httpClient,
+			baseURL+ControlServiceDeleteScimConfigurationProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("DeleteScimConfiguration")),
+			connect.WithClientOptions(opts...),
+		),
+		createServerSetting: connect.NewClient[v1.CreateServerSettingRequest, v1.CreateServerSettingResponse](
+			httpClient,
+			baseURL+ControlServiceCreateServerSettingProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("CreateServerSetting")),
+			connect.WithClientOptions(opts...),
+		),
+		getServerSetting: connect.NewClient[v1.GetServerSettingRequest, v1.GetServerSettingResponse](
+			httpClient,
+			baseURL+ControlServiceGetServerSettingProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("GetServerSetting")),
+			connect.WithClientOptions(opts...),
+		),
+		listServerSettings: connect.NewClient[v1.ListServerSettingsRequest, v1.ListServerSettingsResponse](
+			httpClient,
+			baseURL+ControlServiceListServerSettingsProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("ListServerSettings")),
+			connect.WithClientOptions(opts...),
+		),
+		updateServerSetting: connect.NewClient[v1.UpdateServerSettingRequest, v1.UpdateServerSettingResponse](
+			httpClient,
+			baseURL+ControlServiceUpdateServerSettingProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("UpdateServerSetting")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteServerSetting: connect.NewClient[v1.DeleteServerSettingRequest, v1.DeleteServerSettingResponse](
+			httpClient,
+			baseURL+ControlServiceDeleteServerSettingProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("DeleteServerSetting")),
+			connect.WithClientOptions(opts...),
+		),
+		createAction: connect.NewClient[v1.CreateActionRequest, v1.CreateActionResponse](
+			httpClient,
+			baseURL+ControlServiceCreateActionProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("CreateAction")),
+			connect.WithClientOptions(opts...),
+		),
+		getAction: connect.NewClient[v1.GetActionRequest, v1.GetActionResponse](
+			httpClient,
+			baseURL+ControlServiceGetActionProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("GetAction")),
+			connect.WithClientOptions(opts...),
+		),
+		listActions: connect.NewClient[v1.ListActionsRequest, v1.ListActionsResponse](
+			httpClient,
+			baseURL+ControlServiceListActionsProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("ListActions")),
+			connect.WithClientOptions(opts...),
+		),
+		updateAction: connect.NewClient[v1.UpdateActionRequest, v1.UpdateActionResponse](
+			httpClient,
+			baseURL+ControlServiceUpdateActionProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("UpdateAction")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteAction: connect.NewClient[v1.DeleteActionRequest, v1.DeleteActionResponse](
+			httpClient,
+			baseURL+ControlServiceDeleteActionProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("DeleteAction")),
+			connect.WithClientOptions(opts...),
+		),
+		createActionSet: connect.NewClient[v1.CreateActionSetRequest, v1.CreateActionSetResponse](
+			httpClient,
+			baseURL+ControlServiceCreateActionSetProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("CreateActionSet")),
+			connect.WithClientOptions(opts...),
+		),
+		getActionSet: connect.NewClient[v1.GetActionSetRequest, v1.GetActionSetResponse](
+			httpClient,
+			baseURL+ControlServiceGetActionSetProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("GetActionSet")),
+			connect.WithClientOptions(opts...),
+		),
+		listActionSets: connect.NewClient[v1.ListActionSetsRequest, v1.ListActionSetsResponse](
+			httpClient,
+			baseURL+ControlServiceListActionSetsProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("ListActionSets")),
+			connect.WithClientOptions(opts...),
+		),
+		updateActionSet: connect.NewClient[v1.UpdateActionSetRequest, v1.UpdateActionSetResponse](
+			httpClient,
+			baseURL+ControlServiceUpdateActionSetProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("UpdateActionSet")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteActionSet: connect.NewClient[v1.DeleteActionSetRequest, v1.DeleteActionSetResponse](
+			httpClient,
+			baseURL+ControlServiceDeleteActionSetProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("DeleteActionSet")),
+			connect.WithClientOptions(opts...),
+		),
+		createAssignment: connect.NewClient[v1.CreateAssignmentRequest, v1.CreateAssignmentResponse](
+			httpClient,
+			baseURL+ControlServiceCreateAssignmentProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("CreateAssignment")),
+			connect.WithClientOptions(opts...),
+		),
+		getAssignment: connect.NewClient[v1.GetAssignmentRequest, v1.GetAssignmentResponse](
+			httpClient,
+			baseURL+ControlServiceGetAssignmentProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("GetAssignment")),
+			connect.WithClientOptions(opts...),
+		),
+		listAssignments: connect.NewClient[v1.ListAssignmentsRequest, v1.ListAssignmentsResponse](
+			httpClient,
+			baseURL+ControlServiceListAssignmentsProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("ListAssignments")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteAssignment: connect.NewClient[v1.DeleteAssignmentRequest, v1.DeleteAssignmentResponse](
+			httpClient,
+			baseURL+ControlServiceDeleteAssignmentProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("DeleteAssignment")),
+			connect.WithClientOptions(opts...),
+		),
+		createCompliancePolicy: connect.NewClient[v1.CreateCompliancePolicyRequest, v1.CreateCompliancePolicyResponse](
+			httpClient,
+			baseURL+ControlServiceCreateCompliancePolicyProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("CreateCompliancePolicy")),
+			connect.WithClientOptions(opts...),
+		),
+		getCompliancePolicy: connect.NewClient[v1.GetCompliancePolicyRequest, v1.GetCompliancePolicyResponse](
+			httpClient,
+			baseURL+ControlServiceGetCompliancePolicyProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("GetCompliancePolicy")),
+			connect.WithClientOptions(opts...),
+		),
+		listCompliancePolicies: connect.NewClient[v1.ListCompliancePoliciesRequest, v1.ListCompliancePoliciesResponse](
+			httpClient,
+			baseURL+ControlServiceListCompliancePoliciesProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("ListCompliancePolicies")),
+			connect.WithClientOptions(opts...),
+		),
+		updateCompliancePolicy: connect.NewClient[v1.UpdateCompliancePolicyRequest, v1.UpdateCompliancePolicyResponse](
+			httpClient,
+			baseURL+ControlServiceUpdateCompliancePolicyProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("UpdateCompliancePolicy")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteCompliancePolicy: connect.NewClient[v1.DeleteCompliancePolicyRequest, v1.DeleteCompliancePolicyResponse](
+			httpClient,
+			baseURL+ControlServiceDeleteCompliancePolicyProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("DeleteCompliancePolicy")),
+			connect.WithClientOptions(opts...),
+		),
+		listAuditEvents: connect.NewClient[v1.ListAuditEventsRequest, v1.ListAuditEventsResponse](
+			httpClient,
+			baseURL+ControlServiceListAuditEventsProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("ListAuditEvents")),
+			connect.WithClientOptions(opts...),
+		),
+		getExecution: connect.NewClient[v1.GetExecutionRequest, v1.GetExecutionResponse](
+			httpClient,
+			baseURL+ControlServiceGetExecutionProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("GetExecution")),
+			connect.WithClientOptions(opts...),
+		),
+		listExecutions: connect.NewClient[v1.ListExecutionsRequest, v1.ListExecutionsResponse](
+			httpClient,
+			baseURL+ControlServiceListExecutionsProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("ListExecutions")),
+			connect.WithClientOptions(opts...),
+		),
+		getInventorySnapshot: connect.NewClient[v1.GetInventorySnapshotRequest, v1.GetInventorySnapshotResponse](
+			httpClient,
+			baseURL+ControlServiceGetInventorySnapshotProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("GetInventorySnapshot")),
+			connect.WithClientOptions(opts...),
+		),
+		listInventorySnapshots: connect.NewClient[v1.ListInventorySnapshotsRequest, v1.ListInventorySnapshotsResponse](
+			httpClient,
+			baseURL+ControlServiceListInventorySnapshotsProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("ListInventorySnapshots")),
+			connect.WithClientOptions(opts...),
+		),
+		getGateway: connect.NewClient[v1.GetGatewayRequest, v1.GetGatewayResponse](
+			httpClient,
+			baseURL+ControlServiceGetGatewayProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("GetGateway")),
+			connect.WithClientOptions(opts...),
+		),
+		listGateways: connect.NewClient[v1.ListGatewaysRequest, v1.ListGatewaysResponse](
+			httpClient,
+			baseURL+ControlServiceListGatewaysProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("ListGateways")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // controlServiceClient implements ControlServiceClient.
 type controlServiceClient struct {
-	refreshSession      *connect.Client[v1.RefreshSessionRequest, v1.RefreshSessionResponse]
-	startOidcSession    *connect.Client[v1.StartOidcSessionRequest, v1.StartOidcSessionResponse]
-	completeOidcSession *connect.Client[v1.CompleteOidcSessionRequest, v1.CompleteOidcSessionResponse]
-	createDeviceGroup   *connect.Client[v1.CreateDeviceGroupRequest, v1.CreateDeviceGroupResponse]
-	getDeviceGroup      *connect.Client[v1.GetDeviceGroupRequest, v1.GetDeviceGroupResponse]
-	listDeviceGroups    *connect.Client[v1.ListDeviceGroupsRequest, v1.ListDeviceGroupsResponse]
-	updateDeviceGroup   *connect.Client[v1.UpdateDeviceGroupRequest, v1.UpdateDeviceGroupResponse]
-	deleteDeviceGroup   *connect.Client[v1.DeleteDeviceGroupRequest, v1.DeleteDeviceGroupResponse]
+	refreshSession          *connect.Client[v1.RefreshSessionRequest, v1.RefreshSessionResponse]
+	startOidcSession        *connect.Client[v1.StartOidcSessionRequest, v1.StartOidcSessionResponse]
+	completeOidcSession     *connect.Client[v1.CompleteOidcSessionRequest, v1.CompleteOidcSessionResponse]
+	createDeviceGroup       *connect.Client[v1.CreateDeviceGroupRequest, v1.CreateDeviceGroupResponse]
+	getDeviceGroup          *connect.Client[v1.GetDeviceGroupRequest, v1.GetDeviceGroupResponse]
+	listDeviceGroups        *connect.Client[v1.ListDeviceGroupsRequest, v1.ListDeviceGroupsResponse]
+	updateDeviceGroup       *connect.Client[v1.UpdateDeviceGroupRequest, v1.UpdateDeviceGroupResponse]
+	deleteDeviceGroup       *connect.Client[v1.DeleteDeviceGroupRequest, v1.DeleteDeviceGroupResponse]
+	createUser              *connect.Client[v1.CreateUserRequest, v1.CreateUserResponse]
+	getUser                 *connect.Client[v1.GetUserRequest, v1.GetUserResponse]
+	listUsers               *connect.Client[v1.ListUsersRequest, v1.ListUsersResponse]
+	updateUser              *connect.Client[v1.UpdateUserRequest, v1.UpdateUserResponse]
+	deleteUser              *connect.Client[v1.DeleteUserRequest, v1.DeleteUserResponse]
+	createRole              *connect.Client[v1.CreateRoleRequest, v1.CreateRoleResponse]
+	getRole                 *connect.Client[v1.GetRoleRequest, v1.GetRoleResponse]
+	listRoles               *connect.Client[v1.ListRolesRequest, v1.ListRolesResponse]
+	updateRole              *connect.Client[v1.UpdateRoleRequest, v1.UpdateRoleResponse]
+	deleteRole              *connect.Client[v1.DeleteRoleRequest, v1.DeleteRoleResponse]
+	createGrant             *connect.Client[v1.CreateGrantRequest, v1.CreateGrantResponse]
+	getGrant                *connect.Client[v1.GetGrantRequest, v1.GetGrantResponse]
+	listGrants              *connect.Client[v1.ListGrantsRequest, v1.ListGrantsResponse]
+	updateGrant             *connect.Client[v1.UpdateGrantRequest, v1.UpdateGrantResponse]
+	deleteGrant             *connect.Client[v1.DeleteGrantRequest, v1.DeleteGrantResponse]
+	createUserGroup         *connect.Client[v1.CreateUserGroupRequest, v1.CreateUserGroupResponse]
+	getUserGroup            *connect.Client[v1.GetUserGroupRequest, v1.GetUserGroupResponse]
+	listUserGroups          *connect.Client[v1.ListUserGroupsRequest, v1.ListUserGroupsResponse]
+	updateUserGroup         *connect.Client[v1.UpdateUserGroupRequest, v1.UpdateUserGroupResponse]
+	deleteUserGroup         *connect.Client[v1.DeleteUserGroupRequest, v1.DeleteUserGroupResponse]
+	getDevice               *connect.Client[v1.GetDeviceRequest, v1.GetDeviceResponse]
+	listDevices             *connect.Client[v1.ListDevicesRequest, v1.ListDevicesResponse]
+	updateDevice            *connect.Client[v1.UpdateDeviceRequest, v1.UpdateDeviceResponse]
+	deleteDevice            *connect.Client[v1.DeleteDeviceRequest, v1.DeleteDeviceResponse]
+	createRegistrationToken *connect.Client[v1.CreateRegistrationTokenRequest, v1.CreateRegistrationTokenResponse]
+	getRegistrationToken    *connect.Client[v1.GetRegistrationTokenRequest, v1.GetRegistrationTokenResponse]
+	listRegistrationTokens  *connect.Client[v1.ListRegistrationTokensRequest, v1.ListRegistrationTokensResponse]
+	updateRegistrationToken *connect.Client[v1.UpdateRegistrationTokenRequest, v1.UpdateRegistrationTokenResponse]
+	deleteRegistrationToken *connect.Client[v1.DeleteRegistrationTokenRequest, v1.DeleteRegistrationTokenResponse]
+	createApiToken          *connect.Client[v1.CreateApiTokenRequest, v1.CreateApiTokenResponse]
+	getApiToken             *connect.Client[v1.GetApiTokenRequest, v1.GetApiTokenResponse]
+	listApiTokens           *connect.Client[v1.ListApiTokensRequest, v1.ListApiTokensResponse]
+	updateApiToken          *connect.Client[v1.UpdateApiTokenRequest, v1.UpdateApiTokenResponse]
+	deleteApiToken          *connect.Client[v1.DeleteApiTokenRequest, v1.DeleteApiTokenResponse]
+	createIdentityProvider  *connect.Client[v1.CreateIdentityProviderRequest, v1.CreateIdentityProviderResponse]
+	getIdentityProvider     *connect.Client[v1.GetIdentityProviderRequest, v1.GetIdentityProviderResponse]
+	listIdentityProviders   *connect.Client[v1.ListIdentityProvidersRequest, v1.ListIdentityProvidersResponse]
+	updateIdentityProvider  *connect.Client[v1.UpdateIdentityProviderRequest, v1.UpdateIdentityProviderResponse]
+	deleteIdentityProvider  *connect.Client[v1.DeleteIdentityProviderRequest, v1.DeleteIdentityProviderResponse]
+	createScimConfiguration *connect.Client[v1.CreateScimConfigurationRequest, v1.CreateScimConfigurationResponse]
+	getScimConfiguration    *connect.Client[v1.GetScimConfigurationRequest, v1.GetScimConfigurationResponse]
+	listScimConfigurations  *connect.Client[v1.ListScimConfigurationsRequest, v1.ListScimConfigurationsResponse]
+	updateScimConfiguration *connect.Client[v1.UpdateScimConfigurationRequest, v1.UpdateScimConfigurationResponse]
+	deleteScimConfiguration *connect.Client[v1.DeleteScimConfigurationRequest, v1.DeleteScimConfigurationResponse]
+	createServerSetting     *connect.Client[v1.CreateServerSettingRequest, v1.CreateServerSettingResponse]
+	getServerSetting        *connect.Client[v1.GetServerSettingRequest, v1.GetServerSettingResponse]
+	listServerSettings      *connect.Client[v1.ListServerSettingsRequest, v1.ListServerSettingsResponse]
+	updateServerSetting     *connect.Client[v1.UpdateServerSettingRequest, v1.UpdateServerSettingResponse]
+	deleteServerSetting     *connect.Client[v1.DeleteServerSettingRequest, v1.DeleteServerSettingResponse]
+	createAction            *connect.Client[v1.CreateActionRequest, v1.CreateActionResponse]
+	getAction               *connect.Client[v1.GetActionRequest, v1.GetActionResponse]
+	listActions             *connect.Client[v1.ListActionsRequest, v1.ListActionsResponse]
+	updateAction            *connect.Client[v1.UpdateActionRequest, v1.UpdateActionResponse]
+	deleteAction            *connect.Client[v1.DeleteActionRequest, v1.DeleteActionResponse]
+	createActionSet         *connect.Client[v1.CreateActionSetRequest, v1.CreateActionSetResponse]
+	getActionSet            *connect.Client[v1.GetActionSetRequest, v1.GetActionSetResponse]
+	listActionSets          *connect.Client[v1.ListActionSetsRequest, v1.ListActionSetsResponse]
+	updateActionSet         *connect.Client[v1.UpdateActionSetRequest, v1.UpdateActionSetResponse]
+	deleteActionSet         *connect.Client[v1.DeleteActionSetRequest, v1.DeleteActionSetResponse]
+	createAssignment        *connect.Client[v1.CreateAssignmentRequest, v1.CreateAssignmentResponse]
+	getAssignment           *connect.Client[v1.GetAssignmentRequest, v1.GetAssignmentResponse]
+	listAssignments         *connect.Client[v1.ListAssignmentsRequest, v1.ListAssignmentsResponse]
+	deleteAssignment        *connect.Client[v1.DeleteAssignmentRequest, v1.DeleteAssignmentResponse]
+	createCompliancePolicy  *connect.Client[v1.CreateCompliancePolicyRequest, v1.CreateCompliancePolicyResponse]
+	getCompliancePolicy     *connect.Client[v1.GetCompliancePolicyRequest, v1.GetCompliancePolicyResponse]
+	listCompliancePolicies  *connect.Client[v1.ListCompliancePoliciesRequest, v1.ListCompliancePoliciesResponse]
+	updateCompliancePolicy  *connect.Client[v1.UpdateCompliancePolicyRequest, v1.UpdateCompliancePolicyResponse]
+	deleteCompliancePolicy  *connect.Client[v1.DeleteCompliancePolicyRequest, v1.DeleteCompliancePolicyResponse]
+	listAuditEvents         *connect.Client[v1.ListAuditEventsRequest, v1.ListAuditEventsResponse]
+	getExecution            *connect.Client[v1.GetExecutionRequest, v1.GetExecutionResponse]
+	listExecutions          *connect.Client[v1.ListExecutionsRequest, v1.ListExecutionsResponse]
+	getInventorySnapshot    *connect.Client[v1.GetInventorySnapshotRequest, v1.GetInventorySnapshotResponse]
+	listInventorySnapshots  *connect.Client[v1.ListInventorySnapshotsRequest, v1.ListInventorySnapshotsResponse]
+	getGateway              *connect.Client[v1.GetGatewayRequest, v1.GetGatewayResponse]
+	listGateways            *connect.Client[v1.ListGatewaysRequest, v1.ListGatewaysResponse]
 }
 
 // RefreshSession calls powermanage.v1.ControlService.RefreshSession.
@@ -189,6 +1011,381 @@ func (c *controlServiceClient) DeleteDeviceGroup(ctx context.Context, req *conne
 	return c.deleteDeviceGroup.CallUnary(ctx, req)
 }
 
+// CreateUser calls powermanage.v1.ControlService.CreateUser.
+func (c *controlServiceClient) CreateUser(ctx context.Context, req *connect.Request[v1.CreateUserRequest]) (*connect.Response[v1.CreateUserResponse], error) {
+	return c.createUser.CallUnary(ctx, req)
+}
+
+// GetUser calls powermanage.v1.ControlService.GetUser.
+func (c *controlServiceClient) GetUser(ctx context.Context, req *connect.Request[v1.GetUserRequest]) (*connect.Response[v1.GetUserResponse], error) {
+	return c.getUser.CallUnary(ctx, req)
+}
+
+// ListUsers calls powermanage.v1.ControlService.ListUsers.
+func (c *controlServiceClient) ListUsers(ctx context.Context, req *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error) {
+	return c.listUsers.CallUnary(ctx, req)
+}
+
+// UpdateUser calls powermanage.v1.ControlService.UpdateUser.
+func (c *controlServiceClient) UpdateUser(ctx context.Context, req *connect.Request[v1.UpdateUserRequest]) (*connect.Response[v1.UpdateUserResponse], error) {
+	return c.updateUser.CallUnary(ctx, req)
+}
+
+// DeleteUser calls powermanage.v1.ControlService.DeleteUser.
+func (c *controlServiceClient) DeleteUser(ctx context.Context, req *connect.Request[v1.DeleteUserRequest]) (*connect.Response[v1.DeleteUserResponse], error) {
+	return c.deleteUser.CallUnary(ctx, req)
+}
+
+// CreateRole calls powermanage.v1.ControlService.CreateRole.
+func (c *controlServiceClient) CreateRole(ctx context.Context, req *connect.Request[v1.CreateRoleRequest]) (*connect.Response[v1.CreateRoleResponse], error) {
+	return c.createRole.CallUnary(ctx, req)
+}
+
+// GetRole calls powermanage.v1.ControlService.GetRole.
+func (c *controlServiceClient) GetRole(ctx context.Context, req *connect.Request[v1.GetRoleRequest]) (*connect.Response[v1.GetRoleResponse], error) {
+	return c.getRole.CallUnary(ctx, req)
+}
+
+// ListRoles calls powermanage.v1.ControlService.ListRoles.
+func (c *controlServiceClient) ListRoles(ctx context.Context, req *connect.Request[v1.ListRolesRequest]) (*connect.Response[v1.ListRolesResponse], error) {
+	return c.listRoles.CallUnary(ctx, req)
+}
+
+// UpdateRole calls powermanage.v1.ControlService.UpdateRole.
+func (c *controlServiceClient) UpdateRole(ctx context.Context, req *connect.Request[v1.UpdateRoleRequest]) (*connect.Response[v1.UpdateRoleResponse], error) {
+	return c.updateRole.CallUnary(ctx, req)
+}
+
+// DeleteRole calls powermanage.v1.ControlService.DeleteRole.
+func (c *controlServiceClient) DeleteRole(ctx context.Context, req *connect.Request[v1.DeleteRoleRequest]) (*connect.Response[v1.DeleteRoleResponse], error) {
+	return c.deleteRole.CallUnary(ctx, req)
+}
+
+// CreateGrant calls powermanage.v1.ControlService.CreateGrant.
+func (c *controlServiceClient) CreateGrant(ctx context.Context, req *connect.Request[v1.CreateGrantRequest]) (*connect.Response[v1.CreateGrantResponse], error) {
+	return c.createGrant.CallUnary(ctx, req)
+}
+
+// GetGrant calls powermanage.v1.ControlService.GetGrant.
+func (c *controlServiceClient) GetGrant(ctx context.Context, req *connect.Request[v1.GetGrantRequest]) (*connect.Response[v1.GetGrantResponse], error) {
+	return c.getGrant.CallUnary(ctx, req)
+}
+
+// ListGrants calls powermanage.v1.ControlService.ListGrants.
+func (c *controlServiceClient) ListGrants(ctx context.Context, req *connect.Request[v1.ListGrantsRequest]) (*connect.Response[v1.ListGrantsResponse], error) {
+	return c.listGrants.CallUnary(ctx, req)
+}
+
+// UpdateGrant calls powermanage.v1.ControlService.UpdateGrant.
+func (c *controlServiceClient) UpdateGrant(ctx context.Context, req *connect.Request[v1.UpdateGrantRequest]) (*connect.Response[v1.UpdateGrantResponse], error) {
+	return c.updateGrant.CallUnary(ctx, req)
+}
+
+// DeleteGrant calls powermanage.v1.ControlService.DeleteGrant.
+func (c *controlServiceClient) DeleteGrant(ctx context.Context, req *connect.Request[v1.DeleteGrantRequest]) (*connect.Response[v1.DeleteGrantResponse], error) {
+	return c.deleteGrant.CallUnary(ctx, req)
+}
+
+// CreateUserGroup calls powermanage.v1.ControlService.CreateUserGroup.
+func (c *controlServiceClient) CreateUserGroup(ctx context.Context, req *connect.Request[v1.CreateUserGroupRequest]) (*connect.Response[v1.CreateUserGroupResponse], error) {
+	return c.createUserGroup.CallUnary(ctx, req)
+}
+
+// GetUserGroup calls powermanage.v1.ControlService.GetUserGroup.
+func (c *controlServiceClient) GetUserGroup(ctx context.Context, req *connect.Request[v1.GetUserGroupRequest]) (*connect.Response[v1.GetUserGroupResponse], error) {
+	return c.getUserGroup.CallUnary(ctx, req)
+}
+
+// ListUserGroups calls powermanage.v1.ControlService.ListUserGroups.
+func (c *controlServiceClient) ListUserGroups(ctx context.Context, req *connect.Request[v1.ListUserGroupsRequest]) (*connect.Response[v1.ListUserGroupsResponse], error) {
+	return c.listUserGroups.CallUnary(ctx, req)
+}
+
+// UpdateUserGroup calls powermanage.v1.ControlService.UpdateUserGroup.
+func (c *controlServiceClient) UpdateUserGroup(ctx context.Context, req *connect.Request[v1.UpdateUserGroupRequest]) (*connect.Response[v1.UpdateUserGroupResponse], error) {
+	return c.updateUserGroup.CallUnary(ctx, req)
+}
+
+// DeleteUserGroup calls powermanage.v1.ControlService.DeleteUserGroup.
+func (c *controlServiceClient) DeleteUserGroup(ctx context.Context, req *connect.Request[v1.DeleteUserGroupRequest]) (*connect.Response[v1.DeleteUserGroupResponse], error) {
+	return c.deleteUserGroup.CallUnary(ctx, req)
+}
+
+// GetDevice calls powermanage.v1.ControlService.GetDevice.
+func (c *controlServiceClient) GetDevice(ctx context.Context, req *connect.Request[v1.GetDeviceRequest]) (*connect.Response[v1.GetDeviceResponse], error) {
+	return c.getDevice.CallUnary(ctx, req)
+}
+
+// ListDevices calls powermanage.v1.ControlService.ListDevices.
+func (c *controlServiceClient) ListDevices(ctx context.Context, req *connect.Request[v1.ListDevicesRequest]) (*connect.Response[v1.ListDevicesResponse], error) {
+	return c.listDevices.CallUnary(ctx, req)
+}
+
+// UpdateDevice calls powermanage.v1.ControlService.UpdateDevice.
+func (c *controlServiceClient) UpdateDevice(ctx context.Context, req *connect.Request[v1.UpdateDeviceRequest]) (*connect.Response[v1.UpdateDeviceResponse], error) {
+	return c.updateDevice.CallUnary(ctx, req)
+}
+
+// DeleteDevice calls powermanage.v1.ControlService.DeleteDevice.
+func (c *controlServiceClient) DeleteDevice(ctx context.Context, req *connect.Request[v1.DeleteDeviceRequest]) (*connect.Response[v1.DeleteDeviceResponse], error) {
+	return c.deleteDevice.CallUnary(ctx, req)
+}
+
+// CreateRegistrationToken calls powermanage.v1.ControlService.CreateRegistrationToken.
+func (c *controlServiceClient) CreateRegistrationToken(ctx context.Context, req *connect.Request[v1.CreateRegistrationTokenRequest]) (*connect.Response[v1.CreateRegistrationTokenResponse], error) {
+	return c.createRegistrationToken.CallUnary(ctx, req)
+}
+
+// GetRegistrationToken calls powermanage.v1.ControlService.GetRegistrationToken.
+func (c *controlServiceClient) GetRegistrationToken(ctx context.Context, req *connect.Request[v1.GetRegistrationTokenRequest]) (*connect.Response[v1.GetRegistrationTokenResponse], error) {
+	return c.getRegistrationToken.CallUnary(ctx, req)
+}
+
+// ListRegistrationTokens calls powermanage.v1.ControlService.ListRegistrationTokens.
+func (c *controlServiceClient) ListRegistrationTokens(ctx context.Context, req *connect.Request[v1.ListRegistrationTokensRequest]) (*connect.Response[v1.ListRegistrationTokensResponse], error) {
+	return c.listRegistrationTokens.CallUnary(ctx, req)
+}
+
+// UpdateRegistrationToken calls powermanage.v1.ControlService.UpdateRegistrationToken.
+func (c *controlServiceClient) UpdateRegistrationToken(ctx context.Context, req *connect.Request[v1.UpdateRegistrationTokenRequest]) (*connect.Response[v1.UpdateRegistrationTokenResponse], error) {
+	return c.updateRegistrationToken.CallUnary(ctx, req)
+}
+
+// DeleteRegistrationToken calls powermanage.v1.ControlService.DeleteRegistrationToken.
+func (c *controlServiceClient) DeleteRegistrationToken(ctx context.Context, req *connect.Request[v1.DeleteRegistrationTokenRequest]) (*connect.Response[v1.DeleteRegistrationTokenResponse], error) {
+	return c.deleteRegistrationToken.CallUnary(ctx, req)
+}
+
+// CreateApiToken calls powermanage.v1.ControlService.CreateApiToken.
+func (c *controlServiceClient) CreateApiToken(ctx context.Context, req *connect.Request[v1.CreateApiTokenRequest]) (*connect.Response[v1.CreateApiTokenResponse], error) {
+	return c.createApiToken.CallUnary(ctx, req)
+}
+
+// GetApiToken calls powermanage.v1.ControlService.GetApiToken.
+func (c *controlServiceClient) GetApiToken(ctx context.Context, req *connect.Request[v1.GetApiTokenRequest]) (*connect.Response[v1.GetApiTokenResponse], error) {
+	return c.getApiToken.CallUnary(ctx, req)
+}
+
+// ListApiTokens calls powermanage.v1.ControlService.ListApiTokens.
+func (c *controlServiceClient) ListApiTokens(ctx context.Context, req *connect.Request[v1.ListApiTokensRequest]) (*connect.Response[v1.ListApiTokensResponse], error) {
+	return c.listApiTokens.CallUnary(ctx, req)
+}
+
+// UpdateApiToken calls powermanage.v1.ControlService.UpdateApiToken.
+func (c *controlServiceClient) UpdateApiToken(ctx context.Context, req *connect.Request[v1.UpdateApiTokenRequest]) (*connect.Response[v1.UpdateApiTokenResponse], error) {
+	return c.updateApiToken.CallUnary(ctx, req)
+}
+
+// DeleteApiToken calls powermanage.v1.ControlService.DeleteApiToken.
+func (c *controlServiceClient) DeleteApiToken(ctx context.Context, req *connect.Request[v1.DeleteApiTokenRequest]) (*connect.Response[v1.DeleteApiTokenResponse], error) {
+	return c.deleteApiToken.CallUnary(ctx, req)
+}
+
+// CreateIdentityProvider calls powermanage.v1.ControlService.CreateIdentityProvider.
+func (c *controlServiceClient) CreateIdentityProvider(ctx context.Context, req *connect.Request[v1.CreateIdentityProviderRequest]) (*connect.Response[v1.CreateIdentityProviderResponse], error) {
+	return c.createIdentityProvider.CallUnary(ctx, req)
+}
+
+// GetIdentityProvider calls powermanage.v1.ControlService.GetIdentityProvider.
+func (c *controlServiceClient) GetIdentityProvider(ctx context.Context, req *connect.Request[v1.GetIdentityProviderRequest]) (*connect.Response[v1.GetIdentityProviderResponse], error) {
+	return c.getIdentityProvider.CallUnary(ctx, req)
+}
+
+// ListIdentityProviders calls powermanage.v1.ControlService.ListIdentityProviders.
+func (c *controlServiceClient) ListIdentityProviders(ctx context.Context, req *connect.Request[v1.ListIdentityProvidersRequest]) (*connect.Response[v1.ListIdentityProvidersResponse], error) {
+	return c.listIdentityProviders.CallUnary(ctx, req)
+}
+
+// UpdateIdentityProvider calls powermanage.v1.ControlService.UpdateIdentityProvider.
+func (c *controlServiceClient) UpdateIdentityProvider(ctx context.Context, req *connect.Request[v1.UpdateIdentityProviderRequest]) (*connect.Response[v1.UpdateIdentityProviderResponse], error) {
+	return c.updateIdentityProvider.CallUnary(ctx, req)
+}
+
+// DeleteIdentityProvider calls powermanage.v1.ControlService.DeleteIdentityProvider.
+func (c *controlServiceClient) DeleteIdentityProvider(ctx context.Context, req *connect.Request[v1.DeleteIdentityProviderRequest]) (*connect.Response[v1.DeleteIdentityProviderResponse], error) {
+	return c.deleteIdentityProvider.CallUnary(ctx, req)
+}
+
+// CreateScimConfiguration calls powermanage.v1.ControlService.CreateScimConfiguration.
+func (c *controlServiceClient) CreateScimConfiguration(ctx context.Context, req *connect.Request[v1.CreateScimConfigurationRequest]) (*connect.Response[v1.CreateScimConfigurationResponse], error) {
+	return c.createScimConfiguration.CallUnary(ctx, req)
+}
+
+// GetScimConfiguration calls powermanage.v1.ControlService.GetScimConfiguration.
+func (c *controlServiceClient) GetScimConfiguration(ctx context.Context, req *connect.Request[v1.GetScimConfigurationRequest]) (*connect.Response[v1.GetScimConfigurationResponse], error) {
+	return c.getScimConfiguration.CallUnary(ctx, req)
+}
+
+// ListScimConfigurations calls powermanage.v1.ControlService.ListScimConfigurations.
+func (c *controlServiceClient) ListScimConfigurations(ctx context.Context, req *connect.Request[v1.ListScimConfigurationsRequest]) (*connect.Response[v1.ListScimConfigurationsResponse], error) {
+	return c.listScimConfigurations.CallUnary(ctx, req)
+}
+
+// UpdateScimConfiguration calls powermanage.v1.ControlService.UpdateScimConfiguration.
+func (c *controlServiceClient) UpdateScimConfiguration(ctx context.Context, req *connect.Request[v1.UpdateScimConfigurationRequest]) (*connect.Response[v1.UpdateScimConfigurationResponse], error) {
+	return c.updateScimConfiguration.CallUnary(ctx, req)
+}
+
+// DeleteScimConfiguration calls powermanage.v1.ControlService.DeleteScimConfiguration.
+func (c *controlServiceClient) DeleteScimConfiguration(ctx context.Context, req *connect.Request[v1.DeleteScimConfigurationRequest]) (*connect.Response[v1.DeleteScimConfigurationResponse], error) {
+	return c.deleteScimConfiguration.CallUnary(ctx, req)
+}
+
+// CreateServerSetting calls powermanage.v1.ControlService.CreateServerSetting.
+func (c *controlServiceClient) CreateServerSetting(ctx context.Context, req *connect.Request[v1.CreateServerSettingRequest]) (*connect.Response[v1.CreateServerSettingResponse], error) {
+	return c.createServerSetting.CallUnary(ctx, req)
+}
+
+// GetServerSetting calls powermanage.v1.ControlService.GetServerSetting.
+func (c *controlServiceClient) GetServerSetting(ctx context.Context, req *connect.Request[v1.GetServerSettingRequest]) (*connect.Response[v1.GetServerSettingResponse], error) {
+	return c.getServerSetting.CallUnary(ctx, req)
+}
+
+// ListServerSettings calls powermanage.v1.ControlService.ListServerSettings.
+func (c *controlServiceClient) ListServerSettings(ctx context.Context, req *connect.Request[v1.ListServerSettingsRequest]) (*connect.Response[v1.ListServerSettingsResponse], error) {
+	return c.listServerSettings.CallUnary(ctx, req)
+}
+
+// UpdateServerSetting calls powermanage.v1.ControlService.UpdateServerSetting.
+func (c *controlServiceClient) UpdateServerSetting(ctx context.Context, req *connect.Request[v1.UpdateServerSettingRequest]) (*connect.Response[v1.UpdateServerSettingResponse], error) {
+	return c.updateServerSetting.CallUnary(ctx, req)
+}
+
+// DeleteServerSetting calls powermanage.v1.ControlService.DeleteServerSetting.
+func (c *controlServiceClient) DeleteServerSetting(ctx context.Context, req *connect.Request[v1.DeleteServerSettingRequest]) (*connect.Response[v1.DeleteServerSettingResponse], error) {
+	return c.deleteServerSetting.CallUnary(ctx, req)
+}
+
+// CreateAction calls powermanage.v1.ControlService.CreateAction.
+func (c *controlServiceClient) CreateAction(ctx context.Context, req *connect.Request[v1.CreateActionRequest]) (*connect.Response[v1.CreateActionResponse], error) {
+	return c.createAction.CallUnary(ctx, req)
+}
+
+// GetAction calls powermanage.v1.ControlService.GetAction.
+func (c *controlServiceClient) GetAction(ctx context.Context, req *connect.Request[v1.GetActionRequest]) (*connect.Response[v1.GetActionResponse], error) {
+	return c.getAction.CallUnary(ctx, req)
+}
+
+// ListActions calls powermanage.v1.ControlService.ListActions.
+func (c *controlServiceClient) ListActions(ctx context.Context, req *connect.Request[v1.ListActionsRequest]) (*connect.Response[v1.ListActionsResponse], error) {
+	return c.listActions.CallUnary(ctx, req)
+}
+
+// UpdateAction calls powermanage.v1.ControlService.UpdateAction.
+func (c *controlServiceClient) UpdateAction(ctx context.Context, req *connect.Request[v1.UpdateActionRequest]) (*connect.Response[v1.UpdateActionResponse], error) {
+	return c.updateAction.CallUnary(ctx, req)
+}
+
+// DeleteAction calls powermanage.v1.ControlService.DeleteAction.
+func (c *controlServiceClient) DeleteAction(ctx context.Context, req *connect.Request[v1.DeleteActionRequest]) (*connect.Response[v1.DeleteActionResponse], error) {
+	return c.deleteAction.CallUnary(ctx, req)
+}
+
+// CreateActionSet calls powermanage.v1.ControlService.CreateActionSet.
+func (c *controlServiceClient) CreateActionSet(ctx context.Context, req *connect.Request[v1.CreateActionSetRequest]) (*connect.Response[v1.CreateActionSetResponse], error) {
+	return c.createActionSet.CallUnary(ctx, req)
+}
+
+// GetActionSet calls powermanage.v1.ControlService.GetActionSet.
+func (c *controlServiceClient) GetActionSet(ctx context.Context, req *connect.Request[v1.GetActionSetRequest]) (*connect.Response[v1.GetActionSetResponse], error) {
+	return c.getActionSet.CallUnary(ctx, req)
+}
+
+// ListActionSets calls powermanage.v1.ControlService.ListActionSets.
+func (c *controlServiceClient) ListActionSets(ctx context.Context, req *connect.Request[v1.ListActionSetsRequest]) (*connect.Response[v1.ListActionSetsResponse], error) {
+	return c.listActionSets.CallUnary(ctx, req)
+}
+
+// UpdateActionSet calls powermanage.v1.ControlService.UpdateActionSet.
+func (c *controlServiceClient) UpdateActionSet(ctx context.Context, req *connect.Request[v1.UpdateActionSetRequest]) (*connect.Response[v1.UpdateActionSetResponse], error) {
+	return c.updateActionSet.CallUnary(ctx, req)
+}
+
+// DeleteActionSet calls powermanage.v1.ControlService.DeleteActionSet.
+func (c *controlServiceClient) DeleteActionSet(ctx context.Context, req *connect.Request[v1.DeleteActionSetRequest]) (*connect.Response[v1.DeleteActionSetResponse], error) {
+	return c.deleteActionSet.CallUnary(ctx, req)
+}
+
+// CreateAssignment calls powermanage.v1.ControlService.CreateAssignment.
+func (c *controlServiceClient) CreateAssignment(ctx context.Context, req *connect.Request[v1.CreateAssignmentRequest]) (*connect.Response[v1.CreateAssignmentResponse], error) {
+	return c.createAssignment.CallUnary(ctx, req)
+}
+
+// GetAssignment calls powermanage.v1.ControlService.GetAssignment.
+func (c *controlServiceClient) GetAssignment(ctx context.Context, req *connect.Request[v1.GetAssignmentRequest]) (*connect.Response[v1.GetAssignmentResponse], error) {
+	return c.getAssignment.CallUnary(ctx, req)
+}
+
+// ListAssignments calls powermanage.v1.ControlService.ListAssignments.
+func (c *controlServiceClient) ListAssignments(ctx context.Context, req *connect.Request[v1.ListAssignmentsRequest]) (*connect.Response[v1.ListAssignmentsResponse], error) {
+	return c.listAssignments.CallUnary(ctx, req)
+}
+
+// DeleteAssignment calls powermanage.v1.ControlService.DeleteAssignment.
+func (c *controlServiceClient) DeleteAssignment(ctx context.Context, req *connect.Request[v1.DeleteAssignmentRequest]) (*connect.Response[v1.DeleteAssignmentResponse], error) {
+	return c.deleteAssignment.CallUnary(ctx, req)
+}
+
+// CreateCompliancePolicy calls powermanage.v1.ControlService.CreateCompliancePolicy.
+func (c *controlServiceClient) CreateCompliancePolicy(ctx context.Context, req *connect.Request[v1.CreateCompliancePolicyRequest]) (*connect.Response[v1.CreateCompliancePolicyResponse], error) {
+	return c.createCompliancePolicy.CallUnary(ctx, req)
+}
+
+// GetCompliancePolicy calls powermanage.v1.ControlService.GetCompliancePolicy.
+func (c *controlServiceClient) GetCompliancePolicy(ctx context.Context, req *connect.Request[v1.GetCompliancePolicyRequest]) (*connect.Response[v1.GetCompliancePolicyResponse], error) {
+	return c.getCompliancePolicy.CallUnary(ctx, req)
+}
+
+// ListCompliancePolicies calls powermanage.v1.ControlService.ListCompliancePolicies.
+func (c *controlServiceClient) ListCompliancePolicies(ctx context.Context, req *connect.Request[v1.ListCompliancePoliciesRequest]) (*connect.Response[v1.ListCompliancePoliciesResponse], error) {
+	return c.listCompliancePolicies.CallUnary(ctx, req)
+}
+
+// UpdateCompliancePolicy calls powermanage.v1.ControlService.UpdateCompliancePolicy.
+func (c *controlServiceClient) UpdateCompliancePolicy(ctx context.Context, req *connect.Request[v1.UpdateCompliancePolicyRequest]) (*connect.Response[v1.UpdateCompliancePolicyResponse], error) {
+	return c.updateCompliancePolicy.CallUnary(ctx, req)
+}
+
+// DeleteCompliancePolicy calls powermanage.v1.ControlService.DeleteCompliancePolicy.
+func (c *controlServiceClient) DeleteCompliancePolicy(ctx context.Context, req *connect.Request[v1.DeleteCompliancePolicyRequest]) (*connect.Response[v1.DeleteCompliancePolicyResponse], error) {
+	return c.deleteCompliancePolicy.CallUnary(ctx, req)
+}
+
+// ListAuditEvents calls powermanage.v1.ControlService.ListAuditEvents.
+func (c *controlServiceClient) ListAuditEvents(ctx context.Context, req *connect.Request[v1.ListAuditEventsRequest]) (*connect.Response[v1.ListAuditEventsResponse], error) {
+	return c.listAuditEvents.CallUnary(ctx, req)
+}
+
+// GetExecution calls powermanage.v1.ControlService.GetExecution.
+func (c *controlServiceClient) GetExecution(ctx context.Context, req *connect.Request[v1.GetExecutionRequest]) (*connect.Response[v1.GetExecutionResponse], error) {
+	return c.getExecution.CallUnary(ctx, req)
+}
+
+// ListExecutions calls powermanage.v1.ControlService.ListExecutions.
+func (c *controlServiceClient) ListExecutions(ctx context.Context, req *connect.Request[v1.ListExecutionsRequest]) (*connect.Response[v1.ListExecutionsResponse], error) {
+	return c.listExecutions.CallUnary(ctx, req)
+}
+
+// GetInventorySnapshot calls powermanage.v1.ControlService.GetInventorySnapshot.
+func (c *controlServiceClient) GetInventorySnapshot(ctx context.Context, req *connect.Request[v1.GetInventorySnapshotRequest]) (*connect.Response[v1.GetInventorySnapshotResponse], error) {
+	return c.getInventorySnapshot.CallUnary(ctx, req)
+}
+
+// ListInventorySnapshots calls powermanage.v1.ControlService.ListInventorySnapshots.
+func (c *controlServiceClient) ListInventorySnapshots(ctx context.Context, req *connect.Request[v1.ListInventorySnapshotsRequest]) (*connect.Response[v1.ListInventorySnapshotsResponse], error) {
+	return c.listInventorySnapshots.CallUnary(ctx, req)
+}
+
+// GetGateway calls powermanage.v1.ControlService.GetGateway.
+func (c *controlServiceClient) GetGateway(ctx context.Context, req *connect.Request[v1.GetGatewayRequest]) (*connect.Response[v1.GetGatewayResponse], error) {
+	return c.getGateway.CallUnary(ctx, req)
+}
+
+// ListGateways calls powermanage.v1.ControlService.ListGateways.
+func (c *controlServiceClient) ListGateways(ctx context.Context, req *connect.Request[v1.ListGatewaysRequest]) (*connect.Response[v1.ListGatewaysResponse], error) {
+	return c.listGateways.CallUnary(ctx, req)
+}
+
 // ControlServiceHandler is an implementation of the powermanage.v1.ControlService service.
 type ControlServiceHandler interface {
 	RefreshSession(context.Context, *connect.Request[v1.RefreshSessionRequest]) (*connect.Response[v1.RefreshSessionResponse], error)
@@ -199,6 +1396,81 @@ type ControlServiceHandler interface {
 	ListDeviceGroups(context.Context, *connect.Request[v1.ListDeviceGroupsRequest]) (*connect.Response[v1.ListDeviceGroupsResponse], error)
 	UpdateDeviceGroup(context.Context, *connect.Request[v1.UpdateDeviceGroupRequest]) (*connect.Response[v1.UpdateDeviceGroupResponse], error)
 	DeleteDeviceGroup(context.Context, *connect.Request[v1.DeleteDeviceGroupRequest]) (*connect.Response[v1.DeleteDeviceGroupResponse], error)
+	CreateUser(context.Context, *connect.Request[v1.CreateUserRequest]) (*connect.Response[v1.CreateUserResponse], error)
+	GetUser(context.Context, *connect.Request[v1.GetUserRequest]) (*connect.Response[v1.GetUserResponse], error)
+	ListUsers(context.Context, *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error)
+	UpdateUser(context.Context, *connect.Request[v1.UpdateUserRequest]) (*connect.Response[v1.UpdateUserResponse], error)
+	DeleteUser(context.Context, *connect.Request[v1.DeleteUserRequest]) (*connect.Response[v1.DeleteUserResponse], error)
+	CreateRole(context.Context, *connect.Request[v1.CreateRoleRequest]) (*connect.Response[v1.CreateRoleResponse], error)
+	GetRole(context.Context, *connect.Request[v1.GetRoleRequest]) (*connect.Response[v1.GetRoleResponse], error)
+	ListRoles(context.Context, *connect.Request[v1.ListRolesRequest]) (*connect.Response[v1.ListRolesResponse], error)
+	UpdateRole(context.Context, *connect.Request[v1.UpdateRoleRequest]) (*connect.Response[v1.UpdateRoleResponse], error)
+	DeleteRole(context.Context, *connect.Request[v1.DeleteRoleRequest]) (*connect.Response[v1.DeleteRoleResponse], error)
+	CreateGrant(context.Context, *connect.Request[v1.CreateGrantRequest]) (*connect.Response[v1.CreateGrantResponse], error)
+	GetGrant(context.Context, *connect.Request[v1.GetGrantRequest]) (*connect.Response[v1.GetGrantResponse], error)
+	ListGrants(context.Context, *connect.Request[v1.ListGrantsRequest]) (*connect.Response[v1.ListGrantsResponse], error)
+	UpdateGrant(context.Context, *connect.Request[v1.UpdateGrantRequest]) (*connect.Response[v1.UpdateGrantResponse], error)
+	DeleteGrant(context.Context, *connect.Request[v1.DeleteGrantRequest]) (*connect.Response[v1.DeleteGrantResponse], error)
+	CreateUserGroup(context.Context, *connect.Request[v1.CreateUserGroupRequest]) (*connect.Response[v1.CreateUserGroupResponse], error)
+	GetUserGroup(context.Context, *connect.Request[v1.GetUserGroupRequest]) (*connect.Response[v1.GetUserGroupResponse], error)
+	ListUserGroups(context.Context, *connect.Request[v1.ListUserGroupsRequest]) (*connect.Response[v1.ListUserGroupsResponse], error)
+	UpdateUserGroup(context.Context, *connect.Request[v1.UpdateUserGroupRequest]) (*connect.Response[v1.UpdateUserGroupResponse], error)
+	DeleteUserGroup(context.Context, *connect.Request[v1.DeleteUserGroupRequest]) (*connect.Response[v1.DeleteUserGroupResponse], error)
+	GetDevice(context.Context, *connect.Request[v1.GetDeviceRequest]) (*connect.Response[v1.GetDeviceResponse], error)
+	ListDevices(context.Context, *connect.Request[v1.ListDevicesRequest]) (*connect.Response[v1.ListDevicesResponse], error)
+	UpdateDevice(context.Context, *connect.Request[v1.UpdateDeviceRequest]) (*connect.Response[v1.UpdateDeviceResponse], error)
+	DeleteDevice(context.Context, *connect.Request[v1.DeleteDeviceRequest]) (*connect.Response[v1.DeleteDeviceResponse], error)
+	CreateRegistrationToken(context.Context, *connect.Request[v1.CreateRegistrationTokenRequest]) (*connect.Response[v1.CreateRegistrationTokenResponse], error)
+	GetRegistrationToken(context.Context, *connect.Request[v1.GetRegistrationTokenRequest]) (*connect.Response[v1.GetRegistrationTokenResponse], error)
+	ListRegistrationTokens(context.Context, *connect.Request[v1.ListRegistrationTokensRequest]) (*connect.Response[v1.ListRegistrationTokensResponse], error)
+	UpdateRegistrationToken(context.Context, *connect.Request[v1.UpdateRegistrationTokenRequest]) (*connect.Response[v1.UpdateRegistrationTokenResponse], error)
+	DeleteRegistrationToken(context.Context, *connect.Request[v1.DeleteRegistrationTokenRequest]) (*connect.Response[v1.DeleteRegistrationTokenResponse], error)
+	CreateApiToken(context.Context, *connect.Request[v1.CreateApiTokenRequest]) (*connect.Response[v1.CreateApiTokenResponse], error)
+	GetApiToken(context.Context, *connect.Request[v1.GetApiTokenRequest]) (*connect.Response[v1.GetApiTokenResponse], error)
+	ListApiTokens(context.Context, *connect.Request[v1.ListApiTokensRequest]) (*connect.Response[v1.ListApiTokensResponse], error)
+	UpdateApiToken(context.Context, *connect.Request[v1.UpdateApiTokenRequest]) (*connect.Response[v1.UpdateApiTokenResponse], error)
+	DeleteApiToken(context.Context, *connect.Request[v1.DeleteApiTokenRequest]) (*connect.Response[v1.DeleteApiTokenResponse], error)
+	CreateIdentityProvider(context.Context, *connect.Request[v1.CreateIdentityProviderRequest]) (*connect.Response[v1.CreateIdentityProviderResponse], error)
+	GetIdentityProvider(context.Context, *connect.Request[v1.GetIdentityProviderRequest]) (*connect.Response[v1.GetIdentityProviderResponse], error)
+	ListIdentityProviders(context.Context, *connect.Request[v1.ListIdentityProvidersRequest]) (*connect.Response[v1.ListIdentityProvidersResponse], error)
+	UpdateIdentityProvider(context.Context, *connect.Request[v1.UpdateIdentityProviderRequest]) (*connect.Response[v1.UpdateIdentityProviderResponse], error)
+	DeleteIdentityProvider(context.Context, *connect.Request[v1.DeleteIdentityProviderRequest]) (*connect.Response[v1.DeleteIdentityProviderResponse], error)
+	CreateScimConfiguration(context.Context, *connect.Request[v1.CreateScimConfigurationRequest]) (*connect.Response[v1.CreateScimConfigurationResponse], error)
+	GetScimConfiguration(context.Context, *connect.Request[v1.GetScimConfigurationRequest]) (*connect.Response[v1.GetScimConfigurationResponse], error)
+	ListScimConfigurations(context.Context, *connect.Request[v1.ListScimConfigurationsRequest]) (*connect.Response[v1.ListScimConfigurationsResponse], error)
+	UpdateScimConfiguration(context.Context, *connect.Request[v1.UpdateScimConfigurationRequest]) (*connect.Response[v1.UpdateScimConfigurationResponse], error)
+	DeleteScimConfiguration(context.Context, *connect.Request[v1.DeleteScimConfigurationRequest]) (*connect.Response[v1.DeleteScimConfigurationResponse], error)
+	CreateServerSetting(context.Context, *connect.Request[v1.CreateServerSettingRequest]) (*connect.Response[v1.CreateServerSettingResponse], error)
+	GetServerSetting(context.Context, *connect.Request[v1.GetServerSettingRequest]) (*connect.Response[v1.GetServerSettingResponse], error)
+	ListServerSettings(context.Context, *connect.Request[v1.ListServerSettingsRequest]) (*connect.Response[v1.ListServerSettingsResponse], error)
+	UpdateServerSetting(context.Context, *connect.Request[v1.UpdateServerSettingRequest]) (*connect.Response[v1.UpdateServerSettingResponse], error)
+	DeleteServerSetting(context.Context, *connect.Request[v1.DeleteServerSettingRequest]) (*connect.Response[v1.DeleteServerSettingResponse], error)
+	CreateAction(context.Context, *connect.Request[v1.CreateActionRequest]) (*connect.Response[v1.CreateActionResponse], error)
+	GetAction(context.Context, *connect.Request[v1.GetActionRequest]) (*connect.Response[v1.GetActionResponse], error)
+	ListActions(context.Context, *connect.Request[v1.ListActionsRequest]) (*connect.Response[v1.ListActionsResponse], error)
+	UpdateAction(context.Context, *connect.Request[v1.UpdateActionRequest]) (*connect.Response[v1.UpdateActionResponse], error)
+	DeleteAction(context.Context, *connect.Request[v1.DeleteActionRequest]) (*connect.Response[v1.DeleteActionResponse], error)
+	CreateActionSet(context.Context, *connect.Request[v1.CreateActionSetRequest]) (*connect.Response[v1.CreateActionSetResponse], error)
+	GetActionSet(context.Context, *connect.Request[v1.GetActionSetRequest]) (*connect.Response[v1.GetActionSetResponse], error)
+	ListActionSets(context.Context, *connect.Request[v1.ListActionSetsRequest]) (*connect.Response[v1.ListActionSetsResponse], error)
+	UpdateActionSet(context.Context, *connect.Request[v1.UpdateActionSetRequest]) (*connect.Response[v1.UpdateActionSetResponse], error)
+	DeleteActionSet(context.Context, *connect.Request[v1.DeleteActionSetRequest]) (*connect.Response[v1.DeleteActionSetResponse], error)
+	CreateAssignment(context.Context, *connect.Request[v1.CreateAssignmentRequest]) (*connect.Response[v1.CreateAssignmentResponse], error)
+	GetAssignment(context.Context, *connect.Request[v1.GetAssignmentRequest]) (*connect.Response[v1.GetAssignmentResponse], error)
+	ListAssignments(context.Context, *connect.Request[v1.ListAssignmentsRequest]) (*connect.Response[v1.ListAssignmentsResponse], error)
+	DeleteAssignment(context.Context, *connect.Request[v1.DeleteAssignmentRequest]) (*connect.Response[v1.DeleteAssignmentResponse], error)
+	CreateCompliancePolicy(context.Context, *connect.Request[v1.CreateCompliancePolicyRequest]) (*connect.Response[v1.CreateCompliancePolicyResponse], error)
+	GetCompliancePolicy(context.Context, *connect.Request[v1.GetCompliancePolicyRequest]) (*connect.Response[v1.GetCompliancePolicyResponse], error)
+	ListCompliancePolicies(context.Context, *connect.Request[v1.ListCompliancePoliciesRequest]) (*connect.Response[v1.ListCompliancePoliciesResponse], error)
+	UpdateCompliancePolicy(context.Context, *connect.Request[v1.UpdateCompliancePolicyRequest]) (*connect.Response[v1.UpdateCompliancePolicyResponse], error)
+	DeleteCompliancePolicy(context.Context, *connect.Request[v1.DeleteCompliancePolicyRequest]) (*connect.Response[v1.DeleteCompliancePolicyResponse], error)
+	ListAuditEvents(context.Context, *connect.Request[v1.ListAuditEventsRequest]) (*connect.Response[v1.ListAuditEventsResponse], error)
+	GetExecution(context.Context, *connect.Request[v1.GetExecutionRequest]) (*connect.Response[v1.GetExecutionResponse], error)
+	ListExecutions(context.Context, *connect.Request[v1.ListExecutionsRequest]) (*connect.Response[v1.ListExecutionsResponse], error)
+	GetInventorySnapshot(context.Context, *connect.Request[v1.GetInventorySnapshotRequest]) (*connect.Response[v1.GetInventorySnapshotResponse], error)
+	ListInventorySnapshots(context.Context, *connect.Request[v1.ListInventorySnapshotsRequest]) (*connect.Response[v1.ListInventorySnapshotsResponse], error)
+	GetGateway(context.Context, *connect.Request[v1.GetGatewayRequest]) (*connect.Response[v1.GetGatewayResponse], error)
+	ListGateways(context.Context, *connect.Request[v1.ListGatewaysRequest]) (*connect.Response[v1.ListGatewaysResponse], error)
 }
 
 // NewControlServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -256,6 +1528,456 @@ func NewControlServiceHandler(svc ControlServiceHandler, opts ...connect.Handler
 		connect.WithSchema(controlServiceMethods.ByName("DeleteDeviceGroup")),
 		connect.WithHandlerOptions(opts...),
 	)
+	controlServiceCreateUserHandler := connect.NewUnaryHandler(
+		ControlServiceCreateUserProcedure,
+		svc.CreateUser,
+		connect.WithSchema(controlServiceMethods.ByName("CreateUser")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceGetUserHandler := connect.NewUnaryHandler(
+		ControlServiceGetUserProcedure,
+		svc.GetUser,
+		connect.WithSchema(controlServiceMethods.ByName("GetUser")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceListUsersHandler := connect.NewUnaryHandler(
+		ControlServiceListUsersProcedure,
+		svc.ListUsers,
+		connect.WithSchema(controlServiceMethods.ByName("ListUsers")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceUpdateUserHandler := connect.NewUnaryHandler(
+		ControlServiceUpdateUserProcedure,
+		svc.UpdateUser,
+		connect.WithSchema(controlServiceMethods.ByName("UpdateUser")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceDeleteUserHandler := connect.NewUnaryHandler(
+		ControlServiceDeleteUserProcedure,
+		svc.DeleteUser,
+		connect.WithSchema(controlServiceMethods.ByName("DeleteUser")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceCreateRoleHandler := connect.NewUnaryHandler(
+		ControlServiceCreateRoleProcedure,
+		svc.CreateRole,
+		connect.WithSchema(controlServiceMethods.ByName("CreateRole")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceGetRoleHandler := connect.NewUnaryHandler(
+		ControlServiceGetRoleProcedure,
+		svc.GetRole,
+		connect.WithSchema(controlServiceMethods.ByName("GetRole")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceListRolesHandler := connect.NewUnaryHandler(
+		ControlServiceListRolesProcedure,
+		svc.ListRoles,
+		connect.WithSchema(controlServiceMethods.ByName("ListRoles")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceUpdateRoleHandler := connect.NewUnaryHandler(
+		ControlServiceUpdateRoleProcedure,
+		svc.UpdateRole,
+		connect.WithSchema(controlServiceMethods.ByName("UpdateRole")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceDeleteRoleHandler := connect.NewUnaryHandler(
+		ControlServiceDeleteRoleProcedure,
+		svc.DeleteRole,
+		connect.WithSchema(controlServiceMethods.ByName("DeleteRole")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceCreateGrantHandler := connect.NewUnaryHandler(
+		ControlServiceCreateGrantProcedure,
+		svc.CreateGrant,
+		connect.WithSchema(controlServiceMethods.ByName("CreateGrant")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceGetGrantHandler := connect.NewUnaryHandler(
+		ControlServiceGetGrantProcedure,
+		svc.GetGrant,
+		connect.WithSchema(controlServiceMethods.ByName("GetGrant")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceListGrantsHandler := connect.NewUnaryHandler(
+		ControlServiceListGrantsProcedure,
+		svc.ListGrants,
+		connect.WithSchema(controlServiceMethods.ByName("ListGrants")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceUpdateGrantHandler := connect.NewUnaryHandler(
+		ControlServiceUpdateGrantProcedure,
+		svc.UpdateGrant,
+		connect.WithSchema(controlServiceMethods.ByName("UpdateGrant")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceDeleteGrantHandler := connect.NewUnaryHandler(
+		ControlServiceDeleteGrantProcedure,
+		svc.DeleteGrant,
+		connect.WithSchema(controlServiceMethods.ByName("DeleteGrant")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceCreateUserGroupHandler := connect.NewUnaryHandler(
+		ControlServiceCreateUserGroupProcedure,
+		svc.CreateUserGroup,
+		connect.WithSchema(controlServiceMethods.ByName("CreateUserGroup")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceGetUserGroupHandler := connect.NewUnaryHandler(
+		ControlServiceGetUserGroupProcedure,
+		svc.GetUserGroup,
+		connect.WithSchema(controlServiceMethods.ByName("GetUserGroup")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceListUserGroupsHandler := connect.NewUnaryHandler(
+		ControlServiceListUserGroupsProcedure,
+		svc.ListUserGroups,
+		connect.WithSchema(controlServiceMethods.ByName("ListUserGroups")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceUpdateUserGroupHandler := connect.NewUnaryHandler(
+		ControlServiceUpdateUserGroupProcedure,
+		svc.UpdateUserGroup,
+		connect.WithSchema(controlServiceMethods.ByName("UpdateUserGroup")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceDeleteUserGroupHandler := connect.NewUnaryHandler(
+		ControlServiceDeleteUserGroupProcedure,
+		svc.DeleteUserGroup,
+		connect.WithSchema(controlServiceMethods.ByName("DeleteUserGroup")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceGetDeviceHandler := connect.NewUnaryHandler(
+		ControlServiceGetDeviceProcedure,
+		svc.GetDevice,
+		connect.WithSchema(controlServiceMethods.ByName("GetDevice")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceListDevicesHandler := connect.NewUnaryHandler(
+		ControlServiceListDevicesProcedure,
+		svc.ListDevices,
+		connect.WithSchema(controlServiceMethods.ByName("ListDevices")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceUpdateDeviceHandler := connect.NewUnaryHandler(
+		ControlServiceUpdateDeviceProcedure,
+		svc.UpdateDevice,
+		connect.WithSchema(controlServiceMethods.ByName("UpdateDevice")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceDeleteDeviceHandler := connect.NewUnaryHandler(
+		ControlServiceDeleteDeviceProcedure,
+		svc.DeleteDevice,
+		connect.WithSchema(controlServiceMethods.ByName("DeleteDevice")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceCreateRegistrationTokenHandler := connect.NewUnaryHandler(
+		ControlServiceCreateRegistrationTokenProcedure,
+		svc.CreateRegistrationToken,
+		connect.WithSchema(controlServiceMethods.ByName("CreateRegistrationToken")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceGetRegistrationTokenHandler := connect.NewUnaryHandler(
+		ControlServiceGetRegistrationTokenProcedure,
+		svc.GetRegistrationToken,
+		connect.WithSchema(controlServiceMethods.ByName("GetRegistrationToken")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceListRegistrationTokensHandler := connect.NewUnaryHandler(
+		ControlServiceListRegistrationTokensProcedure,
+		svc.ListRegistrationTokens,
+		connect.WithSchema(controlServiceMethods.ByName("ListRegistrationTokens")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceUpdateRegistrationTokenHandler := connect.NewUnaryHandler(
+		ControlServiceUpdateRegistrationTokenProcedure,
+		svc.UpdateRegistrationToken,
+		connect.WithSchema(controlServiceMethods.ByName("UpdateRegistrationToken")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceDeleteRegistrationTokenHandler := connect.NewUnaryHandler(
+		ControlServiceDeleteRegistrationTokenProcedure,
+		svc.DeleteRegistrationToken,
+		connect.WithSchema(controlServiceMethods.ByName("DeleteRegistrationToken")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceCreateApiTokenHandler := connect.NewUnaryHandler(
+		ControlServiceCreateApiTokenProcedure,
+		svc.CreateApiToken,
+		connect.WithSchema(controlServiceMethods.ByName("CreateApiToken")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceGetApiTokenHandler := connect.NewUnaryHandler(
+		ControlServiceGetApiTokenProcedure,
+		svc.GetApiToken,
+		connect.WithSchema(controlServiceMethods.ByName("GetApiToken")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceListApiTokensHandler := connect.NewUnaryHandler(
+		ControlServiceListApiTokensProcedure,
+		svc.ListApiTokens,
+		connect.WithSchema(controlServiceMethods.ByName("ListApiTokens")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceUpdateApiTokenHandler := connect.NewUnaryHandler(
+		ControlServiceUpdateApiTokenProcedure,
+		svc.UpdateApiToken,
+		connect.WithSchema(controlServiceMethods.ByName("UpdateApiToken")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceDeleteApiTokenHandler := connect.NewUnaryHandler(
+		ControlServiceDeleteApiTokenProcedure,
+		svc.DeleteApiToken,
+		connect.WithSchema(controlServiceMethods.ByName("DeleteApiToken")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceCreateIdentityProviderHandler := connect.NewUnaryHandler(
+		ControlServiceCreateIdentityProviderProcedure,
+		svc.CreateIdentityProvider,
+		connect.WithSchema(controlServiceMethods.ByName("CreateIdentityProvider")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceGetIdentityProviderHandler := connect.NewUnaryHandler(
+		ControlServiceGetIdentityProviderProcedure,
+		svc.GetIdentityProvider,
+		connect.WithSchema(controlServiceMethods.ByName("GetIdentityProvider")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceListIdentityProvidersHandler := connect.NewUnaryHandler(
+		ControlServiceListIdentityProvidersProcedure,
+		svc.ListIdentityProviders,
+		connect.WithSchema(controlServiceMethods.ByName("ListIdentityProviders")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceUpdateIdentityProviderHandler := connect.NewUnaryHandler(
+		ControlServiceUpdateIdentityProviderProcedure,
+		svc.UpdateIdentityProvider,
+		connect.WithSchema(controlServiceMethods.ByName("UpdateIdentityProvider")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceDeleteIdentityProviderHandler := connect.NewUnaryHandler(
+		ControlServiceDeleteIdentityProviderProcedure,
+		svc.DeleteIdentityProvider,
+		connect.WithSchema(controlServiceMethods.ByName("DeleteIdentityProvider")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceCreateScimConfigurationHandler := connect.NewUnaryHandler(
+		ControlServiceCreateScimConfigurationProcedure,
+		svc.CreateScimConfiguration,
+		connect.WithSchema(controlServiceMethods.ByName("CreateScimConfiguration")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceGetScimConfigurationHandler := connect.NewUnaryHandler(
+		ControlServiceGetScimConfigurationProcedure,
+		svc.GetScimConfiguration,
+		connect.WithSchema(controlServiceMethods.ByName("GetScimConfiguration")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceListScimConfigurationsHandler := connect.NewUnaryHandler(
+		ControlServiceListScimConfigurationsProcedure,
+		svc.ListScimConfigurations,
+		connect.WithSchema(controlServiceMethods.ByName("ListScimConfigurations")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceUpdateScimConfigurationHandler := connect.NewUnaryHandler(
+		ControlServiceUpdateScimConfigurationProcedure,
+		svc.UpdateScimConfiguration,
+		connect.WithSchema(controlServiceMethods.ByName("UpdateScimConfiguration")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceDeleteScimConfigurationHandler := connect.NewUnaryHandler(
+		ControlServiceDeleteScimConfigurationProcedure,
+		svc.DeleteScimConfiguration,
+		connect.WithSchema(controlServiceMethods.ByName("DeleteScimConfiguration")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceCreateServerSettingHandler := connect.NewUnaryHandler(
+		ControlServiceCreateServerSettingProcedure,
+		svc.CreateServerSetting,
+		connect.WithSchema(controlServiceMethods.ByName("CreateServerSetting")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceGetServerSettingHandler := connect.NewUnaryHandler(
+		ControlServiceGetServerSettingProcedure,
+		svc.GetServerSetting,
+		connect.WithSchema(controlServiceMethods.ByName("GetServerSetting")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceListServerSettingsHandler := connect.NewUnaryHandler(
+		ControlServiceListServerSettingsProcedure,
+		svc.ListServerSettings,
+		connect.WithSchema(controlServiceMethods.ByName("ListServerSettings")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceUpdateServerSettingHandler := connect.NewUnaryHandler(
+		ControlServiceUpdateServerSettingProcedure,
+		svc.UpdateServerSetting,
+		connect.WithSchema(controlServiceMethods.ByName("UpdateServerSetting")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceDeleteServerSettingHandler := connect.NewUnaryHandler(
+		ControlServiceDeleteServerSettingProcedure,
+		svc.DeleteServerSetting,
+		connect.WithSchema(controlServiceMethods.ByName("DeleteServerSetting")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceCreateActionHandler := connect.NewUnaryHandler(
+		ControlServiceCreateActionProcedure,
+		svc.CreateAction,
+		connect.WithSchema(controlServiceMethods.ByName("CreateAction")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceGetActionHandler := connect.NewUnaryHandler(
+		ControlServiceGetActionProcedure,
+		svc.GetAction,
+		connect.WithSchema(controlServiceMethods.ByName("GetAction")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceListActionsHandler := connect.NewUnaryHandler(
+		ControlServiceListActionsProcedure,
+		svc.ListActions,
+		connect.WithSchema(controlServiceMethods.ByName("ListActions")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceUpdateActionHandler := connect.NewUnaryHandler(
+		ControlServiceUpdateActionProcedure,
+		svc.UpdateAction,
+		connect.WithSchema(controlServiceMethods.ByName("UpdateAction")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceDeleteActionHandler := connect.NewUnaryHandler(
+		ControlServiceDeleteActionProcedure,
+		svc.DeleteAction,
+		connect.WithSchema(controlServiceMethods.ByName("DeleteAction")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceCreateActionSetHandler := connect.NewUnaryHandler(
+		ControlServiceCreateActionSetProcedure,
+		svc.CreateActionSet,
+		connect.WithSchema(controlServiceMethods.ByName("CreateActionSet")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceGetActionSetHandler := connect.NewUnaryHandler(
+		ControlServiceGetActionSetProcedure,
+		svc.GetActionSet,
+		connect.WithSchema(controlServiceMethods.ByName("GetActionSet")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceListActionSetsHandler := connect.NewUnaryHandler(
+		ControlServiceListActionSetsProcedure,
+		svc.ListActionSets,
+		connect.WithSchema(controlServiceMethods.ByName("ListActionSets")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceUpdateActionSetHandler := connect.NewUnaryHandler(
+		ControlServiceUpdateActionSetProcedure,
+		svc.UpdateActionSet,
+		connect.WithSchema(controlServiceMethods.ByName("UpdateActionSet")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceDeleteActionSetHandler := connect.NewUnaryHandler(
+		ControlServiceDeleteActionSetProcedure,
+		svc.DeleteActionSet,
+		connect.WithSchema(controlServiceMethods.ByName("DeleteActionSet")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceCreateAssignmentHandler := connect.NewUnaryHandler(
+		ControlServiceCreateAssignmentProcedure,
+		svc.CreateAssignment,
+		connect.WithSchema(controlServiceMethods.ByName("CreateAssignment")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceGetAssignmentHandler := connect.NewUnaryHandler(
+		ControlServiceGetAssignmentProcedure,
+		svc.GetAssignment,
+		connect.WithSchema(controlServiceMethods.ByName("GetAssignment")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceListAssignmentsHandler := connect.NewUnaryHandler(
+		ControlServiceListAssignmentsProcedure,
+		svc.ListAssignments,
+		connect.WithSchema(controlServiceMethods.ByName("ListAssignments")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceDeleteAssignmentHandler := connect.NewUnaryHandler(
+		ControlServiceDeleteAssignmentProcedure,
+		svc.DeleteAssignment,
+		connect.WithSchema(controlServiceMethods.ByName("DeleteAssignment")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceCreateCompliancePolicyHandler := connect.NewUnaryHandler(
+		ControlServiceCreateCompliancePolicyProcedure,
+		svc.CreateCompliancePolicy,
+		connect.WithSchema(controlServiceMethods.ByName("CreateCompliancePolicy")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceGetCompliancePolicyHandler := connect.NewUnaryHandler(
+		ControlServiceGetCompliancePolicyProcedure,
+		svc.GetCompliancePolicy,
+		connect.WithSchema(controlServiceMethods.ByName("GetCompliancePolicy")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceListCompliancePoliciesHandler := connect.NewUnaryHandler(
+		ControlServiceListCompliancePoliciesProcedure,
+		svc.ListCompliancePolicies,
+		connect.WithSchema(controlServiceMethods.ByName("ListCompliancePolicies")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceUpdateCompliancePolicyHandler := connect.NewUnaryHandler(
+		ControlServiceUpdateCompliancePolicyProcedure,
+		svc.UpdateCompliancePolicy,
+		connect.WithSchema(controlServiceMethods.ByName("UpdateCompliancePolicy")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceDeleteCompliancePolicyHandler := connect.NewUnaryHandler(
+		ControlServiceDeleteCompliancePolicyProcedure,
+		svc.DeleteCompliancePolicy,
+		connect.WithSchema(controlServiceMethods.ByName("DeleteCompliancePolicy")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceListAuditEventsHandler := connect.NewUnaryHandler(
+		ControlServiceListAuditEventsProcedure,
+		svc.ListAuditEvents,
+		connect.WithSchema(controlServiceMethods.ByName("ListAuditEvents")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceGetExecutionHandler := connect.NewUnaryHandler(
+		ControlServiceGetExecutionProcedure,
+		svc.GetExecution,
+		connect.WithSchema(controlServiceMethods.ByName("GetExecution")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceListExecutionsHandler := connect.NewUnaryHandler(
+		ControlServiceListExecutionsProcedure,
+		svc.ListExecutions,
+		connect.WithSchema(controlServiceMethods.ByName("ListExecutions")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceGetInventorySnapshotHandler := connect.NewUnaryHandler(
+		ControlServiceGetInventorySnapshotProcedure,
+		svc.GetInventorySnapshot,
+		connect.WithSchema(controlServiceMethods.ByName("GetInventorySnapshot")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceListInventorySnapshotsHandler := connect.NewUnaryHandler(
+		ControlServiceListInventorySnapshotsProcedure,
+		svc.ListInventorySnapshots,
+		connect.WithSchema(controlServiceMethods.ByName("ListInventorySnapshots")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceGetGatewayHandler := connect.NewUnaryHandler(
+		ControlServiceGetGatewayProcedure,
+		svc.GetGateway,
+		connect.WithSchema(controlServiceMethods.ByName("GetGateway")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceListGatewaysHandler := connect.NewUnaryHandler(
+		ControlServiceListGatewaysProcedure,
+		svc.ListGateways,
+		connect.WithSchema(controlServiceMethods.ByName("ListGateways")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/powermanage.v1.ControlService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ControlServiceRefreshSessionProcedure:
@@ -274,6 +1996,156 @@ func NewControlServiceHandler(svc ControlServiceHandler, opts ...connect.Handler
 			controlServiceUpdateDeviceGroupHandler.ServeHTTP(w, r)
 		case ControlServiceDeleteDeviceGroupProcedure:
 			controlServiceDeleteDeviceGroupHandler.ServeHTTP(w, r)
+		case ControlServiceCreateUserProcedure:
+			controlServiceCreateUserHandler.ServeHTTP(w, r)
+		case ControlServiceGetUserProcedure:
+			controlServiceGetUserHandler.ServeHTTP(w, r)
+		case ControlServiceListUsersProcedure:
+			controlServiceListUsersHandler.ServeHTTP(w, r)
+		case ControlServiceUpdateUserProcedure:
+			controlServiceUpdateUserHandler.ServeHTTP(w, r)
+		case ControlServiceDeleteUserProcedure:
+			controlServiceDeleteUserHandler.ServeHTTP(w, r)
+		case ControlServiceCreateRoleProcedure:
+			controlServiceCreateRoleHandler.ServeHTTP(w, r)
+		case ControlServiceGetRoleProcedure:
+			controlServiceGetRoleHandler.ServeHTTP(w, r)
+		case ControlServiceListRolesProcedure:
+			controlServiceListRolesHandler.ServeHTTP(w, r)
+		case ControlServiceUpdateRoleProcedure:
+			controlServiceUpdateRoleHandler.ServeHTTP(w, r)
+		case ControlServiceDeleteRoleProcedure:
+			controlServiceDeleteRoleHandler.ServeHTTP(w, r)
+		case ControlServiceCreateGrantProcedure:
+			controlServiceCreateGrantHandler.ServeHTTP(w, r)
+		case ControlServiceGetGrantProcedure:
+			controlServiceGetGrantHandler.ServeHTTP(w, r)
+		case ControlServiceListGrantsProcedure:
+			controlServiceListGrantsHandler.ServeHTTP(w, r)
+		case ControlServiceUpdateGrantProcedure:
+			controlServiceUpdateGrantHandler.ServeHTTP(w, r)
+		case ControlServiceDeleteGrantProcedure:
+			controlServiceDeleteGrantHandler.ServeHTTP(w, r)
+		case ControlServiceCreateUserGroupProcedure:
+			controlServiceCreateUserGroupHandler.ServeHTTP(w, r)
+		case ControlServiceGetUserGroupProcedure:
+			controlServiceGetUserGroupHandler.ServeHTTP(w, r)
+		case ControlServiceListUserGroupsProcedure:
+			controlServiceListUserGroupsHandler.ServeHTTP(w, r)
+		case ControlServiceUpdateUserGroupProcedure:
+			controlServiceUpdateUserGroupHandler.ServeHTTP(w, r)
+		case ControlServiceDeleteUserGroupProcedure:
+			controlServiceDeleteUserGroupHandler.ServeHTTP(w, r)
+		case ControlServiceGetDeviceProcedure:
+			controlServiceGetDeviceHandler.ServeHTTP(w, r)
+		case ControlServiceListDevicesProcedure:
+			controlServiceListDevicesHandler.ServeHTTP(w, r)
+		case ControlServiceUpdateDeviceProcedure:
+			controlServiceUpdateDeviceHandler.ServeHTTP(w, r)
+		case ControlServiceDeleteDeviceProcedure:
+			controlServiceDeleteDeviceHandler.ServeHTTP(w, r)
+		case ControlServiceCreateRegistrationTokenProcedure:
+			controlServiceCreateRegistrationTokenHandler.ServeHTTP(w, r)
+		case ControlServiceGetRegistrationTokenProcedure:
+			controlServiceGetRegistrationTokenHandler.ServeHTTP(w, r)
+		case ControlServiceListRegistrationTokensProcedure:
+			controlServiceListRegistrationTokensHandler.ServeHTTP(w, r)
+		case ControlServiceUpdateRegistrationTokenProcedure:
+			controlServiceUpdateRegistrationTokenHandler.ServeHTTP(w, r)
+		case ControlServiceDeleteRegistrationTokenProcedure:
+			controlServiceDeleteRegistrationTokenHandler.ServeHTTP(w, r)
+		case ControlServiceCreateApiTokenProcedure:
+			controlServiceCreateApiTokenHandler.ServeHTTP(w, r)
+		case ControlServiceGetApiTokenProcedure:
+			controlServiceGetApiTokenHandler.ServeHTTP(w, r)
+		case ControlServiceListApiTokensProcedure:
+			controlServiceListApiTokensHandler.ServeHTTP(w, r)
+		case ControlServiceUpdateApiTokenProcedure:
+			controlServiceUpdateApiTokenHandler.ServeHTTP(w, r)
+		case ControlServiceDeleteApiTokenProcedure:
+			controlServiceDeleteApiTokenHandler.ServeHTTP(w, r)
+		case ControlServiceCreateIdentityProviderProcedure:
+			controlServiceCreateIdentityProviderHandler.ServeHTTP(w, r)
+		case ControlServiceGetIdentityProviderProcedure:
+			controlServiceGetIdentityProviderHandler.ServeHTTP(w, r)
+		case ControlServiceListIdentityProvidersProcedure:
+			controlServiceListIdentityProvidersHandler.ServeHTTP(w, r)
+		case ControlServiceUpdateIdentityProviderProcedure:
+			controlServiceUpdateIdentityProviderHandler.ServeHTTP(w, r)
+		case ControlServiceDeleteIdentityProviderProcedure:
+			controlServiceDeleteIdentityProviderHandler.ServeHTTP(w, r)
+		case ControlServiceCreateScimConfigurationProcedure:
+			controlServiceCreateScimConfigurationHandler.ServeHTTP(w, r)
+		case ControlServiceGetScimConfigurationProcedure:
+			controlServiceGetScimConfigurationHandler.ServeHTTP(w, r)
+		case ControlServiceListScimConfigurationsProcedure:
+			controlServiceListScimConfigurationsHandler.ServeHTTP(w, r)
+		case ControlServiceUpdateScimConfigurationProcedure:
+			controlServiceUpdateScimConfigurationHandler.ServeHTTP(w, r)
+		case ControlServiceDeleteScimConfigurationProcedure:
+			controlServiceDeleteScimConfigurationHandler.ServeHTTP(w, r)
+		case ControlServiceCreateServerSettingProcedure:
+			controlServiceCreateServerSettingHandler.ServeHTTP(w, r)
+		case ControlServiceGetServerSettingProcedure:
+			controlServiceGetServerSettingHandler.ServeHTTP(w, r)
+		case ControlServiceListServerSettingsProcedure:
+			controlServiceListServerSettingsHandler.ServeHTTP(w, r)
+		case ControlServiceUpdateServerSettingProcedure:
+			controlServiceUpdateServerSettingHandler.ServeHTTP(w, r)
+		case ControlServiceDeleteServerSettingProcedure:
+			controlServiceDeleteServerSettingHandler.ServeHTTP(w, r)
+		case ControlServiceCreateActionProcedure:
+			controlServiceCreateActionHandler.ServeHTTP(w, r)
+		case ControlServiceGetActionProcedure:
+			controlServiceGetActionHandler.ServeHTTP(w, r)
+		case ControlServiceListActionsProcedure:
+			controlServiceListActionsHandler.ServeHTTP(w, r)
+		case ControlServiceUpdateActionProcedure:
+			controlServiceUpdateActionHandler.ServeHTTP(w, r)
+		case ControlServiceDeleteActionProcedure:
+			controlServiceDeleteActionHandler.ServeHTTP(w, r)
+		case ControlServiceCreateActionSetProcedure:
+			controlServiceCreateActionSetHandler.ServeHTTP(w, r)
+		case ControlServiceGetActionSetProcedure:
+			controlServiceGetActionSetHandler.ServeHTTP(w, r)
+		case ControlServiceListActionSetsProcedure:
+			controlServiceListActionSetsHandler.ServeHTTP(w, r)
+		case ControlServiceUpdateActionSetProcedure:
+			controlServiceUpdateActionSetHandler.ServeHTTP(w, r)
+		case ControlServiceDeleteActionSetProcedure:
+			controlServiceDeleteActionSetHandler.ServeHTTP(w, r)
+		case ControlServiceCreateAssignmentProcedure:
+			controlServiceCreateAssignmentHandler.ServeHTTP(w, r)
+		case ControlServiceGetAssignmentProcedure:
+			controlServiceGetAssignmentHandler.ServeHTTP(w, r)
+		case ControlServiceListAssignmentsProcedure:
+			controlServiceListAssignmentsHandler.ServeHTTP(w, r)
+		case ControlServiceDeleteAssignmentProcedure:
+			controlServiceDeleteAssignmentHandler.ServeHTTP(w, r)
+		case ControlServiceCreateCompliancePolicyProcedure:
+			controlServiceCreateCompliancePolicyHandler.ServeHTTP(w, r)
+		case ControlServiceGetCompliancePolicyProcedure:
+			controlServiceGetCompliancePolicyHandler.ServeHTTP(w, r)
+		case ControlServiceListCompliancePoliciesProcedure:
+			controlServiceListCompliancePoliciesHandler.ServeHTTP(w, r)
+		case ControlServiceUpdateCompliancePolicyProcedure:
+			controlServiceUpdateCompliancePolicyHandler.ServeHTTP(w, r)
+		case ControlServiceDeleteCompliancePolicyProcedure:
+			controlServiceDeleteCompliancePolicyHandler.ServeHTTP(w, r)
+		case ControlServiceListAuditEventsProcedure:
+			controlServiceListAuditEventsHandler.ServeHTTP(w, r)
+		case ControlServiceGetExecutionProcedure:
+			controlServiceGetExecutionHandler.ServeHTTP(w, r)
+		case ControlServiceListExecutionsProcedure:
+			controlServiceListExecutionsHandler.ServeHTTP(w, r)
+		case ControlServiceGetInventorySnapshotProcedure:
+			controlServiceGetInventorySnapshotHandler.ServeHTTP(w, r)
+		case ControlServiceListInventorySnapshotsProcedure:
+			controlServiceListInventorySnapshotsHandler.ServeHTTP(w, r)
+		case ControlServiceGetGatewayProcedure:
+			controlServiceGetGatewayHandler.ServeHTTP(w, r)
+		case ControlServiceListGatewaysProcedure:
+			controlServiceListGatewaysHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -313,4 +2185,304 @@ func (UnimplementedControlServiceHandler) UpdateDeviceGroup(context.Context, *co
 
 func (UnimplementedControlServiceHandler) DeleteDeviceGroup(context.Context, *connect.Request[v1.DeleteDeviceGroupRequest]) (*connect.Response[v1.DeleteDeviceGroupResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.DeleteDeviceGroup is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) CreateUser(context.Context, *connect.Request[v1.CreateUserRequest]) (*connect.Response[v1.CreateUserResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.CreateUser is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) GetUser(context.Context, *connect.Request[v1.GetUserRequest]) (*connect.Response[v1.GetUserResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.GetUser is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) ListUsers(context.Context, *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.ListUsers is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) UpdateUser(context.Context, *connect.Request[v1.UpdateUserRequest]) (*connect.Response[v1.UpdateUserResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.UpdateUser is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) DeleteUser(context.Context, *connect.Request[v1.DeleteUserRequest]) (*connect.Response[v1.DeleteUserResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.DeleteUser is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) CreateRole(context.Context, *connect.Request[v1.CreateRoleRequest]) (*connect.Response[v1.CreateRoleResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.CreateRole is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) GetRole(context.Context, *connect.Request[v1.GetRoleRequest]) (*connect.Response[v1.GetRoleResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.GetRole is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) ListRoles(context.Context, *connect.Request[v1.ListRolesRequest]) (*connect.Response[v1.ListRolesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.ListRoles is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) UpdateRole(context.Context, *connect.Request[v1.UpdateRoleRequest]) (*connect.Response[v1.UpdateRoleResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.UpdateRole is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) DeleteRole(context.Context, *connect.Request[v1.DeleteRoleRequest]) (*connect.Response[v1.DeleteRoleResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.DeleteRole is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) CreateGrant(context.Context, *connect.Request[v1.CreateGrantRequest]) (*connect.Response[v1.CreateGrantResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.CreateGrant is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) GetGrant(context.Context, *connect.Request[v1.GetGrantRequest]) (*connect.Response[v1.GetGrantResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.GetGrant is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) ListGrants(context.Context, *connect.Request[v1.ListGrantsRequest]) (*connect.Response[v1.ListGrantsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.ListGrants is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) UpdateGrant(context.Context, *connect.Request[v1.UpdateGrantRequest]) (*connect.Response[v1.UpdateGrantResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.UpdateGrant is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) DeleteGrant(context.Context, *connect.Request[v1.DeleteGrantRequest]) (*connect.Response[v1.DeleteGrantResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.DeleteGrant is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) CreateUserGroup(context.Context, *connect.Request[v1.CreateUserGroupRequest]) (*connect.Response[v1.CreateUserGroupResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.CreateUserGroup is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) GetUserGroup(context.Context, *connect.Request[v1.GetUserGroupRequest]) (*connect.Response[v1.GetUserGroupResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.GetUserGroup is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) ListUserGroups(context.Context, *connect.Request[v1.ListUserGroupsRequest]) (*connect.Response[v1.ListUserGroupsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.ListUserGroups is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) UpdateUserGroup(context.Context, *connect.Request[v1.UpdateUserGroupRequest]) (*connect.Response[v1.UpdateUserGroupResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.UpdateUserGroup is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) DeleteUserGroup(context.Context, *connect.Request[v1.DeleteUserGroupRequest]) (*connect.Response[v1.DeleteUserGroupResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.DeleteUserGroup is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) GetDevice(context.Context, *connect.Request[v1.GetDeviceRequest]) (*connect.Response[v1.GetDeviceResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.GetDevice is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) ListDevices(context.Context, *connect.Request[v1.ListDevicesRequest]) (*connect.Response[v1.ListDevicesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.ListDevices is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) UpdateDevice(context.Context, *connect.Request[v1.UpdateDeviceRequest]) (*connect.Response[v1.UpdateDeviceResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.UpdateDevice is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) DeleteDevice(context.Context, *connect.Request[v1.DeleteDeviceRequest]) (*connect.Response[v1.DeleteDeviceResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.DeleteDevice is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) CreateRegistrationToken(context.Context, *connect.Request[v1.CreateRegistrationTokenRequest]) (*connect.Response[v1.CreateRegistrationTokenResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.CreateRegistrationToken is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) GetRegistrationToken(context.Context, *connect.Request[v1.GetRegistrationTokenRequest]) (*connect.Response[v1.GetRegistrationTokenResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.GetRegistrationToken is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) ListRegistrationTokens(context.Context, *connect.Request[v1.ListRegistrationTokensRequest]) (*connect.Response[v1.ListRegistrationTokensResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.ListRegistrationTokens is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) UpdateRegistrationToken(context.Context, *connect.Request[v1.UpdateRegistrationTokenRequest]) (*connect.Response[v1.UpdateRegistrationTokenResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.UpdateRegistrationToken is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) DeleteRegistrationToken(context.Context, *connect.Request[v1.DeleteRegistrationTokenRequest]) (*connect.Response[v1.DeleteRegistrationTokenResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.DeleteRegistrationToken is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) CreateApiToken(context.Context, *connect.Request[v1.CreateApiTokenRequest]) (*connect.Response[v1.CreateApiTokenResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.CreateApiToken is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) GetApiToken(context.Context, *connect.Request[v1.GetApiTokenRequest]) (*connect.Response[v1.GetApiTokenResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.GetApiToken is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) ListApiTokens(context.Context, *connect.Request[v1.ListApiTokensRequest]) (*connect.Response[v1.ListApiTokensResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.ListApiTokens is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) UpdateApiToken(context.Context, *connect.Request[v1.UpdateApiTokenRequest]) (*connect.Response[v1.UpdateApiTokenResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.UpdateApiToken is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) DeleteApiToken(context.Context, *connect.Request[v1.DeleteApiTokenRequest]) (*connect.Response[v1.DeleteApiTokenResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.DeleteApiToken is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) CreateIdentityProvider(context.Context, *connect.Request[v1.CreateIdentityProviderRequest]) (*connect.Response[v1.CreateIdentityProviderResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.CreateIdentityProvider is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) GetIdentityProvider(context.Context, *connect.Request[v1.GetIdentityProviderRequest]) (*connect.Response[v1.GetIdentityProviderResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.GetIdentityProvider is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) ListIdentityProviders(context.Context, *connect.Request[v1.ListIdentityProvidersRequest]) (*connect.Response[v1.ListIdentityProvidersResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.ListIdentityProviders is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) UpdateIdentityProvider(context.Context, *connect.Request[v1.UpdateIdentityProviderRequest]) (*connect.Response[v1.UpdateIdentityProviderResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.UpdateIdentityProvider is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) DeleteIdentityProvider(context.Context, *connect.Request[v1.DeleteIdentityProviderRequest]) (*connect.Response[v1.DeleteIdentityProviderResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.DeleteIdentityProvider is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) CreateScimConfiguration(context.Context, *connect.Request[v1.CreateScimConfigurationRequest]) (*connect.Response[v1.CreateScimConfigurationResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.CreateScimConfiguration is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) GetScimConfiguration(context.Context, *connect.Request[v1.GetScimConfigurationRequest]) (*connect.Response[v1.GetScimConfigurationResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.GetScimConfiguration is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) ListScimConfigurations(context.Context, *connect.Request[v1.ListScimConfigurationsRequest]) (*connect.Response[v1.ListScimConfigurationsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.ListScimConfigurations is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) UpdateScimConfiguration(context.Context, *connect.Request[v1.UpdateScimConfigurationRequest]) (*connect.Response[v1.UpdateScimConfigurationResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.UpdateScimConfiguration is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) DeleteScimConfiguration(context.Context, *connect.Request[v1.DeleteScimConfigurationRequest]) (*connect.Response[v1.DeleteScimConfigurationResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.DeleteScimConfiguration is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) CreateServerSetting(context.Context, *connect.Request[v1.CreateServerSettingRequest]) (*connect.Response[v1.CreateServerSettingResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.CreateServerSetting is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) GetServerSetting(context.Context, *connect.Request[v1.GetServerSettingRequest]) (*connect.Response[v1.GetServerSettingResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.GetServerSetting is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) ListServerSettings(context.Context, *connect.Request[v1.ListServerSettingsRequest]) (*connect.Response[v1.ListServerSettingsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.ListServerSettings is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) UpdateServerSetting(context.Context, *connect.Request[v1.UpdateServerSettingRequest]) (*connect.Response[v1.UpdateServerSettingResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.UpdateServerSetting is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) DeleteServerSetting(context.Context, *connect.Request[v1.DeleteServerSettingRequest]) (*connect.Response[v1.DeleteServerSettingResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.DeleteServerSetting is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) CreateAction(context.Context, *connect.Request[v1.CreateActionRequest]) (*connect.Response[v1.CreateActionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.CreateAction is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) GetAction(context.Context, *connect.Request[v1.GetActionRequest]) (*connect.Response[v1.GetActionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.GetAction is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) ListActions(context.Context, *connect.Request[v1.ListActionsRequest]) (*connect.Response[v1.ListActionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.ListActions is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) UpdateAction(context.Context, *connect.Request[v1.UpdateActionRequest]) (*connect.Response[v1.UpdateActionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.UpdateAction is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) DeleteAction(context.Context, *connect.Request[v1.DeleteActionRequest]) (*connect.Response[v1.DeleteActionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.DeleteAction is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) CreateActionSet(context.Context, *connect.Request[v1.CreateActionSetRequest]) (*connect.Response[v1.CreateActionSetResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.CreateActionSet is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) GetActionSet(context.Context, *connect.Request[v1.GetActionSetRequest]) (*connect.Response[v1.GetActionSetResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.GetActionSet is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) ListActionSets(context.Context, *connect.Request[v1.ListActionSetsRequest]) (*connect.Response[v1.ListActionSetsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.ListActionSets is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) UpdateActionSet(context.Context, *connect.Request[v1.UpdateActionSetRequest]) (*connect.Response[v1.UpdateActionSetResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.UpdateActionSet is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) DeleteActionSet(context.Context, *connect.Request[v1.DeleteActionSetRequest]) (*connect.Response[v1.DeleteActionSetResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.DeleteActionSet is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) CreateAssignment(context.Context, *connect.Request[v1.CreateAssignmentRequest]) (*connect.Response[v1.CreateAssignmentResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.CreateAssignment is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) GetAssignment(context.Context, *connect.Request[v1.GetAssignmentRequest]) (*connect.Response[v1.GetAssignmentResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.GetAssignment is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) ListAssignments(context.Context, *connect.Request[v1.ListAssignmentsRequest]) (*connect.Response[v1.ListAssignmentsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.ListAssignments is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) DeleteAssignment(context.Context, *connect.Request[v1.DeleteAssignmentRequest]) (*connect.Response[v1.DeleteAssignmentResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.DeleteAssignment is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) CreateCompliancePolicy(context.Context, *connect.Request[v1.CreateCompliancePolicyRequest]) (*connect.Response[v1.CreateCompliancePolicyResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.CreateCompliancePolicy is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) GetCompliancePolicy(context.Context, *connect.Request[v1.GetCompliancePolicyRequest]) (*connect.Response[v1.GetCompliancePolicyResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.GetCompliancePolicy is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) ListCompliancePolicies(context.Context, *connect.Request[v1.ListCompliancePoliciesRequest]) (*connect.Response[v1.ListCompliancePoliciesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.ListCompliancePolicies is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) UpdateCompliancePolicy(context.Context, *connect.Request[v1.UpdateCompliancePolicyRequest]) (*connect.Response[v1.UpdateCompliancePolicyResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.UpdateCompliancePolicy is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) DeleteCompliancePolicy(context.Context, *connect.Request[v1.DeleteCompliancePolicyRequest]) (*connect.Response[v1.DeleteCompliancePolicyResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.DeleteCompliancePolicy is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) ListAuditEvents(context.Context, *connect.Request[v1.ListAuditEventsRequest]) (*connect.Response[v1.ListAuditEventsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.ListAuditEvents is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) GetExecution(context.Context, *connect.Request[v1.GetExecutionRequest]) (*connect.Response[v1.GetExecutionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.GetExecution is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) ListExecutions(context.Context, *connect.Request[v1.ListExecutionsRequest]) (*connect.Response[v1.ListExecutionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.ListExecutions is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) GetInventorySnapshot(context.Context, *connect.Request[v1.GetInventorySnapshotRequest]) (*connect.Response[v1.GetInventorySnapshotResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.GetInventorySnapshot is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) ListInventorySnapshots(context.Context, *connect.Request[v1.ListInventorySnapshotsRequest]) (*connect.Response[v1.ListInventorySnapshotsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.ListInventorySnapshots is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) GetGateway(context.Context, *connect.Request[v1.GetGatewayRequest]) (*connect.Response[v1.GetGatewayResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.GetGateway is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) ListGateways(context.Context, *connect.Request[v1.ListGatewaysRequest]) (*connect.Response[v1.ListGatewaysResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.ListGateways is not implemented"))
 }

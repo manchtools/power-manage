@@ -21,6 +21,7 @@ const (
 	deviceGroupPayloadVersion   = 1
 	maxDeviceGroupNameRunes     = 200
 	maxDeviceGroupQueryRunes    = 4096
+	maxDeviceGroupStaticMembers = 1000
 
 	// DeviceGroupRebuildTarget is the CLI-only device-group recovery target.
 	DeviceGroupRebuildTarget = "device-groups"
@@ -33,40 +34,70 @@ type DeviceGroup struct {
 	ID                string
 	Name              string
 	DynamicQuery      string
+	StaticDeviceIDs   []string
 	ProjectionVersion int64
 }
 
 type deviceGroupPayload struct {
-	Name         string `json:"name"`
-	DynamicQuery string `json:"dynamic_query"`
+	Name            string   `json:"name"`
+	DynamicQuery    string   `json:"dynamic_query"`
+	StaticDeviceIDs []string `json:"static_device_ids,omitempty"`
 }
 
 type deviceGroupDeletedPayload struct{}
 
 // DeviceGroupCreatedEvent records a new static or dynamic device group.
 func DeviceGroupCreatedEvent(id, name, dynamicQuery string) (Event, error) {
-	id, name, dynamicQuery, err := normalizeDeviceGroup(id, name, dynamicQuery)
+	return DeviceGroupCreatedWithMembersEvent(id, name, dynamicQuery, nil)
+}
+
+// DeviceGroupCreatedWithMembersEvent records exact static membership.
+func DeviceGroupCreatedWithMembersEvent(
+	id string,
+	name string,
+	dynamicQuery string,
+	staticDeviceIDs []string,
+) (Event, error) {
+	group, err := normalizeDeviceGroup(id, name, dynamicQuery, staticDeviceIDs, 1)
 	if err != nil {
 		return Event{}, err
 	}
-	payload, err := json.Marshal(deviceGroupPayload{Name: name, DynamicQuery: dynamicQuery})
+	payload, err := json.Marshal(deviceGroupPayload{
+		Name:            group.Name,
+		DynamicQuery:    group.DynamicQuery,
+		StaticDeviceIDs: group.StaticDeviceIDs,
+	})
 	if err != nil {
 		return Event{}, fmt.Errorf("store: encode device-group creation: %w", err)
 	}
-	return deviceGroupEvent(id, deviceGroupCreatedEventType, payload), nil
+	return deviceGroupEvent(group.ID, deviceGroupCreatedEventType, payload), nil
 }
 
 // DeviceGroupUpdatedEvent records a full replacement of a device group.
 func DeviceGroupUpdatedEvent(id, name, dynamicQuery string) (Event, error) {
-	id, name, dynamicQuery, err := normalizeDeviceGroup(id, name, dynamicQuery)
+	return DeviceGroupUpdatedWithMembersEvent(id, name, dynamicQuery, nil)
+}
+
+// DeviceGroupUpdatedWithMembersEvent replaces metadata and static membership.
+func DeviceGroupUpdatedWithMembersEvent(
+	id string,
+	name string,
+	dynamicQuery string,
+	staticDeviceIDs []string,
+) (Event, error) {
+	group, err := normalizeDeviceGroup(id, name, dynamicQuery, staticDeviceIDs, 1)
 	if err != nil {
 		return Event{}, err
 	}
-	payload, err := json.Marshal(deviceGroupPayload{Name: name, DynamicQuery: dynamicQuery})
+	payload, err := json.Marshal(deviceGroupPayload{
+		Name:            group.Name,
+		DynamicQuery:    group.DynamicQuery,
+		StaticDeviceIDs: group.StaticDeviceIDs,
+	})
 	if err != nil {
 		return Event{}, fmt.Errorf("store: encode device-group update: %w", err)
 	}
-	return deviceGroupEvent(id, deviceGroupUpdatedEventType, payload), nil
+	return deviceGroupEvent(group.ID, deviceGroupUpdatedEventType, payload), nil
 }
 
 // DeviceGroupDeletedEvent records removal of a device group projection.
@@ -114,10 +145,11 @@ func (s *Store) DeviceGroupByID(
 	if err != nil {
 		return DeviceGroup{}, fmt.Errorf("store: read device group: %w", err)
 	}
-	return validateDeviceGroupProjection(
+	return normalizeDeviceGroup(
 		row.DeviceGroupID,
 		row.Name,
 		row.DynamicQuery,
+		row.StaticDeviceIds,
 		row.ProjectionVersion,
 	)
 }
@@ -155,10 +187,11 @@ func (s *Store) ListDeviceGroups(
 	}
 	groups := make([]DeviceGroup, len(rows))
 	for index, row := range rows {
-		groups[index], err = validateDeviceGroupProjection(
+		groups[index], err = normalizeDeviceGroup(
 			row.DeviceGroupID,
 			row.Name,
 			row.DynamicQuery,
+			row.StaticDeviceIds,
 			row.ProjectionVersion,
 		)
 		if err != nil {
@@ -192,20 +225,49 @@ func deviceGroupEvent(id, eventType string, payload []byte) Event {
 	}
 }
 
-func normalizeDeviceGroup(id, name, dynamicQuery string) (string, string, string, error) {
+func normalizeDeviceGroup(
+	id string,
+	name string,
+	dynamicQuery string,
+	staticDeviceIDs []string,
+	version int64,
+) (DeviceGroup, error) {
 	id, err := canonicalDeviceGroupID(id)
 	if err != nil {
-		return "", "", "", err
+		return DeviceGroup{}, err
 	}
 	if !utf8.ValidString(name) || utf8.RuneCountInString(name) < 1 ||
 		utf8.RuneCountInString(name) > maxDeviceGroupNameRunes {
-		return "", "", "", errors.New("store: device-group name is invalid")
+		return DeviceGroup{}, errors.New("store: device-group name is invalid")
 	}
 	if !utf8.ValidString(dynamicQuery) ||
 		utf8.RuneCountInString(dynamicQuery) > maxDeviceGroupQueryRunes {
-		return "", "", "", errors.New("store: device-group query is invalid")
+		return DeviceGroup{}, errors.New("store: device-group query is invalid")
 	}
-	return id, name, dynamicQuery, nil
+	if len(staticDeviceIDs) > maxDeviceGroupStaticMembers {
+		return DeviceGroup{}, errors.New("store: device-group static membership is too large")
+	}
+	members := make([]string, len(staticDeviceIDs))
+	for index, deviceID := range staticDeviceIDs {
+		members[index], err = canonicalDeviceID(deviceID)
+		if err != nil {
+			return DeviceGroup{}, errors.New("store: device-group static member is invalid")
+		}
+	}
+	slices.Sort(members)
+	if len(slices.Compact(slices.Clone(members))) != len(members) {
+		return DeviceGroup{}, errors.New("store: device-group static membership contains duplicates")
+	}
+	if version < 1 {
+		return DeviceGroup{}, errors.New("store: device-group projection version is invalid")
+	}
+	return DeviceGroup{
+		ID:                id,
+		Name:              name,
+		DynamicQuery:      dynamicQuery,
+		StaticDeviceIDs:   members,
+		ProjectionVersion: version,
+	}, nil
 }
 
 func canonicalDeviceGroupID(id string) (string, error) {
@@ -227,29 +289,6 @@ func normalizeDeviceGroupScope(ids []string) ([]string, error) {
 	slices.Sort(normalized)
 	normalized = slices.Compact(normalized)
 	return normalized, nil
-}
-
-func validateDeviceGroupProjection(
-	id string,
-	name string,
-	dynamicQuery string,
-	version int64,
-) (DeviceGroup, error) {
-	canonicalID, canonicalName, canonicalQuery, err := normalizeDeviceGroup(
-		id,
-		name,
-		dynamicQuery,
-	)
-	if err != nil || canonicalID != id || canonicalName != name || canonicalQuery != dynamicQuery ||
-		version < 1 {
-		return DeviceGroup{}, errors.New("store: device-group projection is invalid")
-	}
-	return DeviceGroup{
-		ID:                id,
-		Name:              name,
-		DynamicQuery:      dynamicQuery,
-		ProjectionVersion: version,
-	}, nil
 }
 
 func deviceGroupEventDefinitions() map[string]eventDefinition {
@@ -320,10 +359,11 @@ func projectDeviceGroupCreated(
 	if err != nil {
 		return err
 	}
-	group, err := validateDeviceGroupProjection(
+	group, err := normalizeDeviceGroup(
 		event.StreamID,
 		payload.Name,
 		payload.DynamicQuery,
+		payload.StaticDeviceIDs,
 		event.StreamVersion,
 	)
 	if err != nil {
@@ -335,6 +375,7 @@ func projectDeviceGroupCreated(
 			DeviceGroupID:     group.ID,
 			Name:              group.Name,
 			DynamicQuery:      group.DynamicQuery,
+			StaticDeviceIds:   group.StaticDeviceIDs,
 			ProjectionVersion: group.ProjectionVersion,
 			UpdatedAt:         event.CreatedAt,
 		},
@@ -360,10 +401,11 @@ func projectDeviceGroupUpdated(
 	if err != nil {
 		return err
 	}
-	group, err := validateDeviceGroupProjection(
+	group, err := normalizeDeviceGroup(
 		event.StreamID,
 		payload.Name,
 		payload.DynamicQuery,
+		payload.StaticDeviceIDs,
 		event.StreamVersion,
 	)
 	if err != nil {
@@ -374,6 +416,7 @@ func projectDeviceGroupUpdated(
 		generated.ReplaceDeviceGroupParams{
 			Name:                      group.Name,
 			DynamicQuery:              group.DynamicQuery,
+			StaticDeviceIds:           group.StaticDeviceIDs,
 			ProjectionVersion:         group.ProjectionVersion,
 			UpdatedAt:                 event.CreatedAt,
 			DeviceGroupID:             group.ID,

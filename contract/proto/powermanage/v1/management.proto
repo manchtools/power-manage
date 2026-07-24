@@ -1,0 +1,1524 @@
+// Management-domain wire shapes (WIRE-11, SPEC-009).
+syntax = "proto3";
+
+package powermanage.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+import "powermanage/v1/action.proto";
+import "powermanage/v1/authorization.proto";
+import "powermanage/v1/common.proto";
+
+option go_package = "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1;powermanagev1";
+
+enum UserState {
+  USER_STATE_UNSPECIFIED = 0;
+  USER_STATE_ENABLED = 1;
+  USER_STATE_DISABLED = 2;
+}
+
+message User {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string email = 2 [(buf.validate.field).string = {
+    min_len: 3
+    max_len: 320
+  }];
+  UserState state = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  uint64 version = 4 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message CreateUserRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string email = 2 [(buf.validate.field).string = {
+    min_len: 3
+    max_len: 320
+  }];
+}
+
+message GetUserRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+}
+
+message ListUsersRequest {
+  uint32 limit = 1 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 200
+  }];
+}
+
+message UpdateUserRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string email = 2 [(buf.validate.field).string = {
+    min_len: 3
+    max_len: 320
+  }];
+  uint64 expected_version = 3 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message DeleteUserRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  uint64 expected_version = 2 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message CreateUserResponse {
+  User user = 1 [(buf.validate.field).required = true];
+}
+
+message GetUserResponse {
+  User user = 1 [(buf.validate.field).required = true];
+}
+
+message ListUsersResponse {
+  repeated User users = 1 [(buf.validate.field).repeated.max_items = 200];
+}
+
+message UpdateUserResponse {
+  User user = 1 [(buf.validate.field).required = true];
+}
+
+message DeleteUserResponse {
+  string deleted_id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+}
+
+message Role {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 64
+  }];
+  repeated string permissions = 3 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 256
+    unique: true
+    items: {
+      string: {
+        min_len: 3
+        max_len: 128
+      }
+    }
+  }];
+  uint64 version = 4 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message CreateRoleRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 64
+  }];
+  repeated string permissions = 3 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 256
+    unique: true
+    items: {
+      string: {
+        min_len: 3
+        max_len: 128
+      }
+    }
+  }];
+}
+
+message GetRoleRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+}
+
+message ListRolesRequest {
+  uint32 limit = 1 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 200
+  }];
+}
+
+message UpdateRoleRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 64
+  }];
+  repeated string permissions = 3 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 256
+    unique: true
+    items: {
+      string: {
+        min_len: 3
+        max_len: 128
+      }
+    }
+  }];
+  uint64 expected_version = 4 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message DeleteRoleRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  uint64 expected_version = 2 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message CreateRoleResponse {
+  Role role = 1 [(buf.validate.field).required = true];
+}
+
+message GetRoleResponse {
+  Role role = 1 [(buf.validate.field).required = true];
+}
+
+message ListRolesResponse {
+  repeated Role roles = 1 [(buf.validate.field).repeated.max_items = 200];
+}
+
+message UpdateRoleResponse {
+  Role role = 1 [(buf.validate.field).required = true];
+}
+
+message DeleteRoleResponse {
+  string deleted_id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+}
+
+message CreateGrantRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  AuthorizationPrincipalType principal_type = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  string principal_id = 3 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string role_id = 4 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  GrantScope scope = 5 [(buf.validate.field).required = true];
+}
+
+message GetGrantRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+}
+
+message ListGrantsRequest {
+  uint32 limit = 1 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 200
+  }];
+}
+
+message UpdateGrantRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  AuthorizationPrincipalType principal_type = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  string principal_id = 3 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string role_id = 4 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  GrantScope scope = 5 [(buf.validate.field).required = true];
+  uint64 expected_version = 6 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message DeleteGrantRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  uint64 expected_version = 2 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message CreateGrantResponse {
+  GrantView grant = 1 [(buf.validate.field).required = true];
+}
+
+message GetGrantResponse {
+  GrantView grant = 1 [(buf.validate.field).required = true];
+}
+
+message ListGrantsResponse {
+  repeated GrantView grants = 1 [(buf.validate.field).repeated.max_items = 200];
+}
+
+message UpdateGrantResponse {
+  GrantView grant = 1 [(buf.validate.field).required = true];
+}
+
+message DeleteGrantResponse {
+  string deleted_id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+}
+
+message UserGroup {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 512
+  }];
+  uint64 version = 3 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message CreateUserGroupRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 512
+  }];
+}
+
+message GetUserGroupRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+}
+
+message ListUserGroupsRequest {
+  uint32 limit = 1 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 200
+  }];
+}
+
+message UpdateUserGroupRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 512
+  }];
+  uint64 expected_version = 3 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message DeleteUserGroupRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  uint64 expected_version = 2 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message CreateUserGroupResponse {
+  UserGroup user_group = 1 [(buf.validate.field).required = true];
+}
+
+message GetUserGroupResponse {
+  UserGroup user_group = 1 [(buf.validate.field).required = true];
+}
+
+message ListUserGroupsResponse {
+  repeated UserGroup user_groups = 1 [(buf.validate.field).repeated.max_items = 200];
+}
+
+message UpdateUserGroupResponse {
+  UserGroup user_group = 1 [(buf.validate.field).required = true];
+}
+
+message DeleteUserGroupResponse {
+  string deleted_id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+}
+
+enum DeviceState {
+  DEVICE_STATE_UNSPECIFIED = 0;
+  DEVICE_STATE_ACTIVE = 1;
+  DEVICE_STATE_FORCE_RENEWAL = 2;
+  DEVICE_STATE_REVOKED = 3;
+}
+
+message Device {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string owner = 2 [(buf.validate.field).string.max_len = 256];
+  DeviceState state = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  uint64 version = 4 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message GetDeviceRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+}
+
+message ListDevicesRequest {
+  uint32 limit = 1 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 200
+  }];
+}
+
+message UpdateDeviceRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string owner = 2 [(buf.validate.field).string.max_len = 256];
+  uint64 expected_version = 3 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message DeleteDeviceRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  uint64 expected_version = 2 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message GetDeviceResponse {
+  Device device = 1 [(buf.validate.field).required = true];
+}
+
+message ListDevicesResponse {
+  repeated Device devices = 1 [(buf.validate.field).repeated.max_items = 200];
+}
+
+message UpdateDeviceResponse {
+  Device device = 1 [(buf.validate.field).required = true];
+}
+
+message DeleteDeviceResponse {
+  string deleted_id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+}
+
+enum RegistrationTokenPurpose {
+  REGISTRATION_TOKEN_PURPOSE_UNSPECIFIED = 0;
+  REGISTRATION_TOKEN_PURPOSE_AGENT = 1;
+  REGISTRATION_TOKEN_PURPOSE_GATEWAY = 2;
+}
+
+enum RegistrationTokenState {
+  REGISTRATION_TOKEN_STATE_UNSPECIFIED = 0;
+  REGISTRATION_TOKEN_STATE_ACTIVE = 1;
+  REGISTRATION_TOKEN_STATE_DISABLED = 2;
+}
+
+message RegistrationToken {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  RegistrationTokenPurpose purpose = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  repeated string dns_names = 3 [(buf.validate.field).repeated = {
+    max_items: 32
+    unique: true
+    items: {
+      string: {
+        min_len: 1
+        max_len: 253
+      }
+    }
+  }];
+  uint32 max_uses = 4 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 1000000
+  }];
+  uint32 uses = 5 [(buf.validate.field).uint32.lte = 1000000];
+  google.protobuf.Timestamp expires_at = 6 [(buf.validate.field).required = true];
+  string owner = 7 [(buf.validate.field).string.max_len = 256];
+  RegistrationTokenState state = 8 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  uint64 version = 9 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message CreateRegistrationTokenRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  RegistrationTokenPurpose purpose = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  repeated string dns_names = 3 [(buf.validate.field).repeated = {
+    max_items: 32
+    unique: true
+    items: {
+      string: {
+        min_len: 1
+        max_len: 253
+      }
+    }
+  }];
+  uint32 max_uses = 4 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 1000000
+  }];
+  google.protobuf.Timestamp expires_at = 5 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).timestamp.gt_now = true
+  ];
+  string owner = 6 [(buf.validate.field).string.max_len = 256];
+}
+
+message GetRegistrationTokenRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+}
+
+message ListRegistrationTokensRequest {
+  uint32 limit = 1 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 200
+  }];
+}
+
+message UpdateRegistrationTokenRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  uint32 max_uses = 2 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 1000000
+  }];
+  google.protobuf.Timestamp expires_at = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).timestamp.gt_now = true
+  ];
+  string owner = 4 [(buf.validate.field).string.max_len = 256];
+  RegistrationTokenState state = 5 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  uint64 expected_version = 6 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message DeleteRegistrationTokenRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  uint64 expected_version = 2 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message CreateRegistrationTokenResponse {
+  RegistrationToken registration_token = 1 [(buf.validate.field).required = true];
+  string credential = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 512
+  }];
+}
+
+message GetRegistrationTokenResponse {
+  RegistrationToken registration_token = 1 [(buf.validate.field).required = true];
+}
+
+message ListRegistrationTokensResponse {
+  repeated RegistrationToken registration_tokens = 1 [(buf.validate.field).repeated.max_items = 200];
+}
+
+message UpdateRegistrationTokenResponse {
+  RegistrationToken registration_token = 1 [(buf.validate.field).required = true];
+}
+
+message DeleteRegistrationTokenResponse {
+  string deleted_id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+}
+
+enum ApiTokenState {
+  API_TOKEN_STATE_UNSPECIFIED = 0;
+  API_TOKEN_STATE_ACTIVE = 1;
+  API_TOKEN_STATE_REVOKED = 2;
+}
+
+message ApiToken {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string subject_id = 2 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  repeated string scopes = 3 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 64
+    unique: true
+    items: {
+      string: {
+        pattern: "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$"
+        max_len: 128
+      }
+    }
+  }];
+  google.protobuf.Timestamp expires_at = 4 [(buf.validate.field).required = true];
+  ApiTokenState state = 5 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  uint64 version = 6 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message CreateApiTokenRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string subject_id = 2 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  repeated string scopes = 3 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 64
+    unique: true
+    items: {
+      string: {
+        pattern: "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$"
+        max_len: 128
+      }
+    }
+  }];
+  google.protobuf.Timestamp expires_at = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).timestamp.gt_now = true
+  ];
+}
+
+message GetApiTokenRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+}
+
+message ListApiTokensRequest {
+  uint32 limit = 1 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 200
+  }];
+}
+
+message UpdateApiTokenRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string subject_id = 2 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  repeated string scopes = 3 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 64
+    unique: true
+    items: {
+      string: {
+        pattern: "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$"
+        max_len: 128
+      }
+    }
+  }];
+  google.protobuf.Timestamp expires_at = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).timestamp.gt_now = true
+  ];
+  ApiTokenState state = 5 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  uint64 expected_version = 6 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message DeleteApiTokenRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  uint64 expected_version = 2 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message CreateApiTokenResponse {
+  ApiToken api_token = 1 [(buf.validate.field).required = true];
+  string credential = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 512
+  }];
+}
+
+message GetApiTokenResponse {
+  ApiToken api_token = 1 [(buf.validate.field).required = true];
+}
+
+message ListApiTokensResponse {
+  repeated ApiToken api_tokens = 1 [(buf.validate.field).repeated.max_items = 200];
+}
+
+message UpdateApiTokenResponse {
+  ApiToken api_token = 1 [(buf.validate.field).required = true];
+}
+
+message DeleteApiTokenResponse {
+  string deleted_id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+}
+
+enum EmailAssertionPolicy {
+  EMAIL_ASSERTION_POLICY_UNSPECIFIED = 0;
+  EMAIL_ASSERTION_POLICY_REQUIRE_EXPLICIT_LINK = 1;
+  EMAIL_ASSERTION_POLICY_TRUST_VERIFIED_EMAIL = 2;
+}
+
+enum IdentityProviderState {
+  IDENTITY_PROVIDER_STATE_UNSPECIFIED = 0;
+  IDENTITY_PROVIDER_STATE_ENABLED = 1;
+  IDENTITY_PROVIDER_STATE_DISABLED = 2;
+}
+
+message IdentityProvider {
+  string id = 1 [(buf.validate.field).string = {
+    pattern: "^[a-z][a-z0-9-]*$"
+    max_len: 64
+  }];
+  string issuer = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 2048
+  }];
+  string client_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 512
+  }];
+  string authorization_endpoint = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 2048
+  }];
+  string token_endpoint = 5 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 2048
+  }];
+  string jwks_uri = 6 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 2048
+  }];
+  repeated string redirect_uris = 7 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 32
+    unique: true
+    items: {
+      string: {
+        min_len: 1
+        max_len: 2048
+      }
+    }
+  }];
+  EmailAssertionPolicy email_assertion_policy = 8 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  IdentityProviderState state = 9 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  uint64 version = 10 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message CreateIdentityProviderRequest {
+  string id = 1 [(buf.validate.field).string = {
+    pattern: "^[a-z][a-z0-9-]*$"
+    max_len: 64
+  }];
+  string issuer = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 2048
+  }];
+  string client_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 512
+  }];
+  string authorization_endpoint = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 2048
+  }];
+  string token_endpoint = 5 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 2048
+  }];
+  string jwks_uri = 6 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 2048
+  }];
+  repeated string redirect_uris = 7 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 32
+    unique: true
+    items: {
+      string: {
+        min_len: 1
+        max_len: 2048
+      }
+    }
+  }];
+  EmailAssertionPolicy email_assertion_policy = 8 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+}
+
+message GetIdentityProviderRequest {
+  string id = 1 [(buf.validate.field).string = {
+    pattern: "^[a-z][a-z0-9-]*$"
+    max_len: 64
+  }];
+}
+
+message ListIdentityProvidersRequest {
+  uint32 limit = 1 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 200
+  }];
+}
+
+message UpdateIdentityProviderRequest {
+  string id = 1 [(buf.validate.field).string = {
+    pattern: "^[a-z][a-z0-9-]*$"
+    max_len: 64
+  }];
+  string issuer = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 2048
+  }];
+  string client_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 512
+  }];
+  string authorization_endpoint = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 2048
+  }];
+  string token_endpoint = 5 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 2048
+  }];
+  string jwks_uri = 6 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 2048
+  }];
+  repeated string redirect_uris = 7 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 32
+    unique: true
+    items: {
+      string: {
+        min_len: 1
+        max_len: 2048
+      }
+    }
+  }];
+  EmailAssertionPolicy email_assertion_policy = 8 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  IdentityProviderState state = 9 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  uint64 expected_version = 10 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message DeleteIdentityProviderRequest {
+  string id = 1 [(buf.validate.field).string = {
+    pattern: "^[a-z][a-z0-9-]*$"
+    max_len: 64
+  }];
+  uint64 expected_version = 2 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message CreateIdentityProviderResponse {
+  IdentityProvider identity_provider = 1 [(buf.validate.field).required = true];
+}
+
+message GetIdentityProviderResponse {
+  IdentityProvider identity_provider = 1 [(buf.validate.field).required = true];
+}
+
+message ListIdentityProvidersResponse {
+  repeated IdentityProvider identity_providers = 1 [(buf.validate.field).repeated.max_items = 200];
+}
+
+message UpdateIdentityProviderResponse {
+  IdentityProvider identity_provider = 1 [(buf.validate.field).required = true];
+}
+
+message DeleteIdentityProviderResponse {
+  string deleted_id = 1 [(buf.validate.field).string = {
+    pattern: "^[a-z][a-z0-9-]*$"
+    max_len: 64
+  }];
+}
+
+enum ScimConfigurationState {
+  SCIM_CONFIGURATION_STATE_UNSPECIFIED = 0;
+  SCIM_CONFIGURATION_STATE_ENABLED = 1;
+  SCIM_CONFIGURATION_STATE_DISABLED = 2;
+}
+
+enum ScimCredentialAction {
+  SCIM_CREDENTIAL_ACTION_UNSPECIFIED = 0;
+  SCIM_CREDENTIAL_ACTION_KEEP = 1;
+  SCIM_CREDENTIAL_ACTION_ROTATE = 2;
+}
+
+message ScimConfiguration {
+  string id = 1 [(buf.validate.field).string = {
+    pattern: "^[a-z][a-z0-9-]*$"
+    max_len: 64
+  }];
+  ScimConfigurationState state = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  uint64 version = 3 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message CreateScimConfigurationRequest {
+  string provider_slug = 1 [(buf.validate.field).string = {
+    pattern: "^[a-z][a-z0-9-]*$"
+    max_len: 64
+  }];
+}
+
+message GetScimConfigurationRequest {
+  string id = 1 [(buf.validate.field).string = {
+    pattern: "^[a-z][a-z0-9-]*$"
+    max_len: 64
+  }];
+}
+
+message ListScimConfigurationsRequest {
+  uint32 limit = 1 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 200
+  }];
+}
+
+message UpdateScimConfigurationRequest {
+  string id = 1 [(buf.validate.field).string = {
+    pattern: "^[a-z][a-z0-9-]*$"
+    max_len: 64
+  }];
+  ScimConfigurationState state = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  ScimCredentialAction credential_action = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  uint64 expected_version = 4 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message DeleteScimConfigurationRequest {
+  string id = 1 [(buf.validate.field).string = {
+    pattern: "^[a-z][a-z0-9-]*$"
+    max_len: 64
+  }];
+  uint64 expected_version = 2 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message CreateScimConfigurationResponse {
+  ScimConfiguration scim_configuration = 1 [(buf.validate.field).required = true];
+  string credential = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 256
+  }];
+}
+
+message GetScimConfigurationResponse {
+  ScimConfiguration scim_configuration = 1 [(buf.validate.field).required = true];
+}
+
+message ListScimConfigurationsResponse {
+  repeated ScimConfiguration scim_configurations = 1 [(buf.validate.field).repeated.max_items = 200];
+}
+
+message UpdateScimConfigurationResponse {
+  ScimConfiguration scim_configuration = 1 [(buf.validate.field).required = true];
+  string credential = 2 [(buf.validate.field).string.max_len = 256];
+}
+
+message DeleteScimConfigurationResponse {
+  string deleted_id = 1 [(buf.validate.field).string = {
+    pattern: "^[a-z][a-z0-9-]*$"
+    max_len: 64
+  }];
+}
+
+message ServerSetting {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string value = 3 [(buf.validate.field).string.max_len = 4096];
+  uint64 version = 4 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message CreateServerSettingRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string value = 3 [(buf.validate.field).string.max_len = 4096];
+}
+
+message GetServerSettingRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+}
+
+message ListServerSettingsRequest {
+  uint32 limit = 1 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 200
+  }];
+}
+
+message UpdateServerSettingRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string value = 3 [(buf.validate.field).string.max_len = 4096];
+  uint64 expected_version = 4 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message DeleteServerSettingRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  uint64 expected_version = 2 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message CreateServerSettingResponse {
+  ServerSetting server_setting = 1 [(buf.validate.field).required = true];
+}
+
+message GetServerSettingResponse {
+  ServerSetting server_setting = 1 [(buf.validate.field).required = true];
+}
+
+message ListServerSettingsResponse {
+  repeated ServerSetting server_settings = 1 [(buf.validate.field).repeated.max_items = 200];
+}
+
+message UpdateServerSettingResponse {
+  ServerSetting server_setting = 1 [(buf.validate.field).required = true];
+}
+
+message DeleteServerSettingResponse {
+  string deleted_id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+}
+
+message ManagedAction {
+  Action action = 1 [(buf.validate.field).required = true];
+  uint64 version = 2 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message CreateActionRequest {
+  Action action = 1 [(buf.validate.field).required = true];
+}
+
+message GetActionRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+}
+
+message ListActionsRequest {
+  uint32 limit = 1 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 200
+  }];
+}
+
+message UpdateActionRequest {
+  Action action = 1 [(buf.validate.field).required = true];
+  uint64 expected_version = 2 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message DeleteActionRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  uint64 expected_version = 2 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message CreateActionResponse {
+  ManagedAction managed_action = 1 [(buf.validate.field).required = true];
+}
+
+message GetActionResponse {
+  ManagedAction managed_action = 1 [(buf.validate.field).required = true];
+}
+
+message ListActionsResponse {
+  repeated ManagedAction managed_actions = 1 [(buf.validate.field).repeated.max_items = 200];
+}
+
+message UpdateActionResponse {
+  ManagedAction managed_action = 1 [(buf.validate.field).required = true];
+}
+
+message DeleteActionResponse {
+  string deleted_id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+}
+
+message ActionSet {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+  }];
+  uint64 version = 3 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message CreateActionSetRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+  }];
+}
+
+message GetActionSetRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+}
+
+message ListActionSetsRequest {
+  uint32 limit = 1 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 200
+  }];
+}
+
+message UpdateActionSetRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+  }];
+  uint64 expected_version = 3 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message DeleteActionSetRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  uint64 expected_version = 2 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message CreateActionSetResponse {
+  ActionSet action_set = 1 [(buf.validate.field).required = true];
+}
+
+message GetActionSetResponse {
+  ActionSet action_set = 1 [(buf.validate.field).required = true];
+}
+
+message ListActionSetsResponse {
+  repeated ActionSet action_sets = 1 [(buf.validate.field).repeated.max_items = 200];
+}
+
+message UpdateActionSetResponse {
+  ActionSet action_set = 1 [(buf.validate.field).required = true];
+}
+
+message DeleteActionSetResponse {
+  string deleted_id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+}
+
+enum AssignmentSourceKind {
+  ASSIGNMENT_SOURCE_KIND_UNSPECIFIED = 0;
+  ASSIGNMENT_SOURCE_KIND_ACTION = 1;
+  ASSIGNMENT_SOURCE_KIND_ACTION_SET = 2;
+}
+
+enum AssignmentTargetKind {
+  ASSIGNMENT_TARGET_KIND_UNSPECIFIED = 0;
+  ASSIGNMENT_TARGET_KIND_DEVICE = 1;
+  ASSIGNMENT_TARGET_KIND_USER = 2;
+  ASSIGNMENT_TARGET_KIND_DEVICE_GROUP = 3;
+  ASSIGNMENT_TARGET_KIND_USER_GROUP = 4;
+}
+
+enum AssignmentMode {
+  ASSIGNMENT_MODE_UNSPECIFIED = 0;
+  ASSIGNMENT_MODE_APPLY = 1;
+  ASSIGNMENT_MODE_UNINSTALL = 2;
+}
+
+message Assignment {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  AssignmentSourceKind source_kind = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  string source_id = 3 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  AssignmentTargetKind target_kind = 4 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  string target_id = 5 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  AssignmentMode mode = 6 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  uint64 version = 7 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message CreateAssignmentRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  AssignmentSourceKind source_kind = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  string source_id = 3 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  AssignmentTargetKind target_kind = 4 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  string target_id = 5 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  AssignmentMode mode = 6 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+}
+
+message GetAssignmentRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+}
+
+message ListAssignmentsRequest {
+  uint32 limit = 1 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 200
+  }];
+}
+
+message DeleteAssignmentRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  uint64 expected_version = 2 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message CreateAssignmentResponse {
+  Assignment assignment = 1 [(buf.validate.field).required = true];
+}
+
+message GetAssignmentResponse {
+  Assignment assignment = 1 [(buf.validate.field).required = true];
+}
+
+message ListAssignmentsResponse {
+  repeated Assignment assignments = 1 [(buf.validate.field).repeated.max_items = 200];
+}
+
+message DeleteAssignmentResponse {
+  string deleted_id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+}
+
+message CompliancePolicy {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+  }];
+  repeated string rule_action_ids = 3 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 256
+    unique: true
+    items: {
+      string: {
+        pattern: "^[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+      }
+    }
+  }];
+  uint32 grace_hours = 4 [(buf.validate.field).uint32.lte = 8760];
+  uint64 version = 5 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message CreateCompliancePolicyRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+  }];
+  repeated string rule_action_ids = 3 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 256
+    unique: true
+    items: {
+      string: {
+        pattern: "^[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+      }
+    }
+  }];
+  uint32 grace_hours = 4 [(buf.validate.field).uint32.lte = 8760];
+}
+
+message GetCompliancePolicyRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+}
+
+message ListCompliancePoliciesRequest {
+  uint32 limit = 1 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 200
+  }];
+}
+
+message UpdateCompliancePolicyRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+  }];
+  repeated string rule_action_ids = 3 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 256
+    unique: true
+    items: {
+      string: {
+        pattern: "^[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+      }
+    }
+  }];
+  uint32 grace_hours = 4 [(buf.validate.field).uint32.lte = 8760];
+  uint64 expected_version = 5 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message DeleteCompliancePolicyRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  uint64 expected_version = 2 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message CreateCompliancePolicyResponse {
+  CompliancePolicy compliance_policy = 1 [(buf.validate.field).required = true];
+}
+
+message GetCompliancePolicyResponse {
+  CompliancePolicy compliance_policy = 1 [(buf.validate.field).required = true];
+}
+
+message ListCompliancePoliciesResponse {
+  repeated CompliancePolicy compliance_policies = 1 [(buf.validate.field).repeated.max_items = 200];
+}
+
+message UpdateCompliancePolicyResponse {
+  CompliancePolicy compliance_policy = 1 [(buf.validate.field).required = true];
+}
+
+message DeleteCompliancePolicyResponse {
+  string deleted_id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+}
+
+message AuditEvent {
+  string stream_type = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  string stream_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  uint64 stream_version = 3 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+  string event_type = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 128
+  }];
+  uint32 payload_version = 5 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 2147483647
+  }];
+  google.protobuf.Timestamp created_at = 6 [(buf.validate.field).required = true];
+  uint64 global_position = 7 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message ListAuditEventsRequest {
+  uint32 limit = 1 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 200
+  }];
+}
+
+message ListAuditEventsResponse {
+  repeated AuditEvent audit_events = 1 [(buf.validate.field).repeated.max_items = 200];
+}
+
+message Execution {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string device_id = 2 [
+    (buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE,
+    (buf.validate.field).string.(powermanage.v1.ulid) = true
+  ];
+  uint64 output_bytes = 3 [(buf.validate.field).uint64.lte = 10485760];
+  uint32 output_chunks = 4 [(buf.validate.field).uint32.lte = 1024];
+  bool truncated = 5 [(buf.validate.field).bool = {}];
+  google.protobuf.Timestamp updated_at = 6 [(buf.validate.field).required = true];
+}
+
+message GetExecutionRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+}
+
+message ListExecutionsRequest {
+  uint32 limit = 1 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 200
+  }];
+}
+
+message GetExecutionResponse {
+  Execution execution = 1 [(buf.validate.field).required = true];
+}
+
+message ListExecutionsResponse {
+  repeated Execution executions = 1 [(buf.validate.field).repeated.max_items = 200];
+}
+
+message InventorySnapshot {
+  string agent_id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  uint64 version = 2 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+  uint32 payload_version = 3 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 2147483647
+  }];
+  bytes snapshot = 4 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 2097152
+  }];
+  google.protobuf.Timestamp updated_at = 5 [(buf.validate.field).required = true];
+}
+
+message GetInventorySnapshotRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+}
+
+message ListInventorySnapshotsRequest {
+  uint32 limit = 1 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 200
+  }];
+}
+
+message GetInventorySnapshotResponse {
+  InventorySnapshot inventory_snapshot = 1 [(buf.validate.field).required = true];
+}
+
+message ListInventorySnapshotsResponse {
+  repeated InventorySnapshot inventory_snapshots = 1 [(buf.validate.field).repeated.max_items = 200];
+}
+
+enum GatewayState {
+  GATEWAY_STATE_UNSPECIFIED = 0;
+  GATEWAY_STATE_ACTIVE = 1;
+  GATEWAY_STATE_REVOKED = 2;
+}
+
+message Gateway {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  bytes certificate_fingerprint = 2 [(buf.validate.field).bytes.len = 32];
+  string registration_token_id = 3 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string owner = 4 [(buf.validate.field).string.max_len = 256];
+  repeated string dns_names = 5 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 64
+    unique: true
+    items: {
+      string: {
+        min_len: 1
+        max_len: 253
+      }
+    }
+  }];
+  GatewayState state = 6 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  uint64 version = 7 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+  google.protobuf.Timestamp updated_at = 8 [(buf.validate.field).required = true];
+}
+
+message GetGatewayRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+}
+
+message ListGatewaysRequest {
+  uint32 limit = 1 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 200
+  }];
+}
+
+message GetGatewayResponse {
+  Gateway gateway = 1 [(buf.validate.field).required = true];
+}
+
+message ListGatewaysResponse {
+  repeated Gateway gateways = 1 [(buf.validate.field).repeated.max_items = 200];
+}

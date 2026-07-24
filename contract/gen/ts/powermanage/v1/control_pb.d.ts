@@ -8,6 +8,7 @@
 
 import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
 import type { Message } from "@bufbuild/protobuf";
+import type { CreateActionRequestSchema, CreateActionResponseSchema, CreateActionSetRequestSchema, CreateActionSetResponseSchema, CreateApiTokenRequestSchema, CreateApiTokenResponseSchema, CreateAssignmentRequestSchema, CreateAssignmentResponseSchema, CreateCompliancePolicyRequestSchema, CreateCompliancePolicyResponseSchema, CreateGrantRequestSchema, CreateGrantResponseSchema, CreateIdentityProviderRequestSchema, CreateIdentityProviderResponseSchema, CreateRegistrationTokenRequestSchema, CreateRegistrationTokenResponseSchema, CreateRoleRequestSchema, CreateRoleResponseSchema, CreateScimConfigurationRequestSchema, CreateScimConfigurationResponseSchema, CreateServerSettingRequestSchema, CreateServerSettingResponseSchema, CreateUserGroupRequestSchema, CreateUserGroupResponseSchema, CreateUserRequestSchema, CreateUserResponseSchema, DeleteActionRequestSchema, DeleteActionResponseSchema, DeleteActionSetRequestSchema, DeleteActionSetResponseSchema, DeleteApiTokenRequestSchema, DeleteApiTokenResponseSchema, DeleteAssignmentRequestSchema, DeleteAssignmentResponseSchema, DeleteCompliancePolicyRequestSchema, DeleteCompliancePolicyResponseSchema, DeleteDeviceRequestSchema, DeleteDeviceResponseSchema, DeleteGrantRequestSchema, DeleteGrantResponseSchema, DeleteIdentityProviderRequestSchema, DeleteIdentityProviderResponseSchema, DeleteRegistrationTokenRequestSchema, DeleteRegistrationTokenResponseSchema, DeleteRoleRequestSchema, DeleteRoleResponseSchema, DeleteScimConfigurationRequestSchema, DeleteScimConfigurationResponseSchema, DeleteServerSettingRequestSchema, DeleteServerSettingResponseSchema, DeleteUserGroupRequestSchema, DeleteUserGroupResponseSchema, DeleteUserRequestSchema, DeleteUserResponseSchema, GetActionRequestSchema, GetActionResponseSchema, GetActionSetRequestSchema, GetActionSetResponseSchema, GetApiTokenRequestSchema, GetApiTokenResponseSchema, GetAssignmentRequestSchema, GetAssignmentResponseSchema, GetCompliancePolicyRequestSchema, GetCompliancePolicyResponseSchema, GetDeviceRequestSchema, GetDeviceResponseSchema, GetExecutionRequestSchema, GetExecutionResponseSchema, GetGatewayRequestSchema, GetGatewayResponseSchema, GetGrantRequestSchema, GetGrantResponseSchema, GetIdentityProviderRequestSchema, GetIdentityProviderResponseSchema, GetInventorySnapshotRequestSchema, GetInventorySnapshotResponseSchema, GetRegistrationTokenRequestSchema, GetRegistrationTokenResponseSchema, GetRoleRequestSchema, GetRoleResponseSchema, GetScimConfigurationRequestSchema, GetScimConfigurationResponseSchema, GetServerSettingRequestSchema, GetServerSettingResponseSchema, GetUserGroupRequestSchema, GetUserGroupResponseSchema, GetUserRequestSchema, GetUserResponseSchema, ListActionSetsRequestSchema, ListActionSetsResponseSchema, ListActionsRequestSchema, ListActionsResponseSchema, ListApiTokensRequestSchema, ListApiTokensResponseSchema, ListAssignmentsRequestSchema, ListAssignmentsResponseSchema, ListAuditEventsRequestSchema, ListAuditEventsResponseSchema, ListCompliancePoliciesRequestSchema, ListCompliancePoliciesResponseSchema, ListDevicesRequestSchema, ListDevicesResponseSchema, ListExecutionsRequestSchema, ListExecutionsResponseSchema, ListGatewaysRequestSchema, ListGatewaysResponseSchema, ListGrantsRequestSchema, ListGrantsResponseSchema, ListIdentityProvidersRequestSchema, ListIdentityProvidersResponseSchema, ListInventorySnapshotsRequestSchema, ListInventorySnapshotsResponseSchema, ListRegistrationTokensRequestSchema, ListRegistrationTokensResponseSchema, ListRolesRequestSchema, ListRolesResponseSchema, ListScimConfigurationsRequestSchema, ListScimConfigurationsResponseSchema, ListServerSettingsRequestSchema, ListServerSettingsResponseSchema, ListUserGroupsRequestSchema, ListUserGroupsResponseSchema, ListUsersRequestSchema, ListUsersResponseSchema, UpdateActionRequestSchema, UpdateActionResponseSchema, UpdateActionSetRequestSchema, UpdateActionSetResponseSchema, UpdateApiTokenRequestSchema, UpdateApiTokenResponseSchema, UpdateCompliancePolicyRequestSchema, UpdateCompliancePolicyResponseSchema, UpdateDeviceRequestSchema, UpdateDeviceResponseSchema, UpdateGrantRequestSchema, UpdateGrantResponseSchema, UpdateIdentityProviderRequestSchema, UpdateIdentityProviderResponseSchema, UpdateRegistrationTokenRequestSchema, UpdateRegistrationTokenResponseSchema, UpdateRoleRequestSchema, UpdateRoleResponseSchema, UpdateScimConfigurationRequestSchema, UpdateScimConfigurationResponseSchema, UpdateServerSettingRequestSchema, UpdateServerSettingResponseSchema, UpdateUserGroupRequestSchema, UpdateUserGroupResponseSchema, UpdateUserRequestSchema, UpdateUserResponseSchema } from "./management_pb";
 
 /**
  * Describes the file powermanage/v1/control.proto.
@@ -153,6 +154,11 @@ export declare type DeviceGroup = Message<"powermanage.v1.DeviceGroup"> & {
    * @generated from field: uint64 version = 4;
    */
   version: bigint;
+
+  /**
+   * @generated from field: repeated string static_device_ids = 5;
+   */
+  staticDeviceIds: string[];
 };
 
 /**
@@ -179,6 +185,11 @@ export declare type CreateDeviceGroupRequest = Message<"powermanage.v1.CreateDev
    * @generated from field: string dynamic_query = 3;
    */
   dynamicQuery: string;
+
+  /**
+   * @generated from field: repeated string static_device_ids = 4;
+   */
+  staticDeviceIds: string[];
 };
 
 /**
@@ -290,6 +301,11 @@ export declare type UpdateDeviceGroupRequest = Message<"powermanage.v1.UpdateDev
    * @generated from field: uint64 expected_version = 4;
    */
   expectedVersion: bigint;
+
+  /**
+   * @generated from field: repeated string static_device_ids = 5;
+   */
+  staticDeviceIds: string[];
 };
 
 /**
@@ -418,6 +434,606 @@ export declare const ControlService: GenService<{
     methodKind: "unary";
     input: typeof DeleteDeviceGroupRequestSchema;
     output: typeof DeleteDeviceGroupResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.CreateUser
+   */
+  createUser: {
+    methodKind: "unary";
+    input: typeof CreateUserRequestSchema;
+    output: typeof CreateUserResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.GetUser
+   */
+  getUser: {
+    methodKind: "unary";
+    input: typeof GetUserRequestSchema;
+    output: typeof GetUserResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.ListUsers
+   */
+  listUsers: {
+    methodKind: "unary";
+    input: typeof ListUsersRequestSchema;
+    output: typeof ListUsersResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.UpdateUser
+   */
+  updateUser: {
+    methodKind: "unary";
+    input: typeof UpdateUserRequestSchema;
+    output: typeof UpdateUserResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.DeleteUser
+   */
+  deleteUser: {
+    methodKind: "unary";
+    input: typeof DeleteUserRequestSchema;
+    output: typeof DeleteUserResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.CreateRole
+   */
+  createRole: {
+    methodKind: "unary";
+    input: typeof CreateRoleRequestSchema;
+    output: typeof CreateRoleResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.GetRole
+   */
+  getRole: {
+    methodKind: "unary";
+    input: typeof GetRoleRequestSchema;
+    output: typeof GetRoleResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.ListRoles
+   */
+  listRoles: {
+    methodKind: "unary";
+    input: typeof ListRolesRequestSchema;
+    output: typeof ListRolesResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.UpdateRole
+   */
+  updateRole: {
+    methodKind: "unary";
+    input: typeof UpdateRoleRequestSchema;
+    output: typeof UpdateRoleResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.DeleteRole
+   */
+  deleteRole: {
+    methodKind: "unary";
+    input: typeof DeleteRoleRequestSchema;
+    output: typeof DeleteRoleResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.CreateGrant
+   */
+  createGrant: {
+    methodKind: "unary";
+    input: typeof CreateGrantRequestSchema;
+    output: typeof CreateGrantResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.GetGrant
+   */
+  getGrant: {
+    methodKind: "unary";
+    input: typeof GetGrantRequestSchema;
+    output: typeof GetGrantResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.ListGrants
+   */
+  listGrants: {
+    methodKind: "unary";
+    input: typeof ListGrantsRequestSchema;
+    output: typeof ListGrantsResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.UpdateGrant
+   */
+  updateGrant: {
+    methodKind: "unary";
+    input: typeof UpdateGrantRequestSchema;
+    output: typeof UpdateGrantResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.DeleteGrant
+   */
+  deleteGrant: {
+    methodKind: "unary";
+    input: typeof DeleteGrantRequestSchema;
+    output: typeof DeleteGrantResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.CreateUserGroup
+   */
+  createUserGroup: {
+    methodKind: "unary";
+    input: typeof CreateUserGroupRequestSchema;
+    output: typeof CreateUserGroupResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.GetUserGroup
+   */
+  getUserGroup: {
+    methodKind: "unary";
+    input: typeof GetUserGroupRequestSchema;
+    output: typeof GetUserGroupResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.ListUserGroups
+   */
+  listUserGroups: {
+    methodKind: "unary";
+    input: typeof ListUserGroupsRequestSchema;
+    output: typeof ListUserGroupsResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.UpdateUserGroup
+   */
+  updateUserGroup: {
+    methodKind: "unary";
+    input: typeof UpdateUserGroupRequestSchema;
+    output: typeof UpdateUserGroupResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.DeleteUserGroup
+   */
+  deleteUserGroup: {
+    methodKind: "unary";
+    input: typeof DeleteUserGroupRequestSchema;
+    output: typeof DeleteUserGroupResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.GetDevice
+   */
+  getDevice: {
+    methodKind: "unary";
+    input: typeof GetDeviceRequestSchema;
+    output: typeof GetDeviceResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.ListDevices
+   */
+  listDevices: {
+    methodKind: "unary";
+    input: typeof ListDevicesRequestSchema;
+    output: typeof ListDevicesResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.UpdateDevice
+   */
+  updateDevice: {
+    methodKind: "unary";
+    input: typeof UpdateDeviceRequestSchema;
+    output: typeof UpdateDeviceResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.DeleteDevice
+   */
+  deleteDevice: {
+    methodKind: "unary";
+    input: typeof DeleteDeviceRequestSchema;
+    output: typeof DeleteDeviceResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.CreateRegistrationToken
+   */
+  createRegistrationToken: {
+    methodKind: "unary";
+    input: typeof CreateRegistrationTokenRequestSchema;
+    output: typeof CreateRegistrationTokenResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.GetRegistrationToken
+   */
+  getRegistrationToken: {
+    methodKind: "unary";
+    input: typeof GetRegistrationTokenRequestSchema;
+    output: typeof GetRegistrationTokenResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.ListRegistrationTokens
+   */
+  listRegistrationTokens: {
+    methodKind: "unary";
+    input: typeof ListRegistrationTokensRequestSchema;
+    output: typeof ListRegistrationTokensResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.UpdateRegistrationToken
+   */
+  updateRegistrationToken: {
+    methodKind: "unary";
+    input: typeof UpdateRegistrationTokenRequestSchema;
+    output: typeof UpdateRegistrationTokenResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.DeleteRegistrationToken
+   */
+  deleteRegistrationToken: {
+    methodKind: "unary";
+    input: typeof DeleteRegistrationTokenRequestSchema;
+    output: typeof DeleteRegistrationTokenResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.CreateApiToken
+   */
+  createApiToken: {
+    methodKind: "unary";
+    input: typeof CreateApiTokenRequestSchema;
+    output: typeof CreateApiTokenResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.GetApiToken
+   */
+  getApiToken: {
+    methodKind: "unary";
+    input: typeof GetApiTokenRequestSchema;
+    output: typeof GetApiTokenResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.ListApiTokens
+   */
+  listApiTokens: {
+    methodKind: "unary";
+    input: typeof ListApiTokensRequestSchema;
+    output: typeof ListApiTokensResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.UpdateApiToken
+   */
+  updateApiToken: {
+    methodKind: "unary";
+    input: typeof UpdateApiTokenRequestSchema;
+    output: typeof UpdateApiTokenResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.DeleteApiToken
+   */
+  deleteApiToken: {
+    methodKind: "unary";
+    input: typeof DeleteApiTokenRequestSchema;
+    output: typeof DeleteApiTokenResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.CreateIdentityProvider
+   */
+  createIdentityProvider: {
+    methodKind: "unary";
+    input: typeof CreateIdentityProviderRequestSchema;
+    output: typeof CreateIdentityProviderResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.GetIdentityProvider
+   */
+  getIdentityProvider: {
+    methodKind: "unary";
+    input: typeof GetIdentityProviderRequestSchema;
+    output: typeof GetIdentityProviderResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.ListIdentityProviders
+   */
+  listIdentityProviders: {
+    methodKind: "unary";
+    input: typeof ListIdentityProvidersRequestSchema;
+    output: typeof ListIdentityProvidersResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.UpdateIdentityProvider
+   */
+  updateIdentityProvider: {
+    methodKind: "unary";
+    input: typeof UpdateIdentityProviderRequestSchema;
+    output: typeof UpdateIdentityProviderResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.DeleteIdentityProvider
+   */
+  deleteIdentityProvider: {
+    methodKind: "unary";
+    input: typeof DeleteIdentityProviderRequestSchema;
+    output: typeof DeleteIdentityProviderResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.CreateScimConfiguration
+   */
+  createScimConfiguration: {
+    methodKind: "unary";
+    input: typeof CreateScimConfigurationRequestSchema;
+    output: typeof CreateScimConfigurationResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.GetScimConfiguration
+   */
+  getScimConfiguration: {
+    methodKind: "unary";
+    input: typeof GetScimConfigurationRequestSchema;
+    output: typeof GetScimConfigurationResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.ListScimConfigurations
+   */
+  listScimConfigurations: {
+    methodKind: "unary";
+    input: typeof ListScimConfigurationsRequestSchema;
+    output: typeof ListScimConfigurationsResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.UpdateScimConfiguration
+   */
+  updateScimConfiguration: {
+    methodKind: "unary";
+    input: typeof UpdateScimConfigurationRequestSchema;
+    output: typeof UpdateScimConfigurationResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.DeleteScimConfiguration
+   */
+  deleteScimConfiguration: {
+    methodKind: "unary";
+    input: typeof DeleteScimConfigurationRequestSchema;
+    output: typeof DeleteScimConfigurationResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.CreateServerSetting
+   */
+  createServerSetting: {
+    methodKind: "unary";
+    input: typeof CreateServerSettingRequestSchema;
+    output: typeof CreateServerSettingResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.GetServerSetting
+   */
+  getServerSetting: {
+    methodKind: "unary";
+    input: typeof GetServerSettingRequestSchema;
+    output: typeof GetServerSettingResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.ListServerSettings
+   */
+  listServerSettings: {
+    methodKind: "unary";
+    input: typeof ListServerSettingsRequestSchema;
+    output: typeof ListServerSettingsResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.UpdateServerSetting
+   */
+  updateServerSetting: {
+    methodKind: "unary";
+    input: typeof UpdateServerSettingRequestSchema;
+    output: typeof UpdateServerSettingResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.DeleteServerSetting
+   */
+  deleteServerSetting: {
+    methodKind: "unary";
+    input: typeof DeleteServerSettingRequestSchema;
+    output: typeof DeleteServerSettingResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.CreateAction
+   */
+  createAction: {
+    methodKind: "unary";
+    input: typeof CreateActionRequestSchema;
+    output: typeof CreateActionResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.GetAction
+   */
+  getAction: {
+    methodKind: "unary";
+    input: typeof GetActionRequestSchema;
+    output: typeof GetActionResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.ListActions
+   */
+  listActions: {
+    methodKind: "unary";
+    input: typeof ListActionsRequestSchema;
+    output: typeof ListActionsResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.UpdateAction
+   */
+  updateAction: {
+    methodKind: "unary";
+    input: typeof UpdateActionRequestSchema;
+    output: typeof UpdateActionResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.DeleteAction
+   */
+  deleteAction: {
+    methodKind: "unary";
+    input: typeof DeleteActionRequestSchema;
+    output: typeof DeleteActionResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.CreateActionSet
+   */
+  createActionSet: {
+    methodKind: "unary";
+    input: typeof CreateActionSetRequestSchema;
+    output: typeof CreateActionSetResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.GetActionSet
+   */
+  getActionSet: {
+    methodKind: "unary";
+    input: typeof GetActionSetRequestSchema;
+    output: typeof GetActionSetResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.ListActionSets
+   */
+  listActionSets: {
+    methodKind: "unary";
+    input: typeof ListActionSetsRequestSchema;
+    output: typeof ListActionSetsResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.UpdateActionSet
+   */
+  updateActionSet: {
+    methodKind: "unary";
+    input: typeof UpdateActionSetRequestSchema;
+    output: typeof UpdateActionSetResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.DeleteActionSet
+   */
+  deleteActionSet: {
+    methodKind: "unary";
+    input: typeof DeleteActionSetRequestSchema;
+    output: typeof DeleteActionSetResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.CreateAssignment
+   */
+  createAssignment: {
+    methodKind: "unary";
+    input: typeof CreateAssignmentRequestSchema;
+    output: typeof CreateAssignmentResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.GetAssignment
+   */
+  getAssignment: {
+    methodKind: "unary";
+    input: typeof GetAssignmentRequestSchema;
+    output: typeof GetAssignmentResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.ListAssignments
+   */
+  listAssignments: {
+    methodKind: "unary";
+    input: typeof ListAssignmentsRequestSchema;
+    output: typeof ListAssignmentsResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.DeleteAssignment
+   */
+  deleteAssignment: {
+    methodKind: "unary";
+    input: typeof DeleteAssignmentRequestSchema;
+    output: typeof DeleteAssignmentResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.CreateCompliancePolicy
+   */
+  createCompliancePolicy: {
+    methodKind: "unary";
+    input: typeof CreateCompliancePolicyRequestSchema;
+    output: typeof CreateCompliancePolicyResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.GetCompliancePolicy
+   */
+  getCompliancePolicy: {
+    methodKind: "unary";
+    input: typeof GetCompliancePolicyRequestSchema;
+    output: typeof GetCompliancePolicyResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.ListCompliancePolicies
+   */
+  listCompliancePolicies: {
+    methodKind: "unary";
+    input: typeof ListCompliancePoliciesRequestSchema;
+    output: typeof ListCompliancePoliciesResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.UpdateCompliancePolicy
+   */
+  updateCompliancePolicy: {
+    methodKind: "unary";
+    input: typeof UpdateCompliancePolicyRequestSchema;
+    output: typeof UpdateCompliancePolicyResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.DeleteCompliancePolicy
+   */
+  deleteCompliancePolicy: {
+    methodKind: "unary";
+    input: typeof DeleteCompliancePolicyRequestSchema;
+    output: typeof DeleteCompliancePolicyResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.ListAuditEvents
+   */
+  listAuditEvents: {
+    methodKind: "unary";
+    input: typeof ListAuditEventsRequestSchema;
+    output: typeof ListAuditEventsResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.GetExecution
+   */
+  getExecution: {
+    methodKind: "unary";
+    input: typeof GetExecutionRequestSchema;
+    output: typeof GetExecutionResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.ListExecutions
+   */
+  listExecutions: {
+    methodKind: "unary";
+    input: typeof ListExecutionsRequestSchema;
+    output: typeof ListExecutionsResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.GetInventorySnapshot
+   */
+  getInventorySnapshot: {
+    methodKind: "unary";
+    input: typeof GetInventorySnapshotRequestSchema;
+    output: typeof GetInventorySnapshotResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.ListInventorySnapshots
+   */
+  listInventorySnapshots: {
+    methodKind: "unary";
+    input: typeof ListInventorySnapshotsRequestSchema;
+    output: typeof ListInventorySnapshotsResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.GetGateway
+   */
+  getGateway: {
+    methodKind: "unary";
+    input: typeof GetGatewayRequestSchema;
+    output: typeof GetGatewayResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.ListGateways
+   */
+  listGateways: {
+    methodKind: "unary";
+    input: typeof ListGatewaysRequestSchema;
+    output: typeof ListGatewaysResponseSchema;
   },
 }>;
 

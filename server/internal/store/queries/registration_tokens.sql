@@ -50,5 +50,35 @@ SELECT token_id, projection_version, token_hash, purpose, dns_names, max_uses, u
 FROM registration_tokens
 WHERE token_id = $1;
 
+-- name: GetRegistrationTokenMetadata :one
+SELECT token_id, projection_version, purpose, dns_names, max_uses, uses,
+       expires_at, owner, disabled
+FROM registration_tokens
+WHERE token_id = $1;
+
+-- name: ListRegistrationTokens :many
+SELECT token_id, projection_version, purpose, dns_names, max_uses, uses,
+       expires_at, owner, disabled
+FROM registration_tokens
+ORDER BY token_id
+LIMIT sqlc.arg(page_limit);
+
+-- name: ReplaceRegistrationTokenMetadata :execrows
+UPDATE registration_tokens
+SET max_uses = sqlc.arg(max_uses),
+    expires_at = sqlc.arg(expires_at),
+    owner = sqlc.arg(owner),
+    disabled = disabled OR sqlc.arg(disabled)::boolean,
+    projection_version = sqlc.arg(projection_version),
+    updated_at = sqlc.arg(updated_at)
+WHERE token_id = sqlc.arg(token_id)
+  AND projection_version = sqlc.arg(previous_projection_version)
+  AND uses <= sqlc.arg(max_uses);
+
+-- name: DeleteRegistrationTokenProjection :execrows
+DELETE FROM registration_tokens
+WHERE token_id = sqlc.arg(token_id)
+  AND projection_version = sqlc.arg(previous_projection_version);
+
 -- name: ResetRegistrationTokens :exec
 DELETE FROM registration_tokens;

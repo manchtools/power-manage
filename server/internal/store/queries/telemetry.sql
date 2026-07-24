@@ -1,12 +1,22 @@
--- name: EnsureExecutionOutput :exec
+-- name: BindExecutionOutputToDevice :execrows
 INSERT INTO execution_outputs (
     execution_id,
+    device_id,
     output_bytes,
     output_chunks,
     truncated,
     updated_at
-) VALUES ($1, 0, 0, false, clock_timestamp())
-ON CONFLICT (execution_id) DO NOTHING;
+) VALUES (
+    sqlc.arg(execution_id),
+    sqlc.arg(device_id),
+    0,
+    0,
+    false,
+    clock_timestamp()
+)
+ON CONFLICT (execution_id) DO UPDATE
+SET device_id = EXCLUDED.device_id
+WHERE execution_outputs.device_id = EXCLUDED.device_id;
 
 -- name: GetExecutionOutputForUpdate :one
 SELECT output_bytes, output_chunks, truncated

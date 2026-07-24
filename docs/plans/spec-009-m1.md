@@ -62,7 +62,7 @@ Spec milestone: SPEC-009 M1 (`API-1` through `API-4`; AC-1, AC-2).
 
 ## Implementation
 
-<!-- docref: begin src=contract/proto/powermanage/v1/control.proto#ControlService.CreateDeviceGroup:4fb80d95,server/internal/control/crud_kernel.go#CRUDKernel.create:86a90cdc,server/internal/control/crud_kernel.go#CRUDKernel.authorize:6c5ae7b6,server/internal/control/device_groups.go#deviceGroupDomain:66d2a50d,server/internal/store/device_groups.go#DeviceGroupCreatedEvent:26bd76ae,server/internal/store/device_groups.go#projectDeviceGroupUpdated:08a9d60d,server/internal/store/inventory.go#productionRebuildTargets:da889341 -->
+<!-- docref: begin src=contract/proto/powermanage/v1/control.proto#ControlService.CreateDeviceGroup:4fb80d95,server/internal/control/crud_kernel.go#CRUDKernel.create:5d63ce92,server/internal/control/crud_kernel.go#CRUDKernel.authorize:6b428dda,server/internal/control/device_groups.go#deviceGroupDomain:d52db675,server/internal/store/device_groups.go#DeviceGroupCreatedEvent:abd5002f,server/internal/store/device_groups.go#projectDeviceGroupUpdated:0a147d8e,server/internal/store/inventory.go#productionRebuildTargets:7b7ff01b -->
 The ControlService exposes operation-specific device-group RPCs around one
 canonical object shape. Their adapters call the shared kernel, which validates
 descriptor-tagged requests, obtains and verifies the permission decision, and

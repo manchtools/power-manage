@@ -3,6 +3,8 @@ package control
 import (
 	"errors"
 	"fmt"
+	"maps"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -17,6 +19,41 @@ var customControlFlows = map[string]auth.ProcedureClass{
 	powermanagev1connect.ControlServiceCompleteOidcSessionProcedure: auth.ProcedurePublic,
 	powermanagev1connect.ControlServiceRefreshSessionProcedure:      auth.ProcedurePublic,
 	powermanagev1connect.ControlServiceStartOidcSessionProcedure:    auth.ProcedurePublic,
+}
+
+func TestGuard_ManagementDomainInventoryAndOperations(t *testing.T) {
+	expected := map[string][]crudOperation{
+		"actions":             {crudCreate, crudGet, crudList, crudUpdate, crudDelete},
+		"action-sets":         {crudCreate, crudGet, crudList, crudUpdate, crudDelete},
+		"api-tokens":          {crudCreate, crudGet, crudList, crudUpdate, crudDelete},
+		"assignments":         {crudCreate, crudGet, crudList, crudDelete},
+		"audit":               {crudList},
+		"compliance-policies": {crudCreate, crudGet, crudList, crudUpdate, crudDelete},
+		"device-groups":       {crudCreate, crudGet, crudList, crudUpdate, crudDelete},
+		"devices":             {crudGet, crudList, crudUpdate, crudDelete},
+		"executions":          {crudGet, crudList},
+		"gateways":            {crudGet, crudList},
+		"grants":              {crudCreate, crudGet, crudList, crudUpdate, crudDelete},
+		"identity-providers":  {crudCreate, crudGet, crudList, crudUpdate, crudDelete},
+		"inventory":           {crudGet, crudList},
+		"registration-tokens": {crudCreate, crudGet, crudList, crudUpdate, crudDelete},
+		"roles":               {crudCreate, crudGet, crudList, crudUpdate, crudDelete},
+		"scim-configurations": {crudCreate, crudGet, crudList, crudUpdate, crudDelete},
+		"server-settings":     {crudCreate, crudGet, crudList, crudUpdate, crudDelete},
+		"user-groups":         {crudCreate, crudGet, crudList, crudUpdate, crudDelete},
+		"users":               {crudCreate, crudGet, crudList, crudUpdate, crudDelete},
+	}
+	domains := guardtest.Discover(t, "normative management domains", len(expected), func() ([]crudDomain, error) {
+		return managementDomains(nil), nil
+	})
+	actual := make(map[string][]crudOperation, len(domains))
+	for _, domain := range domains {
+		operations := slices.Sorted(maps.Keys(domain.requestMessages))
+		actual[domain.name] = operations
+	}
+	if !reflect.DeepEqual(actual, expected) {
+		t.Fatalf("management domain inventory = %v; want %v", actual, expected)
+	}
 }
 
 func TestGuard_ControlRPCsHaveExactlyOneImplementationClass(t *testing.T) {
@@ -58,8 +95,7 @@ func discoverControlProcedures() ([]string, error) {
 func kernelProcedurePermissions(domains []crudDomain) map[string]string {
 	procedures := make(map[string]string)
 	for _, domain := range domains {
-		for operation := crudCreate; operation <= crudDelete; operation++ {
-			procedure := domain.procedures[operation]
+		for _, procedure := range domain.procedures {
 			if _, duplicate := procedures[procedure]; duplicate {
 				procedures[procedure] = ""
 				continue

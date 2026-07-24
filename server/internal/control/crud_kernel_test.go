@@ -3,6 +3,7 @@ package control
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -245,5 +246,69 @@ func TestCRUDKernel_RejectsIncompleteAndDuplicateRegistrations(t *testing.T) {
 				t.Fatalf("newCRUDKernel error = %v; want %v", err, test.want)
 			}
 		})
+	}
+}
+
+func TestCRUDKernel_AcceptsNormativeOperationSubsets(t *testing.T) {
+	tests := map[string][]crudOperation{
+		"read only":          {crudGet, crudList},
+		"list only":          {crudList},
+		"immutable":          {crudCreate, crudGet, crudList, crudDelete},
+		"externally created": {crudGet, crudList, crudUpdate, crudDelete},
+	}
+	for name, operations := range tests {
+		t.Run(name, func(t *testing.T) {
+			domain := completeKernelTestDeviceGroupDomain(crudDomainStoreFuncs{})
+			domain.requestMessages = cloneRequestMessages(domain.requestMessages)
+			domain.procedures = cloneProcedures(domain.procedures)
+			for operation := crudCreate; operation <= crudDelete; operation++ {
+				if slices.Contains(operations, operation) {
+					continue
+				}
+				delete(domain.requestMessages, operation)
+				delete(domain.procedures, operation)
+				switch operation {
+				case crudCreate:
+					domain.createEvent = nil
+				case crudGet:
+					domain.get = nil
+				case crudList:
+					domain.list = nil
+				case crudUpdate:
+					domain.updateEvent = nil
+				case crudDelete:
+					domain.deleteEvent = nil
+				}
+			}
+			if !domainHasMutation(domain) {
+				domain.projectorEvents = nil
+			}
+			if err := validateCRUDDomain(domain); err != nil {
+				t.Fatalf("validate %s domain: %v", name, err)
+			}
+		})
+	}
+}
+
+func TestCRUDKernel_ScopedCreateRequiresStructuralValidator(t *testing.T) {
+	for _, relation := range []crudScopeRelation{crudScopeUserOwned, crudScopeAssignment} {
+		domain := completeKernelTestDeviceGroupDomain(crudDomainStoreFuncs{})
+		domain.scopeRelation = relation
+		domain.validateScope = nil
+		if err := validateCRUDDomain(domain); !errors.Is(err, errCRUDDomainIncomplete) {
+			t.Fatalf(
+				"relation %d create without scope validator error = %v; want incomplete",
+				relation,
+				err,
+			)
+		}
+	}
+}
+
+func TestCRUDKernel_MutatingDomainRequiresProjectorEvents(t *testing.T) {
+	domain := completeKernelTestDeviceGroupDomain(crudDomainStoreFuncs{})
+	domain.projectorEvents = nil
+	if err := validateCRUDDomain(domain); !errors.Is(err, errCRUDDomainIncomplete) {
+		t.Fatalf("mutation domain without projector events error = %v; want incomplete", err)
 	}
 }
