@@ -39,8 +39,13 @@ type ProcedureAuthorization struct {
 var procedureAuthorizations = map[string]ProcedureAuthorization{
 	powermanagev1connect.AgentServiceStreamProcedure:                   {Class: ProcedureAltAuth},
 	powermanagev1connect.ControlServiceCompleteOidcSessionProcedure:    {Class: ProcedurePublic},
+	powermanagev1connect.ControlServiceCreateDeviceGroupProcedure:      {Class: ProcedurePermissionGated, Permission: "devices.manage"},
+	powermanagev1connect.ControlServiceDeleteDeviceGroupProcedure:      {Class: ProcedurePermissionGated, Permission: "devices.manage"},
+	powermanagev1connect.ControlServiceGetDeviceGroupProcedure:         {Class: ProcedurePermissionGated, Permission: "devices.manage"},
+	powermanagev1connect.ControlServiceListDeviceGroupsProcedure:       {Class: ProcedurePermissionGated, Permission: "devices.manage"},
 	powermanagev1connect.ControlServiceRefreshSessionProcedure:         {Class: ProcedurePublic},
 	powermanagev1connect.ControlServiceStartOidcSessionProcedure:       {Class: ProcedurePublic},
+	powermanagev1connect.ControlServiceUpdateDeviceGroupProcedure:      {Class: ProcedurePermissionGated, Permission: "devices.manage"},
 	powermanagev1connect.InternalServiceStreamProcedure:                {Class: ProcedureAltAuth},
 	powermanagev1connect.InternalServiceValidateTerminalTokenProcedure: {Class: ProcedureAltAuth},
 	powermanagev1connect.PkiServiceEnrollAgentProcedure:                {Class: ProcedurePublic},

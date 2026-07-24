@@ -176,6 +176,16 @@ func productionRebuildTargets() map[string]RebuildTarget {
 			},
 			Reset: resetDevices,
 		},
+		DeviceGroupRebuildTarget: {
+			Tables:      []string{"device_groups"},
+			StreamTypes: []string{deviceGroupStreamType},
+			EventTypes: []string{
+				deviceGroupCreatedEventType,
+				deviceGroupUpdatedEventType,
+				deviceGroupDeletedEventType,
+			},
+			Reset: resetDeviceGroups,
+		},
 		GatewayRebuildTarget: {
 			Tables:       []string{"gateways"},
 			SharedTables: []string{"certificate_revocations"},
@@ -291,6 +301,9 @@ func productionEventDefinitions() map[string]eventDefinition {
 	for eventType, definition := range deviceEventDefinitions() {
 		definitions[eventType] = definition
 	}
+	for eventType, definition := range deviceGroupEventDefinitions() {
+		definitions[eventType] = definition
+	}
 	for eventType, definition := range gatewayEventDefinitions() {
 		definitions[eventType] = definition
 	}
@@ -336,6 +349,9 @@ func goldenEventCorpus() map[string]goldenEvent {
 		corpus[eventType] = event
 	}
 	for eventType, event := range deviceGoldenCorpus() {
+		corpus[eventType] = event
+	}
+	for eventType, event := range deviceGroupGoldenCorpus() {
 		corpus[eventType] = event
 	}
 	for eventType, event := range gatewayGoldenCorpus() {

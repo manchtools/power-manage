@@ -46,6 +46,21 @@ const (
 	// ControlServiceCompleteOidcSessionProcedure is the fully-qualified name of the ControlService's
 	// CompleteOidcSession RPC.
 	ControlServiceCompleteOidcSessionProcedure = "/powermanage.v1.ControlService/CompleteOidcSession"
+	// ControlServiceCreateDeviceGroupProcedure is the fully-qualified name of the ControlService's
+	// CreateDeviceGroup RPC.
+	ControlServiceCreateDeviceGroupProcedure = "/powermanage.v1.ControlService/CreateDeviceGroup"
+	// ControlServiceGetDeviceGroupProcedure is the fully-qualified name of the ControlService's
+	// GetDeviceGroup RPC.
+	ControlServiceGetDeviceGroupProcedure = "/powermanage.v1.ControlService/GetDeviceGroup"
+	// ControlServiceListDeviceGroupsProcedure is the fully-qualified name of the ControlService's
+	// ListDeviceGroups RPC.
+	ControlServiceListDeviceGroupsProcedure = "/powermanage.v1.ControlService/ListDeviceGroups"
+	// ControlServiceUpdateDeviceGroupProcedure is the fully-qualified name of the ControlService's
+	// UpdateDeviceGroup RPC.
+	ControlServiceUpdateDeviceGroupProcedure = "/powermanage.v1.ControlService/UpdateDeviceGroup"
+	// ControlServiceDeleteDeviceGroupProcedure is the fully-qualified name of the ControlService's
+	// DeleteDeviceGroup RPC.
+	ControlServiceDeleteDeviceGroupProcedure = "/powermanage.v1.ControlService/DeleteDeviceGroup"
 )
 
 // ControlServiceClient is a client for the powermanage.v1.ControlService service.
@@ -53,6 +68,11 @@ type ControlServiceClient interface {
 	RefreshSession(context.Context, *connect.Request[v1.RefreshSessionRequest]) (*connect.Response[v1.RefreshSessionResponse], error)
 	StartOidcSession(context.Context, *connect.Request[v1.StartOidcSessionRequest]) (*connect.Response[v1.StartOidcSessionResponse], error)
 	CompleteOidcSession(context.Context, *connect.Request[v1.CompleteOidcSessionRequest]) (*connect.Response[v1.CompleteOidcSessionResponse], error)
+	CreateDeviceGroup(context.Context, *connect.Request[v1.CreateDeviceGroupRequest]) (*connect.Response[v1.CreateDeviceGroupResponse], error)
+	GetDeviceGroup(context.Context, *connect.Request[v1.GetDeviceGroupRequest]) (*connect.Response[v1.GetDeviceGroupResponse], error)
+	ListDeviceGroups(context.Context, *connect.Request[v1.ListDeviceGroupsRequest]) (*connect.Response[v1.ListDeviceGroupsResponse], error)
+	UpdateDeviceGroup(context.Context, *connect.Request[v1.UpdateDeviceGroupRequest]) (*connect.Response[v1.UpdateDeviceGroupResponse], error)
+	DeleteDeviceGroup(context.Context, *connect.Request[v1.DeleteDeviceGroupRequest]) (*connect.Response[v1.DeleteDeviceGroupResponse], error)
 }
 
 // NewControlServiceClient constructs a client for the powermanage.v1.ControlService service. By
@@ -84,6 +104,36 @@ func NewControlServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(controlServiceMethods.ByName("CompleteOidcSession")),
 			connect.WithClientOptions(opts...),
 		),
+		createDeviceGroup: connect.NewClient[v1.CreateDeviceGroupRequest, v1.CreateDeviceGroupResponse](
+			httpClient,
+			baseURL+ControlServiceCreateDeviceGroupProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("CreateDeviceGroup")),
+			connect.WithClientOptions(opts...),
+		),
+		getDeviceGroup: connect.NewClient[v1.GetDeviceGroupRequest, v1.GetDeviceGroupResponse](
+			httpClient,
+			baseURL+ControlServiceGetDeviceGroupProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("GetDeviceGroup")),
+			connect.WithClientOptions(opts...),
+		),
+		listDeviceGroups: connect.NewClient[v1.ListDeviceGroupsRequest, v1.ListDeviceGroupsResponse](
+			httpClient,
+			baseURL+ControlServiceListDeviceGroupsProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("ListDeviceGroups")),
+			connect.WithClientOptions(opts...),
+		),
+		updateDeviceGroup: connect.NewClient[v1.UpdateDeviceGroupRequest, v1.UpdateDeviceGroupResponse](
+			httpClient,
+			baseURL+ControlServiceUpdateDeviceGroupProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("UpdateDeviceGroup")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteDeviceGroup: connect.NewClient[v1.DeleteDeviceGroupRequest, v1.DeleteDeviceGroupResponse](
+			httpClient,
+			baseURL+ControlServiceDeleteDeviceGroupProcedure,
+			connect.WithSchema(controlServiceMethods.ByName("DeleteDeviceGroup")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -92,6 +142,11 @@ type controlServiceClient struct {
 	refreshSession      *connect.Client[v1.RefreshSessionRequest, v1.RefreshSessionResponse]
 	startOidcSession    *connect.Client[v1.StartOidcSessionRequest, v1.StartOidcSessionResponse]
 	completeOidcSession *connect.Client[v1.CompleteOidcSessionRequest, v1.CompleteOidcSessionResponse]
+	createDeviceGroup   *connect.Client[v1.CreateDeviceGroupRequest, v1.CreateDeviceGroupResponse]
+	getDeviceGroup      *connect.Client[v1.GetDeviceGroupRequest, v1.GetDeviceGroupResponse]
+	listDeviceGroups    *connect.Client[v1.ListDeviceGroupsRequest, v1.ListDeviceGroupsResponse]
+	updateDeviceGroup   *connect.Client[v1.UpdateDeviceGroupRequest, v1.UpdateDeviceGroupResponse]
+	deleteDeviceGroup   *connect.Client[v1.DeleteDeviceGroupRequest, v1.DeleteDeviceGroupResponse]
 }
 
 // RefreshSession calls powermanage.v1.ControlService.RefreshSession.
@@ -109,11 +164,41 @@ func (c *controlServiceClient) CompleteOidcSession(ctx context.Context, req *con
 	return c.completeOidcSession.CallUnary(ctx, req)
 }
 
+// CreateDeviceGroup calls powermanage.v1.ControlService.CreateDeviceGroup.
+func (c *controlServiceClient) CreateDeviceGroup(ctx context.Context, req *connect.Request[v1.CreateDeviceGroupRequest]) (*connect.Response[v1.CreateDeviceGroupResponse], error) {
+	return c.createDeviceGroup.CallUnary(ctx, req)
+}
+
+// GetDeviceGroup calls powermanage.v1.ControlService.GetDeviceGroup.
+func (c *controlServiceClient) GetDeviceGroup(ctx context.Context, req *connect.Request[v1.GetDeviceGroupRequest]) (*connect.Response[v1.GetDeviceGroupResponse], error) {
+	return c.getDeviceGroup.CallUnary(ctx, req)
+}
+
+// ListDeviceGroups calls powermanage.v1.ControlService.ListDeviceGroups.
+func (c *controlServiceClient) ListDeviceGroups(ctx context.Context, req *connect.Request[v1.ListDeviceGroupsRequest]) (*connect.Response[v1.ListDeviceGroupsResponse], error) {
+	return c.listDeviceGroups.CallUnary(ctx, req)
+}
+
+// UpdateDeviceGroup calls powermanage.v1.ControlService.UpdateDeviceGroup.
+func (c *controlServiceClient) UpdateDeviceGroup(ctx context.Context, req *connect.Request[v1.UpdateDeviceGroupRequest]) (*connect.Response[v1.UpdateDeviceGroupResponse], error) {
+	return c.updateDeviceGroup.CallUnary(ctx, req)
+}
+
+// DeleteDeviceGroup calls powermanage.v1.ControlService.DeleteDeviceGroup.
+func (c *controlServiceClient) DeleteDeviceGroup(ctx context.Context, req *connect.Request[v1.DeleteDeviceGroupRequest]) (*connect.Response[v1.DeleteDeviceGroupResponse], error) {
+	return c.deleteDeviceGroup.CallUnary(ctx, req)
+}
+
 // ControlServiceHandler is an implementation of the powermanage.v1.ControlService service.
 type ControlServiceHandler interface {
 	RefreshSession(context.Context, *connect.Request[v1.RefreshSessionRequest]) (*connect.Response[v1.RefreshSessionResponse], error)
 	StartOidcSession(context.Context, *connect.Request[v1.StartOidcSessionRequest]) (*connect.Response[v1.StartOidcSessionResponse], error)
 	CompleteOidcSession(context.Context, *connect.Request[v1.CompleteOidcSessionRequest]) (*connect.Response[v1.CompleteOidcSessionResponse], error)
+	CreateDeviceGroup(context.Context, *connect.Request[v1.CreateDeviceGroupRequest]) (*connect.Response[v1.CreateDeviceGroupResponse], error)
+	GetDeviceGroup(context.Context, *connect.Request[v1.GetDeviceGroupRequest]) (*connect.Response[v1.GetDeviceGroupResponse], error)
+	ListDeviceGroups(context.Context, *connect.Request[v1.ListDeviceGroupsRequest]) (*connect.Response[v1.ListDeviceGroupsResponse], error)
+	UpdateDeviceGroup(context.Context, *connect.Request[v1.UpdateDeviceGroupRequest]) (*connect.Response[v1.UpdateDeviceGroupResponse], error)
+	DeleteDeviceGroup(context.Context, *connect.Request[v1.DeleteDeviceGroupRequest]) (*connect.Response[v1.DeleteDeviceGroupResponse], error)
 }
 
 // NewControlServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -141,6 +226,36 @@ func NewControlServiceHandler(svc ControlServiceHandler, opts ...connect.Handler
 		connect.WithSchema(controlServiceMethods.ByName("CompleteOidcSession")),
 		connect.WithHandlerOptions(opts...),
 	)
+	controlServiceCreateDeviceGroupHandler := connect.NewUnaryHandler(
+		ControlServiceCreateDeviceGroupProcedure,
+		svc.CreateDeviceGroup,
+		connect.WithSchema(controlServiceMethods.ByName("CreateDeviceGroup")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceGetDeviceGroupHandler := connect.NewUnaryHandler(
+		ControlServiceGetDeviceGroupProcedure,
+		svc.GetDeviceGroup,
+		connect.WithSchema(controlServiceMethods.ByName("GetDeviceGroup")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceListDeviceGroupsHandler := connect.NewUnaryHandler(
+		ControlServiceListDeviceGroupsProcedure,
+		svc.ListDeviceGroups,
+		connect.WithSchema(controlServiceMethods.ByName("ListDeviceGroups")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceUpdateDeviceGroupHandler := connect.NewUnaryHandler(
+		ControlServiceUpdateDeviceGroupProcedure,
+		svc.UpdateDeviceGroup,
+		connect.WithSchema(controlServiceMethods.ByName("UpdateDeviceGroup")),
+		connect.WithHandlerOptions(opts...),
+	)
+	controlServiceDeleteDeviceGroupHandler := connect.NewUnaryHandler(
+		ControlServiceDeleteDeviceGroupProcedure,
+		svc.DeleteDeviceGroup,
+		connect.WithSchema(controlServiceMethods.ByName("DeleteDeviceGroup")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/powermanage.v1.ControlService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ControlServiceRefreshSessionProcedure:
@@ -149,6 +264,16 @@ func NewControlServiceHandler(svc ControlServiceHandler, opts ...connect.Handler
 			controlServiceStartOidcSessionHandler.ServeHTTP(w, r)
 		case ControlServiceCompleteOidcSessionProcedure:
 			controlServiceCompleteOidcSessionHandler.ServeHTTP(w, r)
+		case ControlServiceCreateDeviceGroupProcedure:
+			controlServiceCreateDeviceGroupHandler.ServeHTTP(w, r)
+		case ControlServiceGetDeviceGroupProcedure:
+			controlServiceGetDeviceGroupHandler.ServeHTTP(w, r)
+		case ControlServiceListDeviceGroupsProcedure:
+			controlServiceListDeviceGroupsHandler.ServeHTTP(w, r)
+		case ControlServiceUpdateDeviceGroupProcedure:
+			controlServiceUpdateDeviceGroupHandler.ServeHTTP(w, r)
+		case ControlServiceDeleteDeviceGroupProcedure:
+			controlServiceDeleteDeviceGroupHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -168,4 +293,24 @@ func (UnimplementedControlServiceHandler) StartOidcSession(context.Context, *con
 
 func (UnimplementedControlServiceHandler) CompleteOidcSession(context.Context, *connect.Request[v1.CompleteOidcSessionRequest]) (*connect.Response[v1.CompleteOidcSessionResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.CompleteOidcSession is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) CreateDeviceGroup(context.Context, *connect.Request[v1.CreateDeviceGroupRequest]) (*connect.Response[v1.CreateDeviceGroupResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.CreateDeviceGroup is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) GetDeviceGroup(context.Context, *connect.Request[v1.GetDeviceGroupRequest]) (*connect.Response[v1.GetDeviceGroupResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.GetDeviceGroup is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) ListDeviceGroups(context.Context, *connect.Request[v1.ListDeviceGroupsRequest]) (*connect.Response[v1.ListDeviceGroupsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.ListDeviceGroups is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) UpdateDeviceGroup(context.Context, *connect.Request[v1.UpdateDeviceGroupRequest]) (*connect.Response[v1.UpdateDeviceGroupResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.UpdateDeviceGroup is not implemented"))
+}
+
+func (UnimplementedControlServiceHandler) DeleteDeviceGroup(context.Context, *connect.Request[v1.DeleteDeviceGroupRequest]) (*connect.Response[v1.DeleteDeviceGroupResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("powermanage.v1.ControlService.DeleteDeviceGroup is not implemented"))
 }

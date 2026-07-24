@@ -29,6 +29,7 @@ var (
 
 // SessionService implements public refresh-token rotation for ControlService.
 type SessionService struct {
+	powermanagev1connect.UnimplementedControlServiceHandler
 	refresh          *auth.RefreshService
 	oidc             *auth.OIDCService
 	failureLadder    *auth.FailureLadder

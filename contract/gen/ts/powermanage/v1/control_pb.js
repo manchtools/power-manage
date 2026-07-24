@@ -8,12 +8,13 @@
 
 import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
 import { file_buf_validate_validate } from "../../buf/validate/validate_pb";
+import { file_powermanage_v1_common } from "./common_pb";
 
 /**
  * Describes the file powermanage/v1/control.proto.
  */
 export const file_powermanage_v1_control = /*@__PURE__*/
-  fileDesc("Chxwb3dlcm1hbmFnZS92MS9jb250cm9sLnByb3RvEg5wb3dlcm1hbmFnZS52MSI6ChVSZWZyZXNoU2Vzc2lvblJlcXVlc3QSIQoNcmVmcmVzaF90b2tlbhgBIAEoCUIKukgHcgUQARiAQCJdChZSZWZyZXNoU2Vzc2lvblJlc3BvbnNlEiAKDGFjY2Vzc190b2tlbhgBIAEoCUIKukgHcgUQARiAQBIhCg1yZWZyZXNoX3Rva2VuGAIgASgJQgq6SAdyBRABGIBAInAKF1N0YXJ0T2lkY1Nlc3Npb25SZXF1ZXN0EjMKDXByb3ZpZGVyX3NsdWcYASABKAlCHLpIGXIXEAEYQDIRXlthLXpdW2EtejAtOS1dKiQSIAoMcmVkaXJlY3RfdXJpGAIgASgJQgq6SAdyBRABGIAQIkEKGFN0YXJ0T2lkY1Nlc3Npb25SZXNwb25zZRIlChFhdXRob3JpemF0aW9uX3VybBgBIAEoCUIKukgHcgUQARiAQCJRChpDb21wbGV0ZU9pZGNTZXNzaW9uUmVxdWVzdBIZCgVzdGF0ZRgBIAEoCUIKukgHcgUQARiAAhIYCgRjb2RlGAIgASgJQgq6SAdyBRABGIAgImIKG0NvbXBsZXRlT2lkY1Nlc3Npb25SZXNwb25zZRIgCgxhY2Nlc3NfdG9rZW4YASABKAlCCrpIB3IFEAEYgEASIQoNcmVmcmVzaF90b2tlbhgCIAEoCUIKukgHcgUQARiAQDLIAgoOQ29udHJvbFNlcnZpY2USXwoOUmVmcmVzaFNlc3Npb24SJS5wb3dlcm1hbmFnZS52MS5SZWZyZXNoU2Vzc2lvblJlcXVlc3QaJi5wb3dlcm1hbmFnZS52MS5SZWZyZXNoU2Vzc2lvblJlc3BvbnNlEmUKEFN0YXJ0T2lkY1Nlc3Npb24SJy5wb3dlcm1hbmFnZS52MS5TdGFydE9pZGNTZXNzaW9uUmVxdWVzdBooLnBvd2VybWFuYWdlLnYxLlN0YXJ0T2lkY1Nlc3Npb25SZXNwb25zZRJuChNDb21wbGV0ZU9pZGNTZXNzaW9uEioucG93ZXJtYW5hZ2UudjEuQ29tcGxldGVPaWRjU2Vzc2lvblJlcXVlc3QaKy5wb3dlcm1hbmFnZS52MS5Db21wbGV0ZU9pZGNTZXNzaW9uUmVzcG9uc2VCUVpPZ2l0aHViLmNvbS9tYW5jaHRvb2xzL3Bvd2VyLW1hbmFnZS9jb250cmFjdC9nZW4vZ28vcG93ZXJtYW5hZ2UvdjE7cG93ZXJtYW5hZ2V2MWIGcHJvdG8z", [file_buf_validate_validate]);
+  fileDesc("Chxwb3dlcm1hbmFnZS92MS9jb250cm9sLnByb3RvEg5wb3dlcm1hbmFnZS52MSI6ChVSZWZyZXNoU2Vzc2lvblJlcXVlc3QSIQoNcmVmcmVzaF90b2tlbhgBIAEoCUIKukgHcgUQARiAQCJdChZSZWZyZXNoU2Vzc2lvblJlc3BvbnNlEiAKDGFjY2Vzc190b2tlbhgBIAEoCUIKukgHcgUQARiAQBIhCg1yZWZyZXNoX3Rva2VuGAIgASgJQgq6SAdyBRABGIBAInAKF1N0YXJ0T2lkY1Nlc3Npb25SZXF1ZXN0EjMKDXByb3ZpZGVyX3NsdWcYASABKAlCHLpIGXIXEAEYQDIRXlthLXpdW2EtejAtOS1dKiQSIAoMcmVkaXJlY3RfdXJpGAIgASgJQgq6SAdyBRABGIAQIkEKGFN0YXJ0T2lkY1Nlc3Npb25SZXNwb25zZRIlChFhdXRob3JpemF0aW9uX3VybBgBIAEoCUIKukgHcgUQARiAQCJRChpDb21wbGV0ZU9pZGNTZXNzaW9uUmVxdWVzdBIZCgVzdGF0ZRgBIAEoCUIKukgHcgUQARiAAhIYCgRjb2RlGAIgASgJQgq6SAdyBRABGIAgImIKG0NvbXBsZXRlT2lkY1Nlc3Npb25SZXNwb25zZRIgCgxhY2Nlc3NfdG9rZW4YASABKAlCCrpIB3IFEAEYgEASIQoNcmVmcmVzaF90b2tlbhgCIAEoCUIKukgHcgUQARiAQCKDAQoLRGV2aWNlR3JvdXASFQoCaWQYASABKAlCCbpIBnIEiIgnARIYCgRuYW1lGAIgASgJQgq6SAdyBRABGMgBEh8KDWR5bmFtaWNfcXVlcnkYAyABKAlCCLpIBXIDGIAgEiIKB3ZlcnNpb24YBCABKARCEbpIDjIMGP//////////fygBImwKGENyZWF0ZURldmljZUdyb3VwUmVxdWVzdBIVCgJpZBgBIAEoCUIJukgGcgSIiCcBEhgKBG5hbWUYAiABKAlCCrpIB3IFEAEYyAESHwoNZHluYW1pY19xdWVyeRgDIAEoCUIIukgFcgMYgCAiLgoVR2V0RGV2aWNlR3JvdXBSZXF1ZXN0EhUKAmlkGAEgASgJQgm6SAZyBIiIJwEiVgoZQ3JlYXRlRGV2aWNlR3JvdXBSZXNwb25zZRI5CgxkZXZpY2VfZ3JvdXAYASABKAsyGy5wb3dlcm1hbmFnZS52MS5EZXZpY2VHcm91cEIGukgDyAEBIlMKFkdldERldmljZUdyb3VwUmVzcG9uc2USOQoMZGV2aWNlX2dyb3VwGAEgASgLMhsucG93ZXJtYW5hZ2UudjEuRGV2aWNlR3JvdXBCBrpIA8gBASI0ChdMaXN0RGV2aWNlR3JvdXBzUmVxdWVzdBIZCgVsaW1pdBgBIAEoDUIKukgHKgUYyAEoASJZChhMaXN0RGV2aWNlR3JvdXBzUmVzcG9uc2USPQoNZGV2aWNlX2dyb3VwcxgBIAMoCzIbLnBvd2VybWFuYWdlLnYxLkRldmljZUdyb3VwQgm6SAaSAQMQyAEimQEKGFVwZGF0ZURldmljZUdyb3VwUmVxdWVzdBIVCgJpZBgBIAEoCUIJukgGcgSIiCcBEhgKBG5hbWUYAiABKAlCCrpIB3IFEAEYyAESHwoNZHluYW1pY19xdWVyeRgDIAEoCUIIukgFcgMYgCASKwoQZXhwZWN0ZWRfdmVyc2lvbhgEIAEoBEIRukgOMgwY//////////9/KAEiVgoZVXBkYXRlRGV2aWNlR3JvdXBSZXNwb25zZRI5CgxkZXZpY2VfZ3JvdXAYASABKAsyGy5wb3dlcm1hbmFnZS52MS5EZXZpY2VHcm91cEIGukgDyAEBIl4KGERlbGV0ZURldmljZUdyb3VwUmVxdWVzdBIVCgJpZBgBIAEoCUIJukgGcgSIiCcBEisKEGV4cGVjdGVkX3ZlcnNpb24YAiABKARCEbpIDjIMGP//////////fygBIjoKGURlbGV0ZURldmljZUdyb3VwUmVzcG9uc2USHQoKZGVsZXRlZF9pZBgBIAEoCUIJukgGcgSIiCcBMs4GCg5Db250cm9sU2VydmljZRJfCg5SZWZyZXNoU2Vzc2lvbhIlLnBvd2VybWFuYWdlLnYxLlJlZnJlc2hTZXNzaW9uUmVxdWVzdBomLnBvd2VybWFuYWdlLnYxLlJlZnJlc2hTZXNzaW9uUmVzcG9uc2USZQoQU3RhcnRPaWRjU2Vzc2lvbhInLnBvd2VybWFuYWdlLnYxLlN0YXJ0T2lkY1Nlc3Npb25SZXF1ZXN0GigucG93ZXJtYW5hZ2UudjEuU3RhcnRPaWRjU2Vzc2lvblJlc3BvbnNlEm4KE0NvbXBsZXRlT2lkY1Nlc3Npb24SKi5wb3dlcm1hbmFnZS52MS5Db21wbGV0ZU9pZGNTZXNzaW9uUmVxdWVzdBorLnBvd2VybWFuYWdlLnYxLkNvbXBsZXRlT2lkY1Nlc3Npb25SZXNwb25zZRJoChFDcmVhdGVEZXZpY2VHcm91cBIoLnBvd2VybWFuYWdlLnYxLkNyZWF0ZURldmljZUdyb3VwUmVxdWVzdBopLnBvd2VybWFuYWdlLnYxLkNyZWF0ZURldmljZUdyb3VwUmVzcG9uc2USXwoOR2V0RGV2aWNlR3JvdXASJS5wb3dlcm1hbmFnZS52MS5HZXREZXZpY2VHcm91cFJlcXVlc3QaJi5wb3dlcm1hbmFnZS52MS5HZXREZXZpY2VHcm91cFJlc3BvbnNlEmUKEExpc3REZXZpY2VHcm91cHMSJy5wb3dlcm1hbmFnZS52MS5MaXN0RGV2aWNlR3JvdXBzUmVxdWVzdBooLnBvd2VybWFuYWdlLnYxLkxpc3REZXZpY2VHcm91cHNSZXNwb25zZRJoChFVcGRhdGVEZXZpY2VHcm91cBIoLnBvd2VybWFuYWdlLnYxLlVwZGF0ZURldmljZUdyb3VwUmVxdWVzdBopLnBvd2VybWFuYWdlLnYxLlVwZGF0ZURldmljZUdyb3VwUmVzcG9uc2USaAoRRGVsZXRlRGV2aWNlR3JvdXASKC5wb3dlcm1hbmFnZS52MS5EZWxldGVEZXZpY2VHcm91cFJlcXVlc3QaKS5wb3dlcm1hbmFnZS52MS5EZWxldGVEZXZpY2VHcm91cFJlc3BvbnNlQlFaT2dpdGh1Yi5jb20vbWFuY2h0b29scy9wb3dlci1tYW5hZ2UvY29udHJhY3QvZ2VuL2dvL3Bvd2VybWFuYWdlL3YxO3Bvd2VybWFuYWdldjFiBnByb3RvMw", [file_buf_validate_validate, file_powermanage_v1_common]);
 
 /**
  * Describes the message powermanage.v1.RefreshSessionRequest.
@@ -56,6 +57,83 @@ export const CompleteOidcSessionRequestSchema = /*@__PURE__*/
  */
 export const CompleteOidcSessionResponseSchema = /*@__PURE__*/
   messageDesc(file_powermanage_v1_control, 5);
+
+/**
+ * Describes the message powermanage.v1.DeviceGroup.
+ * Use `create(DeviceGroupSchema)` to create a new message.
+ */
+export const DeviceGroupSchema = /*@__PURE__*/
+  messageDesc(file_powermanage_v1_control, 6);
+
+/**
+ * Describes the message powermanage.v1.CreateDeviceGroupRequest.
+ * Use `create(CreateDeviceGroupRequestSchema)` to create a new message.
+ */
+export const CreateDeviceGroupRequestSchema = /*@__PURE__*/
+  messageDesc(file_powermanage_v1_control, 7);
+
+/**
+ * Describes the message powermanage.v1.GetDeviceGroupRequest.
+ * Use `create(GetDeviceGroupRequestSchema)` to create a new message.
+ */
+export const GetDeviceGroupRequestSchema = /*@__PURE__*/
+  messageDesc(file_powermanage_v1_control, 8);
+
+/**
+ * Describes the message powermanage.v1.CreateDeviceGroupResponse.
+ * Use `create(CreateDeviceGroupResponseSchema)` to create a new message.
+ */
+export const CreateDeviceGroupResponseSchema = /*@__PURE__*/
+  messageDesc(file_powermanage_v1_control, 9);
+
+/**
+ * Describes the message powermanage.v1.GetDeviceGroupResponse.
+ * Use `create(GetDeviceGroupResponseSchema)` to create a new message.
+ */
+export const GetDeviceGroupResponseSchema = /*@__PURE__*/
+  messageDesc(file_powermanage_v1_control, 10);
+
+/**
+ * Describes the message powermanage.v1.ListDeviceGroupsRequest.
+ * Use `create(ListDeviceGroupsRequestSchema)` to create a new message.
+ */
+export const ListDeviceGroupsRequestSchema = /*@__PURE__*/
+  messageDesc(file_powermanage_v1_control, 11);
+
+/**
+ * Describes the message powermanage.v1.ListDeviceGroupsResponse.
+ * Use `create(ListDeviceGroupsResponseSchema)` to create a new message.
+ */
+export const ListDeviceGroupsResponseSchema = /*@__PURE__*/
+  messageDesc(file_powermanage_v1_control, 12);
+
+/**
+ * Describes the message powermanage.v1.UpdateDeviceGroupRequest.
+ * Use `create(UpdateDeviceGroupRequestSchema)` to create a new message.
+ */
+export const UpdateDeviceGroupRequestSchema = /*@__PURE__*/
+  messageDesc(file_powermanage_v1_control, 13);
+
+/**
+ * Describes the message powermanage.v1.UpdateDeviceGroupResponse.
+ * Use `create(UpdateDeviceGroupResponseSchema)` to create a new message.
+ */
+export const UpdateDeviceGroupResponseSchema = /*@__PURE__*/
+  messageDesc(file_powermanage_v1_control, 14);
+
+/**
+ * Describes the message powermanage.v1.DeleteDeviceGroupRequest.
+ * Use `create(DeleteDeviceGroupRequestSchema)` to create a new message.
+ */
+export const DeleteDeviceGroupRequestSchema = /*@__PURE__*/
+  messageDesc(file_powermanage_v1_control, 15);
+
+/**
+ * Describes the message powermanage.v1.DeleteDeviceGroupResponse.
+ * Use `create(DeleteDeviceGroupResponseSchema)` to create a new message.
+ */
+export const DeleteDeviceGroupResponseSchema = /*@__PURE__*/
+  messageDesc(file_powermanage_v1_control, 16);
 
 /**
  * @generated from service powermanage.v1.ControlService

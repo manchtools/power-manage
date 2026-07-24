@@ -33,6 +33,7 @@ func ProductionTableClassification() TableClassification {
 			"bootstrap_logins",
 			"ca_rotation_state",
 			"certificate_revocations",
+			"device_groups",
 			"devices",
 			"gateways",
 			"inventory_snapshots",

@@ -27,7 +27,7 @@ const (
 
 func TestGuard_RPCClassificationCarriesExactlyOneAuthorizationMode(t *testing.T) {
 	policies := ProcedureAuthorizations()
-	procedures := guardtest.Discover(t, "RPC authorization policies", 15, func() ([]string, error) {
+	procedures := guardtest.Discover(t, "RPC authorization policies", 20, func() ([]string, error) {
 		return slices.Sorted(maps.Keys(policies)), nil
 	})
 	if err := validateProcedureAuthorizations(policies); err != nil {
@@ -240,7 +240,9 @@ func TestAuthorizationGate_DirectAndInterceptorCallsShareDecision(t *testing.T) 
 			"devices.manage": {Global: true},
 		},
 	}
+	resolverCalls := 0
 	gate := newTestAuthorizationGate(t, func(context.Context, string) (authz.EffectiveAccess, error) {
+		resolverCalls++
 		return effective, nil
 	})
 	ctx, err := ContextWithSessionClaims(t.Context(), Claims{
@@ -258,6 +260,12 @@ func TestAuthorizationGate_DirectAndInterceptorCallsShareDecision(t *testing.T) 
 	if !ok {
 		t.Fatal("direct authorization attached no decision")
 	}
+	if _, err := gate.AuthorizeContext(directContext, testAuthorizationProcedure); err != nil {
+		t.Fatalf("reuse authorization decision: %v", err)
+	}
+	if resolverCalls != 1 {
+		t.Fatalf("reused decision made %d resolver calls; want one", resolverCalls)
+	}
 
 	var intercepted AuthorizationDecision
 	handler := gate.WrapStreamingHandler(func(ctx context.Context, _ connect.StreamingHandlerConn) error {
@@ -273,6 +281,9 @@ func TestAuthorizationGate_DirectAndInterceptorCallsShareDecision(t *testing.T) 
 	}
 	if !reflect.DeepEqual(intercepted, direct) {
 		t.Fatalf("interceptor decision = %#v; direct decision = %#v", intercepted, direct)
+	}
+	if resolverCalls != 2 {
+		t.Fatalf("independent interceptor made %d resolver calls; want two", resolverCalls)
 	}
 }
 

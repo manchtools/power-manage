@@ -92,6 +92,14 @@ type Device struct {
 	LifecycleState         string
 }
 
+type DeviceGroup struct {
+	DeviceGroupID     string
+	Name              string
+	DynamicQuery      string
+	ProjectionVersion int64
+	UpdatedAt         time.Time
+}
+
 type Event struct {
 	StreamType     string
 	StreamID       string

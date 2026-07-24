@@ -4,7 +4,7 @@ Spec milestone: SPEC-008 M3 (`AUTHZ-7`; AC-17 and AC-18 scaffolding).
 
 ## Files and symbols
 
-<!-- docref: begin src=server/internal/auth/interceptors.go#ProcedureAuthorization:da7c63ba,server/internal/auth/interceptors.go#ProcedureAuthorizations:f7f7afaa,server/internal/auth/interceptors.go#InterceptorChain.ValidateWiring:af744a58,server/internal/auth/authorization.go#AuthorizationGate:8cd4b517,server/internal/auth/authorization.go#NewAuthorizationGate:91031a87,server/internal/auth/authorization.go#ContextWithSessionClaims:c2b05ff8,server/internal/auth/authorization.go#ContextWithPATPrincipal:1a0797ae,server/internal/auth/authorization.go#AuthorizationDecisionFromContext:7ba96b41,server/internal/auth/authorization.go#AuthorizationGate.AuthorizeContext:009218e7 -->
+<!-- docref: begin src=server/internal/auth/interceptors.go#ProcedureAuthorization:da7c63ba,server/internal/auth/interceptors.go#ProcedureAuthorizations:f7f7afaa,server/internal/auth/interceptors.go#InterceptorChain.ValidateWiring:af744a58,server/internal/auth/authorization.go#AuthorizationGate:8cd4b517,server/internal/auth/authorization.go#NewAuthorizationGate:91031a87,server/internal/auth/authorization.go#ContextWithSessionClaims:c2b05ff8,server/internal/auth/authorization.go#ContextWithPATPrincipal:1a0797ae,server/internal/auth/authorization.go#AuthorizationDecisionFromContext:7ba96b41,server/internal/auth/authorization.go#AuthorizationGate.AuthorizeContext:09da2d98 -->
 - `server/internal/auth/interceptors.go`: `ProcedureAuthorization`,
   `ProcedureAuthorizations`, and `InterceptorChain.ValidateWiring`
 - `server/internal/auth/authorization.go`: `AuthorizationGate`,
@@ -21,7 +21,7 @@ Spec milestone: SPEC-008 M3 (`AUTHZ-7`; AC-17 and AC-18 scaffolding).
 
 ## Test names
 
-<!-- docref: begin src=server/internal/auth/authorization_test.go#TestGuard_RPCClassificationCarriesExactlyOneAuthorizationMode:e1762162,server/internal/auth/authorization_test.go#TestAuthorizationGate_FailsClosedForUnknownUnaryAndStreamingProcedures:1c705f72,server/internal/auth/authorization_test.go#TestAuthorizationGate_PATScopeNarrowsRoleAccessBeforeLookup:ea75eca3,server/internal/auth/authorization_test.go#TestAuthorizationGate_DirectAndInterceptorCallsShareDecision:877677bc,server/internal/auth/authorization_postgres_test.go#TestAuthorizationGate_DirectCallUsesRealEffectiveAccess:82c8852e,server/internal/auth/authorization_test.go#TestNewInterceptorChain_RejectsNonAuthorizationFinalStage:3ea97313 -->
+<!-- docref: begin src=server/internal/auth/authorization_test.go#TestGuard_RPCClassificationCarriesExactlyOneAuthorizationMode:8d0424d0,server/internal/auth/authorization_test.go#TestAuthorizationGate_FailsClosedForUnknownUnaryAndStreamingProcedures:1c705f72,server/internal/auth/authorization_test.go#TestAuthorizationGate_PATScopeNarrowsRoleAccessBeforeLookup:ea75eca3,server/internal/auth/authorization_test.go#TestAuthorizationGate_DirectAndInterceptorCallsShareDecision:f72a9a35,server/internal/auth/authorization_postgres_test.go#TestAuthorizationGate_DirectCallUsesRealEffectiveAccess:82c8852e,server/internal/auth/authorization_test.go#TestNewInterceptorChain_RejectsNonAuthorizationFinalStage:3ea97313 -->
 - `TestGuard_RPCClassificationCarriesExactlyOneAuthorizationMode`
 - `TestAuthorizationGate_FailsClosedForUnknownUnaryAndStreamingProcedures`
 - `TestAuthorizationGate_PATScopeNarrowsRoleAccessBeforeLookup`

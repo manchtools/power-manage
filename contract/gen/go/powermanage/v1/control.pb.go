@@ -322,11 +322,567 @@ func (x *CompleteOidcSessionResponse) GetRefreshToken() string {
 	return ""
 }
 
+type DeviceGroup struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	DynamicQuery  string                 `protobuf:"bytes,3,opt,name=dynamic_query,json=dynamicQuery,proto3" json:"dynamic_query,omitempty"`
+	Version       uint64                 `protobuf:"varint,4,opt,name=version,proto3" json:"version,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeviceGroup) Reset() {
+	*x = DeviceGroup{}
+	mi := &file_powermanage_v1_control_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeviceGroup) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeviceGroup) ProtoMessage() {}
+
+func (x *DeviceGroup) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_v1_control_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeviceGroup.ProtoReflect.Descriptor instead.
+func (*DeviceGroup) Descriptor() ([]byte, []int) {
+	return file_powermanage_v1_control_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *DeviceGroup) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *DeviceGroup) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *DeviceGroup) GetDynamicQuery() string {
+	if x != nil {
+		return x.DynamicQuery
+	}
+	return ""
+}
+
+func (x *DeviceGroup) GetVersion() uint64 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+type CreateDeviceGroupRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	DynamicQuery  string                 `protobuf:"bytes,3,opt,name=dynamic_query,json=dynamicQuery,proto3" json:"dynamic_query,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateDeviceGroupRequest) Reset() {
+	*x = CreateDeviceGroupRequest{}
+	mi := &file_powermanage_v1_control_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateDeviceGroupRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateDeviceGroupRequest) ProtoMessage() {}
+
+func (x *CreateDeviceGroupRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_v1_control_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateDeviceGroupRequest.ProtoReflect.Descriptor instead.
+func (*CreateDeviceGroupRequest) Descriptor() ([]byte, []int) {
+	return file_powermanage_v1_control_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *CreateDeviceGroupRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *CreateDeviceGroupRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateDeviceGroupRequest) GetDynamicQuery() string {
+	if x != nil {
+		return x.DynamicQuery
+	}
+	return ""
+}
+
+type GetDeviceGroupRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetDeviceGroupRequest) Reset() {
+	*x = GetDeviceGroupRequest{}
+	mi := &file_powermanage_v1_control_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetDeviceGroupRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetDeviceGroupRequest) ProtoMessage() {}
+
+func (x *GetDeviceGroupRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_v1_control_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetDeviceGroupRequest.ProtoReflect.Descriptor instead.
+func (*GetDeviceGroupRequest) Descriptor() ([]byte, []int) {
+	return file_powermanage_v1_control_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *GetDeviceGroupRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type CreateDeviceGroupResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DeviceGroup   *DeviceGroup           `protobuf:"bytes,1,opt,name=device_group,json=deviceGroup,proto3" json:"device_group,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateDeviceGroupResponse) Reset() {
+	*x = CreateDeviceGroupResponse{}
+	mi := &file_powermanage_v1_control_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateDeviceGroupResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateDeviceGroupResponse) ProtoMessage() {}
+
+func (x *CreateDeviceGroupResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_v1_control_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateDeviceGroupResponse.ProtoReflect.Descriptor instead.
+func (*CreateDeviceGroupResponse) Descriptor() ([]byte, []int) {
+	return file_powermanage_v1_control_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *CreateDeviceGroupResponse) GetDeviceGroup() *DeviceGroup {
+	if x != nil {
+		return x.DeviceGroup
+	}
+	return nil
+}
+
+type GetDeviceGroupResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DeviceGroup   *DeviceGroup           `protobuf:"bytes,1,opt,name=device_group,json=deviceGroup,proto3" json:"device_group,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetDeviceGroupResponse) Reset() {
+	*x = GetDeviceGroupResponse{}
+	mi := &file_powermanage_v1_control_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetDeviceGroupResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetDeviceGroupResponse) ProtoMessage() {}
+
+func (x *GetDeviceGroupResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_v1_control_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetDeviceGroupResponse.ProtoReflect.Descriptor instead.
+func (*GetDeviceGroupResponse) Descriptor() ([]byte, []int) {
+	return file_powermanage_v1_control_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *GetDeviceGroupResponse) GetDeviceGroup() *DeviceGroup {
+	if x != nil {
+		return x.DeviceGroup
+	}
+	return nil
+}
+
+type ListDeviceGroupsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Limit         uint32                 `protobuf:"varint,1,opt,name=limit,proto3" json:"limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDeviceGroupsRequest) Reset() {
+	*x = ListDeviceGroupsRequest{}
+	mi := &file_powermanage_v1_control_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDeviceGroupsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDeviceGroupsRequest) ProtoMessage() {}
+
+func (x *ListDeviceGroupsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_v1_control_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDeviceGroupsRequest.ProtoReflect.Descriptor instead.
+func (*ListDeviceGroupsRequest) Descriptor() ([]byte, []int) {
+	return file_powermanage_v1_control_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *ListDeviceGroupsRequest) GetLimit() uint32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type ListDeviceGroupsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DeviceGroups  []*DeviceGroup         `protobuf:"bytes,1,rep,name=device_groups,json=deviceGroups,proto3" json:"device_groups,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDeviceGroupsResponse) Reset() {
+	*x = ListDeviceGroupsResponse{}
+	mi := &file_powermanage_v1_control_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDeviceGroupsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDeviceGroupsResponse) ProtoMessage() {}
+
+func (x *ListDeviceGroupsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_v1_control_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDeviceGroupsResponse.ProtoReflect.Descriptor instead.
+func (*ListDeviceGroupsResponse) Descriptor() ([]byte, []int) {
+	return file_powermanage_v1_control_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *ListDeviceGroupsResponse) GetDeviceGroups() []*DeviceGroup {
+	if x != nil {
+		return x.DeviceGroups
+	}
+	return nil
+}
+
+type UpdateDeviceGroupRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name            string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	DynamicQuery    string                 `protobuf:"bytes,3,opt,name=dynamic_query,json=dynamicQuery,proto3" json:"dynamic_query,omitempty"`
+	ExpectedVersion uint64                 `protobuf:"varint,4,opt,name=expected_version,json=expectedVersion,proto3" json:"expected_version,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *UpdateDeviceGroupRequest) Reset() {
+	*x = UpdateDeviceGroupRequest{}
+	mi := &file_powermanage_v1_control_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateDeviceGroupRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateDeviceGroupRequest) ProtoMessage() {}
+
+func (x *UpdateDeviceGroupRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_v1_control_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateDeviceGroupRequest.ProtoReflect.Descriptor instead.
+func (*UpdateDeviceGroupRequest) Descriptor() ([]byte, []int) {
+	return file_powermanage_v1_control_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *UpdateDeviceGroupRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *UpdateDeviceGroupRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *UpdateDeviceGroupRequest) GetDynamicQuery() string {
+	if x != nil {
+		return x.DynamicQuery
+	}
+	return ""
+}
+
+func (x *UpdateDeviceGroupRequest) GetExpectedVersion() uint64 {
+	if x != nil {
+		return x.ExpectedVersion
+	}
+	return 0
+}
+
+type UpdateDeviceGroupResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DeviceGroup   *DeviceGroup           `protobuf:"bytes,1,opt,name=device_group,json=deviceGroup,proto3" json:"device_group,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateDeviceGroupResponse) Reset() {
+	*x = UpdateDeviceGroupResponse{}
+	mi := &file_powermanage_v1_control_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateDeviceGroupResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateDeviceGroupResponse) ProtoMessage() {}
+
+func (x *UpdateDeviceGroupResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_v1_control_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateDeviceGroupResponse.ProtoReflect.Descriptor instead.
+func (*UpdateDeviceGroupResponse) Descriptor() ([]byte, []int) {
+	return file_powermanage_v1_control_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *UpdateDeviceGroupResponse) GetDeviceGroup() *DeviceGroup {
+	if x != nil {
+		return x.DeviceGroup
+	}
+	return nil
+}
+
+type DeleteDeviceGroupRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ExpectedVersion uint64                 `protobuf:"varint,2,opt,name=expected_version,json=expectedVersion,proto3" json:"expected_version,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *DeleteDeviceGroupRequest) Reset() {
+	*x = DeleteDeviceGroupRequest{}
+	mi := &file_powermanage_v1_control_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteDeviceGroupRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteDeviceGroupRequest) ProtoMessage() {}
+
+func (x *DeleteDeviceGroupRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_v1_control_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteDeviceGroupRequest.ProtoReflect.Descriptor instead.
+func (*DeleteDeviceGroupRequest) Descriptor() ([]byte, []int) {
+	return file_powermanage_v1_control_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *DeleteDeviceGroupRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *DeleteDeviceGroupRequest) GetExpectedVersion() uint64 {
+	if x != nil {
+		return x.ExpectedVersion
+	}
+	return 0
+}
+
+type DeleteDeviceGroupResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DeletedId     string                 `protobuf:"bytes,1,opt,name=deleted_id,json=deletedId,proto3" json:"deleted_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteDeviceGroupResponse) Reset() {
+	*x = DeleteDeviceGroupResponse{}
+	mi := &file_powermanage_v1_control_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteDeviceGroupResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteDeviceGroupResponse) ProtoMessage() {}
+
+func (x *DeleteDeviceGroupResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_powermanage_v1_control_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteDeviceGroupResponse.ProtoReflect.Descriptor instead.
+func (*DeleteDeviceGroupResponse) Descriptor() ([]byte, []int) {
+	return file_powermanage_v1_control_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *DeleteDeviceGroupResponse) GetDeletedId() string {
+	if x != nil {
+		return x.DeletedId
+	}
+	return ""
+}
+
 var File_powermanage_v1_control_proto protoreflect.FileDescriptor
 
 const file_powermanage_v1_control_proto_rawDesc = "" +
 	"\n" +
-	"\x1cpowermanage/v1/control.proto\x12\x0epowermanage.v1\x1a\x1bbuf/validate/validate.proto\"H\n" +
+	"\x1cpowermanage/v1/control.proto\x12\x0epowermanage.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1bpowermanage/v1/common.proto\"H\n" +
 	"\x15RefreshSessionRequest\x12/\n" +
 	"\rrefresh_token\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80@R\frefreshToken\"x\n" +
@@ -351,11 +907,52 @@ const file_powermanage_v1_control_proto_rawDesc = "" +
 	"\faccess_token\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80@R\vaccessToken\x12/\n" +
 	"\rrefresh_token\x18\x02 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80@R\frefreshToken2\xc8\x02\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80@R\frefreshToken\"\xa4\x01\n" +
+	"\vDeviceGroup\x12\x19\n" +
+	"\x02id\x18\x01 \x01(\tB\t\xbaH\x06r\x04\x88\x88'\x01R\x02id\x12\x1e\n" +
+	"\x04name\x18\x02 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x04name\x12-\n" +
+	"\rdynamic_query\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\x80 R\fdynamicQuery\x12+\n" +
+	"\aversion\x18\x04 \x01(\x04B\x11\xbaH\x0e2\f\x18\xff\xff\xff\xff\xff\xff\xff\xff\x7f(\x01R\aversion\"\x84\x01\n" +
+	"\x18CreateDeviceGroupRequest\x12\x19\n" +
+	"\x02id\x18\x01 \x01(\tB\t\xbaH\x06r\x04\x88\x88'\x01R\x02id\x12\x1e\n" +
+	"\x04name\x18\x02 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x04name\x12-\n" +
+	"\rdynamic_query\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\x80 R\fdynamicQuery\"2\n" +
+	"\x15GetDeviceGroupRequest\x12\x19\n" +
+	"\x02id\x18\x01 \x01(\tB\t\xbaH\x06r\x04\x88\x88'\x01R\x02id\"c\n" +
+	"\x19CreateDeviceGroupResponse\x12F\n" +
+	"\fdevice_group\x18\x01 \x01(\v2\x1b.powermanage.v1.DeviceGroupB\x06\xbaH\x03\xc8\x01\x01R\vdeviceGroup\"`\n" +
+	"\x16GetDeviceGroupResponse\x12F\n" +
+	"\fdevice_group\x18\x01 \x01(\v2\x1b.powermanage.v1.DeviceGroupB\x06\xbaH\x03\xc8\x01\x01R\vdeviceGroup\";\n" +
+	"\x17ListDeviceGroupsRequest\x12 \n" +
+	"\x05limit\x18\x01 \x01(\rB\n" +
+	"\xbaH\a*\x05\x18\xc8\x01(\x01R\x05limit\"g\n" +
+	"\x18ListDeviceGroupsResponse\x12K\n" +
+	"\rdevice_groups\x18\x01 \x03(\v2\x1b.powermanage.v1.DeviceGroupB\t\xbaH\x06\x92\x01\x03\x10\xc8\x01R\fdeviceGroups\"\xc2\x01\n" +
+	"\x18UpdateDeviceGroupRequest\x12\x19\n" +
+	"\x02id\x18\x01 \x01(\tB\t\xbaH\x06r\x04\x88\x88'\x01R\x02id\x12\x1e\n" +
+	"\x04name\x18\x02 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x04name\x12-\n" +
+	"\rdynamic_query\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\x80 R\fdynamicQuery\x12<\n" +
+	"\x10expected_version\x18\x04 \x01(\x04B\x11\xbaH\x0e2\f\x18\xff\xff\xff\xff\xff\xff\xff\xff\x7f(\x01R\x0fexpectedVersion\"c\n" +
+	"\x19UpdateDeviceGroupResponse\x12F\n" +
+	"\fdevice_group\x18\x01 \x01(\v2\x1b.powermanage.v1.DeviceGroupB\x06\xbaH\x03\xc8\x01\x01R\vdeviceGroup\"s\n" +
+	"\x18DeleteDeviceGroupRequest\x12\x19\n" +
+	"\x02id\x18\x01 \x01(\tB\t\xbaH\x06r\x04\x88\x88'\x01R\x02id\x12<\n" +
+	"\x10expected_version\x18\x02 \x01(\x04B\x11\xbaH\x0e2\f\x18\xff\xff\xff\xff\xff\xff\xff\xff\x7f(\x01R\x0fexpectedVersion\"E\n" +
+	"\x19DeleteDeviceGroupResponse\x12(\n" +
+	"\n" +
+	"deleted_id\x18\x01 \x01(\tB\t\xbaH\x06r\x04\x88\x88'\x01R\tdeletedId2\xce\x06\n" +
 	"\x0eControlService\x12_\n" +
 	"\x0eRefreshSession\x12%.powermanage.v1.RefreshSessionRequest\x1a&.powermanage.v1.RefreshSessionResponse\x12e\n" +
 	"\x10StartOidcSession\x12'.powermanage.v1.StartOidcSessionRequest\x1a(.powermanage.v1.StartOidcSessionResponse\x12n\n" +
-	"\x13CompleteOidcSession\x12*.powermanage.v1.CompleteOidcSessionRequest\x1a+.powermanage.v1.CompleteOidcSessionResponseBQZOgithub.com/manchtools/power-manage/contract/gen/go/powermanage/v1;powermanagev1b\x06proto3"
+	"\x13CompleteOidcSession\x12*.powermanage.v1.CompleteOidcSessionRequest\x1a+.powermanage.v1.CompleteOidcSessionResponse\x12h\n" +
+	"\x11CreateDeviceGroup\x12(.powermanage.v1.CreateDeviceGroupRequest\x1a).powermanage.v1.CreateDeviceGroupResponse\x12_\n" +
+	"\x0eGetDeviceGroup\x12%.powermanage.v1.GetDeviceGroupRequest\x1a&.powermanage.v1.GetDeviceGroupResponse\x12e\n" +
+	"\x10ListDeviceGroups\x12'.powermanage.v1.ListDeviceGroupsRequest\x1a(.powermanage.v1.ListDeviceGroupsResponse\x12h\n" +
+	"\x11UpdateDeviceGroup\x12(.powermanage.v1.UpdateDeviceGroupRequest\x1a).powermanage.v1.UpdateDeviceGroupResponse\x12h\n" +
+	"\x11DeleteDeviceGroup\x12(.powermanage.v1.DeleteDeviceGroupRequest\x1a).powermanage.v1.DeleteDeviceGroupResponseBQZOgithub.com/manchtools/power-manage/contract/gen/go/powermanage/v1;powermanagev1b\x06proto3"
 
 var (
 	file_powermanage_v1_control_proto_rawDescOnce sync.Once
@@ -369,7 +966,7 @@ func file_powermanage_v1_control_proto_rawDescGZIP() []byte {
 	return file_powermanage_v1_control_proto_rawDescData
 }
 
-var file_powermanage_v1_control_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_powermanage_v1_control_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_powermanage_v1_control_proto_goTypes = []any{
 	(*RefreshSessionRequest)(nil),       // 0: powermanage.v1.RefreshSessionRequest
 	(*RefreshSessionResponse)(nil),      // 1: powermanage.v1.RefreshSessionResponse
@@ -377,19 +974,44 @@ var file_powermanage_v1_control_proto_goTypes = []any{
 	(*StartOidcSessionResponse)(nil),    // 3: powermanage.v1.StartOidcSessionResponse
 	(*CompleteOidcSessionRequest)(nil),  // 4: powermanage.v1.CompleteOidcSessionRequest
 	(*CompleteOidcSessionResponse)(nil), // 5: powermanage.v1.CompleteOidcSessionResponse
+	(*DeviceGroup)(nil),                 // 6: powermanage.v1.DeviceGroup
+	(*CreateDeviceGroupRequest)(nil),    // 7: powermanage.v1.CreateDeviceGroupRequest
+	(*GetDeviceGroupRequest)(nil),       // 8: powermanage.v1.GetDeviceGroupRequest
+	(*CreateDeviceGroupResponse)(nil),   // 9: powermanage.v1.CreateDeviceGroupResponse
+	(*GetDeviceGroupResponse)(nil),      // 10: powermanage.v1.GetDeviceGroupResponse
+	(*ListDeviceGroupsRequest)(nil),     // 11: powermanage.v1.ListDeviceGroupsRequest
+	(*ListDeviceGroupsResponse)(nil),    // 12: powermanage.v1.ListDeviceGroupsResponse
+	(*UpdateDeviceGroupRequest)(nil),    // 13: powermanage.v1.UpdateDeviceGroupRequest
+	(*UpdateDeviceGroupResponse)(nil),   // 14: powermanage.v1.UpdateDeviceGroupResponse
+	(*DeleteDeviceGroupRequest)(nil),    // 15: powermanage.v1.DeleteDeviceGroupRequest
+	(*DeleteDeviceGroupResponse)(nil),   // 16: powermanage.v1.DeleteDeviceGroupResponse
 }
 var file_powermanage_v1_control_proto_depIdxs = []int32{
-	0, // 0: powermanage.v1.ControlService.RefreshSession:input_type -> powermanage.v1.RefreshSessionRequest
-	2, // 1: powermanage.v1.ControlService.StartOidcSession:input_type -> powermanage.v1.StartOidcSessionRequest
-	4, // 2: powermanage.v1.ControlService.CompleteOidcSession:input_type -> powermanage.v1.CompleteOidcSessionRequest
-	1, // 3: powermanage.v1.ControlService.RefreshSession:output_type -> powermanage.v1.RefreshSessionResponse
-	3, // 4: powermanage.v1.ControlService.StartOidcSession:output_type -> powermanage.v1.StartOidcSessionResponse
-	5, // 5: powermanage.v1.ControlService.CompleteOidcSession:output_type -> powermanage.v1.CompleteOidcSessionResponse
-	3, // [3:6] is the sub-list for method output_type
-	0, // [0:3] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	6,  // 0: powermanage.v1.CreateDeviceGroupResponse.device_group:type_name -> powermanage.v1.DeviceGroup
+	6,  // 1: powermanage.v1.GetDeviceGroupResponse.device_group:type_name -> powermanage.v1.DeviceGroup
+	6,  // 2: powermanage.v1.ListDeviceGroupsResponse.device_groups:type_name -> powermanage.v1.DeviceGroup
+	6,  // 3: powermanage.v1.UpdateDeviceGroupResponse.device_group:type_name -> powermanage.v1.DeviceGroup
+	0,  // 4: powermanage.v1.ControlService.RefreshSession:input_type -> powermanage.v1.RefreshSessionRequest
+	2,  // 5: powermanage.v1.ControlService.StartOidcSession:input_type -> powermanage.v1.StartOidcSessionRequest
+	4,  // 6: powermanage.v1.ControlService.CompleteOidcSession:input_type -> powermanage.v1.CompleteOidcSessionRequest
+	7,  // 7: powermanage.v1.ControlService.CreateDeviceGroup:input_type -> powermanage.v1.CreateDeviceGroupRequest
+	8,  // 8: powermanage.v1.ControlService.GetDeviceGroup:input_type -> powermanage.v1.GetDeviceGroupRequest
+	11, // 9: powermanage.v1.ControlService.ListDeviceGroups:input_type -> powermanage.v1.ListDeviceGroupsRequest
+	13, // 10: powermanage.v1.ControlService.UpdateDeviceGroup:input_type -> powermanage.v1.UpdateDeviceGroupRequest
+	15, // 11: powermanage.v1.ControlService.DeleteDeviceGroup:input_type -> powermanage.v1.DeleteDeviceGroupRequest
+	1,  // 12: powermanage.v1.ControlService.RefreshSession:output_type -> powermanage.v1.RefreshSessionResponse
+	3,  // 13: powermanage.v1.ControlService.StartOidcSession:output_type -> powermanage.v1.StartOidcSessionResponse
+	5,  // 14: powermanage.v1.ControlService.CompleteOidcSession:output_type -> powermanage.v1.CompleteOidcSessionResponse
+	9,  // 15: powermanage.v1.ControlService.CreateDeviceGroup:output_type -> powermanage.v1.CreateDeviceGroupResponse
+	10, // 16: powermanage.v1.ControlService.GetDeviceGroup:output_type -> powermanage.v1.GetDeviceGroupResponse
+	12, // 17: powermanage.v1.ControlService.ListDeviceGroups:output_type -> powermanage.v1.ListDeviceGroupsResponse
+	14, // 18: powermanage.v1.ControlService.UpdateDeviceGroup:output_type -> powermanage.v1.UpdateDeviceGroupResponse
+	16, // 19: powermanage.v1.ControlService.DeleteDeviceGroup:output_type -> powermanage.v1.DeleteDeviceGroupResponse
+	12, // [12:20] is the sub-list for method output_type
+	4,  // [4:12] is the sub-list for method input_type
+	4,  // [4:4] is the sub-list for extension type_name
+	4,  // [4:4] is the sub-list for extension extendee
+	0,  // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_powermanage_v1_control_proto_init() }
@@ -397,13 +1019,14 @@ func file_powermanage_v1_control_proto_init() {
 	if File_powermanage_v1_control_proto != nil {
 		return
 	}
+	file_powermanage_v1_common_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_powermanage_v1_control_proto_rawDesc), len(file_powermanage_v1_control_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   6,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
