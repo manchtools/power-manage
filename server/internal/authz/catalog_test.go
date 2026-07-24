@@ -1,6 +1,7 @@
 package authz
 
 import (
+	"errors"
 	"slices"
 	"testing"
 
@@ -33,37 +34,61 @@ func TestValidateCatalog_RejectsIncompleteEntries(t *testing.T) {
 			Rationale: "role and grant definitions alter global authorization",
 		},
 	}
-	tests := map[string][]CatalogEntry{
-		"empty": nil,
-		"unclassified": append(slices.Clone(valid), CatalogEntry{
-			Name: "users.manage",
-		}),
-		"unknown classification": append(slices.Clone(valid), CatalogEntry{
-			Name:  "users.manage",
-			Class: ScopeClass("unknown"),
-		}),
-		"global rationale missing": {
-			{Name: "roles.manage", Class: GlobalOnly},
+	tests := map[string]struct {
+		entries []CatalogEntry
+		want    error
+	}{
+		"empty": {want: errCatalogEmpty},
+		"unclassified": {
+			entries: append(slices.Clone(valid), CatalogEntry{Name: "users.manage"}),
+			want:    errPermissionClassInvalid,
 		},
-		"duplicate": append(slices.Clone(valid), valid[0]),
-		"uppercase": append(slices.Clone(valid), CatalogEntry{
-			Name:  "Users.manage",
-			Class: Confinable,
-		}),
-		"scope suffix": append(slices.Clone(valid), CatalogEntry{
-			Name:  "users.manage:self",
-			Class: Confinable,
-		}),
-		"dotted scope suffix": append(slices.Clone(valid), CatalogEntry{
-			Name:  "users.manage.self",
-			Class: Confinable,
-		}),
-		"unsorted": {valid[1], valid[0]},
+		"unknown classification": {
+			entries: append(slices.Clone(valid), CatalogEntry{
+				Name:  "users.manage",
+				Class: ScopeClass("unknown"),
+			}),
+			want: errPermissionClassInvalid,
+		},
+		"global rationale missing": {
+			entries: []CatalogEntry{{Name: "roles.manage", Class: GlobalOnly}},
+			want:    errGlobalRationaleRequired,
+		},
+		"duplicate": {
+			entries: append(slices.Clone(valid), valid[0]),
+			want:    errCatalogOrderInvalid,
+		},
+		"uppercase": {
+			entries: append(slices.Clone(valid), CatalogEntry{
+				Name:  "Users.manage",
+				Class: Confinable,
+			}),
+			want: errPermissionNameInvalid,
+		},
+		"scope suffix": {
+			entries: append(slices.Clone(valid), CatalogEntry{
+				Name:  "users.manage:self",
+				Class: Confinable,
+			}),
+			want: errPermissionNameInvalid,
+		},
+		"dotted scope suffix": {
+			entries: append(slices.Clone(valid), CatalogEntry{
+				Name:  "users.manage.self",
+				Class: Confinable,
+			}),
+			want: errPermissionNameInvalid,
+		},
+		"unsorted": {
+			entries: []CatalogEntry{valid[1], valid[0]},
+			want:    errCatalogOrderInvalid,
+		},
 	}
-	for name, entries := range tests {
+	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			if err := validateCatalog(entries); err == nil {
-				t.Fatal("validateCatalog accepted an incomplete catalog")
+			err := validateCatalog(test.entries)
+			if !errors.Is(err, test.want) {
+				t.Fatalf("validateCatalog error = %v; want category %v", err, test.want)
 			}
 		})
 	}

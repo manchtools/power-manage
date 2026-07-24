@@ -42,20 +42,22 @@ Spec milestone: SPEC-008 M1 (`AUTHZ-3`; AC-1).
 
 ## Implementation
 
-<!-- docref: begin src=server/internal/authz/catalog.go#Catalog:661e3992,server/internal/authz/catalog.go#Lookup:2530248a,server/internal/authz/catalog.go#validateCatalog:237f8c21 -->
+<!-- docref: begin src=server/internal/authz/catalog.go#Catalog:661e3992,server/internal/authz/catalog.go#Lookup:2530248a,server/internal/authz/catalog.go#validateCatalog:f3ebf508 -->
 The authorization package exposes one deterministic, defensively copied
 catalog. Validation accepts only the two defined classifications, requires
-global-only rationales, and rejects malformed, duplicate, or unsorted names.
-Lookup validates the requested name and never defaults an unknown permission.
+global-only rationales, and rejects malformed, duplicate, or unsorted names
+under stable error categories. Lookup validates the requested name and never
+defaults an unknown permission.
 <!-- docref: end -->
 
 ## Verification
 
-<!-- docref: begin src=server/internal/authz/catalog_test.go#TestGuard_PermissionCatalogClassification:44f2623e,server/internal/authz/catalog_test.go#TestValidateCatalog_RejectsIncompleteEntries:75c22ad3,server/internal/authz/catalog_test.go#TestCatalog_DefensivelyCopiedAndLookupFailsClosed:59366ca0 -->
+<!-- docref: begin src=server/internal/authz/catalog_test.go#TestGuard_PermissionCatalogClassification:44f2623e,server/internal/authz/catalog_test.go#TestValidateCatalog_RejectsIncompleteEntries:d31aeec7,server/internal/authz/catalog_test.go#TestCatalog_DefensivelyCopiedAndLookupFailsClosed:59366ca0 -->
 - Passed: production catalog discovery, non-vacuous classification, stable
   ordering, defensive copying, and fail-closed lookup.
 - Passed: empty, unclassified, unknown-class, rationale-free, duplicate,
-  malformed, scope-suffixed, and unsorted rejection fixtures.
+  malformed, scope-suffixed, and unsorted fixtures each reject under their
+  intended stable category.
 - Failed: none.
 - Skipped: none in this milestone.
 <!-- docref: end -->

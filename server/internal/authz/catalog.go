@@ -10,6 +10,14 @@ import (
 
 const maxPermissionNameBytes = 128
 
+var (
+	errCatalogEmpty            = errors.New("authz: permission catalog is empty")
+	errPermissionNameInvalid   = errors.New("authz: permission name is invalid")
+	errCatalogOrderInvalid     = errors.New("authz: permission catalog is not strictly sorted and unique")
+	errGlobalRationaleRequired = errors.New("authz: global-only permission lacks a rationale")
+	errPermissionClassInvalid  = errors.New("authz: permission has no classification")
+)
+
 // Permission is one atomic authorization capability.
 type Permission string
 
@@ -96,24 +104,29 @@ func Lookup(name Permission) (CatalogEntry, bool) {
 
 func validateCatalog(entries []CatalogEntry) error {
 	if len(entries) == 0 {
-		return errors.New("authz: permission catalog is empty")
+		return errCatalogEmpty
 	}
 	var previous Permission
 	for index, entry := range entries {
 		if !validPermissionName(entry.Name) {
-			return fmt.Errorf("authz: permission %q is invalid", entry.Name)
+			return fmt.Errorf("%w: %q", errPermissionNameInvalid, entry.Name)
 		}
 		if index > 0 && entry.Name <= previous {
-			return errors.New("authz: permission catalog is not strictly sorted and unique")
+			return fmt.Errorf(
+				"%w: %q follows %q",
+				errCatalogOrderInvalid,
+				entry.Name,
+				previous,
+			)
 		}
 		switch entry.Class {
 		case Confinable:
 		case GlobalOnly:
 			if strings.TrimSpace(entry.Rationale) == "" {
-				return fmt.Errorf("authz: global-only permission %q lacks a rationale", entry.Name)
+				return fmt.Errorf("%w: %q", errGlobalRationaleRequired, entry.Name)
 			}
 		default:
-			return fmt.Errorf("authz: permission %q has no classification", entry.Name)
+			return fmt.Errorf("%w: %q", errPermissionClassInvalid, entry.Name)
 		}
 		previous = entry.Name
 	}
