@@ -52,7 +52,7 @@ func TestRefreshHandler_UsesRealBoundaryAndFailureOnlyLimits(t *testing.T) {
 		stage("validate"),
 		stage("authenticate"),
 		stage("rate-limit"),
-		stage("authorize"),
+		testAuthorizationGate(t),
 	)
 	if err != nil {
 		t.Fatalf("create control interceptor chain: %v", err)
@@ -91,12 +91,12 @@ func TestRefreshHandler_UsesRealBoundaryAndFailureOnlyLimits(t *testing.T) {
 	gotStages := slices.Clone(stages)
 	stagesMu.Unlock()
 	wantStages := []string{
-		"validate", "authenticate", "rate-limit", "authorize",
-		"validate", "authenticate", "rate-limit", "authorize",
-		"validate", "authenticate", "rate-limit", "authorize",
-		"validate", "authenticate", "rate-limit", "authorize",
-		"validate", "authenticate", "rate-limit", "authorize",
-		"validate", "authenticate", "rate-limit", "authorize",
+		"validate", "authenticate", "rate-limit",
+		"validate", "authenticate", "rate-limit",
+		"validate", "authenticate", "rate-limit",
+		"validate", "authenticate", "rate-limit",
+		"validate", "authenticate", "rate-limit",
+		"validate", "authenticate", "rate-limit",
 	}
 	if !slices.Equal(gotStages, wantStages) {
 		t.Fatalf("control interceptor stages = %v; want ordered chain %v", gotStages, wantStages)
