@@ -15,15 +15,13 @@ UPDATE users
 SET projection_version = $1,
     updated_at = $2
 WHERE user_id = $3
-  AND email = $4
-  AND projection_version = $5
+  AND projection_version = $4
 `
 
 type AdvanceUserProjectionVersionForBootstrapAdminParams struct {
 	ProjectionVersion         int64
 	UpdatedAt                 time.Time
 	UserID                    string
-	Email                     string
 	PreviousProjectionVersion int64
 }
 
@@ -32,7 +30,6 @@ func (q *Queries) AdvanceUserProjectionVersionForBootstrapAdmin(ctx context.Cont
 		arg.ProjectionVersion,
 		arg.UpdatedAt,
 		arg.UserID,
-		arg.Email,
 		arg.PreviousProjectionVersion,
 	)
 	if err != nil {

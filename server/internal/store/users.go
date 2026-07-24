@@ -329,7 +329,7 @@ func projectBootstrapAdminRoleGrant(
 	}
 	userID, err := canonicalUserID(event.StreamID)
 	if err != nil || userID != event.StreamID {
-		return errors.New("store: bootstrap admin role-grant stream ID is not canonical")
+		return errors.New("store: bootstrap admin role grant stream ID is not canonical")
 	}
 	payload, err := decodeEventPayload[bootstrapAdminRoleGrantedPayload](
 		event,
@@ -355,7 +355,6 @@ func projectBootstrapAdminRoleGrant(
 			ProjectionVersion:         event.StreamVersion,
 			UpdatedAt:                 event.CreatedAt,
 			UserID:                    event.StreamID,
-			Email:                     user.Email,
 			PreviousProjectionVersion: event.StreamVersion - 1,
 		},
 	)
@@ -363,7 +362,7 @@ func projectBootstrapAdminRoleGrant(
 		return fmt.Errorf("store: project bootstrap admin role grant: %w", err)
 	}
 	if affected != 1 {
-		return fmt.Errorf("store: bootstrap admin role grant advanced %d users; want one", affected)
+		return fmt.Errorf("store: bootstrap admin role grant affected %d users; want one", affected)
 	}
 	return nil
 }

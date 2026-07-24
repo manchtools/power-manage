@@ -55,5 +55,4 @@ UPDATE users
 SET projection_version = sqlc.arg(projection_version),
     updated_at = sqlc.arg(updated_at)
 WHERE user_id = sqlc.arg(user_id)
-  AND email = sqlc.arg(email)
   AND projection_version = sqlc.arg(previous_projection_version);
