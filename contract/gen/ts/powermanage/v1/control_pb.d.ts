@@ -131,6 +131,227 @@ export declare type CompleteOidcSessionResponse = Message<"powermanage.v1.Comple
 export declare const CompleteOidcSessionResponseSchema: GenMessage<CompleteOidcSessionResponse>;
 
 /**
+ * @generated from message powermanage.v1.DeviceGroup
+ */
+export declare type DeviceGroup = Message<"powermanage.v1.DeviceGroup"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * @generated from field: string dynamic_query = 3;
+   */
+  dynamicQuery: string;
+
+  /**
+   * @generated from field: uint64 version = 4;
+   */
+  version: bigint;
+};
+
+/**
+ * Describes the message powermanage.v1.DeviceGroup.
+ * Use `create(DeviceGroupSchema)` to create a new message.
+ */
+export declare const DeviceGroupSchema: GenMessage<DeviceGroup>;
+
+/**
+ * @generated from message powermanage.v1.CreateDeviceGroupRequest
+ */
+export declare type CreateDeviceGroupRequest = Message<"powermanage.v1.CreateDeviceGroupRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * @generated from field: string dynamic_query = 3;
+   */
+  dynamicQuery: string;
+};
+
+/**
+ * Describes the message powermanage.v1.CreateDeviceGroupRequest.
+ * Use `create(CreateDeviceGroupRequestSchema)` to create a new message.
+ */
+export declare const CreateDeviceGroupRequestSchema: GenMessage<CreateDeviceGroupRequest>;
+
+/**
+ * @generated from message powermanage.v1.GetDeviceGroupRequest
+ */
+export declare type GetDeviceGroupRequest = Message<"powermanage.v1.GetDeviceGroupRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+};
+
+/**
+ * Describes the message powermanage.v1.GetDeviceGroupRequest.
+ * Use `create(GetDeviceGroupRequestSchema)` to create a new message.
+ */
+export declare const GetDeviceGroupRequestSchema: GenMessage<GetDeviceGroupRequest>;
+
+/**
+ * @generated from message powermanage.v1.CreateDeviceGroupResponse
+ */
+export declare type CreateDeviceGroupResponse = Message<"powermanage.v1.CreateDeviceGroupResponse"> & {
+  /**
+   * @generated from field: powermanage.v1.DeviceGroup device_group = 1;
+   */
+  deviceGroup?: DeviceGroup | undefined;
+};
+
+/**
+ * Describes the message powermanage.v1.CreateDeviceGroupResponse.
+ * Use `create(CreateDeviceGroupResponseSchema)` to create a new message.
+ */
+export declare const CreateDeviceGroupResponseSchema: GenMessage<CreateDeviceGroupResponse>;
+
+/**
+ * @generated from message powermanage.v1.GetDeviceGroupResponse
+ */
+export declare type GetDeviceGroupResponse = Message<"powermanage.v1.GetDeviceGroupResponse"> & {
+  /**
+   * @generated from field: powermanage.v1.DeviceGroup device_group = 1;
+   */
+  deviceGroup?: DeviceGroup | undefined;
+};
+
+/**
+ * Describes the message powermanage.v1.GetDeviceGroupResponse.
+ * Use `create(GetDeviceGroupResponseSchema)` to create a new message.
+ */
+export declare const GetDeviceGroupResponseSchema: GenMessage<GetDeviceGroupResponse>;
+
+/**
+ * @generated from message powermanage.v1.ListDeviceGroupsRequest
+ */
+export declare type ListDeviceGroupsRequest = Message<"powermanage.v1.ListDeviceGroupsRequest"> & {
+  /**
+   * @generated from field: uint32 limit = 1;
+   */
+  limit: number;
+};
+
+/**
+ * Describes the message powermanage.v1.ListDeviceGroupsRequest.
+ * Use `create(ListDeviceGroupsRequestSchema)` to create a new message.
+ */
+export declare const ListDeviceGroupsRequestSchema: GenMessage<ListDeviceGroupsRequest>;
+
+/**
+ * @generated from message powermanage.v1.ListDeviceGroupsResponse
+ */
+export declare type ListDeviceGroupsResponse = Message<"powermanage.v1.ListDeviceGroupsResponse"> & {
+  /**
+   * @generated from field: repeated powermanage.v1.DeviceGroup device_groups = 1;
+   */
+  deviceGroups: DeviceGroup[];
+};
+
+/**
+ * Describes the message powermanage.v1.ListDeviceGroupsResponse.
+ * Use `create(ListDeviceGroupsResponseSchema)` to create a new message.
+ */
+export declare const ListDeviceGroupsResponseSchema: GenMessage<ListDeviceGroupsResponse>;
+
+/**
+ * @generated from message powermanage.v1.UpdateDeviceGroupRequest
+ */
+export declare type UpdateDeviceGroupRequest = Message<"powermanage.v1.UpdateDeviceGroupRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * @generated from field: string dynamic_query = 3;
+   */
+  dynamicQuery: string;
+
+  /**
+   * @generated from field: uint64 expected_version = 4;
+   */
+  expectedVersion: bigint;
+};
+
+/**
+ * Describes the message powermanage.v1.UpdateDeviceGroupRequest.
+ * Use `create(UpdateDeviceGroupRequestSchema)` to create a new message.
+ */
+export declare const UpdateDeviceGroupRequestSchema: GenMessage<UpdateDeviceGroupRequest>;
+
+/**
+ * @generated from message powermanage.v1.UpdateDeviceGroupResponse
+ */
+export declare type UpdateDeviceGroupResponse = Message<"powermanage.v1.UpdateDeviceGroupResponse"> & {
+  /**
+   * @generated from field: powermanage.v1.DeviceGroup device_group = 1;
+   */
+  deviceGroup?: DeviceGroup | undefined;
+};
+
+/**
+ * Describes the message powermanage.v1.UpdateDeviceGroupResponse.
+ * Use `create(UpdateDeviceGroupResponseSchema)` to create a new message.
+ */
+export declare const UpdateDeviceGroupResponseSchema: GenMessage<UpdateDeviceGroupResponse>;
+
+/**
+ * @generated from message powermanage.v1.DeleteDeviceGroupRequest
+ */
+export declare type DeleteDeviceGroupRequest = Message<"powermanage.v1.DeleteDeviceGroupRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: uint64 expected_version = 2;
+   */
+  expectedVersion: bigint;
+};
+
+/**
+ * Describes the message powermanage.v1.DeleteDeviceGroupRequest.
+ * Use `create(DeleteDeviceGroupRequestSchema)` to create a new message.
+ */
+export declare const DeleteDeviceGroupRequestSchema: GenMessage<DeleteDeviceGroupRequest>;
+
+/**
+ * @generated from message powermanage.v1.DeleteDeviceGroupResponse
+ */
+export declare type DeleteDeviceGroupResponse = Message<"powermanage.v1.DeleteDeviceGroupResponse"> & {
+  /**
+   * @generated from field: string deleted_id = 1;
+   */
+  deletedId: string;
+};
+
+/**
+ * Describes the message powermanage.v1.DeleteDeviceGroupResponse.
+ * Use `create(DeleteDeviceGroupResponseSchema)` to create a new message.
+ */
+export declare const DeleteDeviceGroupResponseSchema: GenMessage<DeleteDeviceGroupResponse>;
+
+/**
  * @generated from service powermanage.v1.ControlService
  */
 export declare const ControlService: GenService<{
@@ -157,6 +378,46 @@ export declare const ControlService: GenService<{
     methodKind: "unary";
     input: typeof CompleteOidcSessionRequestSchema;
     output: typeof CompleteOidcSessionResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.CreateDeviceGroup
+   */
+  createDeviceGroup: {
+    methodKind: "unary";
+    input: typeof CreateDeviceGroupRequestSchema;
+    output: typeof CreateDeviceGroupResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.GetDeviceGroup
+   */
+  getDeviceGroup: {
+    methodKind: "unary";
+    input: typeof GetDeviceGroupRequestSchema;
+    output: typeof GetDeviceGroupResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.ListDeviceGroups
+   */
+  listDeviceGroups: {
+    methodKind: "unary";
+    input: typeof ListDeviceGroupsRequestSchema;
+    output: typeof ListDeviceGroupsResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.UpdateDeviceGroup
+   */
+  updateDeviceGroup: {
+    methodKind: "unary";
+    input: typeof UpdateDeviceGroupRequestSchema;
+    output: typeof UpdateDeviceGroupResponseSchema;
+  },
+  /**
+   * @generated from rpc powermanage.v1.ControlService.DeleteDeviceGroup
+   */
+  deleteDeviceGroup: {
+    methodKind: "unary";
+    input: typeof DeleteDeviceGroupRequestSchema;
+    output: typeof DeleteDeviceGroupResponseSchema;
   },
 }>;
 

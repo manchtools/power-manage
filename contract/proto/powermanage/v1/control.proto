@@ -6,6 +6,7 @@ syntax = "proto3";
 package powermanage.v1;
 
 import "buf/validate/validate.proto";
+import "powermanage/v1/common.proto";
 
 option go_package = "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1;powermanagev1";
 
@@ -13,6 +14,11 @@ service ControlService {
   rpc RefreshSession(RefreshSessionRequest) returns (RefreshSessionResponse);
   rpc StartOidcSession(StartOidcSessionRequest) returns (StartOidcSessionResponse);
   rpc CompleteOidcSession(CompleteOidcSessionRequest) returns (CompleteOidcSessionResponse);
+  rpc CreateDeviceGroup(CreateDeviceGroupRequest) returns (CreateDeviceGroupResponse);
+  rpc GetDeviceGroup(GetDeviceGroupRequest) returns (GetDeviceGroupResponse);
+  rpc ListDeviceGroups(ListDeviceGroupsRequest) returns (ListDeviceGroupsResponse);
+  rpc UpdateDeviceGroup(UpdateDeviceGroupRequest) returns (UpdateDeviceGroupResponse);
+  rpc DeleteDeviceGroup(DeleteDeviceGroupRequest) returns (DeleteDeviceGroupResponse);
 }
 
 message RefreshSessionRequest {
@@ -72,4 +78,80 @@ message CompleteOidcSessionResponse {
     min_len: 1
     max_len: 8192
   }];
+}
+
+message DeviceGroup {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+  }];
+  string dynamic_query = 3 [(buf.validate.field).string.max_len = 4096];
+  uint64 version = 4 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message CreateDeviceGroupRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+  }];
+  string dynamic_query = 3 [(buf.validate.field).string.max_len = 4096];
+}
+
+message GetDeviceGroupRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+}
+
+message CreateDeviceGroupResponse {
+  DeviceGroup device_group = 1 [(buf.validate.field).required = true];
+}
+
+message GetDeviceGroupResponse {
+  DeviceGroup device_group = 1 [(buf.validate.field).required = true];
+}
+
+message ListDeviceGroupsRequest {
+  uint32 limit = 1 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 200
+  }];
+}
+
+message ListDeviceGroupsResponse {
+  repeated DeviceGroup device_groups = 1 [(buf.validate.field).repeated = {
+    max_items: 200
+  }];
+}
+
+message UpdateDeviceGroupRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+  }];
+  string dynamic_query = 3 [(buf.validate.field).string.max_len = 4096];
+  uint64 expected_version = 4 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message UpdateDeviceGroupResponse {
+  DeviceGroup device_group = 1 [(buf.validate.field).required = true];
+}
+
+message DeleteDeviceGroupRequest {
+  string id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  uint64 expected_version = 2 [(buf.validate.field).uint64 = {
+    gte: 1
+    lte: 9223372036854775807
+  }];
+}
+
+message DeleteDeviceGroupResponse {
+  string deleted_id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
 }

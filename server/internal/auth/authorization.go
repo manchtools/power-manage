@@ -169,6 +169,17 @@ func (g *AuthorizationGate) AuthorizeContext(
 			return nil, permissionDenied()
 		}
 	}
+	if decision, ok := ctx.Value(authorizationDecisionContextKey{}).(AuthorizationDecision); ok {
+		reach, permitted := decision.EffectiveAccess.Permissions[policy.Permission]
+		if decision.Subject != principal.subject ||
+			decision.AuditIdentity != principal.auditIdentity ||
+			decision.RequiredPermission != policy.Permission ||
+			!permitted ||
+			!validReach(policy.Permission, reach) {
+			return nil, authorizationUnavailable()
+		}
+		return ctx, nil
+	}
 	effective, err := g.resolver.ResolveEffectiveAccess(ctx, principal.subject)
 	if err != nil {
 		return nil, authorizationUnavailable()
