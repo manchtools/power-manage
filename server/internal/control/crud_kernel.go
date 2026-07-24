@@ -24,6 +24,7 @@ const maxCRUDPageSize = 200
 var (
 	errCRUDInvalid             = errors.New("request is invalid")
 	errCRUDNotFound            = errors.New("resource not found")
+	errCRUDPermissionDenied    = errors.New("permission denied")
 	errCRUDConflict            = errors.New("resource version conflict")
 	errCRUDExists              = errors.New("resource already exists")
 	errCRUDUnavailable         = errors.New("management service unavailable")
@@ -58,6 +59,13 @@ const (
 	crudScopeAssignment
 )
 
+type crudScopedReadDenial uint8
+
+const (
+	crudScopedReadNotFound crudScopedReadDenial = iota
+	crudScopedReadPermissionDenied
+)
+
 type crudAppender interface {
 	AppendEvent(context.Context, store.Event) error
 	AppendEventWithVersion(context.Context, store.Event, int64) error
@@ -81,6 +89,7 @@ type crudDomain struct {
 	searchableColumns     []string
 	alreadyExists         func(error) bool
 	scopeRelation         crudScopeRelation
+	scopedReadDenial      crudScopedReadDenial
 	scope                 func(authz.Reach) (CRUDScope, error)
 	requestID             func(proto.Message) (string, error)
 	createEvent           func(context.Context, proto.Message) (store.Event, string, error)
@@ -200,7 +209,7 @@ func (k *CRUDKernel) get(
 	}
 	result, err := domain.get(authorized, id, scope)
 	if err != nil {
-		return nil, mapCRUDStoreError(domain, err)
+		return nil, mapCRUDReadError(domain, scope, err)
 	}
 	if err := validateCRUDResult(result, domain.objectMessage); err != nil {
 		return nil, unavailableCRUD()
@@ -522,6 +531,18 @@ func validateCRUDDomain(domain crudDomain) error {
 			domain.name,
 		)
 	}
+	_, hasDetailRead := domain.requestMessages[crudGet]
+	requiresPermissionDenial := hasDetailRead &&
+		(domain.permission == "executions.read" || domain.permission == "logs.read")
+	if domain.scopedReadDenial > crudScopedReadPermissionDenied ||
+		(domain.scopedReadDenial == crudScopedReadPermissionDenied) !=
+			requiresPermissionDenial {
+		return fmt.Errorf(
+			"%w: domain %q has invalid scoped-read denial",
+			errCRUDDomainMetadata,
+			domain.name,
+		)
+	}
 	policies := auth.ProcedureAuthorizations()
 	for operation := crudCreate; operation <= crudDelete; operation++ {
 		requestMessage, hasRequest := domain.requestMessages[operation]
@@ -656,6 +677,15 @@ func crudUintField(message proto.Message, name protoreflect.Name) (uint64, error
 	}
 }
 
+func mapCRUDReadError(domain crudDomain, scope CRUDScope, err error) error {
+	if store.IsNotFound(err) &&
+		!scope.Global &&
+		domain.scopedReadDenial == crudScopedReadPermissionDenied {
+		return permissionDeniedCRUD()
+	}
+	return mapCRUDStoreError(domain, err)
+}
+
 func mapCRUDStoreError(domain crudDomain, err error) error {
 	switch {
 	case store.IsNotFound(err):
@@ -675,6 +705,10 @@ func invalidCRUDRequest() error {
 
 func notFoundCRUD() error {
 	return connect.NewError(connect.CodeNotFound, errCRUDNotFound)
+}
+
+func permissionDeniedCRUD() error {
+	return connect.NewError(connect.CodePermissionDenied, errCRUDPermissionDenied)
 }
 
 func unavailableCRUD() error {

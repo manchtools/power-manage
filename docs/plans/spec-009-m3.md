@@ -41,7 +41,10 @@ Spec milestone: SPEC-009 M3 (`WIRE-11`, `DOM-1`; AC-4).
    stream version; assignments remain create/delete-only.
 5. The generated real-Postgres scope suite proves, per confinable domain, that
    in-scope get/list/write succeeds, out-of-scope access is NotFound, and empty
-   reach matches nothing. Global-only domains accept only global reach.
+   reach matches nothing. Executions are the recorded exception: scoped detail
+   reads return PermissionDenied so operators can distinguish inaccessible
+   live output from an absent execution. Global-only domains accept only
+   global reach.
 6. Read-only domains expose no mutation RPCs; devices expose no create RPC;
    assignments expose no update RPC.
 7. Contract messages use bare ULIDs, typed enums/messages, bounded collections,
@@ -64,7 +67,7 @@ Spec milestone: SPEC-009 M3 (`WIRE-11`, `DOM-1`; AC-4).
 
 ## Verification
 
-<!-- docref: begin src=server/internal/control/device_groups.go#managementDomains:178b7675,server/internal/control/crud_kernel.go#CRUDKernel:e7e7405c,server/internal/control/identity_domains.go#identityDomains:b92810b6,server/internal/control/action_work_domains.go#actionDomain:5aee1e40,server/internal/control/operational_read_domains.go#auditDomain:e1323271,server/internal/auth/oidc.go#OIDCService.provider:cd6414e0,server/internal/store/management_reads.go#Store.ListAuditEvents:5d6dcdab,server/internal/store/telemetry.go#TelemetryStore.BindExecutionOutputToDevice:9b4cc57f,server/internal/control/rpc_guards_test.go#TestGuard_ManagementDomainInventoryAndOperations:e207e039,server/internal/control/boundary_generator_test.go#TestGuard_CRUDRequestBoundaryCasesCoverEveryRegisteredField:b90dcb09,server/internal/control/identity_postgres_test.go#TestIdentityHandlers_CRUDAndScopeConfinement:4cc4ce36,server/internal/control/scim_configuration_postgres_test.go#TestScimConfigurationHandlers_OneTimeRotationDisableAndDelete:d3dc50f3,server/internal/control/action_work_postgres_test.go#TestActionWorkHandlers_CRUDScopeAndRebuild:29328313,server/internal/control/operational_read_postgres_test.go#TestOperationalReadHandlers_RealViewsAndScope:1954d005 -->
+<!-- docref: begin src=server/internal/control/device_groups.go#managementDomains:178b7675,server/internal/control/crud_kernel.go#CRUDKernel:e7e7405c,server/internal/control/identity_domains.go#identityDomains:b92810b6,server/internal/control/action_work_domains.go#actionDomain:5aee1e40,server/internal/control/operational_read_domains.go#auditDomain:e1323271,server/internal/auth/oidc.go#OIDCService.provider:cd6414e0,server/internal/store/management_reads.go#Store.ListAuditEvents:5d6dcdab,server/internal/store/telemetry.go#TelemetryStore.BindExecutionOutputToDevice:9b4cc57f,server/internal/control/rpc_guards_test.go#TestGuard_ManagementDomainInventoryAndOperations:e207e039,server/internal/control/boundary_generator_test.go#TestGuard_CRUDRequestBoundaryCasesCoverEveryRegisteredField:b90dcb09,server/internal/control/identity_postgres_test.go#TestIdentityHandlers_CRUDAndScopeConfinement:4cc4ce36,server/internal/control/scim_configuration_postgres_test.go#TestScimConfigurationHandlers_OneTimeRotationDisableAndDelete:d3dc50f3,server/internal/control/action_work_postgres_test.go#TestActionWorkHandlers_CRUDScopeAndRebuild:29328313,server/internal/control/operational_read_postgres_test.go#TestOperationalReadHandlers_RealViewsAndScope:99283513 -->
 - The shared registry contains the exact 19-domain operation inventory, and
   every registered request remains inside the validated, permission-bound CRUD
   kernel.

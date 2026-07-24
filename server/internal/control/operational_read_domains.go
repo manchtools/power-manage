@@ -75,7 +75,11 @@ func executionDomain(eventStore *store.Store) crudDomain {
 		},
 		searchableColumns: []string{"execution_id", "device_id"},
 		scopeRelation:     crudScopeDevice,
-		scope:             resourceCRUDScope,
+		// AUTHZ-5 records execution/log detail as the exact scoped-read
+		// PermissionDenied exception because operators use denial to distinguish
+		// inaccessible live output from an absent execution.
+		scopedReadDenial: crudScopedReadPermissionDenied,
+		scope:            resourceCRUDScope,
 		get: func(ctx context.Context, id string, scope CRUDScope) (proto.Message, error) {
 			if eventStore == nil {
 				return nil, errors.New("control: management store is not wired")
