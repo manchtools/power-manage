@@ -113,8 +113,14 @@ type ControlTrustStateConfirmation struct {
 
 // NewRotationManager reconstructs durable state and binds every stored root to
 // the configured signer before making it usable.
-func NewRotationManager(config RotationManagerConfig) (*RotationManager, error) {
-	if config.EventStore == nil || config.Authorities == nil || nilcheck.Interface(config.Distributor) {
+func NewRotationManager(
+	ctx context.Context,
+	config RotationManagerConfig,
+) (*RotationManager, error) {
+	if nilcheck.Interface(ctx) ||
+		config.EventStore == nil ||
+		config.Authorities == nil ||
+		nilcheck.Interface(config.Distributor) {
 		return nil, errors.New("pki: CA rotation dependencies are not wired")
 	}
 	manager := &RotationManager{
@@ -131,7 +137,7 @@ func NewRotationManager(config RotationManagerConfig) (*RotationManager, error) 
 		manager.successorSigners[class] = signer
 	}
 	for _, class := range []store.CertificateClass{store.CertificateClassAgent, store.CertificateClassGateway} {
-		state, err := config.EventStore.CARotationState(context.Background(), class)
+		state, err := config.EventStore.CARotationState(ctx, class)
 		if store.IsNotFound(err) {
 			continue
 		}
@@ -143,7 +149,7 @@ func NewRotationManager(config RotationManagerConfig) (*RotationManager, error) 
 		}
 	}
 	if authority, ok := manager.authorities.currentAuthority(store.CertificateClassAgent); ok {
-		if err := manager.ensureInitialCRL(context.Background(), store.CertificateClassAgent, authority); err != nil {
+		if err := manager.ensureInitialCRL(ctx, store.CertificateClassAgent, authority); err != nil {
 			return nil, fmt.Errorf("pki: initialize agent CRL: %w", err)
 		}
 	}

@@ -38,7 +38,7 @@ func TestRotationManagers_SharedPostgresFenceDrainsIssuanceThroughCommit(t *test
 		t.Fatal("cross-process fence fixture reused the same mutable Authorities object")
 	}
 	otherDistributor := &recordingTrustBundleDistributor{}
-	other, err := NewRotationManager(RotationManagerConfig{
+	other, err := NewRotationManager(t.Context(), RotationManagerConfig{
 		EventStore: otherStore, Authorities: otherAuthorities, Distributor: otherDistributor,
 		SuccessorSigners: map[store.CertificateClass]crypto.Signer{
 			store.CertificateClassAgent:   fixture.agentSuccessor.signer,
@@ -281,7 +281,7 @@ func exerciseRealIssuanceRPCFences(t *testing.T) {
 			}
 			agentSuccessor := newRotationCA(t, "fenced agent successor", fixture.service.now())
 			gatewaySuccessor := newRotationCA(t, "fenced gateway successor", fixture.service.now())
-			manager, err := NewRotationManager(RotationManagerConfig{
+			manager, err := NewRotationManager(t.Context(), RotationManagerConfig{
 				EventStore: fixture.eventStore, Authorities: fixture.service.authorities, Distributor: &recordingTrustBundleDistributor{},
 				SuccessorSigners: map[store.CertificateClass]crypto.Signer{
 					store.CertificateClassAgent: agentSuccessor.signer, store.CertificateClassGateway: gatewaySuccessor.signer,
@@ -376,7 +376,7 @@ func attachFenceManager(t *testing.T, fixture enrollmentHandlerFixture, class st
 	} else {
 		gatewaySuccessor = successor
 	}
-	manager, err := NewRotationManager(RotationManagerConfig{
+	manager, err := NewRotationManager(t.Context(), RotationManagerConfig{
 		EventStore: fixture.eventStore, Authorities: fixture.service.authorities, Distributor: &recordingTrustBundleDistributor{},
 		SuccessorSigners: map[store.CertificateClass]crypto.Signer{
 			store.CertificateClassAgent: agentSuccessor.signer, store.CertificateClassGateway: gatewaySuccessor.signer,

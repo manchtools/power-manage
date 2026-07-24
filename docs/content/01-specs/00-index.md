@@ -25,7 +25,7 @@ spec's own header, which is authoritative.
 | 006 | [pki-and-identity](006-pki-and-identity.md) | 003, 005 | contract, server, agent | In progress (M8 done) |
 | 007 | [authentication](007-authentication.md) | 003, 005 | server | Implemented |
 | 008 | [authorization](008-authorization.md) | 005, 007 | server | In progress (M3 done) |
-| 009 | [crud-kernel-search-and-domains](009-crud-kernel-search-and-domains.md) | 005, 007, 008 | server | In progress (M1 done) |
+| 009 | [crud-kernel-search-and-domains](009-crud-kernel-search-and-domains.md) | 005, 007, 008 | server | In progress (M2 done) |
 | 010 | [artifact-store](010-artifact-store.md) | 003, 005 | server | Spec ready |
 | 011 | [audit-and-retention](011-audit-and-retention.md) | 005, 008, 010 | server | Spec ready |
 | 012 | [gateway](012-gateway.md) | 003, 006 | server | Spec ready |
@@ -140,6 +140,8 @@ SPEC-008 M2 — event-sourced roles and grants, direct plus SCIM-group resolutio
 SPEC-008 M3 — total descriptor-checked RPC authorization policies, runtime fail-closed unknowns, permission and PAT-scope intersection, defensive decisions for handler checks, and a fixed production authorization gate in the ordered interceptor chain (AC-17, SPEC-008), (AC-18, SPEC-008) — PR #58
 
 SPEC-009 M1 — one validated and permission-bound CRUD kernel, device-group reference registration, explicit scope predicates, full-replacement OCC, event-derived projection, and rebuild parity (AC-1, SPEC-009), (AC-2, SPEC-009) — PR #59
+
+SPEC-009 M2 — registry-derived correct/absent/wrong boundary generation, exact-set Control RPC implementation and authorization guards, request-path background-context prohibition, and function-scoped bounded-detachment enforcement (AC-3, SPEC-009), (AC-12, SPEC-009) — PR #60
 
 ## Rules
 

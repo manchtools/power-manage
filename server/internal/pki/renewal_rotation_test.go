@@ -37,7 +37,7 @@ func TestRenewalHandler_MigrationPhaseIssuesFromSuccessorAndReturnsExactProofs(t
 	currentKey, currentCertificateDER, deviceID := enrollRenewalFixture(t, fixture)
 	successor := newRotationCA(t, "agent migration successor", fixture.service.now())
 	distributor := &recordingTrustBundleDistributor{}
-	manager, err := NewRotationManager(RotationManagerConfig{
+	manager, err := NewRotationManager(t.Context(), RotationManagerConfig{
 		EventStore: fixture.eventStore, Authorities: fixture.service.authorities, Distributor: distributor,
 		SuccessorSigners: map[store.CertificateClass]crypto.Signer{store.CertificateClassAgent: successor.signer},
 	})
@@ -272,7 +272,7 @@ func attachRetryRotationManager(t *testing.T, fixture enrollmentHandlerFixture, 
 	} else {
 		gatewaySuccessor = successor
 	}
-	manager, err := NewRotationManager(RotationManagerConfig{
+	manager, err := NewRotationManager(t.Context(), RotationManagerConfig{
 		EventStore: fixture.eventStore, Authorities: fixture.service.authorities, Distributor: &recordingTrustBundleDistributor{},
 		SuccessorSigners: map[store.CertificateClass]crypto.Signer{
 			store.CertificateClassAgent: agentSuccessor.signer, store.CertificateClassGateway: gatewaySuccessor.signer,

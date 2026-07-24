@@ -1109,7 +1109,7 @@ func TestRotationManager_RestartRebuildsEveryPhaseAndConfirmationGate(t *testing
 				if err != nil {
 					t.Fatalf("create fresh configured authorities: %v", err)
 				}
-				restarted, err := NewRotationManager(RotationManagerConfig{
+				restarted, err := NewRotationManager(t.Context(), RotationManagerConfig{
 					EventStore: freshStore, Authorities: freshAuthorities, Distributor: &recordingTrustBundleDistributor{},
 					SuccessorSigners: map[store.CertificateClass]crypto.Signer{
 						store.CertificateClassAgent:   fixture.agentSuccessor.signer,
@@ -1125,7 +1125,7 @@ func TestRotationManager_RestartRebuildsEveryPhaseAndConfirmationGate(t *testing
 				assertAuthoritySnapshotsEqual(t, after, before)
 				if before.Phase != RotationPhaseStable {
 					wrongSigner := newRotationCA(t, "wrong configured signer", fixture.now)
-					if _, err := NewRotationManager(RotationManagerConfig{
+					if _, err := NewRotationManager(t.Context(), RotationManagerConfig{
 						EventStore: freshStore, Authorities: freshAuthorities, Distributor: &recordingTrustBundleDistributor{},
 						SuccessorSigners: map[store.CertificateClass]crypto.Signer{class: wrongSigner.signer},
 					}); err == nil || !strings.Contains(strings.ToLower(err.Error()), "signer") {
@@ -1141,7 +1141,7 @@ func TestRotationManager_RestartRebuildsEveryPhaseAndConfirmationGate(t *testing
 						t.Fatalf("create isolated authorities for normalized wrong-signer boot: %v", err)
 					}
 					wrongSigner := newRotationCA(t, "wrong normalized successor signer", fixture.now)
-					if _, err := NewRotationManager(RotationManagerConfig{
+					if _, err := NewRotationManager(t.Context(), RotationManagerConfig{
 						EventStore: freshStore, Authorities: wrongAuthorities, Distributor: &recordingTrustBundleDistributor{},
 						SuccessorSigners: map[store.CertificateClass]crypto.Signer{class: wrongSigner.signer},
 					}); err == nil || !strings.Contains(strings.ToLower(err.Error()), "signer") {
@@ -1210,6 +1210,41 @@ func (d *recordingTrustBundleDistributor) PublishTrustBundle(_ context.Context, 
 	return nil
 }
 
+func TestNewRotationManager_RejectsTypedNilContext(t *testing.T) {
+	fixture := newRotationManagerFixture(t)
+	var typedNil *rotationNilContext
+	_, err := NewRotationManager(context.Context(typedNil), RotationManagerConfig{
+		EventStore:  fixture.eventStore,
+		Authorities: fixture.authorities,
+		Distributor: fixture.distributor,
+		SuccessorSigners: map[store.CertificateClass]crypto.Signer{
+			store.CertificateClassAgent:   fixture.agentSuccessor.signer,
+			store.CertificateClassGateway: fixture.gatewaySuccessor.signer,
+		},
+	})
+	if err == nil || err.Error() != "pki: CA rotation dependencies are not wired" {
+		t.Fatalf("typed-nil context error = %v; want wiring rejection", err)
+	}
+}
+
+type rotationNilContext struct{}
+
+func (*rotationNilContext) Deadline() (time.Time, bool) {
+	panic("typed-nil rotation context was used")
+}
+
+func (*rotationNilContext) Done() <-chan struct{} {
+	panic("typed-nil rotation context was used")
+}
+
+func (*rotationNilContext) Err() error {
+	panic("typed-nil rotation context was used")
+}
+
+func (*rotationNilContext) Value(any) any {
+	panic("typed-nil rotation context was used")
+}
+
 func newRotationManagerFixture(t *testing.T) rotationManagerFixture {
 	t.Helper()
 	now := time.Now().UTC().Truncate(time.Second)
@@ -1231,7 +1266,7 @@ func newRotationManagerFixture(t *testing.T) rotationManagerFixture {
 		t.Fatalf("create rotation authorities: %v", err)
 	}
 	distributor := &recordingTrustBundleDistributor{}
-	manager, err := NewRotationManager(RotationManagerConfig{
+	manager, err := NewRotationManager(t.Context(), RotationManagerConfig{
 		EventStore: eventStore, Authorities: authorities, Distributor: distributor,
 		SuccessorSigners: map[store.CertificateClass]crypto.Signer{
 			store.CertificateClassAgent:   agentSuccessor.signer,
