@@ -10,7 +10,7 @@ import (
 
 func TestGuard_RefreshEnumerationParityCoverage(t *testing.T) {
 	profiles := EnumerationParityProfiles()
-	discovered := guardtest.Discover(t, "secret-verification parity profiles", 2, func() ([]string, error) {
+	discovered := guardtest.Discover(t, "secret-verification parity profiles", 3, func() ([]string, error) {
 		names := make([]string, 0, len(profiles))
 		for verifier := range profiles {
 			if verifier == "" {
@@ -24,8 +24,9 @@ func TestGuard_RefreshEnumerationParityCoverage(t *testing.T) {
 	if !slices.Equal(discovered, []string{
 		string(SecretVerifierPAT),
 		string(SecretVerifierRefresh),
+		string(SecretVerifierSCIM),
 	}) {
-		t.Fatalf("secret verifiers = %v; want PAT and refresh", discovered)
+		t.Fatalf("secret verifiers = %v; want PAT, refresh, and SCIM", discovered)
 	}
 
 	profile := profiles[SecretVerifierRefresh]

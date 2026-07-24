@@ -262,7 +262,7 @@ func canonicalOIDCIssuer(issuer string) (string, error) {
 }
 
 func userEventDefinitions() map[string]eventDefinition {
-	return map[string]eventDefinition{
+	definitions := map[string]eventDefinition{
 		userCreatedEventType: {
 			PayloadVersion: userPayloadVersion,
 			PayloadType:    userCreatedPayload{},
@@ -293,10 +293,14 @@ func userEventDefinitions() map[string]eventDefinition {
 			Projector: projectOIDCIdentityLink,
 		},
 	}
+	for eventType, definition := range scimUserEventDefinitions() {
+		definitions[eventType] = definition
+	}
+	return definitions
 }
 
 func userGoldenCorpus() map[string]goldenEvent {
-	return map[string]goldenEvent{
+	corpus := map[string]goldenEvent{
 		userCreatedEventType: {
 			PayloadVersion: userPayloadVersion,
 			Payload:        []byte(`{"email":"person@example.test"}`),
@@ -312,6 +316,10 @@ func userGoldenCorpus() map[string]goldenEvent {
 			),
 		},
 	}
+	for eventType, event := range scimUserGoldenCorpus() {
+		corpus[eventType] = event
+	}
+	return corpus
 }
 
 func projectBootstrapAdminRoleGrant(
@@ -489,6 +497,9 @@ func validateUserProjection(userID, email string, version int64) (User, error) {
 
 func resetUsers(ctx context.Context, tx ProjectionTx) error {
 	queries := generated.New(tx)
+	if err := queries.ResetSCIMIdentities(ctx); err != nil {
+		return fmt.Errorf("store: reset SCIM identities: %w", err)
+	}
 	if err := queries.ResetOIDCIdentities(ctx); err != nil {
 		return fmt.Errorf("store: reset OIDC identities: %w", err)
 	}

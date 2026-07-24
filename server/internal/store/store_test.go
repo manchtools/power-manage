@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"sync"
 	"testing"
@@ -564,6 +565,63 @@ func TestAppendEvents_ConflictOnSecondInsertDoesNotRetry(t *testing.T) {
 	if got := projectionRowCount(t, pool); got != 0 {
 		t.Fatalf("projection row count = %d; want 0 after second insert failed", got)
 	}
+}
+
+func TestAppendEventsWithVersion_RejectsStaleBatchAtomically(t *testing.T) {
+	pool := testPostgres(t)
+	createCounterProjection(t, pool)
+	store, err := newTestStore(pool, map[string]Projector{testEventType: incrementCounter})
+	if err != nil {
+		t.Fatalf("create store: %v", err)
+	}
+	ctx := context.Background()
+	if err := store.AppendEventWithVersion(ctx, event(testEventType, []byte{1}), 0); err != nil {
+		t.Fatalf("append initial event: %v", err)
+	}
+	batch := []Event{
+		event(testEventType, []byte{2}),
+		event(testEventType, []byte{3}),
+	}
+	if err := store.AppendEventsWithVersion(ctx, batch, 0); !IsVersionConflict(err) {
+		t.Fatalf("stale version-pinned batch error = %v; want version conflict", err)
+	}
+	if got := eventCount(t, pool); got != 1 {
+		t.Fatalf("event count after stale batch = %d; want one", got)
+	}
+	if got := projectionCount(t, pool); got != 1 {
+		t.Fatalf("projection count after stale batch = %d; want one", got)
+	}
+	if err := store.AppendEventsWithVersion(ctx, batch, 1); err != nil {
+		t.Fatalf("append version-pinned batch: %v", err)
+	}
+	if got := eventCount(t, pool); got != 3 {
+		t.Fatalf("event count after version-pinned batch = %d; want three", got)
+	}
+	if got := projectionCount(t, pool); got != 3 {
+		t.Fatalf("projection count after version-pinned batch = %d; want three", got)
+	}
+}
+
+func TestAppendEventsWithVersion_RejectsVersionOverflow(t *testing.T) {
+	pool := testPostgres(t)
+	createCounterProjection(t, pool)
+	store, err := newTestStore(pool, map[string]Projector{testEventType: incrementCounter})
+	if err != nil {
+		t.Fatalf("create store: %v", err)
+	}
+	err = store.AppendEventsWithVersion(
+		context.Background(),
+		[]Event{event(testEventType, []byte{1})},
+		math.MaxInt64,
+	)
+	if !errors.Is(err, errVersionOverflow) {
+		t.Fatalf(
+			"overflowing version-pinned batch error = %v; want %v",
+			err,
+			errVersionOverflow,
+		)
+	}
+	assertNoEvents(t, pool)
 }
 
 func TestAppendEvents_SameStreamUsesConsecutiveVersions(t *testing.T) {

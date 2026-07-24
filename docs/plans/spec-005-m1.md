@@ -4,7 +4,7 @@ Milestone: SPEC-005 §9 M1, AC-1..4.
 
 ## Delta
 
-<!-- docref: begin src=server/go.mod:4f158330 -->
+<!-- docref: begin src=server/go.mod:d8661f5b -->
 - `server/go.mod`, `server/go.sum`: pinned pgx, goose, and Postgres
   testcontainers dependencies required by SPEC-005.
 <!-- docref: end -->
