@@ -118,8 +118,11 @@ func TestOperationalReadHandlers_RealViewsAndScope(t *testing.T) {
 	}
 	if _, err := service.GetExecution(scoped, connect.NewRequest(
 		&powermanagev1.GetExecutionRequest{Id: managementOutOfScopeExecutionID},
-	)); connect.CodeOf(err) != connect.CodeNotFound {
-		t.Fatalf("out-of-scope execution code = %v; want NotFound", connect.CodeOf(err))
+	)); connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Fatalf(
+			"out-of-scope execution code = %v; want PermissionDenied",
+			connect.CodeOf(err),
+		)
 	}
 
 	audit, err := service.ListAuditEvents(scoped, connect.NewRequest(
