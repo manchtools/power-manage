@@ -12,6 +12,7 @@ import (
 	"github.com/manchtools/power-manage/server/internal/pki"
 )
 
+// Guards: INV-15.
 func TestGuard_PublicProceduresHaveCompleteRateLimitPolicies(t *testing.T) {
 	publicProcedures := guardtest.Discover(t, "public RPC procedures", 12, func() ([]string, error) {
 		var procedures []string

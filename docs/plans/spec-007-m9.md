@@ -51,6 +51,17 @@ Spec milestone: SPEC-007 M9 (`AUTH-2`; AC-14; GUARD-007-4).
 - replay rebuild reproduces session versions and deleted users;
 - the AST/SQL guard fails when a fifth event or second writer is introduced.
 
+## Rejection paths
+
+<!-- docref: begin src=server/internal/auth/session_invalidation.go#SessionAuthenticator.AuthenticateAccess:3fbec363,server/internal/auth/refresh.go#RefreshService.Rotate:f2a0775d,server/internal/control/session_invalidation_test.go#TestSessionAuthenticator_NonInvalidatingSCIMUnlinkKeepsAccess:98dc73be,server/internal/store/session_invalidation_test.go#TestGuard_SessionInvalidatingEventsUseOneProjector:b7f0ef66 -->
+| Input or state | Expected outcome |
+|---|---|
+| Valid access token minted before an invalidating event | Reject with the static invalid-token class on next use |
+| Refresh token minted before an invalidating event | Reject with the static refresh-token class; mint no successor |
+| SCIM identity unlink while another identity link remains | Keep the existing session valid; this is not a terminal deprovision |
+| Fifth central-projector event, second session-version SQL writer, or alternate generated-query caller | Fail GUARD-007-4 or the projection-write ownership guard |
+<!-- docref: end -->
+
 ## Implementation
 
 <!-- docref: begin src=server/internal/store/migrations/019_session_invalidation.sql#@session-invalidation-schema:4497a448,server/internal/store/session_invalidation.go#projectSessionInvalidation:7b89659f,server/internal/auth/tokens.go#tokenClaims.SessionVersion:e6bd9366,server/internal/auth/session_invalidation.go#SessionAuthenticator.AuthenticateAccess:3fbec363,server/internal/auth/refresh.go#RefreshService.Rotate:f2a0775d -->
@@ -61,9 +72,13 @@ refresh rotation compare the signed version with current durable user state.
 
 ## Verification
 
-<!-- docref: begin src=server/internal/store/session_invalidation_test.go#TestSessionInvalidationProjection_ExactEventsBumpOrDeleteUser:465a385e,server/internal/control/session_invalidation_test.go#TestSessionAuthenticator_InvalidatingEventsRejectExistingAccess:549caa33,server/internal/control/session_invalidation_test.go#TestSessionAuthenticator_NonInvalidatingSCIMUnlinkKeepsAccess:98dc73be,server/internal/control/session_invalidation_test.go#TestRefreshService_InvalidatedSessionCannotRotate:549494d6,server/internal/store/session_invalidation_test.go#TestGuard_SessionInvalidatingEventsUseOneProjector:b7f0ef66 -->
-The tests cover every invalidating event, refresh rejection, rebuild parity, the
-non-terminal unlink control, and exact-set/writer centrality guards.
+<!-- docref: begin src=server/internal/store/session_invalidation_test.go#TestSessionInvalidationProjection_ExactEventsBumpOrDeleteUser:465a385e,server/internal/control/session_invalidation_test.go#TestSessionAuthenticator_InvalidatingEventsRejectExistingAccess:549caa33,server/internal/control/session_invalidation_test.go#TestSessionAuthenticator_NonInvalidatingSCIMUnlinkKeepsAccess:98dc73be,server/internal/control/session_invalidation_test.go#TestRefreshService_InvalidatedSessionCannotRotate:549494d6,server/internal/store/session_invalidation_test.go#TestGuard_SessionInvalidatingEventsUseOneProjector:b7f0ef66,server/internal/store/inventory_test.go#TestGuard_GoldenEventCorpus:599bf3a4,sdk/guardtest/arch_test.go#TestGuard_GatewayPurity:f13b7f07 -->
+- Passed: every invalidating event, access next-use rejection, refresh
+  rejection, rebuild parity, and the non-terminal SCIM unlink control.
+- Passed: exact event-set, sole SQL writer/caller, and complete auth-event
+  golden-corpus pinning guards.
+- Failed: none.
+- Skipped: the canonical gate's pre-existing dormant gateway-purity guard.
 <!-- docref: end -->
 
 ## Out of scope
