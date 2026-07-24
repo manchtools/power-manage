@@ -9,6 +9,7 @@ import (
 
 	"github.com/manchtools/power-manage/contract/gen/go/powermanage/v1/powermanagev1connect"
 	"github.com/manchtools/power-manage/server/internal/auth"
+	"github.com/manchtools/power-manage/server/internal/authz"
 )
 
 func TestNewHTTPHandler_RejectsMissingDependencies(t *testing.T) {
@@ -17,7 +18,7 @@ func TestNewHTTPHandler_RejectsMissingDependencies(t *testing.T) {
 			return next(ctx, request)
 		}
 	})
-	chain, err := auth.NewInterceptorChain(noop, noop, noop, noop)
+	chain, err := auth.NewInterceptorChain(noop, noop, noop, testAuthorizationGate(t))
 	if err != nil {
 		t.Fatalf("NewInterceptorChain: %v", err)
 	}
@@ -57,4 +58,22 @@ func TestNewHTTPHandler_RejectsMissingDependencies(t *testing.T) {
 
 type testControlService struct {
 	powermanagev1connect.UnimplementedControlServiceHandler
+}
+
+func testAuthorizationGate(t *testing.T) *auth.AuthorizationGate {
+	t.Helper()
+	gate, err := auth.NewAuthorizationGate(testEffectiveAccessResolver{})
+	if err != nil {
+		t.Fatalf("create test authorization gate: %v", err)
+	}
+	return gate
+}
+
+type testEffectiveAccessResolver struct{}
+
+func (testEffectiveAccessResolver) ResolveEffectiveAccess(
+	context.Context,
+	string,
+) (authz.EffectiveAccess, error) {
+	return authz.EffectiveAccess{}, nil
 }

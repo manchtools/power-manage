@@ -14,6 +14,7 @@ import (
 
 	_ "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1"
 	"github.com/manchtools/power-manage/sdk/guardtest"
+	"github.com/manchtools/power-manage/server/internal/authz"
 )
 
 func TestGuard_RPCClassificationCoversEveryProcedure(t *testing.T) {
@@ -64,7 +65,7 @@ func TestInterceptorChain_EnforcesOrder(t *testing.T) {
 		recordingStage("validate", nil, &calls),
 		recordingStage("authenticate", nil, &calls),
 		recordingStage("rate-limit", nil, &calls),
-		recordingStage("authorize", nil, &calls),
+		recordingAuthorizationGate(t, nil, &calls),
 	)
 	if err != nil {
 		t.Fatalf("NewInterceptorChain: %v", err)
@@ -73,10 +74,10 @@ func TestInterceptorChain_EnforcesOrder(t *testing.T) {
 		calls = append(calls, "handler")
 		return connect.NewResponse(&emptypb.Empty{}), nil
 	})
-	if _, err := handler(t.Context(), connect.NewRequest(&emptypb.Empty{})); err != nil {
-		t.Fatalf("invoke interceptor chain: %v", err)
+	if _, err := handler(t.Context(), connect.NewRequest(&emptypb.Empty{})); connect.CodeOf(err) != connect.CodeUnavailable {
+		t.Fatalf("synthetic request without a procedure code = %v (%v); want Unavailable", connect.CodeOf(err), err)
 	}
-	want := []string{"validate", "authenticate", "rate-limit", "authorize", "handler"}
+	want := []string{"validate", "authenticate", "rate-limit", "authorize"}
 	if !slices.Equal(calls, want) {
 		t.Fatalf("interceptor order = %v; want %v", calls, want)
 	}
@@ -88,10 +89,15 @@ func TestNewInterceptorChain_RejectsMissingStages(t *testing.T) {
 		recordingStage("validate", nil, &calls),
 		recordingStage("authenticate", nil, &calls),
 		recordingStage("rate-limit", nil, &calls),
-		recordingStage("authorize", nil, &calls),
+		recordingAuthorizationGate(t, nil, &calls),
 	}
-	var typedNil *recordingInterceptor
+	var typedNilInterceptor *recordingInterceptor
+	var typedNilGate *AuthorizationGate
 	for index, name := range []string{"validate", "authenticate", "rate-limit", "authorize"} {
+		typedNil := connect.Interceptor(typedNilInterceptor)
+		if index == len(complete)-1 {
+			typedNil = typedNilGate
+		}
 		for _, missing := range []struct {
 			name  string
 			stage connect.Interceptor
@@ -117,13 +123,18 @@ func TestInterceptorChain_ShortCircuitsInOrder(t *testing.T) {
 			var calls []string
 			stopErr := errors.New("stop")
 			interceptors := make([]connect.Interceptor, len(stages))
-			for index, stage := range stages {
+			for index, stage := range stages[:len(stages)-1] {
 				var err error
 				if index == stop {
 					err = stopErr
 				}
 				interceptors[index] = recordingStage(stage, err, &calls)
 			}
+			var authorizationErr error
+			if stop == len(stages)-1 {
+				authorizationErr = stopErr
+			}
+			interceptors[len(stages)-1] = recordingAuthorizationGate(t, authorizationErr, &calls)
 			chain, err := NewInterceptorChain(interceptors[0], interceptors[1], interceptors[2], interceptors[3])
 			if err != nil {
 				t.Fatalf("NewInterceptorChain: %v", err)
@@ -132,8 +143,13 @@ func TestInterceptorChain_ShortCircuitsInOrder(t *testing.T) {
 				calls = append(calls, "handler")
 				return connect.NewResponse(&emptypb.Empty{}), nil
 			})
-			if _, err := handler(t.Context(), connect.NewRequest(&emptypb.Empty{})); !errors.Is(err, stopErr) {
-				t.Fatalf("chain error = %v; want %v", err, stopErr)
+			_, callErr := handler(t.Context(), connect.NewRequest(&emptypb.Empty{}))
+			if stop == len(stages)-1 {
+				if connect.CodeOf(callErr) != connect.CodePermissionDenied {
+					t.Fatalf("authorization chain code = %v (%v); want PermissionDenied", connect.CodeOf(callErr), callErr)
+				}
+			} else if !errors.Is(callErr, stopErr) {
+				t.Fatalf("chain error = %v; want %v", callErr, stopErr)
 			}
 			if want := stages[:stop+1]; !slices.Equal(calls, want) {
 				t.Fatalf("calls before %s rejection = %v; want %v", stages[stop], calls, want)
@@ -148,7 +164,7 @@ func TestInterceptorChain_EnforcesStreamingHandlerOrder(t *testing.T) {
 		recordingStage("validate", nil, &calls),
 		recordingStage("authenticate", nil, &calls),
 		recordingStage("rate-limit", nil, &calls),
-		recordingStage("authorize", nil, &calls),
+		recordingAuthorizationGate(t, nil, &calls),
 	)
 	if err != nil {
 		t.Fatalf("NewInterceptorChain: %v", err)
@@ -157,7 +173,7 @@ func TestInterceptorChain_EnforcesStreamingHandlerOrder(t *testing.T) {
 		calls = append(calls, "handler")
 		return nil
 	})
-	if err := handler(t.Context(), nil); err != nil {
+	if err := handler(t.Context(), authorizationTestStream{procedure: testAuthorizationProcedure}); err != nil {
 		t.Fatalf("invoke streaming interceptor chain: %v", err)
 	}
 	want := []string{"validate", "authenticate", "rate-limit", "authorize", "handler"}
@@ -173,13 +189,18 @@ func TestInterceptorChain_ShortCircuitsStreamingHandlerInOrder(t *testing.T) {
 			var calls []string
 			stopErr := errors.New("stop")
 			interceptors := make([]connect.Interceptor, len(stages))
-			for index, stage := range stages {
+			for index, stage := range stages[:len(stages)-1] {
 				var err error
 				if index == stop {
 					err = stopErr
 				}
 				interceptors[index] = recordingStage(stage, err, &calls)
 			}
+			var authorizationErr error
+			if stop == len(stages)-1 {
+				authorizationErr = stopErr
+			}
+			interceptors[len(stages)-1] = recordingAuthorizationGate(t, authorizationErr, &calls)
 			chain, err := NewInterceptorChain(interceptors[0], interceptors[1], interceptors[2], interceptors[3])
 			if err != nil {
 				t.Fatalf("NewInterceptorChain: %v", err)
@@ -188,8 +209,13 @@ func TestInterceptorChain_ShortCircuitsStreamingHandlerInOrder(t *testing.T) {
 				calls = append(calls, "handler")
 				return nil
 			})
-			if err := handler(t.Context(), nil); !errors.Is(err, stopErr) {
-				t.Fatalf("streaming chain error = %v; want %v", err, stopErr)
+			callErr := handler(t.Context(), authorizationTestStream{procedure: testAuthorizationProcedure})
+			if stop == len(stages)-1 {
+				if connect.CodeOf(callErr) != connect.CodePermissionDenied {
+					t.Fatalf("streaming authorization code = %v (%v); want PermissionDenied", connect.CodeOf(callErr), callErr)
+				}
+			} else if !errors.Is(callErr, stopErr) {
+				t.Fatalf("streaming chain error = %v; want %v", callErr, stopErr)
 			}
 			if want := stages[:stop+1]; !slices.Equal(calls, want) {
 				t.Fatalf("streaming calls before %s rejection = %v; want %v", stages[stop], calls, want)
@@ -262,6 +288,28 @@ func discoverContractProcedures() ([]string, error) {
 
 func recordingStage(name string, stageErr error, calls *[]string) connect.Interceptor {
 	return &recordingInterceptor{name: name, err: stageErr, calls: calls}
+}
+
+func recordingAuthorizationGate(
+	t *testing.T,
+	stageErr error,
+	calls *[]string,
+) *AuthorizationGate {
+	t.Helper()
+	gate, err := newAuthorizationGate(
+		effectiveAccessResolverFunc(func(context.Context, string) (authz.EffectiveAccess, error) {
+			t.Fatal("public authorization policy called the effective-access resolver")
+			return authz.EffectiveAccess{}, nil
+		}),
+		func(string) (ProcedureAuthorization, bool) {
+			*calls = append(*calls, "authorize")
+			return ProcedureAuthorization{Class: ProcedurePublic}, stageErr == nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("create recording authorization gate: %v", err)
+	}
+	return gate
 }
 
 type recordingInterceptor struct {

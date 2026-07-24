@@ -10,10 +10,16 @@ import (
 
 	"github.com/manchtools/power-manage/contract/gen/go/powermanage/v1/powermanagev1connect"
 	"github.com/manchtools/power-manage/sdk/nilcheck"
+	"github.com/manchtools/power-manage/server/internal/authz"
 )
 
-// ErrInterceptorChainNotWired classifies constructor and handler wiring failures.
-var ErrInterceptorChainNotWired = errors.New("interceptor chain is not wired: auth")
+var (
+	// ErrInterceptorChainNotWired classifies constructor and handler wiring failures.
+	ErrInterceptorChainNotWired = errors.New("interceptor chain is not wired: auth")
+	// ErrProcedureAuthorizationInvalid identifies an incomplete or contradictory
+	// RPC policy registry.
+	ErrProcedureAuthorizationInvalid = errors.New("procedure authorization is invalid: auth")
+)
 
 // ProcedureClass identifies the one authentication path an RPC uses.
 type ProcedureClass uint8
@@ -24,33 +30,54 @@ const (
 	ProcedureAltAuth
 )
 
-var procedureClassifications = map[string]ProcedureClass{
-	powermanagev1connect.AgentServiceStreamProcedure:                   ProcedureAltAuth,
-	powermanagev1connect.ControlServiceCompleteOidcSessionProcedure:    ProcedurePublic,
-	powermanagev1connect.ControlServiceRefreshSessionProcedure:         ProcedurePublic,
-	powermanagev1connect.ControlServiceStartOidcSessionProcedure:       ProcedurePublic,
-	powermanagev1connect.InternalServiceStreamProcedure:                ProcedureAltAuth,
-	powermanagev1connect.InternalServiceValidateTerminalTokenProcedure: ProcedureAltAuth,
-	powermanagev1connect.PkiServiceEnrollAgentProcedure:                ProcedurePublic,
-	powermanagev1connect.PkiServiceRenewAgentProcedure:                 ProcedurePublic,
-	powermanagev1connect.PkiServiceRevokeAgentProcedure:                ProcedurePublic,
-	powermanagev1connect.PkiServiceForceRenewAgentProcedure:            ProcedurePublic,
-	powermanagev1connect.PkiServiceEnrollGatewayProcedure:              ProcedurePublic,
-	powermanagev1connect.PkiServiceRenewGatewayProcedure:               ProcedurePublic,
-	powermanagev1connect.PkiServiceRevokeGatewayProcedure:              ProcedurePublic,
-	powermanagev1connect.PkiServiceConfirmAgentTrustStateProcedure:     ProcedurePublic,
-	powermanagev1connect.PkiServiceConfirmGatewayTrustStateProcedure:   ProcedurePublic,
+// ProcedureAuthorization is the complete authorization policy for one RPC.
+type ProcedureAuthorization struct {
+	Class      ProcedureClass
+	Permission authz.Permission
 }
 
-// ProcedureClassifications returns a copy of the complete RPC registry.
+var procedureAuthorizations = map[string]ProcedureAuthorization{
+	powermanagev1connect.AgentServiceStreamProcedure:                   {Class: ProcedureAltAuth},
+	powermanagev1connect.ControlServiceCompleteOidcSessionProcedure:    {Class: ProcedurePublic},
+	powermanagev1connect.ControlServiceRefreshSessionProcedure:         {Class: ProcedurePublic},
+	powermanagev1connect.ControlServiceStartOidcSessionProcedure:       {Class: ProcedurePublic},
+	powermanagev1connect.InternalServiceStreamProcedure:                {Class: ProcedureAltAuth},
+	powermanagev1connect.InternalServiceValidateTerminalTokenProcedure: {Class: ProcedureAltAuth},
+	powermanagev1connect.PkiServiceEnrollAgentProcedure:                {Class: ProcedurePublic},
+	powermanagev1connect.PkiServiceRenewAgentProcedure:                 {Class: ProcedurePublic},
+	powermanagev1connect.PkiServiceRevokeAgentProcedure:                {Class: ProcedurePublic},
+	powermanagev1connect.PkiServiceForceRenewAgentProcedure:            {Class: ProcedurePublic},
+	powermanagev1connect.PkiServiceEnrollGatewayProcedure:              {Class: ProcedurePublic},
+	powermanagev1connect.PkiServiceRenewGatewayProcedure:               {Class: ProcedurePublic},
+	powermanagev1connect.PkiServiceRevokeGatewayProcedure:              {Class: ProcedurePublic},
+	powermanagev1connect.PkiServiceConfirmAgentTrustStateProcedure:     {Class: ProcedurePublic},
+	powermanagev1connect.PkiServiceConfirmGatewayTrustStateProcedure:   {Class: ProcedurePublic},
+}
+
+// ProcedureAuthorizations returns a copy of the complete RPC policy registry.
+func ProcedureAuthorizations() map[string]ProcedureAuthorization {
+	return maps.Clone(procedureAuthorizations)
+}
+
+// ProcedureClassifications returns a class-only view derived from the complete
+// RPC policy registry.
 func ProcedureClassifications() map[string]ProcedureClass {
-	return maps.Clone(procedureClassifications)
+	classifications := make(map[string]ProcedureClass, len(procedureAuthorizations))
+	for procedure, policy := range procedureAuthorizations {
+		classifications[procedure] = policy.Class
+	}
+	return classifications
 }
 
 // ClassifyProcedure resolves one RPC without defaulting unknown procedures.
 func ClassifyProcedure(procedure string) (ProcedureClass, bool) {
-	class, ok := procedureClassifications[procedure]
-	return class, ok
+	policy, ok := procedureAuthorizations[procedure]
+	return policy.Class, ok
+}
+
+func classifyProcedureAuthorization(procedure string) (ProcedureAuthorization, bool) {
+	policy, ok := procedureAuthorizations[procedure]
+	return policy, ok
 }
 
 // InterceptorChain is the immutable validate → authenticate → rate-limit →
@@ -84,6 +111,10 @@ func (c *InterceptorChain) ValidateWiring() error {
 		if nilcheck.Interface(stage) {
 			return ErrInterceptorChainNotWired
 		}
+	}
+	gate, ok := c.stages[len(c.stages)-1].(*AuthorizationGate)
+	if !ok || gate.ValidateWiring() != nil {
+		return ErrInterceptorChainNotWired
 	}
 	return nil
 }

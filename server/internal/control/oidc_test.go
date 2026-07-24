@@ -460,7 +460,7 @@ func newOIDCTestClient(
 		passthrough,
 		passthrough,
 		passthrough,
-		passthrough,
+		testAuthorizationGate(t),
 	)
 	if err != nil {
 		t.Fatalf("create OIDC handler interceptor chain: %v", err)
