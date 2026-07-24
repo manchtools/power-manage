@@ -13,12 +13,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+const testExecutionOutputDeviceID = "01J00000000000000000000184"
+
 func TestExecutionOutput_OversizedChunkMarksTruncated(t *testing.T) {
 	pool := testPostgres(t)
 	telemetry, err := NewTelemetryStore(pool)
 	if err != nil {
 		t.Fatalf("create telemetry store: %v", err)
 	}
+	bindExecutionOutput(t, telemetry, testStreamID)
 	result, err := telemetry.AppendExecutionOutput(
 		context.Background(),
 		testStreamID,
@@ -113,6 +116,7 @@ func TestExecutionOutput_LowercaseIDCanonicalized(t *testing.T) {
 		t.Fatalf("create telemetry store: %v", err)
 	}
 	lowercaseID := strings.ToLower(testStreamID)
+	bindExecutionOutput(t, telemetry, lowercaseID)
 	if _, err := telemetry.AppendExecutionOutput(
 		context.Background(),
 		lowercaseID,
@@ -130,12 +134,64 @@ func TestExecutionOutput_LowercaseIDCanonicalized(t *testing.T) {
 	assertExecutionOutputState(t, pool, testStreamID, executionOutputState{bytes: 6, chunks: 1})
 }
 
+func TestExecutionOutput_AppendRequiresDeviceBinding(t *testing.T) {
+	telemetry, err := NewTelemetryStore(testPostgres(t))
+	if err != nil {
+		t.Fatalf("create telemetry store: %v", err)
+	}
+	if _, err := telemetry.AppendExecutionOutput(
+		t.Context(),
+		testStreamID,
+		[]byte("output"),
+	); !errors.Is(err, ErrExecutionOutputNotBound) {
+		t.Fatalf("unbound append error = %v; want ErrExecutionOutputNotBound", err)
+	}
+}
+
+func TestExecutionOutput_DeviceBindingIsIdempotentButImmutable(t *testing.T) {
+	pool := testPostgres(t)
+	telemetry, err := NewTelemetryStore(pool)
+	if err != nil {
+		t.Fatalf("create telemetry store: %v", err)
+	}
+	const (
+		executionID = "01J00000000000000000000181"
+		deviceID    = "01J00000000000000000000182"
+		otherDevice = "01J00000000000000000000183"
+	)
+	if err := telemetry.BindExecutionOutputToDevice(
+		t.Context(),
+		executionID,
+		deviceID,
+	); err != nil {
+		t.Fatalf("bind execution output: %v", err)
+	}
+	if err := telemetry.BindExecutionOutputToDevice(
+		t.Context(),
+		executionID,
+		deviceID,
+	); err != nil {
+		t.Fatalf("repeat identical execution binding: %v", err)
+	}
+	if err := telemetry.BindExecutionOutputToDevice(
+		t.Context(),
+		executionID,
+		otherDevice,
+	); !errors.Is(err, ErrExecutionOutputAlreadyBound) {
+		t.Fatalf(
+			"rebind execution output error = %v; want ErrExecutionOutputAlreadyBound",
+			err,
+		)
+	}
+}
+
 func TestExecutionOutput_ReadIsLimitBounded(t *testing.T) {
 	pool := testPostgres(t)
 	telemetry, err := NewTelemetryStore(pool)
 	if err != nil {
 		t.Fatalf("create telemetry store: %v", err)
 	}
+	bindExecutionOutput(t, telemetry, testStreamID)
 	for _, body := range [][]byte{[]byte("one"), []byte("two"), []byte("three")} {
 		if _, err := telemetry.AppendExecutionOutput(context.Background(), testStreamID, body); err != nil {
 			t.Fatalf("append output chunk %q: %v", body, err)
@@ -188,9 +244,25 @@ func seedExecutionOutputState(
 	t.Helper()
 	if _, err := pool.Exec(context.Background(), `
 		INSERT INTO execution_outputs (
-			execution_id, output_bytes, output_chunks, truncated, updated_at
-		) VALUES ($1, $2, $3, false, clock_timestamp())`, executionID, bytes, chunks); err != nil {
+			execution_id, device_id, output_bytes, output_chunks, truncated, updated_at
+		) VALUES ($1, $2, $3, $4, false, clock_timestamp())`,
+		executionID,
+		testExecutionOutputDeviceID,
+		bytes,
+		chunks,
+	); err != nil {
 		t.Fatalf("seed execution output state: %v", err)
+	}
+}
+
+func bindExecutionOutput(t *testing.T, telemetry *TelemetryStore, executionID string) {
+	t.Helper()
+	if err := telemetry.BindExecutionOutputToDevice(
+		t.Context(),
+		executionID,
+		testExecutionOutputDeviceID,
+	); err != nil {
+		t.Fatalf("bind execution output: %v", err)
 	}
 }
 

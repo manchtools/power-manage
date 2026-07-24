@@ -21,6 +21,10 @@ SELECT CASE $1::text
         SELECT 1
         FROM scim_groups
         WHERE group_id = $2
+    ) OR EXISTS (
+        SELECT 1
+        FROM managed_user_groups
+        WHERE group_id = $2
     )
     ELSE false
 END
@@ -36,6 +40,76 @@ func (q *Queries) AuthorizationPrincipalExists(ctx context.Context, arg Authoriz
 	var column_1 bool
 	err := row.Scan(&column_1)
 	return column_1, err
+}
+
+const deleteAuthorizationGrant = `-- name: DeleteAuthorizationGrant :execrows
+DELETE FROM authorization_grants
+WHERE grant_id = $1
+  AND projection_version = $2
+`
+
+type DeleteAuthorizationGrantParams struct {
+	GrantID           string
+	ProjectionVersion int64
+}
+
+func (q *Queries) DeleteAuthorizationGrant(ctx context.Context, arg DeleteAuthorizationGrantParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteAuthorizationGrant, arg.GrantID, arg.ProjectionVersion)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const deleteAuthorizationRole = `-- name: DeleteAuthorizationRole :execrows
+DELETE FROM authorization_roles
+WHERE role_id = $1
+  AND projection_version = $2
+`
+
+type DeleteAuthorizationRoleParams struct {
+	RoleID            string
+	ProjectionVersion int64
+}
+
+func (q *Queries) DeleteAuthorizationRole(ctx context.Context, arg DeleteAuthorizationRoleParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteAuthorizationRole, arg.RoleID, arg.ProjectionVersion)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const getAuthorizationGrant = `-- name: GetAuthorizationGrant :one
+SELECT grant_id, principal_type, principal_id, role_id, scope_kind, scope_ids,
+       projection_version
+FROM authorization_grants
+WHERE grant_id = $1
+`
+
+type GetAuthorizationGrantRow struct {
+	GrantID           string
+	PrincipalType     string
+	PrincipalID       string
+	RoleID            string
+	ScopeKind         string
+	ScopeIds          []string
+	ProjectionVersion int64
+}
+
+func (q *Queries) GetAuthorizationGrant(ctx context.Context, grantID string) (GetAuthorizationGrantRow, error) {
+	row := q.db.QueryRow(ctx, getAuthorizationGrant, grantID)
+	var i GetAuthorizationGrantRow
+	err := row.Scan(
+		&i.GrantID,
+		&i.PrincipalType,
+		&i.PrincipalID,
+		&i.RoleID,
+		&i.ScopeKind,
+		&i.ScopeIds,
+		&i.ProjectionVersion,
+	)
+	return i, err
 }
 
 const getAuthorizationRole = `-- name: GetAuthorizationRole :one
@@ -151,6 +225,91 @@ func (q *Queries) InsertAuthorizationRole(ctx context.Context, arg InsertAuthori
 	return result.RowsAffected(), nil
 }
 
+const listAuthorizationGrants = `-- name: ListAuthorizationGrants :many
+SELECT grant_id, principal_type, principal_id, role_id, scope_kind, scope_ids,
+       projection_version
+FROM authorization_grants
+ORDER BY grant_id
+LIMIT $1
+`
+
+type ListAuthorizationGrantsRow struct {
+	GrantID           string
+	PrincipalType     string
+	PrincipalID       string
+	RoleID            string
+	ScopeKind         string
+	ScopeIds          []string
+	ProjectionVersion int64
+}
+
+func (q *Queries) ListAuthorizationGrants(ctx context.Context, pageLimit int32) ([]ListAuthorizationGrantsRow, error) {
+	rows, err := q.db.Query(ctx, listAuthorizationGrants, pageLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAuthorizationGrantsRow
+	for rows.Next() {
+		var i ListAuthorizationGrantsRow
+		if err := rows.Scan(
+			&i.GrantID,
+			&i.PrincipalType,
+			&i.PrincipalID,
+			&i.RoleID,
+			&i.ScopeKind,
+			&i.ScopeIds,
+			&i.ProjectionVersion,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAuthorizationRoles = `-- name: ListAuthorizationRoles :many
+SELECT role_id, name, permissions, projection_version
+FROM authorization_roles
+ORDER BY role_id
+LIMIT $1
+`
+
+type ListAuthorizationRolesRow struct {
+	RoleID            string
+	Name              string
+	Permissions       []string
+	ProjectionVersion int64
+}
+
+func (q *Queries) ListAuthorizationRoles(ctx context.Context, pageLimit int32) ([]ListAuthorizationRolesRow, error) {
+	rows, err := q.db.Query(ctx, listAuthorizationRoles, pageLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAuthorizationRolesRow
+	for rows.Next() {
+		var i ListAuthorizationRolesRow
+		if err := rows.Scan(
+			&i.RoleID,
+			&i.Name,
+			&i.Permissions,
+			&i.ProjectionVersion,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listResolvedAuthorizationGrants = `-- name: ListResolvedAuthorizationGrants :many
 SELECT
     grants.grant_id,
@@ -169,9 +328,13 @@ WHERE (
     grants.principal_type = 'user-group'
     AND EXISTS (
         SELECT 1
-        FROM scim_group_members
-        WHERE scim_group_members.group_id = grants.principal_id
-          AND scim_group_members.user_id = $1
+        FROM (
+            SELECT group_id, user_id FROM scim_group_members
+            UNION ALL
+            SELECT group_id, user_id FROM managed_user_group_members
+        ) AS memberships
+        WHERE memberships.group_id = grants.principal_id
+          AND memberships.user_id = $1
     )
 )
 ORDER BY grants.grant_id
@@ -213,6 +376,83 @@ func (q *Queries) ListResolvedAuthorizationGrants(ctx context.Context, userID st
 		return nil, err
 	}
 	return items, nil
+}
+
+const replaceAuthorizationGrant = `-- name: ReplaceAuthorizationGrant :execrows
+UPDATE authorization_grants
+SET principal_type = $1,
+    principal_id = $2,
+    role_id = $3,
+    scope_kind = $4,
+    scope_ids = $5,
+    projection_version = $6,
+    updated_at = $7
+WHERE grant_id = $8
+  AND projection_version = $9
+`
+
+type ReplaceAuthorizationGrantParams struct {
+	PrincipalType             string
+	PrincipalID               string
+	RoleID                    string
+	ScopeKind                 string
+	ScopeIds                  []string
+	ProjectionVersion         int64
+	UpdatedAt                 time.Time
+	GrantID                   string
+	PreviousProjectionVersion int64
+}
+
+func (q *Queries) ReplaceAuthorizationGrant(ctx context.Context, arg ReplaceAuthorizationGrantParams) (int64, error) {
+	result, err := q.db.Exec(ctx, replaceAuthorizationGrant,
+		arg.PrincipalType,
+		arg.PrincipalID,
+		arg.RoleID,
+		arg.ScopeKind,
+		arg.ScopeIds,
+		arg.ProjectionVersion,
+		arg.UpdatedAt,
+		arg.GrantID,
+		arg.PreviousProjectionVersion,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const replaceAuthorizationRole = `-- name: ReplaceAuthorizationRole :execrows
+UPDATE authorization_roles
+SET name = $1,
+    permissions = $2,
+    projection_version = $3,
+    updated_at = $4
+WHERE role_id = $5
+  AND projection_version = $6
+`
+
+type ReplaceAuthorizationRoleParams struct {
+	Name                      string
+	Permissions               []string
+	ProjectionVersion         int64
+	UpdatedAt                 time.Time
+	RoleID                    string
+	PreviousProjectionVersion int64
+}
+
+func (q *Queries) ReplaceAuthorizationRole(ctx context.Context, arg ReplaceAuthorizationRoleParams) (int64, error) {
+	result, err := q.db.Exec(ctx, replaceAuthorizationRole,
+		arg.Name,
+		arg.Permissions,
+		arg.ProjectionVersion,
+		arg.UpdatedAt,
+		arg.RoleID,
+		arg.PreviousProjectionVersion,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const resetAuthorizationGrants = `-- name: ResetAuthorizationGrants :exec

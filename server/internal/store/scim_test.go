@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -23,6 +24,7 @@ func TestSCIMProviderProjection_RotatesDisablesAndRebuildsHashOnly(t *testing.T)
 	}
 	firstSecret := []byte("first-scim-secret-that-must-not-persist")
 	secondSecret := []byte("second-scim-secret-that-must-not-persist")
+	thirdSecret := []byte("third-scim-secret-that-must-not-persist")
 	firstHash, err := bcrypt.GenerateFromPassword(firstSecret, bcrypt.MinCost)
 	if err != nil {
 		t.Fatalf("hash first SCIM secret: %v", err)
@@ -30,6 +32,10 @@ func TestSCIMProviderProjection_RotatesDisablesAndRebuildsHashOnly(t *testing.T)
 	secondHash, err := bcrypt.GenerateFromPassword(secondSecret, bcrypt.MinCost)
 	if err != nil {
 		t.Fatalf("hash second SCIM secret: %v", err)
+	}
+	thirdHash, err := bcrypt.GenerateFromPassword(thirdSecret, bcrypt.MinCost)
+	if err != nil {
+		t.Fatalf("hash third SCIM secret: %v", err)
 	}
 	created, err := SCIMProviderCreatedEvent(testSCIMProviderSlug, firstHash)
 	if err != nil {
@@ -59,30 +65,7 @@ func TestSCIMProviderProjection_RotatesDisablesAndRebuildsHashOnly(t *testing.T)
 		ProjectionVersion: 3,
 	}
 	assertSCIMProvider(t, eventStore, want)
-
-	var payloads []byte
-	rows, err := pool.Query(t.Context(), `
-		SELECT payload::text
-		FROM events
-		WHERE stream_type = 'scim-provider'
-		ORDER BY global_position`)
-	if err != nil {
-		t.Fatalf("read SCIM provider payloads: %v", err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var payload string
-		if err := rows.Scan(&payload); err != nil {
-			t.Fatalf("scan SCIM provider payload: %v", err)
-		}
-		payloads = append(payloads, payload...)
-	}
-	if err := rows.Err(); err != nil {
-		t.Fatalf("iterate SCIM provider payloads: %v", err)
-	}
-	if bytes.Contains(payloads, firstSecret) || bytes.Contains(payloads, secondSecret) {
-		t.Fatal("raw SCIM provider secret persisted in event payloads")
-	}
+	assertNoRawSCIMSecrets(t, pool, firstSecret, secondSecret)
 
 	if _, err := pool.Exec(t.Context(), `DELETE FROM scim_providers`); err != nil {
 		t.Fatalf("delete SCIM provider projection: %v", err)
@@ -91,6 +74,51 @@ func TestSCIMProviderProjection_RotatesDisablesAndRebuildsHashOnly(t *testing.T)
 		t.Fatalf("rebuild SCIM provider projection: %v", err)
 	}
 	assertSCIMProvider(t, eventStore, want)
+	providers, err := eventStore.ListSCIMProviders(t.Context(), 100)
+	if err != nil || len(providers) != 1 ||
+		providers[0].Slug != testSCIMProviderSlug {
+		t.Fatalf("SCIM provider list = (%#v, %v); want corporate provider", providers, err)
+	}
+	deleted, err := SCIMProviderDeletedEvent(testSCIMProviderSlug)
+	if err != nil {
+		t.Fatalf("create SCIM provider deletion: %v", err)
+	}
+	if err := eventStore.AppendEventWithVersion(t.Context(), deleted, 3); err != nil {
+		t.Fatalf("append SCIM provider deletion: %v", err)
+	}
+	if _, err := eventStore.SCIMProvider(
+		t.Context(),
+		testSCIMProviderSlug,
+	); !IsNotFound(err) {
+		t.Fatalf("deleted SCIM provider error = %v; want not found", err)
+	}
+	if err := eventStore.RebuildAll(t.Context(), SCIMProviderRebuildTarget); err != nil {
+		t.Fatalf("rebuild deleted SCIM provider: %v", err)
+	}
+	if _, err := eventStore.SCIMProvider(
+		t.Context(),
+		testSCIMProviderSlug,
+	); !IsNotFound(err) {
+		t.Fatalf("rebuilt deleted SCIM provider error = %v; want not found", err)
+	}
+	recreated, err := SCIMProviderCreatedEvent(testSCIMProviderSlug, thirdHash)
+	if err != nil {
+		t.Fatalf("create replacement SCIM provider: %v", err)
+	}
+	if err := eventStore.AppendEventWithVersion(t.Context(), recreated, 4); err != nil {
+		t.Fatalf("recreate deleted SCIM provider: %v", err)
+	}
+	recreatedProvider := SCIMProvider{
+		Slug:              testSCIMProviderSlug,
+		TokenHash:         string(thirdHash),
+		ProjectionVersion: 5,
+	}
+	assertSCIMProvider(t, eventStore, recreatedProvider)
+	if err := eventStore.RebuildAll(t.Context(), SCIMProviderRebuildTarget); err != nil {
+		t.Fatalf("rebuild recreated SCIM provider: %v", err)
+	}
+	assertSCIMProvider(t, eventStore, recreatedProvider)
+	assertNoRawSCIMSecrets(t, pool, firstSecret, secondSecret, thirdSecret)
 }
 
 func TestSCIMIdentityProjection_UnlinksOneOfTwoAndDeletesLastLink(t *testing.T) {
@@ -375,6 +403,35 @@ func TestSCIMGroupRebuild_SkipsMembershipsForDeprovisionedUsers(t *testing.T) {
 		t.Fatalf("rebuild SCIM groups after user deprovision: %v", err)
 	}
 	assertSCIMGroup(t, eventStore, "Former Members", nil, 2)
+}
+
+func assertNoRawSCIMSecrets(t *testing.T, pool *pgxpool.Pool, secrets ...[]byte) {
+	t.Helper()
+	rows, err := pool.Query(t.Context(), `
+		SELECT payload::text
+		FROM events
+		WHERE stream_type = 'scim-provider'
+		ORDER BY global_position`)
+	if err != nil {
+		t.Fatalf("read SCIM provider payloads: %v", err)
+	}
+	defer rows.Close()
+	var payloads []byte
+	for rows.Next() {
+		var payload string
+		if err := rows.Scan(&payload); err != nil {
+			t.Fatalf("scan SCIM provider payload: %v", err)
+		}
+		payloads = append(payloads, payload...)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate SCIM provider payloads: %v", err)
+	}
+	for _, secret := range secrets {
+		if bytes.Contains(payloads, secret) {
+			t.Fatal("raw SCIM provider secret persisted in event payloads")
+		}
+	}
 }
 
 func assertSCIMProvider(t *testing.T, eventStore *Store, want SCIMProvider) {

@@ -47,6 +47,66 @@ SELECT user_id, email, session_version, disabled, projection_version
 FROM users
 WHERE user_id = sqlc.arg(user_id);
 
+-- name: GetScopedUserByID :one
+SELECT users.user_id, users.email, users.session_version, users.disabled, users.projection_version
+FROM users
+WHERE users.user_id = sqlc.arg(user_id)
+  AND (
+    sqlc.arg(global_scope)::boolean
+    OR users.user_id = sqlc.arg(self_id)
+    OR EXISTS (
+        SELECT 1
+        FROM managed_user_group_members
+        WHERE managed_user_group_members.user_id = users.user_id
+          AND managed_user_group_members.group_id = ANY(sqlc.arg(user_group_ids)::text[])
+    )
+    OR EXISTS (
+        SELECT 1
+        FROM scim_group_members
+        WHERE scim_group_members.user_id = users.user_id
+          AND scim_group_members.group_id = ANY(sqlc.arg(user_group_ids)::text[])
+    )
+  );
+
+-- name: ListScopedUsers :many
+SELECT users.user_id, users.email, users.session_version, users.disabled, users.projection_version
+FROM users
+WHERE sqlc.arg(global_scope)::boolean
+   OR users.user_id = sqlc.arg(self_id)
+   OR EXISTS (
+        SELECT 1
+        FROM managed_user_group_members
+        WHERE managed_user_group_members.user_id = users.user_id
+          AND managed_user_group_members.group_id = ANY(sqlc.arg(user_group_ids)::text[])
+   )
+   OR EXISTS (
+        SELECT 1
+        FROM scim_group_members
+        WHERE scim_group_members.user_id = users.user_id
+          AND scim_group_members.group_id = ANY(sqlc.arg(user_group_ids)::text[])
+   )
+ORDER BY users.user_id
+LIMIT sqlc.arg(page_limit);
+
+-- name: ReplaceManagedUser :execrows
+UPDATE users
+SET email = sqlc.arg(email),
+    projection_version = sqlc.arg(projection_version),
+    updated_at = sqlc.arg(updated_at)
+WHERE user_id = sqlc.arg(user_id)
+  AND projection_version = sqlc.arg(previous_projection_version);
+
+-- name: ReplaceOIDCIdentityEmailsForManagedUser :exec
+UPDATE oidc_identities
+SET email = sqlc.arg(email),
+    updated_at = sqlc.arg(updated_at)
+WHERE user_id = sqlc.arg(user_id);
+
+-- name: DeleteManagedUser :execrows
+DELETE FROM users
+WHERE user_id = sqlc.arg(user_id)
+  AND projection_version = sqlc.arg(projection_version);
+
 -- name: GetUserByEmail :one
 SELECT user_id, email, session_version, disabled, projection_version
 FROM users

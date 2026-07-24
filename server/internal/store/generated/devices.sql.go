@@ -19,6 +19,25 @@ func (q *Queries) AcquireDeviceLifecycleLock(ctx context.Context, deviceID strin
 	return err
 }
 
+const deleteDeviceProjection = `-- name: DeleteDeviceProjection :execrows
+DELETE FROM devices
+WHERE device_id = $1
+  AND projection_version = $2
+`
+
+type DeleteDeviceProjectionParams struct {
+	DeviceID          string
+	ProjectionVersion int64
+}
+
+func (q *Queries) DeleteDeviceProjection(ctx context.Context, arg DeleteDeviceProjectionParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteDeviceProjection, arg.DeviceID, arg.ProjectionVersion)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getDevice = `-- name: GetDevice :one
 SELECT device_id, projection_version, certificate_der,
        certificate_fingerprint, sealing_public_key,
@@ -57,6 +76,128 @@ func (q *Queries) GetDevice(ctx context.Context, deviceID string) (GetDeviceRow,
 		&i.PreviousCertificateDer,
 	)
 	return i, err
+}
+
+const getScopedDevice = `-- name: GetScopedDevice :one
+SELECT d.device_id, d.projection_version, d.certificate_der,
+       d.certificate_fingerprint, d.sealing_public_key,
+       d.registration_token_id, d.owner, d.lifecycle_state, d.updated_at,
+       d.previous_certificate_der
+FROM devices AS d
+WHERE d.device_id = $1
+  AND (
+      $2::boolean
+      OR EXISTS (
+          SELECT 1
+          FROM device_groups AS g
+          WHERE g.device_group_id = ANY($3::text[])
+            AND d.device_id = ANY(g.static_device_ids)
+      )
+  )
+`
+
+type GetScopedDeviceParams struct {
+	DeviceID       string
+	GlobalScope    bool
+	DeviceGroupIds []string
+}
+
+type GetScopedDeviceRow struct {
+	DeviceID               string
+	ProjectionVersion      int64
+	CertificateDer         []byte
+	CertificateFingerprint []byte
+	SealingPublicKey       []byte
+	RegistrationTokenID    string
+	Owner                  string
+	LifecycleState         string
+	UpdatedAt              time.Time
+	PreviousCertificateDer []byte
+}
+
+func (q *Queries) GetScopedDevice(ctx context.Context, arg GetScopedDeviceParams) (GetScopedDeviceRow, error) {
+	row := q.db.QueryRow(ctx, getScopedDevice, arg.DeviceID, arg.GlobalScope, arg.DeviceGroupIds)
+	var i GetScopedDeviceRow
+	err := row.Scan(
+		&i.DeviceID,
+		&i.ProjectionVersion,
+		&i.CertificateDer,
+		&i.CertificateFingerprint,
+		&i.SealingPublicKey,
+		&i.RegistrationTokenID,
+		&i.Owner,
+		&i.LifecycleState,
+		&i.UpdatedAt,
+		&i.PreviousCertificateDer,
+	)
+	return i, err
+}
+
+const listScopedDevices = `-- name: ListScopedDevices :many
+SELECT d.device_id, d.projection_version, d.certificate_der,
+       d.certificate_fingerprint, d.sealing_public_key,
+       d.registration_token_id, d.owner, d.lifecycle_state, d.updated_at,
+       d.previous_certificate_der
+FROM devices AS d
+WHERE $1::boolean
+   OR EXISTS (
+       SELECT 1
+       FROM device_groups AS g
+       WHERE g.device_group_id = ANY($2::text[])
+         AND d.device_id = ANY(g.static_device_ids)
+   )
+ORDER BY d.device_id
+LIMIT $3
+`
+
+type ListScopedDevicesParams struct {
+	GlobalScope    bool
+	DeviceGroupIds []string
+	PageLimit      int32
+}
+
+type ListScopedDevicesRow struct {
+	DeviceID               string
+	ProjectionVersion      int64
+	CertificateDer         []byte
+	CertificateFingerprint []byte
+	SealingPublicKey       []byte
+	RegistrationTokenID    string
+	Owner                  string
+	LifecycleState         string
+	UpdatedAt              time.Time
+	PreviousCertificateDer []byte
+}
+
+func (q *Queries) ListScopedDevices(ctx context.Context, arg ListScopedDevicesParams) ([]ListScopedDevicesRow, error) {
+	rows, err := q.db.Query(ctx, listScopedDevices, arg.GlobalScope, arg.DeviceGroupIds, arg.PageLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListScopedDevicesRow
+	for rows.Next() {
+		var i ListScopedDevicesRow
+		if err := rows.Scan(
+			&i.DeviceID,
+			&i.ProjectionVersion,
+			&i.CertificateDer,
+			&i.CertificateFingerprint,
+			&i.SealingPublicKey,
+			&i.RegistrationTokenID,
+			&i.Owner,
+			&i.LifecycleState,
+			&i.UpdatedAt,
+			&i.PreviousCertificateDer,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const resetDevices = `-- name: ResetDevices :exec
@@ -106,6 +247,37 @@ func (q *Queries) UpdateDeviceLifecycleState(ctx context.Context, arg UpdateDevi
 		arg.CertificateDer,
 		arg.PreviousLifecycleState,
 		arg.AllowForceRenewal,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const updateDeviceOwner = `-- name: UpdateDeviceOwner :execrows
+UPDATE devices
+SET owner = $1,
+    projection_version = $2,
+    updated_at = $3
+WHERE device_id = $4
+  AND projection_version = $5
+`
+
+type UpdateDeviceOwnerParams struct {
+	Owner                     string
+	ProjectionVersion         int64
+	UpdatedAt                 time.Time
+	DeviceID                  string
+	PreviousProjectionVersion int64
+}
+
+func (q *Queries) UpdateDeviceOwner(ctx context.Context, arg UpdateDeviceOwnerParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateDeviceOwner,
+		arg.Owner,
+		arg.ProjectionVersion,
+		arg.UpdatedAt,
+		arg.DeviceID,
+		arg.PreviousProjectionVersion,
 	)
 	if err != nil {
 		return 0, err

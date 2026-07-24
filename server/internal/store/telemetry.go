@@ -39,12 +39,54 @@ type TelemetryStore struct {
 	pool *pgxpool.Pool
 }
 
+var (
+	// ErrExecutionOutputAlreadyBound identifies an immutable device-binding conflict.
+	ErrExecutionOutputAlreadyBound = errors.New("store: execution output is bound to another device")
+	// ErrExecutionOutputNotBound requires callers to establish scope before output.
+	ErrExecutionOutputNotBound = errors.New("store: execution output has no device binding")
+)
+
 // NewTelemetryStore returns an operational telemetry store.
 func NewTelemetryStore(pool *pgxpool.Pool) (*TelemetryStore, error) {
 	if pool == nil {
 		return nil, errors.New("store: nil Postgres pool")
 	}
 	return &TelemetryStore{pool: pool}, nil
+}
+
+// BindExecutionOutputToDevice records the scope-bearing device relation before
+// execution output becomes readable through the management plane.
+func (s *TelemetryStore) BindExecutionOutputToDevice(
+	ctx context.Context,
+	executionID string,
+	deviceID string,
+) error {
+	if s == nil || s.pool == nil {
+		return errors.New("store: nil telemetry store")
+	}
+	if ctx == nil {
+		return errors.New("store: nil execution-output binding context")
+	}
+	if err := validate.ULIDPathID(executionID); err != nil {
+		return fmt.Errorf("store: invalid execution id: %w", err)
+	}
+	if err := validate.ULIDPathID(deviceID); err != nil {
+		return fmt.Errorf("store: invalid execution device id: %w", err)
+	}
+	rows, err := generated.New(s.pool).BindExecutionOutputToDevice(
+		ctx,
+		generated.BindExecutionOutputToDeviceParams{
+			ExecutionID: strings.ToUpper(executionID),
+			DeviceID:    strings.ToUpper(deviceID),
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("store: bind execution output to device: %w", err)
+	}
+	if rows != 1 {
+		return ErrExecutionOutputAlreadyBound
+	}
+	return nil
 }
 
 // AppendExecutionOutput appends one bounded output chunk.
@@ -77,11 +119,11 @@ func (s *TelemetryStore) AppendExecutionOutput(
 		}
 	}()
 	queries := generated.New(tx)
-	if err := queries.EnsureExecutionOutput(ctx, executionID); err != nil {
-		return result, fmt.Errorf("store: ensure execution-output state: %w", err)
-	}
 	state, err := queries.GetExecutionOutputForUpdate(ctx, executionID)
 	if err != nil {
+		if IsNotFound(err) {
+			return result, ErrExecutionOutputNotBound
+		}
 		return result, fmt.Errorf("store: lock execution-output state: %w", err)
 	}
 	result = OutputWriteResult{

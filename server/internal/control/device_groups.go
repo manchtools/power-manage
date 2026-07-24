@@ -48,19 +48,21 @@ func NewManagementService(
 }
 
 func managementDomains(eventStore *store.Store) []crudDomain {
-	return []crudDomain{deviceGroupDomain(crudDomainStoreFuncs{
+	domains := []crudDomain{deviceGroupDomain(crudDomainStoreFuncs{
 		createEvent: func(request *powermanagev1.CreateDeviceGroupRequest) (store.Event, error) {
-			return store.DeviceGroupCreatedEvent(
+			return store.DeviceGroupCreatedWithMembersEvent(
 				request.GetId(),
 				request.GetName(),
 				request.GetDynamicQuery(),
+				request.GetStaticDeviceIds(),
 			)
 		},
 		updateEvent: func(request *powermanagev1.UpdateDeviceGroupRequest) (store.Event, error) {
-			return store.DeviceGroupUpdatedEvent(
+			return store.DeviceGroupUpdatedWithMembersEvent(
 				request.GetId(),
 				request.GetName(),
 				request.GetDynamicQuery(),
+				request.GetStaticDeviceIds(),
 			)
 		},
 		deleteEvent: func(request *powermanagev1.DeleteDeviceGroupRequest) (store.Event, error) {
@@ -93,6 +95,21 @@ func managementDomains(eventStore *store.Store) []crudDomain {
 			)
 		},
 	})}
+	domains = append(domains, identityDomains(eventStore)...)
+	domains = append(domains, deviceDomain(eventStore))
+	domains = append(domains, registrationTokenDomain(eventStore))
+	domains = append(domains, apiTokenDomain(eventStore))
+	domains = append(domains, identityProviderDomain(eventStore))
+	domains = append(domains, scimConfigurationDomain(eventStore))
+	domains = append(domains, serverSettingDomain(eventStore))
+	domains = append(domains, actionDomain(eventStore))
+	domains = append(domains, actionSetDomain(eventStore))
+	domains = append(domains, assignmentDomain(eventStore))
+	domains = append(domains, compliancePolicyDomain(eventStore))
+	domains = append(domains, auditDomain(eventStore))
+	domains = append(domains, executionDomain(eventStore))
+	domains = append(domains, inventoryDomain(eventStore))
+	return append(domains, gatewayDomain(eventStore))
 }
 
 // CreateDeviceGroup delegates device-group creation to the shared CRUD kernel.
@@ -113,7 +130,7 @@ func (s *ManagementService) CreateDeviceGroup(
 	if err != nil {
 		return nil, err
 	}
-	group, ok := result.(*powermanagev1.DeviceGroup)
+	group, ok := result.object.(*powermanagev1.DeviceGroup)
 	if !ok {
 		return nil, unavailableCRUD()
 	}
@@ -198,7 +215,7 @@ func (s *ManagementService) UpdateDeviceGroup(
 	if err != nil {
 		return nil, err
 	}
-	group, ok := result.(*powermanagev1.DeviceGroup)
+	group, ok := result.object.(*powermanagev1.DeviceGroup)
 	if !ok {
 		return nil, unavailableCRUD()
 	}
@@ -252,6 +269,7 @@ func deviceGroupDomain(functions crudDomainStoreFuncs) crudDomain {
 		projectorEvents:   store.DeviceGroupEventTypes(),
 		searchableColumns: []string{"name", "dynamic_query"},
 		alreadyExists:     store.IsDeviceGroupExists,
+		scopeRelation:     crudScopeDeviceGroup,
 		scope: func(reach authz.Reach) (CRUDScope, error) {
 			return CRUDScope{
 				Global:         reach.Global,
@@ -260,16 +278,17 @@ func deviceGroupDomain(functions crudDomainStoreFuncs) crudDomain {
 		},
 	}
 	if functions.createEvent != nil {
-		domain.createEvent = func(message proto.Message) (store.Event, error) {
+		domain.createEvent = func(_ context.Context, message proto.Message) (store.Event, string, error) {
 			request, ok := message.(*powermanagev1.CreateDeviceGroupRequest)
 			if !ok {
-				return store.Event{}, errors.New("control: wrong device-group request for create")
+				return store.Event{}, "", errors.New("control: wrong device-group request for create")
 			}
-			return functions.createEvent(request)
+			event, err := functions.createEvent(request)
+			return event, "", err
 		}
 	}
 	if functions.updateEvent != nil {
-		domain.updateEvent = func(message proto.Message) (store.Event, error) {
+		domain.updateEvent = func(_ context.Context, message proto.Message) (store.Event, error) {
 			request, ok := message.(*powermanagev1.UpdateDeviceGroupRequest)
 			if !ok {
 				return store.Event{}, errors.New("control: wrong device-group request for update")
@@ -278,7 +297,7 @@ func deviceGroupDomain(functions crudDomainStoreFuncs) crudDomain {
 		}
 	}
 	if functions.deleteEvent != nil {
-		domain.deleteEvent = func(message proto.Message) (store.Event, error) {
+		domain.deleteEvent = func(_ context.Context, message proto.Message) (store.Event, error) {
 			request, ok := message.(*powermanagev1.DeleteDeviceGroupRequest)
 			if !ok {
 				return store.Event{}, errors.New("control: wrong device-group request for delete")
@@ -321,10 +340,11 @@ func deviceGroupDomain(functions crudDomainStoreFuncs) crudDomain {
 
 func deviceGroupMessage(group store.DeviceGroup) *powermanagev1.DeviceGroup {
 	return &powermanagev1.DeviceGroup{
-		Id:           group.ID,
-		Name:         group.Name,
-		DynamicQuery: group.DynamicQuery,
-		Version:      uint64(group.ProjectionVersion),
+		Id:              group.ID,
+		Name:            group.Name,
+		DynamicQuery:    group.DynamicQuery,
+		Version:         uint64(group.ProjectionVersion),
+		StaticDeviceIds: slices.Clone(group.StaticDeviceIDs),
 	}
 }
 

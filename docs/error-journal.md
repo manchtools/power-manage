@@ -2259,3 +2259,101 @@ and `--type`, and requires reviewed-file parity with `git status`.
 
 **Prevention**: Copy the repository command verbatim immediately before every
 local review; never infer mutable CLI syntax from memory or summaries.
+
+## 2026-07-24 — Ignored project rule: root-relative paths from a module workdir
+
+**What happened**: A formatting command ran from `server/` while its arguments
+still began with `server/`, so formatting stopped before any files were
+changed.
+
+**What the user said**: Not user-initiated; the missing-path errors exposed the
+mistake immediately.
+
+**Root cause**: The command mixed repository-root-relative paths with a module
+working directory despite the existing verification-honesty rule.
+
+**Harness fix**: `CLAUDE.md` now gives an explicit `gofmt` example for both the
+repository root and `server/` workdirs.
+
+**Prevention**: Formatting paths that begin with a module name run from the
+repository root; module-local paths omit that leading module component.
+
+## 2026-07-24 — Formatting guidance used a package pattern with `gofmt`
+
+**What happened**: The harness correction for formatting paths recommended
+`gofmt -w server/internal/...`, but `gofmt` does not expand Go package
+patterns, so the example would fail even from the repository root.
+
+**What the user said**: Not user-initiated; the mandatory local review caught
+the invalid command before commit.
+
+**Root cause**: The prior correction addressed working-directory-relative
+paths but did not distinguish the package-aware `go fmt` command from the
+file-oriented `gofmt` command.
+
+**Harness fix**: `CLAUDE.md` now requires `go fmt` for `./...` package patterns
+and limits `gofmt -w` to concrete files or directories.
+
+**Prevention**: Formatting guidance must name both the intended working
+directory and a command that actually accepts the supplied path syntax.
+
+## 2026-07-24 — Repeated the banned docref subcommand help probe
+
+**What happened**: A stale-claim maintenance pass invoked
+`docref approve --help` even though the current repository guidance explicitly
+states that docref 0.1.1 parses subcommand arguments as paths and bans every
+`--help` form.
+
+**What the user said**: Not user-initiated; the command failed visibly without
+changing any documentation.
+
+**Root cause**: The established literal command rule was not reread before
+switching from `docref check` to claim approval.
+
+**Harness fix**: `CLAUDE.md` now requires rereading its docref rule immediately
+before any docref command beyond `check`, then copying one of the supported
+literal forms.
+
+**Prevention**: Do not probe docref syntax during a maintenance pass; review
+each reported path with `docref diff <path>`, then use
+`docref approve <path>` for reviewed stale claims.
+
+## 2026-07-24 — Inferred a root-level verification script
+
+**What happened**: The repository-wide gate was invoked as `./verify.sh`, but
+the actual executable is `scripts/verify.sh`. The failed command made no
+changes.
+
+**What the user said**: Not user-initiated; the shell reported the missing
+root-level path immediately.
+
+**Root cause**: The verification skill referenced by the repository guidance
+was unavailable in the session, and the gate location was inferred instead of
+discovered with the repository file inventory.
+
+**Harness fix**: `CLAUDE.md` now records the verified fallback command
+`scripts/verify.sh` and requires discovery before invocation when the
+verification skill is unavailable.
+
+**Prevention**: Resolve repository-owned scripts with `rg --files` before the
+first invocation; do not assume executable scripts live at the repository
+root.
+
+## 2026-07-24 — Repeated a distant-hunk patch after a context failure
+
+**What happened**: A telemetry-test edit bundled several distant hunks into
+one patch after this turn had already established a fresh-context constraint.
+One hunk no longer matched, so the patch failed without changing the file.
+
+**What the user said**: Not user-initiated; patch verification rejected the
+stale context before any edit was applied.
+
+**Root cause**: “Single-file” was treated as sufficient even though the
+existing correction also required small local patches after a context
+failure.
+
+**Harness fix**: `CLAUDE.md` now requires every subsequent patch in the turn
+to contain one contiguous hunk based on freshly printed surrounding lines.
+
+**Prevention**: Inspect, patch, and verify one local region at a time; distant
+regions in the same file are separate patches.

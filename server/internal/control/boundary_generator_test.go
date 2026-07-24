@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	"buf.build/go/protovalidate"
@@ -95,7 +97,7 @@ func TestCRUDBoundaryGenerator_FailsClosed(t *testing.T) {
 		},
 		"unsupported rule kind": {
 			mutate: func(domain crudDomain) crudDomain {
-				domain.requestMessages[crudGet] = (&powermanagev1.CreateDeviceGroupResponse{}).
+				domain.requestMessages[crudGet] = (&powermanagev1.ArtifactChunk{}).
 					ProtoReflect().Descriptor().FullName()
 				return domain
 			},
@@ -200,7 +202,10 @@ func generateCRUDBoundaryCases(domains []crudDomain) ([]crudBoundaryCase, error)
 	for _, domain := range domains {
 		domainFields := 0
 		for operation := crudCreate; operation <= crudDelete; operation++ {
-			messageName := domain.requestMessages[operation]
+			messageName, registered := domain.requestMessages[operation]
+			if !registered {
+				continue
+			}
 			messageType, err := protoregistry.GlobalTypes.FindMessageByName(messageName)
 			if err != nil {
 				return nil, fmt.Errorf(
@@ -223,7 +228,7 @@ func generateCRUDBoundaryCases(domains []crudDomain) ([]crudBoundaryCase, error)
 					if err != nil {
 						return nil, err
 					}
-					correct.Set(fill, value)
+					setCRUDBoundaryField(correct, fill, value)
 				}
 				absent := proto.Clone(correct)
 				absent.ProtoReflect().Clear(field)
@@ -232,7 +237,7 @@ func generateCRUDBoundaryCases(domains []crudDomain) ([]crudBoundaryCase, error)
 				if err != nil {
 					return nil, err
 				}
-				wrong.ProtoReflect().Set(field, wrongValue)
+				setCRUDBoundaryField(wrong.ProtoReflect(), field, wrongValue)
 				cases = append(cases, crudBoundaryCase{
 					domain:         domain.name,
 					operation:      operation,
@@ -255,6 +260,23 @@ func generateCRUDBoundaryCases(domains []crudDomain) ([]crudBoundaryCase, error)
 	return cases, nil
 }
 
+func setCRUDBoundaryField(
+	message protoreflect.Message,
+	field protoreflect.FieldDescriptor,
+	value protoreflect.Value,
+) {
+	if !field.IsList() {
+		message.Set(field, value)
+		return
+	}
+	source := value.List()
+	target := message.Mutable(field).List()
+	target.Truncate(0)
+	for index := 0; index < source.Len(); index++ {
+		target.Append(source.Get(index))
+	}
+}
+
 func crudBoundaryValues(
 	field protoreflect.FieldDescriptor,
 ) (protoreflect.Value, protoreflect.Value, error) {
@@ -265,6 +287,26 @@ func crudBoundaryValues(
 			field.FullName(),
 		)
 	}
+	return crudBoundaryValuesWithRules(field, rules)
+}
+
+func crudBoundaryValuesWithRules(
+	field protoreflect.FieldDescriptor,
+	rules *validate.FieldRules,
+) (protoreflect.Value, protoreflect.Value, error) {
+	if field.IsList() {
+		return crudRepeatedBoundaryValues(field, rules.GetRepeated())
+	}
+	if field.Kind() == protoreflect.MessageKind {
+		return crudMessageBoundaryValues(field, rules)
+	}
+	return crudScalarBoundaryValues(field, rules)
+}
+
+func crudScalarBoundaryValues(
+	field protoreflect.FieldDescriptor,
+	rules *validate.FieldRules,
+) (protoreflect.Value, protoreflect.Value, error) {
 	if rules.GetType() == nil {
 		return protoreflect.Value{}, protoreflect.Value{}, fmt.Errorf(
 			"crud boundary generator: field %s has unsupported rules: non-scalar",
@@ -281,6 +323,9 @@ func crudBoundaryValues(
 	case protoreflect.Uint64Kind:
 		correct, wrong, err := crudUint64BoundaryValues(field, rules.GetUint64())
 		return protoreflect.ValueOfUint64(correct), protoreflect.ValueOfUint64(wrong), err
+	case protoreflect.EnumKind:
+		correct, wrong, err := crudEnumBoundaryValues(field, rules.GetEnum())
+		return protoreflect.ValueOfEnum(correct), protoreflect.ValueOfEnum(wrong), err
 	default:
 		return protoreflect.Value{}, protoreflect.Value{}, fmt.Errorf(
 			"crud boundary generator: field %s has unsupported rules: %s field kind",
@@ -288,6 +333,202 @@ func crudBoundaryValues(
 			field.Kind(),
 		)
 	}
+}
+
+func crudRepeatedBoundaryValues(
+	field protoreflect.FieldDescriptor,
+	rules *validate.RepeatedRules,
+) (protoreflect.Value, protoreflect.Value, error) {
+	if rules == nil {
+		return protoreflect.Value{}, protoreflect.Value{}, fmt.Errorf(
+			"crud boundary generator: field %s has unsupported rules: non-repeated",
+			field.FullName(),
+		)
+	}
+	if !rules.HasMinItems() && !rules.HasMaxItems() && !rules.HasUnique() {
+		return protoreflect.Value{}, protoreflect.Value{}, fmt.Errorf(
+			"crud boundary generator: field %s has unsupported rules: repeated has no wrong case",
+			field.FullName(),
+		)
+	}
+	correctCount := rules.GetMinItems()
+	var item protoreflect.Value
+	var err error
+	if correctCount > 0 || rules.GetUnique() || rules.HasMaxItems() {
+		if rules.GetItems() == nil {
+			return protoreflect.Value{}, protoreflect.Value{}, fmt.Errorf(
+				"crud boundary generator: field %s has unsupported rules: repeated items",
+				field.FullName(),
+			)
+		}
+		item, _, err = crudScalarBoundaryValues(field, rules.GetItems())
+		if err != nil {
+			return protoreflect.Value{}, protoreflect.Value{}, err
+		}
+	}
+	correctItems := make([]protoreflect.Value, correctCount)
+	for index := range correctItems {
+		correctItems[index] = item
+	}
+	correct := crudListValue(field, correctItems)
+
+	switch {
+	case rules.HasMinItems() && rules.GetMinItems() > 0:
+		return correct, crudListValue(field, nil), nil
+	case rules.GetUnique():
+		return correct, crudListValue(field, []protoreflect.Value{item, item}), nil
+	case rules.HasMaxItems() && rules.GetMaxItems() < uint64(math.MaxInt):
+		wrongItems := make([]protoreflect.Value, int(rules.GetMaxItems()+1))
+		for index := range wrongItems {
+			wrongItems[index] = item
+		}
+		return correct, crudListValue(field, wrongItems), nil
+	default:
+		return protoreflect.Value{}, protoreflect.Value{}, fmt.Errorf(
+			"crud boundary generator: field %s has unsupported rules: repeated bounds",
+			field.FullName(),
+		)
+	}
+}
+
+func crudListValue(
+	field protoreflect.FieldDescriptor,
+	items []protoreflect.Value,
+) protoreflect.Value {
+	holder := dynamicpb.NewMessage(field.ContainingMessage())
+	list := holder.Mutable(field).List()
+	for _, item := range items {
+		list.Append(item)
+	}
+	return holder.Get(field)
+}
+
+func crudMessageBoundaryValues(
+	field protoreflect.FieldDescriptor,
+	rules *validate.FieldRules,
+) (protoreflect.Value, protoreflect.Value, error) {
+	if !rules.GetRequired() {
+		return protoreflect.Value{}, protoreflect.Value{}, fmt.Errorf(
+			"crud boundary generator: field %s has unsupported rules: optional message",
+			field.FullName(),
+		)
+	}
+	if member := firstRequiredMessageOneofMember(field.Message()); member != nil {
+		correct := dynamicpb.NewMessage(field.Message())
+		correct.Set(
+			member,
+			protoreflect.ValueOfMessage(dynamicpb.NewMessage(member.Message())),
+		)
+		wrong := dynamicpb.NewMessage(field.Message())
+		return protoreflect.ValueOfMessage(correct), protoreflect.ValueOfMessage(wrong), nil
+	}
+	if field.Message().FullName() == "google.protobuf.Timestamp" {
+		seconds := field.Message().Fields().ByName("seconds")
+		if seconds == nil {
+			return protoreflect.Value{}, protoreflect.Value{}, fmt.Errorf(
+				"crud boundary generator: field %s has an invalid timestamp descriptor",
+				field.FullName(),
+			)
+		}
+		correct := dynamicpb.NewMessage(field.Message())
+		correct.Set(seconds, protoreflect.ValueOfInt64(253_402_300_799))
+		wrong := dynamicpb.NewMessage(field.Message())
+		wrong.Set(seconds, protoreflect.ValueOfInt64(0))
+		return protoreflect.ValueOfMessage(correct), protoreflect.ValueOfMessage(wrong), nil
+	}
+	correct := dynamicpb.NewMessage(field.Message())
+	fields := field.Message().Fields()
+	for index := 0; index < fields.Len(); index++ {
+		nested := fields.Get(index)
+		value, _, err := crudBoundaryValues(nested)
+		if err != nil {
+			return protoreflect.Value{}, protoreflect.Value{}, err
+		}
+		setCRUDBoundaryField(correct, nested, value)
+	}
+	wrong := dynamicpb.NewMessage(field.Message())
+	return protoreflect.ValueOfMessage(correct), protoreflect.ValueOfMessage(wrong), nil
+}
+
+func firstRequiredMessageOneofMember(
+	message protoreflect.MessageDescriptor,
+) protoreflect.FieldDescriptor {
+	oneofs := message.Oneofs()
+	for index := 0; index < oneofs.Len(); index++ {
+		oneof := oneofs.Get(index)
+		rules, _ := proto.GetExtension(
+			oneof.Options(),
+			validate.E_Oneof,
+		).(*validate.OneofRules)
+		if rules == nil || !rules.GetRequired() || oneof.Fields().Len() == 0 {
+			continue
+		}
+		member := oneof.Fields().Get(0)
+		if member.Kind() == protoreflect.MessageKind {
+			return member
+		}
+	}
+	return nil
+}
+
+func crudEnumBoundaryValues(
+	field protoreflect.FieldDescriptor,
+	rules *validate.EnumRules,
+) (protoreflect.EnumNumber, protoreflect.EnumNumber, error) {
+	if rules == nil {
+		return 0, 0, fmt.Errorf(
+			"crud boundary generator: field %s has unsupported rules: non-enum",
+			field.FullName(),
+		)
+	}
+	if rules.Const != nil {
+		correct := protoreflect.EnumNumber(rules.GetConst())
+		return correct, correct + 1, nil
+	}
+	if len(rules.GetIn()) > 0 {
+		correct := protoreflect.EnumNumber(rules.GetIn()[0])
+		wrong := protoreflect.EnumNumber(0)
+		for slices.Contains(rules.GetIn(), int32(wrong)) {
+			wrong++
+		}
+		return correct, wrong, nil
+	}
+	if len(rules.GetNotIn()) > 0 {
+		wrong := protoreflect.EnumNumber(rules.GetNotIn()[0])
+		values := field.Enum().Values()
+		for index := 0; index < values.Len(); index++ {
+			correct := values.Get(index).Number()
+			if !slices.Contains(rules.GetNotIn(), int32(correct)) {
+				return correct, wrong, nil
+			}
+		}
+	}
+	if rules.GetDefinedOnly() {
+		values := field.Enum().Values()
+		if values.Len() == 0 {
+			return 0, 0, fmt.Errorf(
+				"crud boundary generator: field %s has no defined enum values",
+				field.FullName(),
+			)
+		}
+		correct := values.Get(0).Number()
+		maximum := correct
+		for index := 1; index < values.Len(); index++ {
+			maximum = max(maximum, values.Get(index).Number())
+		}
+		if maximum == protoreflect.EnumNumber(math.MaxInt32) {
+			return 0, 0, fmt.Errorf(
+				"crud boundary generator: field %s cannot derive an undefined enum value",
+				field.FullName(),
+			)
+		}
+		wrong := maximum + 1
+		return correct, wrong, nil
+	}
+	return 0, 0, fmt.Errorf(
+		"crud boundary generator: field %s has unsupported rules: enum has no wrong case",
+		field.FullName(),
+	)
 }
 
 func crudStringBoundaryValues(
@@ -304,7 +545,39 @@ func crudStringBoundaryValues(
 	if ulid {
 		return "01J00000000000000000000090", "not-a-ulid", nil
 	}
-	if rules.HasPattern() || rules.HasPrefix() || rules.HasSuffix() ||
+	if rules.HasPattern() {
+		var correct, wrong string
+		switch rules.GetPattern() {
+		case "^[0-7][0-9A-HJKMNP-TV-Z]{25}$":
+			correct, wrong = "01J00000000000000000000090", "not-a-ulid"
+		case "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$":
+			correct, wrong = "users.manage", "not a permission"
+		case "^[a-z][a-z0-9-]*$":
+			correct, wrong = "corporate", "not a slug"
+		default:
+			return "", "", fmt.Errorf(
+				"crud boundary generator: field %s has unsupported rules: string pattern",
+				field.FullName(),
+			)
+		}
+		if rules.HasConst() || rules.HasLen() || rules.HasLenBytes() ||
+			rules.HasPrefix() || rules.HasSuffix() ||
+			rules.HasContains() || rules.HasWellKnown() ||
+			len(rules.GetIn()) > 0 || len(rules.GetNotIn()) > 0 {
+			return "", "", fmt.Errorf(
+				"crud boundary generator: field %s has unsupported rules: compound string pattern",
+				field.FullName(),
+			)
+		}
+		if !crudStringLengthRulesAllow(rules, correct) {
+			return "", "", fmt.Errorf(
+				"crud boundary generator: field %s pattern candidate violates length rules",
+				field.FullName(),
+			)
+		}
+		return correct, wrong, nil
+	}
+	if rules.HasPrefix() || rules.HasSuffix() ||
 		rules.HasContains() || rules.HasWellKnown() ||
 		len(rules.GetIn()) > 0 || len(rules.GetNotIn()) > 0 {
 		return "", "", fmt.Errorf(
@@ -371,6 +644,15 @@ func crudStringBoundaryValues(
 		)
 	}
 	return correct, wrong, nil
+}
+
+func crudStringLengthRulesAllow(rules *validate.StringRules, value string) bool {
+	runes := uint64(utf8.RuneCountInString(value))
+	bytes := uint64(len(value))
+	return (!rules.HasMinLen() || runes >= rules.GetMinLen()) &&
+		(!rules.HasMaxLen() || runes <= rules.GetMaxLen()) &&
+		(!rules.HasMinBytes() || bytes >= rules.GetMinBytes()) &&
+		(!rules.HasMaxBytes() || bytes <= rules.GetMaxBytes())
 }
 
 func crudUint32BoundaryValues(

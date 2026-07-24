@@ -54,7 +54,7 @@ Spec milestone: SPEC-008 M2 (`AUTHZ-1`, `AUTHZ-3`, `AUTHZ-3a`,
 
 ## Implementation
 
-<!-- docref: begin src=server/internal/authz/grants.go#Resolve:1c77ecd6,server/internal/store/authorization.go#AuthorizationRoleCreatedEvent:dd42dc2a,server/internal/store/authorization.go#AuthorizationGrantCreatedEvent:41e59c62,server/internal/store/authorization.go#Store.ResolveEffectiveAccess:cf05718c,server/internal/store/inventory.go#productionRebuildTargets:da889341,contract/proto/powermanage/v1/authorization.proto#GrantView:c264df0b -->
+<!-- docref: begin src=server/internal/authz/grants.go#Resolve:1c77ecd6,server/internal/store/authorization.go#AuthorizationRoleCreatedEvent:dd42dc2a,server/internal/store/authorization.go#AuthorizationGrantCreatedEvent:41e59c62,server/internal/store/authorization.go#Store.ResolveEffectiveAccess:cf05718c,server/internal/store/inventory.go#productionRebuildTargets:7b7ff01b,contract/proto/powermanage/v1/authorization.proto#GrantView:c264df0b -->
 Role and grant constructors canonicalize immutable event facts before append.
 The production projectors validate the same payloads again, maintain the two
 authorization projections in the append transaction, and participate in one

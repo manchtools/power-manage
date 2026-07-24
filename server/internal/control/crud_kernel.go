@@ -45,6 +45,19 @@ const (
 	crudDelete
 )
 
+type crudScopeRelation uint8
+
+const (
+	crudScopeGlobal crudScopeRelation = iota + 1
+	crudScopeDeviceGroup
+	crudScopeUserGroup
+	crudScopeUser
+	crudScopeDevice
+	crudScopeUserOwned
+	crudScopeTransitiveDefinition
+	crudScopeAssignment
+)
+
 type crudAppender interface {
 	AppendEvent(context.Context, store.Event) error
 	AppendEventWithVersion(context.Context, store.Event, int64) error
@@ -54,23 +67,29 @@ type crudAppender interface {
 type CRUDScope struct {
 	Global         bool
 	DeviceGroupIDs []string
+	UserGroupIDs   []string
+	SelfID         string
 }
 
 type crudDomain struct {
-	name              string
-	permission        authz.Permission
-	objectMessage     protoreflect.FullName
-	requestMessages   map[crudOperation]protoreflect.FullName
-	procedures        map[crudOperation]string
-	projectorEvents   []string
-	searchableColumns []string
-	alreadyExists     func(error) bool
-	scope             func(authz.Reach) (CRUDScope, error)
-	createEvent       func(proto.Message) (store.Event, error)
-	updateEvent       func(proto.Message) (store.Event, error)
-	deleteEvent       func(proto.Message) (store.Event, error)
-	get               func(context.Context, string, CRUDScope) (proto.Message, error)
-	list              func(context.Context, CRUDScope, int32) ([]proto.Message, error)
+	name                  string
+	permission            authz.Permission
+	objectMessage         protoreflect.FullName
+	requestMessages       map[crudOperation]protoreflect.FullName
+	procedures            map[crudOperation]string
+	projectorEvents       []string
+	searchableColumns     []string
+	alreadyExists         func(error) bool
+	scopeRelation         crudScopeRelation
+	scope                 func(authz.Reach) (CRUDScope, error)
+	requestID             func(proto.Message) (string, error)
+	createEvent           func(context.Context, proto.Message) (store.Event, string, error)
+	updateEvent           func(context.Context, proto.Message) (store.Event, error)
+	updateCredentialEvent func(context.Context, proto.Message) (store.Event, string, error)
+	deleteEvent           func(context.Context, proto.Message) (store.Event, error)
+	get                   func(context.Context, string, CRUDScope) (proto.Message, error)
+	list                  func(context.Context, CRUDScope, int32) ([]proto.Message, error)
+	validateScope         func(context.Context, crudOperation, proto.Message, CRUDScope) error
 }
 
 // CRUDKernel owns the single management-domain request pipeline.
@@ -78,6 +97,16 @@ type CRUDKernel struct {
 	appender crudAppender
 	gate     *auth.AuthorizationGate
 	domains  map[string]crudDomain
+}
+
+type crudCreateResult struct {
+	object     proto.Message
+	credential string
+}
+
+type crudUpdateResult struct {
+	object     proto.Message
+	credential string
 }
 
 func newCRUDKernel(
@@ -113,36 +142,42 @@ func (k *CRUDKernel) create(
 	procedure string,
 	domainName string,
 	request proto.Message,
-) (proto.Message, error) {
+) (crudCreateResult, error) {
 	domain, err := k.prepare(ctx, procedure, domainName, crudCreate, request)
 	if err != nil {
-		return nil, err
+		return crudCreateResult{}, err
 	}
-	id, err := crudStringField(request, "id")
+	id, err := crudDomainRequestID(domain, request)
 	if err != nil {
-		return nil, invalidCRUDRequest()
+		return crudCreateResult{}, invalidCRUDRequest()
 	}
 	// Creation is still an object write: a scoped caller may create only an ID
 	// explicitly present in its direct reach; global reach may create any ID.
-	authorized, scope, err := k.authorize(ctx, procedure, domain, id)
+	authorized, scope, err := k.authorize(ctx, procedure, domain, crudCreate, id)
 	if err != nil {
-		return nil, err
+		return crudCreateResult{}, err
 	}
-	event, err := domain.createEvent(request)
+	if err := validateDomainMutationScope(authorized, domain, crudCreate, request, scope); err != nil {
+		return crudCreateResult{}, err
+	}
+	event, credential, err := domain.createEvent(authorized, request)
 	if err != nil {
-		return nil, unavailableCRUD()
+		if errors.Is(err, errCRUDInvalid) {
+			return crudCreateResult{}, invalidCRUDRequest()
+		}
+		return crudCreateResult{}, unavailableCRUD()
 	}
 	if err := k.appender.AppendEvent(authorized, event); err != nil {
-		return nil, mapCRUDStoreError(domain, err)
+		return crudCreateResult{}, mapCRUDStoreError(domain, err)
 	}
 	result, err := domain.get(authorized, id, scope)
 	if err != nil {
-		return nil, mapCRUDStoreError(domain, err)
+		return crudCreateResult{}, mapCRUDStoreError(domain, err)
 	}
 	if err := validateCRUDResult(result, domain.objectMessage); err != nil {
-		return nil, unavailableCRUD()
+		return crudCreateResult{}, unavailableCRUD()
 	}
-	return result, nil
+	return crudCreateResult{object: result, credential: credential}, nil
 }
 
 func (k *CRUDKernel) get(
@@ -155,11 +190,11 @@ func (k *CRUDKernel) get(
 	if err != nil {
 		return nil, err
 	}
-	id, err := crudStringField(request, "id")
+	id, err := crudDomainRequestID(domain, request)
 	if err != nil {
 		return nil, invalidCRUDRequest()
 	}
-	authorized, scope, err := k.authorize(ctx, procedure, domain, id)
+	authorized, scope, err := k.authorize(ctx, procedure, domain, crudGet, id)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +222,7 @@ func (k *CRUDKernel) list(
 	if err != nil || limit > maxCRUDPageSize {
 		return nil, invalidCRUDRequest()
 	}
-	authorized, scope, err := k.authorize(ctx, procedure, domain, "")
+	authorized, scope, err := k.authorize(ctx, procedure, domain, crudList, "")
 	if err != nil {
 		return nil, err
 	}
@@ -208,42 +243,57 @@ func (k *CRUDKernel) update(
 	procedure string,
 	domainName string,
 	request proto.Message,
-) (proto.Message, error) {
+) (crudUpdateResult, error) {
 	domain, err := k.prepare(ctx, procedure, domainName, crudUpdate, request)
 	if err != nil {
-		return nil, err
+		return crudUpdateResult{}, err
 	}
-	id, err := crudStringField(request, "id")
+	id, err := crudDomainRequestID(domain, request)
 	if err != nil {
-		return nil, invalidCRUDRequest()
+		return crudUpdateResult{}, invalidCRUDRequest()
 	}
 	expectedVersion, err := crudUintField(request, "expected_version")
 	if err != nil || expectedVersion > math.MaxInt64 {
-		return nil, invalidCRUDRequest()
+		return crudUpdateResult{}, invalidCRUDRequest()
 	}
-	authorized, scope, err := k.authorize(ctx, procedure, domain, id)
+	authorized, scope, err := k.authorize(ctx, procedure, domain, crudUpdate, id)
 	if err != nil {
-		return nil, err
+		return crudUpdateResult{}, err
 	}
-	event, err := domain.updateEvent(request)
+	if err := k.requireScopedMutationTarget(authorized, domain, id, scope); err != nil {
+		return crudUpdateResult{}, err
+	}
+	if err := validateDomainMutationScope(authorized, domain, crudUpdate, request, scope); err != nil {
+		return crudUpdateResult{}, err
+	}
+	var event store.Event
+	var credential string
+	if domain.updateCredentialEvent != nil {
+		event, credential, err = domain.updateCredentialEvent(authorized, request)
+	} else {
+		event, err = domain.updateEvent(authorized, request)
+	}
 	if err != nil {
-		return nil, unavailableCRUD()
+		if errors.Is(err, errCRUDInvalid) {
+			return crudUpdateResult{}, invalidCRUDRequest()
+		}
+		return crudUpdateResult{}, unavailableCRUD()
 	}
 	if err := k.appender.AppendEventWithVersion(
 		authorized,
 		event,
 		int64(expectedVersion),
 	); err != nil {
-		return nil, mapCRUDStoreError(domain, err)
+		return crudUpdateResult{}, mapCRUDStoreError(domain, err)
 	}
 	result, err := domain.get(authorized, id, scope)
 	if err != nil {
-		return nil, mapCRUDStoreError(domain, err)
+		return crudUpdateResult{}, mapCRUDStoreError(domain, err)
 	}
 	if err := validateCRUDResult(result, domain.objectMessage); err != nil {
-		return nil, unavailableCRUD()
+		return crudUpdateResult{}, unavailableCRUD()
 	}
-	return result, nil
+	return crudUpdateResult{object: result, credential: credential}, nil
 }
 
 func (k *CRUDKernel) delete(
@@ -256,7 +306,7 @@ func (k *CRUDKernel) delete(
 	if err != nil {
 		return "", err
 	}
-	id, err := crudStringField(request, "id")
+	id, err := crudDomainRequestID(domain, request)
 	if err != nil {
 		return "", invalidCRUDRequest()
 	}
@@ -264,12 +314,18 @@ func (k *CRUDKernel) delete(
 	if err != nil || expectedVersion > math.MaxInt64 {
 		return "", invalidCRUDRequest()
 	}
-	authorized, _, err := k.authorize(ctx, procedure, domain, id)
+	authorized, scope, err := k.authorize(ctx, procedure, domain, crudDelete, id)
 	if err != nil {
 		return "", err
 	}
-	event, err := domain.deleteEvent(request)
+	if err := k.requireScopedMutationTarget(authorized, domain, id, scope); err != nil {
+		return "", err
+	}
+	event, err := domain.deleteEvent(authorized, request)
 	if err != nil {
+		if errors.Is(err, errCRUDInvalid) {
+			return "", invalidCRUDRequest()
+		}
 		return "", unavailableCRUD()
 	}
 	if err := k.appender.AppendEventWithVersion(
@@ -310,6 +366,7 @@ func (k *CRUDKernel) authorize(
 	ctx context.Context,
 	procedure string,
 	domain crudDomain,
+	operation crudOperation,
 	objectID string,
 ) (context.Context, CRUDScope, error) {
 	authorized, err := k.gate.AuthorizeContext(ctx, procedure)
@@ -329,31 +386,133 @@ func (k *CRUDKernel) authorize(
 		return nil, CRUDScope{}, unavailableCRUD()
 	}
 	scope.DeviceGroupIDs = slices.Clone(scope.DeviceGroupIDs)
-	if objectID != "" && !scope.allowsDeviceGroup(objectID) {
+	scope.UserGroupIDs = slices.Clone(scope.UserGroupIDs)
+	if reach.Self {
+		scope.SelfID = decision.Subject
+	}
+	if objectID != "" && !domain.scopeAllows(operation, objectID, scope) {
 		return nil, CRUDScope{}, notFoundCRUD()
 	}
 	return authorized, scope, nil
 }
 
-func (s CRUDScope) allowsDeviceGroup(id string) bool {
-	return s.Global || slices.Contains(s.DeviceGroupIDs, id)
+func (d crudDomain) scopeAllows(
+	operation crudOperation,
+	id string,
+	scope CRUDScope,
+) bool {
+	if scope.Global {
+		return true
+	}
+	switch d.scopeRelation {
+	case crudScopeGlobal:
+		return false
+	case crudScopeDeviceGroup:
+		return slices.Contains(scope.DeviceGroupIDs, id)
+	case crudScopeUserGroup:
+		return slices.Contains(scope.UserGroupIDs, id)
+	case crudScopeUser:
+		if scope.SelfID == id {
+			return true
+		}
+		return operation != crudCreate && len(scope.UserGroupIDs) > 0
+	case crudScopeDevice:
+		return operation != crudCreate && len(scope.DeviceGroupIDs) > 0
+	case crudScopeUserOwned:
+		return scope.SelfID != "" || len(scope.UserGroupIDs) > 0
+	case crudScopeTransitiveDefinition:
+		if operation == crudCreate || operation == crudUpdate || operation == crudDelete {
+			return false
+		}
+		return scope.SelfID != "" ||
+			len(scope.DeviceGroupIDs) > 0 ||
+			len(scope.UserGroupIDs) > 0
+	case crudScopeAssignment:
+		return scope.SelfID != "" ||
+			len(scope.DeviceGroupIDs) > 0 ||
+			len(scope.UserGroupIDs) > 0
+	default:
+		return false
+	}
+}
+
+func (k *CRUDKernel) requireScopedMutationTarget(
+	ctx context.Context,
+	domain crudDomain,
+	id string,
+	scope CRUDScope,
+) error {
+	if scope.Global ||
+		domain.scopeRelation == crudScopeUser && scope.SelfID == id ||
+		domain.scopeRelation != crudScopeUser &&
+			domain.scopeRelation != crudScopeDevice &&
+			domain.scopeRelation != crudScopeUserOwned &&
+			domain.scopeRelation != crudScopeAssignment {
+		return nil
+	}
+	if _, err := domain.get(ctx, id, scope); err != nil {
+		return mapCRUDStoreError(domain, err)
+	}
+	return nil
+}
+
+func validateDomainMutationScope(
+	ctx context.Context,
+	domain crudDomain,
+	operation crudOperation,
+	request proto.Message,
+	scope CRUDScope,
+) error {
+	if domain.validateScope == nil {
+		return nil
+	}
+	err := domain.validateScope(ctx, operation, request, scope)
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, errCRUDInvalid):
+		return invalidCRUDRequest()
+	case store.IsNotFound(err):
+		return notFoundCRUD()
+	default:
+		return unavailableCRUD()
+	}
 }
 
 func validateCRUDDomain(domain crudDomain) error {
 	if strings.TrimSpace(domain.name) == "" ||
 		domain.permission == "" ||
 		domain.objectMessage == "" ||
-		len(domain.requestMessages) != 5 ||
-		len(domain.procedures) != 5 ||
-		len(domain.projectorEvents) == 0 ||
+		len(domain.requestMessages) == 0 ||
+		len(domain.requestMessages) != len(domain.procedures) ||
 		len(domain.searchableColumns) == 0 ||
-		domain.alreadyExists == nil ||
-		domain.scope == nil ||
-		domain.createEvent == nil ||
-		domain.updateEvent == nil ||
-		domain.deleteEvent == nil ||
-		domain.get == nil ||
-		domain.list == nil {
+		domain.scopeRelation == 0 ||
+		domain.scope == nil {
+		return fmt.Errorf("%w: %q", errCRUDDomainIncomplete, domain.name)
+	}
+	if domainHasMutation(domain) && len(domain.projectorEvents) == 0 {
+		return fmt.Errorf("%w: %q", errCRUDDomainIncomplete, domain.name)
+	}
+	if _, ok := domain.requestMessages[crudCreate]; ok &&
+		(domain.alreadyExists == nil ||
+			domain.createEvent == nil ||
+			domain.get == nil ||
+			(createScopeRequiresValidation(domain.scopeRelation) &&
+				domain.validateScope == nil)) {
+		return fmt.Errorf("%w: %q", errCRUDDomainIncomplete, domain.name)
+	}
+	if _, ok := domain.requestMessages[crudGet]; ok && domain.get == nil {
+		return fmt.Errorf("%w: %q", errCRUDDomainIncomplete, domain.name)
+	}
+	if _, ok := domain.requestMessages[crudList]; ok && domain.list == nil {
+		return fmt.Errorf("%w: %q", errCRUDDomainIncomplete, domain.name)
+	}
+	if _, ok := domain.requestMessages[crudUpdate]; ok &&
+		((domain.updateEvent == nil) == (domain.updateCredentialEvent == nil) ||
+			domain.get == nil) {
+		return fmt.Errorf("%w: %q", errCRUDDomainIncomplete, domain.name)
+	}
+	if _, ok := domain.requestMessages[crudDelete]; ok && domain.deleteEvent == nil {
 		return fmt.Errorf("%w: %q", errCRUDDomainIncomplete, domain.name)
 	}
 	if _, ok := authz.Lookup(domain.permission); !ok {
@@ -365,15 +524,27 @@ func validateCRUDDomain(domain crudDomain) error {
 	}
 	policies := auth.ProcedureAuthorizations()
 	for operation := crudCreate; operation <= crudDelete; operation++ {
-		if domain.requestMessages[operation] == "" {
+		requestMessage, hasRequest := domain.requestMessages[operation]
+		procedure, hasProcedure := domain.procedures[operation]
+		if hasRequest != hasProcedure {
 			return fmt.Errorf(
-				"%w: domain %q lacks operation %d request",
+				"%w: domain %q operation %d metadata differs",
 				errCRUDDomainIncomplete,
 				domain.name,
 				operation,
 			)
 		}
-		procedure := domain.procedures[operation]
+		if !hasRequest {
+			continue
+		}
+		if requestMessage == "" || procedure == "" {
+			return fmt.Errorf(
+				"%w: domain %q lacks operation %d metadata",
+				errCRUDDomainIncomplete,
+				domain.name,
+				operation,
+			)
+		}
 		policy, ok := policies[procedure]
 		if !ok ||
 			policy.Class != auth.ProcedurePermissionGated ||
@@ -391,6 +562,19 @@ func validateCRUDDomain(domain crudDomain) error {
 		return fmt.Errorf("%w: %q", errCRUDDomainMetadata, domain.name)
 	}
 	return nil
+}
+
+func createScopeRequiresValidation(relation crudScopeRelation) bool {
+	return relation == crudScopeUserOwned || relation == crudScopeAssignment
+}
+
+func domainHasMutation(domain crudDomain) bool {
+	for _, operation := range []crudOperation{crudCreate, crudUpdate, crudDelete} {
+		if _, ok := domain.requestMessages[operation]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 func cloneRequestMessages(
@@ -452,6 +636,13 @@ func crudStringField(message proto.Message, name protoreflect.Name) (string, err
 	return message.ProtoReflect().Get(field).String(), nil
 }
 
+func crudDomainRequestID(domain crudDomain, message proto.Message) (string, error) {
+	if domain.requestID != nil {
+		return domain.requestID(message)
+	}
+	return crudStringField(message, "id")
+}
+
 func crudUintField(message proto.Message, name protoreflect.Name) (uint64, error) {
 	field := message.ProtoReflect().Descriptor().Fields().ByName(name)
 	if field == nil {
@@ -471,7 +662,7 @@ func mapCRUDStoreError(domain crudDomain, err error) error {
 		return notFoundCRUD()
 	case store.IsVersionConflict(err):
 		return connect.NewError(connect.CodeAborted, errCRUDConflict)
-	case domain.alreadyExists(err):
+	case domain.alreadyExists != nil && domain.alreadyExists(err):
 		return connect.NewError(connect.CodeAlreadyExists, errCRUDExists)
 	default:
 		return unavailableCRUD()

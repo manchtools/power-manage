@@ -96,6 +96,77 @@ func TestOIDCService_StartBuildsBoundPKCENonceAndAllowlistedRedirect(t *testing.
 	}
 }
 
+func TestOIDCService_UsesManagedPublicClientProviderAndHonorsDisable(t *testing.T) {
+	fixture := newOIDCTestFixture(t, false)
+	config := store.OIDCProviderMetadata{
+		Slug:                  "managed",
+		Issuer:                fixture.provider.Issuer,
+		ClientID:              fixture.provider.ClientID,
+		AuthorizationEndpoint: fixture.provider.AuthorizationEndpoint,
+		TokenURL:              fixture.provider.TokenEndpoint,
+		JWKSURI:               fixture.provider.JWKSURI,
+		RedirectURIs:          []string{oidcTestRedirect},
+		TrustEmailAssertions:  true,
+	}
+	created, err := store.OIDCProviderConfigCreatedEvent(config)
+	if err != nil {
+		t.Fatalf("create managed OIDC provider: %v", err)
+	}
+	if err := fixture.eventStore.AppendEventWithVersion(t.Context(), created, 0); err != nil {
+		t.Fatalf("append managed OIDC provider: %v", err)
+	}
+	entropy := make([]byte, 4096)
+	for index := range entropy {
+		entropy[index] = byte((index*29 + 7) % 251)
+	}
+	service, err := auth.NewOIDCService(
+		fixture.eventStore,
+		fixture.refresh,
+		nil,
+		fixture.server.Client(),
+		bytes.NewReader(entropy),
+		fixture.clock.Now,
+	)
+	if err != nil {
+		t.Fatalf("create management-only OIDC service: %v", err)
+	}
+	authorizationURL, err := service.Start(t.Context(), config.Slug, oidcTestRedirect)
+	if err != nil {
+		t.Fatalf("start managed OIDC provider: %v", err)
+	}
+	authorization := mustParseURL(t, authorizationURL)
+	if authorization.Query().Get("client_id") != config.ClientID {
+		t.Fatalf("managed client ID = %q; want %q", authorization.Query().Get("client_id"), config.ClientID)
+	}
+
+	config.Disabled = true
+	disabled, err := store.OIDCProviderConfigUpdatedEvent(config)
+	if err != nil {
+		t.Fatalf("create managed OIDC provider disable: %v", err)
+	}
+	if err := fixture.eventStore.AppendEventWithVersion(t.Context(), disabled, 1); err != nil {
+		t.Fatalf("append managed OIDC provider disable: %v", err)
+	}
+	if _, err := service.Start(
+		t.Context(),
+		config.Slug,
+		oidcTestRedirect,
+	); !errors.Is(err, auth.ErrOIDCRejected) {
+		t.Fatalf("disabled managed-provider start error = %v; want %v", err, auth.ErrOIDCRejected)
+	}
+	before := fixture.tokenRequests()
+	if _, err := service.Complete(
+		t.Context(),
+		authorization.Query().Get("state"),
+		"good-code",
+	); !errors.Is(err, auth.ErrOIDCRejected) {
+		t.Fatalf("disabled managed-provider completion error = %v; want %v", err, auth.ErrOIDCRejected)
+	}
+	if got := fixture.tokenRequests(); got != before {
+		t.Fatalf("disabled managed-provider completion made %d token requests; want %d", got, before)
+	}
+}
+
 func TestOIDCService_CompleteRejectsReplayExpiryNonceIssuerAndAudience(t *testing.T) {
 	fixture := newOIDCTestFixture(t, false)
 

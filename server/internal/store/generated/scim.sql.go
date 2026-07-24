@@ -145,6 +145,25 @@ func (q *Queries) DeleteSCIMIdentity(ctx context.Context, arg DeleteSCIMIdentity
 	return result.RowsAffected(), nil
 }
 
+const deleteSCIMProvider = `-- name: DeleteSCIMProvider :execrows
+DELETE FROM scim_providers
+WHERE provider_slug = $1
+  AND projection_version = $2
+`
+
+type DeleteSCIMProviderParams struct {
+	ProviderSlug              string
+	PreviousProjectionVersion int64
+}
+
+func (q *Queries) DeleteSCIMProvider(ctx context.Context, arg DeleteSCIMProviderParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteSCIMProvider, arg.ProviderSlug, arg.PreviousProjectionVersion)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const disableSCIMProvider = `-- name: DisableSCIMProvider :execrows
 UPDATE scim_providers
 SET disabled = true,
@@ -298,6 +317,25 @@ func (q *Queries) GetSCIMProvider(ctx context.Context, providerSlug string) (Get
 	return i, err
 }
 
+const getSCIMProviderMetadata = `-- name: GetSCIMProviderMetadata :one
+SELECT provider_slug, disabled, projection_version
+FROM scim_providers
+WHERE provider_slug = $1
+`
+
+type GetSCIMProviderMetadataRow struct {
+	ProviderSlug      string
+	Disabled          bool
+	ProjectionVersion int64
+}
+
+func (q *Queries) GetSCIMProviderMetadata(ctx context.Context, providerSlug string) (GetSCIMProviderMetadataRow, error) {
+	row := q.db.QueryRow(ctx, getSCIMProviderMetadata, providerSlug)
+	var i GetSCIMProviderMetadataRow
+	err := row.Scan(&i.ProviderSlug, &i.Disabled, &i.ProjectionVersion)
+	return i, err
+}
+
 const insertSCIMGroup = `-- name: InsertSCIMGroup :execrows
 INSERT INTO scim_groups (
     group_id,
@@ -417,6 +455,7 @@ INSERT INTO scim_providers (
     $3,
     $4
 )
+ON CONFLICT (provider_slug) DO NOTHING
 `
 
 type InsertSCIMProviderParams struct {
@@ -513,6 +552,39 @@ func (q *Queries) ListSCIMGroups(ctx context.Context, arg ListSCIMGroupsParams) 
 	return items, nil
 }
 
+const listSCIMProviders = `-- name: ListSCIMProviders :many
+SELECT provider_slug, disabled, projection_version
+FROM scim_providers
+ORDER BY provider_slug
+LIMIT $1
+`
+
+type ListSCIMProvidersRow struct {
+	ProviderSlug      string
+	Disabled          bool
+	ProjectionVersion int64
+}
+
+func (q *Queries) ListSCIMProviders(ctx context.Context, pageLimit int32) ([]ListSCIMProvidersRow, error) {
+	rows, err := q.db.Query(ctx, listSCIMProviders, pageLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListSCIMProvidersRow
+	for rows.Next() {
+		var i ListSCIMProvidersRow
+		if err := rows.Scan(&i.ProviderSlug, &i.Disabled, &i.ProjectionVersion); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSCIMUsers = `-- name: ListSCIMUsers :many
 SELECT
     scim_identities.provider_slug,
@@ -566,6 +638,24 @@ func (q *Queries) ListSCIMUsers(ctx context.Context, arg ListSCIMUsersParams) ([
 		return nil, err
 	}
 	return items, nil
+}
+
+const replaceSCIMIdentityEmailsForManagedUser = `-- name: ReplaceSCIMIdentityEmailsForManagedUser :exec
+UPDATE scim_identities
+SET email = $1,
+    updated_at = $2
+WHERE user_id = $3
+`
+
+type ReplaceSCIMIdentityEmailsForManagedUserParams struct {
+	Email     string
+	UpdatedAt time.Time
+	UserID    string
+}
+
+func (q *Queries) ReplaceSCIMIdentityEmailsForManagedUser(ctx context.Context, arg ReplaceSCIMIdentityEmailsForManagedUserParams) error {
+	_, err := q.db.Exec(ctx, replaceSCIMIdentityEmailsForManagedUser, arg.Email, arg.UpdatedAt, arg.UserID)
+	return err
 }
 
 const resetSCIMGroupMembers = `-- name: ResetSCIMGroupMembers :exec

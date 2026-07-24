@@ -105,11 +105,22 @@ branch; after any merge-command error, check remote PR state before retrying.
 
 - Load the `verification` skill before every commit or push. It owns the
   canonical gate, full-output handling, dependency checks, and command/path
-  hygiene; keep those process rules out of this session-wide index.
+  hygiene; keep those process rules out of this session-wide index. If that
+  skill is unavailable in the current session, discover the gate before
+  invoking it and run the repository-root command `scripts/verify.sh`; never
+  infer a root-level `./verify.sh`.
 - Before running a compound verification command, choose its working directory
   once and resolve every command/path argument against that directory; do not
   mix a module workdir with repository-root-relative paths.
-- For docref 0.1.1, never run removed `fix` or any `--help` form. Use bare `docref` for usage; after reviewing `docref diff <path>`, stale claims require `docref approve <path>` and stale snippets require `docref refresh <path>`.
+- **Match formatter syntax to the path form.** Go package patterns require
+  `go fmt`: from the repository root use `go fmt ./server/internal/...`; from
+  `server/` use `go fmt ./internal/...`. Use `gofmt -w` only with concrete Go
+  files or directories, never with a `...` package pattern.
+- For docref 0.1.1, never run removed `fix` or any `--help` form. Immediately
+  before any docref command beyond `check`, reread this rule and copy a
+  supported literal command: bare `docref` for usage; after reviewing
+  `docref diff <path>`, stale claims require `docref approve <path>` and stale
+  snippets require `docref refresh <path>`.
 - Before patching an escaping-sensitive literal, inspect its exact current
   bytes and match that observed form; do not reconstruct it through an extra
   shell, JSON, or JavaScript escaping layer.
@@ -117,8 +128,9 @@ branch; after any merge-command error, check remote PR state before retrying.
   target and apply small file-local patches; do not let one stale context make
   an otherwise independent multi-file correction fail wholesale.
 - After any `apply_patch` context failure, every remaining patch in that turn
-  is single-file and based on freshly printed surrounding lines; do not retry a
-  combined code-and-documentation patch.
+  is single-file, one contiguous hunk, and based on freshly printed
+  surrounding lines; do not retry a multi-hunk or combined
+  code-and-documentation patch.
 - After adding a call site, reuse declared join keys and resolve every new identifier and composite-literal embedded field against an existing
   declaration or add that declaration in the same patch; reuse values already
   returned by test factories instead of inventing accessor helpers. Before

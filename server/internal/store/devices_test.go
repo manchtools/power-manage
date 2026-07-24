@@ -194,6 +194,130 @@ func TestDeviceProjection_RenewsAndRebuildsExactState(t *testing.T) {
 	assertRenewedDeviceProjection(t, eventStore, renewedDER, currentDER, renewedSealingKey)
 }
 
+func TestManagedDevice_ScopeOwnerUpdateDeleteAndRebuild(t *testing.T) {
+	pool := testPostgres(t)
+	eventStore, err := NewProduction(pool)
+	if err != nil {
+		t.Fatalf("create production event store: %v", err)
+	}
+	certificateDER := newDeviceCertificateFixture(t, identity.AgentClass, testEnrolledDeviceID)
+	enrollment, err := AgentEnrolledEvent(
+		testEnrolledDeviceID,
+		certificateDER,
+		bytes.Repeat([]byte{0x42}, 32),
+		testEnrollmentTokenID,
+		"owner@example.com",
+	)
+	if err != nil {
+		t.Fatalf("create enrollment event: %v", err)
+	}
+	groupID := "01J00000000000000000000141"
+	group, err := DeviceGroupCreatedWithMembersEvent(
+		groupID,
+		"managed devices",
+		"",
+		[]string{testEnrolledDeviceID},
+	)
+	if err != nil {
+		t.Fatalf("create device-group event: %v", err)
+	}
+	if err := eventStore.AppendEvents(t.Context(), []Event{enrollment, group}); err != nil {
+		t.Fatalf("append managed-device fixtures: %v", err)
+	}
+
+	if _, err := eventStore.ScopedDevice(
+		t.Context(),
+		testEnrolledDeviceID,
+		false,
+		nil,
+	); !IsNotFound(err) {
+		t.Fatalf("empty-scope device error = %v; want not found", err)
+	}
+	if _, err := eventStore.ScopedDevice(
+		t.Context(),
+		testEnrolledDeviceID,
+		false,
+		[]string{groupID},
+	); err != nil {
+		t.Fatalf("read statically grouped device: %v", err)
+	}
+	devices, err := eventStore.ListScopedDevices(
+		t.Context(),
+		false,
+		[]string{groupID},
+		100,
+	)
+	if err != nil || len(devices) != 1 || devices[0].DeviceID != testEnrolledDeviceID {
+		t.Fatalf("scoped devices = (%#v, %v); want enrolled device", devices, err)
+	}
+
+	update, err := AgentOwnerUpdatedEvent(testEnrolledDeviceID, "new-owner@example.com")
+	if err != nil {
+		t.Fatalf("create owner update: %v", err)
+	}
+	if err := eventStore.AppendEventWithVersion(t.Context(), update, 1); err != nil {
+		t.Fatalf("append owner update: %v", err)
+	}
+	if err := eventStore.RebuildAll(t.Context(), DeviceRebuildTarget); err != nil {
+		t.Fatalf("rebuild devices: %v", err)
+	}
+	updated, err := eventStore.Device(t.Context(), testEnrolledDeviceID)
+	if err != nil || updated.Owner != "new-owner@example.com" ||
+		updated.ProjectionVersion != 2 {
+		t.Fatalf("rebuilt device = (%#v, %v); want updated version two", updated, err)
+	}
+
+	deleted, err := AgentDeletedEvent(testEnrolledDeviceID, updated.CertificateDER)
+	if err != nil {
+		t.Fatalf("create device deletion: %v", err)
+	}
+	if err := eventStore.AppendEventWithVersion(t.Context(), deleted, 2); err != nil {
+		t.Fatalf("append device deletion: %v", err)
+	}
+	if _, err := eventStore.Device(t.Context(), testEnrolledDeviceID); !IsNotFound(err) {
+		t.Fatalf("deleted device error = %v; want not found", err)
+	}
+	var revocations int
+	if err := pool.QueryRow(
+		t.Context(),
+		`SELECT count(*) FROM certificate_revocations WHERE source_stream_id = $1`,
+		testEnrolledDeviceID,
+	).Scan(&revocations); err != nil {
+		t.Fatalf("count device revocations: %v", err)
+	}
+	if revocations != 1 {
+		t.Fatalf("device revocations = %d; want one", revocations)
+	}
+	if err := eventStore.RebuildAll(t.Context(), DeviceRebuildTarget); err != nil {
+		t.Fatalf("rebuild deleted devices: %v", err)
+	}
+	if _, err := eventStore.Device(t.Context(), testEnrolledDeviceID); !IsNotFound(err) {
+		t.Fatalf("rebuilt deleted device error = %v; want not found", err)
+	}
+}
+
+func TestDeviceOwnerValidation_MatchesEnrollmentMetadata(t *testing.T) {
+	for name, owner := range map[string]string{
+		"empty":        "",
+		"valid":        "owner@example.com",
+		"NUL":          "bad\x00owner",
+		"invalid UTF8": string([]byte{0xff}),
+		"oversized":    strings.Repeat("x", maxRegistrationTokenOwnerBytes+1),
+	} {
+		t.Run(name, func(t *testing.T) {
+			deviceErr := validateDeviceOwner(owner)
+			tokenErr := validateRegistrationTokenOwner(owner)
+			if (deviceErr == nil) != (tokenErr == nil) {
+				t.Fatalf(
+					"owner acceptance differs: device error = %v, token error = %v",
+					deviceErr,
+					tokenErr,
+				)
+			}
+		})
+	}
+}
+
 func TestAgentCertificateRenewedEvent_RejectsInvalidTransitionMaterial(t *testing.T) {
 	key := newDeviceSigningKeyFixture(t)
 	currentDER := newDeviceCertificateWithKeyFixture(t, identity.AgentClass, testEnrolledDeviceID, key, 7)

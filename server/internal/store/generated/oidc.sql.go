@@ -94,6 +94,80 @@ func (q *Queries) DeleteExpiredOIDCLoginStates(ctx context.Context, now time.Tim
 	return result.RowsAffected(), nil
 }
 
+const deleteManagedUser = `-- name: DeleteManagedUser :execrows
+DELETE FROM users
+WHERE user_id = $1
+  AND projection_version = $2
+`
+
+type DeleteManagedUserParams struct {
+	UserID            string
+	ProjectionVersion int64
+}
+
+func (q *Queries) DeleteManagedUser(ctx context.Context, arg DeleteManagedUserParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteManagedUser, arg.UserID, arg.ProjectionVersion)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const getScopedUserByID = `-- name: GetScopedUserByID :one
+SELECT users.user_id, users.email, users.session_version, users.disabled, users.projection_version
+FROM users
+WHERE users.user_id = $1
+  AND (
+    $2::boolean
+    OR users.user_id = $3
+    OR EXISTS (
+        SELECT 1
+        FROM managed_user_group_members
+        WHERE managed_user_group_members.user_id = users.user_id
+          AND managed_user_group_members.group_id = ANY($4::text[])
+    )
+    OR EXISTS (
+        SELECT 1
+        FROM scim_group_members
+        WHERE scim_group_members.user_id = users.user_id
+          AND scim_group_members.group_id = ANY($4::text[])
+    )
+  )
+`
+
+type GetScopedUserByIDParams struct {
+	UserID       string
+	GlobalScope  bool
+	SelfID       string
+	UserGroupIds []string
+}
+
+type GetScopedUserByIDRow struct {
+	UserID            string
+	Email             string
+	SessionVersion    int64
+	Disabled          bool
+	ProjectionVersion int64
+}
+
+func (q *Queries) GetScopedUserByID(ctx context.Context, arg GetScopedUserByIDParams) (GetScopedUserByIDRow, error) {
+	row := q.db.QueryRow(ctx, getScopedUserByID,
+		arg.UserID,
+		arg.GlobalScope,
+		arg.SelfID,
+		arg.UserGroupIds,
+	)
+	var i GetScopedUserByIDRow
+	err := row.Scan(
+		&i.UserID,
+		&i.Email,
+		&i.SessionVersion,
+		&i.Disabled,
+		&i.ProjectionVersion,
+	)
+	return i, err
+}
+
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT user_id, email, session_version, disabled, projection_version
 FROM users
@@ -311,6 +385,122 @@ func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (int64, 
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const listScopedUsers = `-- name: ListScopedUsers :many
+SELECT users.user_id, users.email, users.session_version, users.disabled, users.projection_version
+FROM users
+WHERE $1::boolean
+   OR users.user_id = $2
+   OR EXISTS (
+        SELECT 1
+        FROM managed_user_group_members
+        WHERE managed_user_group_members.user_id = users.user_id
+          AND managed_user_group_members.group_id = ANY($3::text[])
+   )
+   OR EXISTS (
+        SELECT 1
+        FROM scim_group_members
+        WHERE scim_group_members.user_id = users.user_id
+          AND scim_group_members.group_id = ANY($3::text[])
+   )
+ORDER BY users.user_id
+LIMIT $4
+`
+
+type ListScopedUsersParams struct {
+	GlobalScope  bool
+	SelfID       string
+	UserGroupIds []string
+	PageLimit    int32
+}
+
+type ListScopedUsersRow struct {
+	UserID            string
+	Email             string
+	SessionVersion    int64
+	Disabled          bool
+	ProjectionVersion int64
+}
+
+func (q *Queries) ListScopedUsers(ctx context.Context, arg ListScopedUsersParams) ([]ListScopedUsersRow, error) {
+	rows, err := q.db.Query(ctx, listScopedUsers,
+		arg.GlobalScope,
+		arg.SelfID,
+		arg.UserGroupIds,
+		arg.PageLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListScopedUsersRow
+	for rows.Next() {
+		var i ListScopedUsersRow
+		if err := rows.Scan(
+			&i.UserID,
+			&i.Email,
+			&i.SessionVersion,
+			&i.Disabled,
+			&i.ProjectionVersion,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const replaceManagedUser = `-- name: ReplaceManagedUser :execrows
+UPDATE users
+SET email = $1,
+    projection_version = $2,
+    updated_at = $3
+WHERE user_id = $4
+  AND projection_version = $5
+`
+
+type ReplaceManagedUserParams struct {
+	Email                     string
+	ProjectionVersion         int64
+	UpdatedAt                 time.Time
+	UserID                    string
+	PreviousProjectionVersion int64
+}
+
+func (q *Queries) ReplaceManagedUser(ctx context.Context, arg ReplaceManagedUserParams) (int64, error) {
+	result, err := q.db.Exec(ctx, replaceManagedUser,
+		arg.Email,
+		arg.ProjectionVersion,
+		arg.UpdatedAt,
+		arg.UserID,
+		arg.PreviousProjectionVersion,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const replaceOIDCIdentityEmailsForManagedUser = `-- name: ReplaceOIDCIdentityEmailsForManagedUser :exec
+UPDATE oidc_identities
+SET email = $1,
+    updated_at = $2
+WHERE user_id = $3
+`
+
+type ReplaceOIDCIdentityEmailsForManagedUserParams struct {
+	Email     string
+	UpdatedAt time.Time
+	UserID    string
+}
+
+func (q *Queries) ReplaceOIDCIdentityEmailsForManagedUser(ctx context.Context, arg ReplaceOIDCIdentityEmailsForManagedUserParams) error {
+	_, err := q.db.Exec(ctx, replaceOIDCIdentityEmailsForManagedUser, arg.Email, arg.UpdatedAt, arg.UserID)
+	return err
 }
 
 const resetOIDCIdentities = `-- name: ResetOIDCIdentities :exec

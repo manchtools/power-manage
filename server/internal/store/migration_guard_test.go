@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func TestGatewayTokenChecks_UseDeferredValidationMigration(t *testing.T) {
@@ -238,6 +240,128 @@ func TestCARotationMigration_RejectsLegacyRevocationsWithoutIssuerIdentity(t *te
 	_, err := database.Exec(ctx, migrationUpSQL(t, migrationPath), pgx.QueryExecModeSimpleProtocol)
 	if err == nil || !strings.Contains(err.Error(), wantMigrationError) {
 		t.Fatalf("migration 013 with legacy revocation error = %v; want explicit issuer-identity refusal", err)
+	}
+}
+
+func TestExecutionTargetMigration_AppliesToEmptyPreUpgradeState(t *testing.T) {
+	migrationPath := migrationPathByVersion(t, 28)
+	database := testPostgres(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	if _, err := database.Exec(
+		ctx,
+		migrationDownSQL(t, migrationPath),
+		pgx.QueryExecModeSimpleProtocol,
+	); err != nil {
+		t.Fatalf("roll back migration 028 empty-state fixture: %v", err)
+	}
+	if _, err := database.Exec(
+		ctx,
+		migrationUpSQL(t, migrationPath),
+		pgx.QueryExecModeSimpleProtocol,
+	); err != nil {
+		t.Fatalf("apply migration 028 to empty state: %v", err)
+	}
+	var nullable string
+	if err := database.QueryRow(ctx, `
+		SELECT is_nullable
+		FROM information_schema.columns
+		WHERE table_schema = 'public'
+		  AND table_name = 'execution_outputs'
+		  AND column_name = 'device_id'`).Scan(&nullable); err != nil {
+		t.Fatalf("inspect execution target nullability: %v", err)
+	}
+	if nullable != "NO" {
+		t.Fatalf("execution target nullability = %q; want NO", nullable)
+	}
+}
+
+func TestExecutionTargetMigration_RejectsUnattributablePreUpgradeRows(t *testing.T) {
+	migrationPath := migrationPathByVersion(t, 28)
+	database := testPostgres(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	if _, err := database.Exec(
+		ctx,
+		migrationDownSQL(t, migrationPath),
+		pgx.QueryExecModeSimpleProtocol,
+	); err != nil {
+		t.Fatalf("roll back migration 028 populated-state fixture: %v", err)
+	}
+	if _, err := database.Exec(ctx, `
+		INSERT INTO execution_outputs (
+			execution_id, output_bytes, output_chunks, truncated, updated_at
+		) VALUES ('01J00000000000000000000185', 0, 0, false, now())`); err != nil {
+		t.Fatalf("seed pre-migration execution output: %v", err)
+	}
+	const wantMigrationError = "execution target migration requires empty execution_outputs; existing rows cannot be assigned exact device identities"
+	_, err := database.Exec(
+		ctx,
+		migrationUpSQL(t, migrationPath),
+		pgx.QueryExecModeSimpleProtocol,
+	)
+	var postgresError *pgconn.PgError
+	if !errors.As(err, &postgresError) || postgresError.Message != wantMigrationError {
+		t.Fatalf("migration 028 populated-state error = %v; want explicit attribution refusal", err)
+	}
+	var deviceColumnCount int
+	if err := database.QueryRow(ctx, `
+		SELECT count(*)
+		FROM information_schema.columns
+		WHERE table_schema = 'public'
+		  AND table_name = 'execution_outputs'
+		  AND column_name = 'device_id'`).Scan(&deviceColumnCount); err != nil {
+		t.Fatalf("inspect failed execution-target migration: %v", err)
+	}
+	if deviceColumnCount != 0 {
+		t.Fatalf("device_id columns after rejected migration = %d; want zero", deviceColumnCount)
+	}
+}
+
+func TestProjectionIdentifierArraysRejectMalformedULIDs(t *testing.T) {
+	database := testPostgres(t)
+	tests := []struct {
+		name       string
+		query      string
+		constraint string
+	}{
+		{
+			name: "static device IDs",
+			query: `INSERT INTO device_groups (
+				device_group_id, name, dynamic_query, static_device_ids,
+				projection_version, updated_at
+			) VALUES (
+				'01J00000000000000000000186', 'devices', '',
+				ARRAY['not-a-ulid'], 1, now()
+			)`,
+			constraint: "device_groups_static_device_ids_ulid_check",
+		},
+		{
+			name: "compliance rule action IDs",
+			query: `INSERT INTO compliance_policies (
+				policy_id, name, rule_action_ids, grace_hours,
+				projection_version, updated_at
+			) VALUES (
+				'01J00000000000000000000187', 'baseline',
+				ARRAY['not-a-ulid'], 24, 1, now()
+			)`,
+			constraint: "compliance_policies_rule_action_ids_ulid_check",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := database.Exec(t.Context(), test.query)
+			var postgresError *pgconn.PgError
+			if !errors.As(err, &postgresError) ||
+				postgresError.Code != "23514" ||
+				postgresError.ConstraintName != test.constraint {
+				t.Fatalf(
+					"malformed ID array error = %v; want SQLSTATE 23514 constraint %q",
+					err,
+					test.constraint,
+				)
+			}
+		})
 	}
 }
 

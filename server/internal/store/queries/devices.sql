@@ -19,6 +19,52 @@ SELECT device_id, projection_version, certificate_der,
 FROM devices
 WHERE device_id = $1;
 
+-- name: GetScopedDevice :one
+SELECT d.device_id, d.projection_version, d.certificate_der,
+       d.certificate_fingerprint, d.sealing_public_key,
+       d.registration_token_id, d.owner, d.lifecycle_state, d.updated_at,
+       d.previous_certificate_der
+FROM devices AS d
+WHERE d.device_id = sqlc.arg(device_id)
+  AND (
+      sqlc.arg(global_scope)::boolean
+      OR EXISTS (
+          SELECT 1
+          FROM device_groups AS g
+          WHERE g.device_group_id = ANY(sqlc.arg(device_group_ids)::text[])
+            AND d.device_id = ANY(g.static_device_ids)
+      )
+  );
+
+-- name: ListScopedDevices :many
+SELECT d.device_id, d.projection_version, d.certificate_der,
+       d.certificate_fingerprint, d.sealing_public_key,
+       d.registration_token_id, d.owner, d.lifecycle_state, d.updated_at,
+       d.previous_certificate_der
+FROM devices AS d
+WHERE sqlc.arg(global_scope)::boolean
+   OR EXISTS (
+       SELECT 1
+       FROM device_groups AS g
+       WHERE g.device_group_id = ANY(sqlc.arg(device_group_ids)::text[])
+         AND d.device_id = ANY(g.static_device_ids)
+   )
+ORDER BY d.device_id
+LIMIT sqlc.arg(page_limit);
+
+-- name: UpdateDeviceOwner :execrows
+UPDATE devices
+SET owner = sqlc.arg(owner),
+    projection_version = sqlc.arg(projection_version),
+    updated_at = sqlc.arg(updated_at)
+WHERE device_id = sqlc.arg(device_id)
+  AND projection_version = sqlc.arg(previous_projection_version);
+
+-- name: DeleteDeviceProjection :execrows
+DELETE FROM devices
+WHERE device_id = sqlc.arg(device_id)
+  AND projection_version = sqlc.arg(projection_version);
+
 -- name: AcquireDeviceLifecycleLock :exec
 SELECT pg_advisory_xact_lock(hashtextextended('device:' || sqlc.arg(device_id)::text, 0));
 

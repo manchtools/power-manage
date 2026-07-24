@@ -24,6 +24,8 @@ const (
 	agentCertificateRenewedEventType   = "AgentCertificateRenewed"
 	agentCertificateRevokedEventType   = "AgentCertificateRevoked"
 	agentForceRenewalRequiredEventType = "AgentCertificateForceRenewalRequired"
+	agentOwnerUpdatedEventType         = "AgentOwnerUpdated"
+	agentDeletedEventType              = "AgentDeleted"
 	devicePayloadVersion               = 1
 	maxCertificateDERBytes             = 65536
 	reasonCodeUnspecified              = 0
@@ -76,6 +78,10 @@ type agentCertificateRenewedPayload struct {
 
 type agentCertificateLifecyclePayload struct {
 	CertificateDER []byte `json:"certificate_der"`
+}
+
+type agentOwnerUpdatedPayload struct {
+	Owner string `json:"owner"`
 }
 
 // AgentEnrolledEvent binds issued certificate DER and an X25519 sealing key to
@@ -154,6 +160,28 @@ func AgentCertificateForceRenewalRequiredEvent(deviceID string, certificateDER [
 	return agentCertificateLifecycleEvent(deviceID, certificateDER, agentForceRenewalRequiredEventType)
 }
 
+// AgentOwnerUpdatedEvent replaces management-owned device metadata.
+func AgentOwnerUpdatedEvent(deviceID, owner string) (Event, error) {
+	deviceID, err := canonicalDeviceID(deviceID)
+	if err != nil {
+		return Event{}, err
+	}
+	if err := validateDeviceOwner(owner); err != nil {
+		return Event{}, err
+	}
+	payload, err := json.Marshal(agentOwnerUpdatedPayload{Owner: owner})
+	if err != nil {
+		return Event{}, fmt.Errorf("store: encode device owner update: %w", err)
+	}
+	return deviceEvent(deviceID, agentOwnerUpdatedEventType, payload), nil
+}
+
+// AgentDeletedEvent removes a device after recording its exact certificate as
+// revocation input.
+func AgentDeletedEvent(deviceID string, certificateDER []byte) (Event, error) {
+	return agentCertificateLifecycleEvent(deviceID, certificateDER, agentDeletedEventType)
+}
+
 func agentCertificateLifecycleEvent(deviceID string, certificateDER []byte, eventType string) (Event, error) {
 	deviceID, certificateDER, _, err := validateAgentCertificate(deviceID, certificateDER)
 	if err != nil {
@@ -192,19 +220,135 @@ func (s *Store) Device(ctx context.Context, deviceID string) (Device, error) {
 	return deviceFromRow(deviceID, row)
 }
 
+// ScopedDevice reads one device through static device-group membership.
+func (s *Store) ScopedDevice(
+	ctx context.Context,
+	deviceID string,
+	global bool,
+	deviceGroupIDs []string,
+) (Device, error) {
+	if s == nil || s.pool == nil || ctx == nil {
+		return Device{}, errors.New("store: invalid scoped device lookup")
+	}
+	deviceID, err := canonicalDeviceID(deviceID)
+	if err != nil {
+		return Device{}, err
+	}
+	deviceGroupIDs, err = normalizeDeviceGroupScope(deviceGroupIDs)
+	if err != nil {
+		return Device{}, err
+	}
+	row, err := generated.New(s.pool).GetScopedDevice(ctx, generated.GetScopedDeviceParams{
+		DeviceID:       deviceID,
+		GlobalScope:    global,
+		DeviceGroupIds: deviceGroupIDs,
+	})
+	if err != nil {
+		return Device{}, fmt.Errorf("store: read scoped device: %w", err)
+	}
+	return deviceFromValues(
+		deviceID,
+		row.DeviceID,
+		row.ProjectionVersion,
+		row.CertificateDer,
+		row.CertificateFingerprint,
+		row.SealingPublicKey,
+		row.RegistrationTokenID,
+		row.Owner,
+		row.LifecycleState,
+		row.PreviousCertificateDer,
+		true,
+	)
+}
+
+// ListScopedDevices returns one statically group-confined device page.
+func (s *Store) ListScopedDevices(
+	ctx context.Context,
+	global bool,
+	deviceGroupIDs []string,
+	limit int32,
+) ([]Device, error) {
+	if s == nil || s.pool == nil || ctx == nil || limit < 1 || limit > 200 {
+		return nil, errors.New("store: invalid scoped device list")
+	}
+	deviceGroupIDs, err := normalizeDeviceGroupScope(deviceGroupIDs)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := generated.New(s.pool).ListScopedDevices(
+		ctx,
+		generated.ListScopedDevicesParams{
+			GlobalScope:    global,
+			DeviceGroupIds: deviceGroupIDs,
+			PageLimit:      limit,
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("store: list scoped devices: %w", err)
+	}
+	devices := make([]Device, len(rows))
+	for index, row := range rows {
+		devices[index], err = deviceFromValues(
+			row.DeviceID,
+			row.DeviceID,
+			row.ProjectionVersion,
+			row.CertificateDer,
+			row.CertificateFingerprint,
+			row.SealingPublicKey,
+			row.RegistrationTokenID,
+			row.Owner,
+			row.LifecycleState,
+			row.PreviousCertificateDer,
+			true,
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return devices, nil
+}
+
 func deviceFromRow(deviceID string, row generated.GetDeviceRow) (Device, error) {
 	return deviceFromRowWithFingerprintPolicy(deviceID, row, true)
 }
 
 func deviceFromRowWithFingerprintPolicy(deviceID string, row generated.GetDeviceRow, requireDerivedFingerprint bool) (Device, error) {
-	if row.ProjectionVersion <= 0 {
+	return deviceFromValues(
+		deviceID,
+		row.DeviceID,
+		row.ProjectionVersion,
+		row.CertificateDer,
+		row.CertificateFingerprint,
+		row.SealingPublicKey,
+		row.RegistrationTokenID,
+		row.Owner,
+		row.LifecycleState,
+		row.PreviousCertificateDer,
+		requireDerivedFingerprint,
+	)
+}
+
+func deviceFromValues(
+	deviceID string,
+	rowDeviceID string,
+	projectionVersion int64,
+	certificateDER []byte,
+	certificateFingerprint []byte,
+	sealingPublicKey []byte,
+	registrationTokenID string,
+	owner string,
+	lifecycleStateValue string,
+	previousCertificateDERValue []byte,
+	requireDerivedFingerprint bool,
+) (Device, error) {
+	if projectionVersion <= 0 {
 		return Device{}, errors.New("store: device projection has an invalid version")
 	}
-	canonicalID, payload, err := validateAgentEnrollment(row.DeviceID, agentEnrolledPayload{
-		CertificateDER:      row.CertificateDer,
-		SealingPublicKey:    row.SealingPublicKey,
-		RegistrationTokenID: row.RegistrationTokenID,
-		Owner:               row.Owner,
+	canonicalID, payload, err := validateAgentEnrollment(rowDeviceID, agentEnrolledPayload{
+		CertificateDER:      certificateDER,
+		SealingPublicKey:    sealingPublicKey,
+		RegistrationTokenID: registrationTokenID,
+		Owner:               owner,
 	})
 	if err != nil {
 		return Device{}, fmt.Errorf("store: invalid device projection: %w", err)
@@ -212,25 +356,25 @@ func deviceFromRowWithFingerprintPolicy(deviceID string, row generated.GetDevice
 	if canonicalID != deviceID {
 		return Device{}, errors.New("store: device projection returned a mismatched ID")
 	}
-	if len(row.CertificateFingerprint) != sha256.Size {
+	if len(certificateFingerprint) != sha256.Size {
 		return Device{}, errors.New("store: device projection has an invalid certificate fingerprint")
 	}
-	lifecycleState := DeviceLifecycleState(row.LifecycleState)
+	lifecycleState := DeviceLifecycleState(lifecycleStateValue)
 	if !validDeviceLifecycleState(lifecycleState) {
 		return Device{}, errors.New("store: device projection has an invalid lifecycle state")
 	}
 	var storedFingerprint [sha256.Size]byte
-	copy(storedFingerprint[:], row.CertificateFingerprint)
+	copy(storedFingerprint[:], certificateFingerprint)
 	derivedFingerprint := sha256.Sum256(payload.CertificateDER)
 	if requireDerivedFingerprint && storedFingerprint != derivedFingerprint {
 		return Device{}, errors.New("store: device projection has a mismatched certificate fingerprint")
 	}
 	var previousCertificateDER []byte
-	if len(row.PreviousCertificateDer) > 0 {
+	if len(previousCertificateDERValue) > 0 {
 		_, renewal, err := validateAgentCertificateRenewal(canonicalID, agentCertificateRenewedPayload{
 			CertificateDER:           payload.CertificateDER,
 			SealingPublicKey:         payload.SealingPublicKey,
-			SupersededCertificateDER: row.PreviousCertificateDer,
+			SupersededCertificateDER: previousCertificateDERValue,
 		})
 		if err != nil {
 			return Device{}, fmt.Errorf("store: invalid previous certificate projection: %w", err)
@@ -246,8 +390,23 @@ func deviceFromRowWithFingerprintPolicy(deviceID string, row generated.GetDevice
 		RegistrationTokenID:    payload.RegistrationTokenID,
 		Owner:                  payload.Owner,
 		LifecycleState:         lifecycleState,
-		ProjectionVersion:      row.ProjectionVersion,
+		ProjectionVersion:      projectionVersion,
 	}, nil
+}
+
+// DeviceManagementEventTypes returns management-owned device mutations.
+func DeviceManagementEventTypes() []string {
+	return []string{agentOwnerUpdatedEventType, agentDeletedEventType}
+}
+
+func deviceEvent(deviceID, eventType string, payload []byte) Event {
+	return Event{
+		StreamType:     deviceStreamType,
+		StreamID:       deviceID,
+		EventType:      eventType,
+		PayloadVersion: devicePayloadVersion,
+		Payload:        payload,
+	}
 }
 
 func deviceEventDefinitions() map[string]eventDefinition {
@@ -293,6 +452,22 @@ func deviceEventDefinitions() map[string]eventDefinition {
 			},
 			Projector: projectAgentForceRenewal,
 		},
+		agentOwnerUpdatedEventType: {
+			PayloadVersion: devicePayloadVersion,
+			PayloadType:    agentOwnerUpdatedPayload{},
+			GoldenPayload: func() ([]byte, error) {
+				return json.Marshal(agentOwnerUpdatedPayload{Owner: "new-owner@example.com"})
+			},
+			Projector: projectAgentOwnerUpdate,
+		},
+		agentDeletedEventType: {
+			PayloadVersion: devicePayloadVersion,
+			PayloadType:    agentCertificateLifecyclePayload{},
+			GoldenPayload: func() ([]byte, error) {
+				return json.Marshal(agentCertificateLifecyclePayload{CertificateDER: []byte{1, 2, 3}})
+			},
+			Projector: projectAgentDeletion,
+		},
 	}
 }
 
@@ -315,6 +490,14 @@ func deviceGoldenCorpus() map[string]goldenEvent {
 			Payload:        []byte(`{"certificate_der":"AQID"}`),
 		},
 		agentForceRenewalRequiredEventType: {
+			PayloadVersion: devicePayloadVersion,
+			Payload:        []byte(`{"certificate_der":"AQID"}`),
+		},
+		agentOwnerUpdatedEventType: {
+			PayloadVersion: devicePayloadVersion,
+			Payload:        []byte(`{"owner":"new-owner@example.com"}`),
+		},
+		agentDeletedEventType: {
 			PayloadVersion: devicePayloadVersion,
 			Payload:        []byte(`{"certificate_der":"AQID"}`),
 		},
@@ -422,6 +605,103 @@ func projectAgentCertificateRevocation(ctx context.Context, tx ProjectionTx, eve
 
 func projectAgentForceRenewal(ctx context.Context, tx ProjectionTx, event PersistedEvent) error {
 	return projectAgentLifecycleState(ctx, tx, event, DeviceLifecycleForceRenewal, reasonCodeSuperseded, false)
+}
+
+func projectAgentOwnerUpdate(ctx context.Context, tx ProjectionTx, event PersistedEvent) error {
+	if event.StreamVersion <= 1 {
+		return errors.New("store: device owner update must follow enrollment")
+	}
+	payload, err := decodeEventPayload[agentOwnerUpdatedPayload](event, devicePayloadVersion)
+	if err != nil {
+		return err
+	}
+	deviceID, err := canonicalDeviceID(event.StreamID)
+	if err != nil {
+		return err
+	}
+	if err := validateDeviceOwner(payload.Owner); err != nil {
+		return err
+	}
+	affected, err := generated.New(tx).UpdateDeviceOwner(ctx, generated.UpdateDeviceOwnerParams{
+		Owner:                     payload.Owner,
+		ProjectionVersion:         event.StreamVersion,
+		UpdatedAt:                 event.CreatedAt,
+		DeviceID:                  deviceID,
+		PreviousProjectionVersion: event.StreamVersion - 1,
+	})
+	if err != nil {
+		return fmt.Errorf("store: project device owner update: %w", err)
+	}
+	if affected == 1 {
+		return nil
+	}
+	if affected != 0 {
+		return fmt.Errorf("store: device owner update affected %d rows; want one", affected)
+	}
+	row, err := generated.New(tx).GetDevice(ctx, deviceID)
+	if err != nil {
+		return fmt.Errorf("store: inspect device owner update: %w", err)
+	}
+	if row.ProjectionVersion == event.StreamVersion && row.Owner == payload.Owner {
+		return nil
+	}
+	return errors.New("store: device owner update conflicts with the current projection")
+}
+
+func projectAgentDeletion(ctx context.Context, tx ProjectionTx, event PersistedEvent) error {
+	if event.StreamVersion <= 1 {
+		return errors.New("store: device deletion must follow enrollment")
+	}
+	payload, err := decodeEventPayload[agentCertificateLifecyclePayload](event, devicePayloadVersion)
+	if err != nil {
+		return err
+	}
+	deviceID, certificateDER, _, err := validateAgentCertificate(
+		event.StreamID,
+		payload.CertificateDER,
+	)
+	if err != nil {
+		return err
+	}
+	row, err := generated.New(tx).GetDevice(ctx, deviceID)
+	if err != nil {
+		return fmt.Errorf("store: read device for deletion: %w", err)
+	}
+	if row.ProjectionVersion != event.StreamVersion-1 ||
+		!bytes.Equal(row.CertificateDer, certificateDER) {
+		return errors.New("store: device deletion conflicts with the current projection")
+	}
+	switch DeviceLifecycleState(row.LifecycleState) {
+	case DeviceLifecycleActive, DeviceLifecycleForceRenewal:
+		if err := projectCertificateRevocation(
+			ctx,
+			tx,
+			event,
+			certificateDER,
+			reasonCodeUnspecified,
+			CertificateClassAgent,
+			PublishAgentCRLWorkKind,
+		); err != nil {
+			return err
+		}
+	case DeviceLifecycleRevoked:
+	default:
+		return errors.New("store: device deletion found an invalid lifecycle state")
+	}
+	affected, err := generated.New(tx).DeleteDeviceProjection(
+		ctx,
+		generated.DeleteDeviceProjectionParams{
+			DeviceID:          deviceID,
+			ProjectionVersion: event.StreamVersion - 1,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("store: project device deletion: %w", err)
+	}
+	if affected != 1 {
+		return fmt.Errorf("store: device deletion affected %d rows; want one", affected)
+	}
+	return nil
 }
 
 func projectAgentLifecycleState(
@@ -581,6 +861,13 @@ func validateAgentEnrollment(deviceID string, payload agentEnrolledPayload) (str
 		RegistrationTokenID: tokenID,
 		Owner:               payload.Owner,
 	}, nil
+}
+
+func validateDeviceOwner(owner string) error {
+	if err := validateRegistrationTokenOwner(owner); err != nil {
+		return errors.New("store: device owner is invalid")
+	}
+	return nil
 }
 
 func validateAgentCertificateRenewal(

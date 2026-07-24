@@ -10,6 +10,25 @@ import (
 	"time"
 )
 
+const deleteRegistrationTokenProjection = `-- name: DeleteRegistrationTokenProjection :execrows
+DELETE FROM registration_tokens
+WHERE token_id = $1
+  AND projection_version = $2
+`
+
+type DeleteRegistrationTokenProjectionParams struct {
+	TokenID                   string
+	PreviousProjectionVersion int64
+}
+
+func (q *Queries) DeleteRegistrationTokenProjection(ctx context.Context, arg DeleteRegistrationTokenProjectionParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteRegistrationTokenProjection, arg.TokenID, arg.PreviousProjectionVersion)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getRegistrationToken = `-- name: GetRegistrationToken :one
 SELECT token_id, projection_version, token_hash, purpose, dns_names, max_uses, uses,
        expires_at, owner, disabled, updated_at
@@ -48,6 +67,92 @@ func (q *Queries) GetRegistrationToken(ctx context.Context, tokenID string) (Get
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const getRegistrationTokenMetadata = `-- name: GetRegistrationTokenMetadata :one
+SELECT token_id, projection_version, purpose, dns_names, max_uses, uses,
+       expires_at, owner, disabled
+FROM registration_tokens
+WHERE token_id = $1
+`
+
+type GetRegistrationTokenMetadataRow struct {
+	TokenID           string
+	ProjectionVersion int64
+	Purpose           string
+	DnsNames          []string
+	MaxUses           int32
+	Uses              int32
+	ExpiresAt         time.Time
+	Owner             string
+	Disabled          bool
+}
+
+func (q *Queries) GetRegistrationTokenMetadata(ctx context.Context, tokenID string) (GetRegistrationTokenMetadataRow, error) {
+	row := q.db.QueryRow(ctx, getRegistrationTokenMetadata, tokenID)
+	var i GetRegistrationTokenMetadataRow
+	err := row.Scan(
+		&i.TokenID,
+		&i.ProjectionVersion,
+		&i.Purpose,
+		&i.DnsNames,
+		&i.MaxUses,
+		&i.Uses,
+		&i.ExpiresAt,
+		&i.Owner,
+		&i.Disabled,
+	)
+	return i, err
+}
+
+const listRegistrationTokens = `-- name: ListRegistrationTokens :many
+SELECT token_id, projection_version, purpose, dns_names, max_uses, uses,
+       expires_at, owner, disabled
+FROM registration_tokens
+ORDER BY token_id
+LIMIT $1
+`
+
+type ListRegistrationTokensRow struct {
+	TokenID           string
+	ProjectionVersion int64
+	Purpose           string
+	DnsNames          []string
+	MaxUses           int32
+	Uses              int32
+	ExpiresAt         time.Time
+	Owner             string
+	Disabled          bool
+}
+
+func (q *Queries) ListRegistrationTokens(ctx context.Context, pageLimit int32) ([]ListRegistrationTokensRow, error) {
+	rows, err := q.db.Query(ctx, listRegistrationTokens, pageLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRegistrationTokensRow
+	for rows.Next() {
+		var i ListRegistrationTokensRow
+		if err := rows.Scan(
+			&i.TokenID,
+			&i.ProjectionVersion,
+			&i.Purpose,
+			&i.DnsNames,
+			&i.MaxUses,
+			&i.Uses,
+			&i.ExpiresAt,
+			&i.Owner,
+			&i.Disabled,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const projectRegistrationTokenConsume = `-- name: ProjectRegistrationTokenConsume :execrows
@@ -93,6 +198,47 @@ type ProjectRegistrationTokenDisableParams struct {
 
 func (q *Queries) ProjectRegistrationTokenDisable(ctx context.Context, arg ProjectRegistrationTokenDisableParams) (int64, error) {
 	result, err := q.db.Exec(ctx, projectRegistrationTokenDisable, arg.TokenID, arg.ProjectionVersion, arg.UpdatedAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const replaceRegistrationTokenMetadata = `-- name: ReplaceRegistrationTokenMetadata :execrows
+UPDATE registration_tokens
+SET max_uses = $1,
+    expires_at = $2,
+    owner = $3,
+    disabled = disabled OR $4::boolean,
+    projection_version = $5,
+    updated_at = $6
+WHERE token_id = $7
+  AND projection_version = $8
+  AND uses <= $1
+`
+
+type ReplaceRegistrationTokenMetadataParams struct {
+	MaxUses                   int32
+	ExpiresAt                 time.Time
+	Owner                     string
+	Disabled                  bool
+	ProjectionVersion         int64
+	UpdatedAt                 time.Time
+	TokenID                   string
+	PreviousProjectionVersion int64
+}
+
+func (q *Queries) ReplaceRegistrationTokenMetadata(ctx context.Context, arg ReplaceRegistrationTokenMetadataParams) (int64, error) {
+	result, err := q.db.Exec(ctx, replaceRegistrationTokenMetadata,
+		arg.MaxUses,
+		arg.ExpiresAt,
+		arg.Owner,
+		arg.Disabled,
+		arg.ProjectionVersion,
+		arg.UpdatedAt,
+		arg.TokenID,
+		arg.PreviousProjectionVersion,
+	)
 	if err != nil {
 		return 0, err
 	}

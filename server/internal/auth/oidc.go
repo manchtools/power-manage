@@ -97,8 +97,6 @@ func NewOIDCService(
 		return nil, errors.New("auth: oidc event store is not wired")
 	case refresh == nil || refresh.ValidateWiring() != nil:
 		return nil, errors.New("auth: oidc refresh service is not wired")
-	case len(providers) == 0:
-		return nil, errors.New("auth: oidc provider registry is empty")
 	case client == nil:
 		return nil, errors.New("auth: oidc HTTP client is not wired")
 	case random == nil:
@@ -150,9 +148,9 @@ func (s *OIDCService) Start(
 	if !s.wired() || ctx == nil {
 		return "", ErrOIDCUnavailable
 	}
-	provider, ok := s.providers[providerSlug]
-	if !ok {
-		return "", ErrOIDCRejected
+	provider, err := s.provider(ctx, providerSlug)
+	if err != nil {
+		return "", err
 	}
 	if _, ok := provider.redirects[redirectURI]; !ok {
 		return "", ErrOIDCRejected
@@ -229,9 +227,9 @@ func (s *OIDCService) Complete(
 		}
 		return SessionTokens{}, fmt.Errorf("%w: consume authorization binding", ErrOIDCUnavailable)
 	}
-	provider, ok := s.providers[state.ProviderSlug]
-	if !ok {
-		return SessionTokens{}, ErrOIDCRejected
+	provider, err := s.provider(ctx, state.ProviderSlug)
+	if err != nil {
+		return SessionTokens{}, err
 	}
 
 	outboundContext, cancel := context.WithTimeout(ctx, oidcHTTPTimeout)
@@ -468,12 +466,48 @@ func (s *OIDCService) newUserID(now time.Time) (string, error) {
 	return ulidx.NewWithReader(now, s.random)
 }
 
+func (s *OIDCService) provider(ctx context.Context, slug string) (oidcProvider, error) {
+	if s == nil || s.eventStore == nil || ctx == nil || !validOIDCProviderSlug(slug) {
+		return oidcProvider{}, ErrOIDCRejected
+	}
+	config, err := s.eventStore.OIDCProviderConfigBySlug(ctx, slug)
+	switch {
+	case err == nil:
+		if config.Disabled {
+			return oidcProvider{}, ErrOIDCRejected
+		}
+		provider, validateErr := validateOIDCProvider(OIDCProvider{
+			Slug:                  config.Slug,
+			Issuer:                config.Issuer,
+			ClientID:              config.ClientID,
+			AuthorizationEndpoint: config.AuthorizationEndpoint,
+			TokenEndpoint:         config.TokenURL,
+			JWKSURI:               config.JWKSURI,
+			RedirectURIs:          config.RedirectURIs,
+			TrustEmailAssertions:  config.TrustEmailAssertions,
+		})
+		if validateErr != nil {
+			return oidcProvider{}, fmt.Errorf(
+				"%w: invalid managed provider",
+				ErrOIDCUnavailable,
+			)
+		}
+		return provider, nil
+	case !store.IsNotFound(err):
+		return oidcProvider{}, fmt.Errorf("%w: read managed provider", ErrOIDCUnavailable)
+	}
+	provider, ok := s.providers[slug]
+	if !ok {
+		return oidcProvider{}, ErrOIDCRejected
+	}
+	return provider, nil
+}
+
 func (s *OIDCService) wired() bool {
 	return s != nil &&
 		s.eventStore != nil &&
 		s.refresh != nil &&
 		s.refresh.ValidateWiring() == nil &&
-		len(s.providers) > 0 &&
 		s.client != nil &&
 		s.client.Timeout == oidcHTTPTimeout &&
 		s.client.CheckRedirect != nil &&
