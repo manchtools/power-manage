@@ -28,6 +28,8 @@ func ProductionTableClassification() TableClassification {
 	return TableClassification{
 		Events: []string{"events"},
 		Projections: []string{
+			"authorization_grants",
+			"authorization_roles",
 			"bootstrap_logins",
 			"ca_rotation_state",
 			"certificate_revocations",

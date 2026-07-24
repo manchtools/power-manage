@@ -73,6 +73,15 @@ func ProductionRebuildTargetNames() []string {
 
 func productionRebuildTargets() map[string]RebuildTarget {
 	return map[string]RebuildTarget{
+		AuthorizationRebuildTarget: {
+			Tables:      []string{"authorization_grants", "authorization_roles"},
+			StreamTypes: []string{authorizationGrantStreamType, authorizationRoleStreamType},
+			EventTypes: []string{
+				authorizationGrantCreatedType,
+				authorizationRoleCreatedType,
+			},
+			Reset: resetAuthorization,
+		},
 		InventoryRebuildTarget: {
 			Tables:      []string{"inventory_snapshots"},
 			StreamTypes: []string{inventoryStreamType},
@@ -294,6 +303,9 @@ func productionEventDefinitions() map[string]eventDefinition {
 	for eventType, definition := range scimGroupEventDefinitions() {
 		definitions[eventType] = definition
 	}
+	for eventType, definition := range authorizationEventDefinitions() {
+		definitions[eventType] = definition
+	}
 	return definitions
 }
 
@@ -336,6 +348,9 @@ func goldenEventCorpus() map[string]goldenEvent {
 		corpus[eventType] = event
 	}
 	for eventType, event := range scimGroupGoldenCorpus() {
+		corpus[eventType] = event
+	}
+	for eventType, event := range authorizationGoldenCorpus() {
 		corpus[eventType] = event
 	}
 	return corpus

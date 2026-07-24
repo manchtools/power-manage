@@ -63,6 +63,10 @@ func TestGuard_ProjectionWritesOnlyFromProjectors(t *testing.T) {
 	// These are the only generated projection mutations sanctioned by ES-2;
 	// each owner is the projector or reset function that may call it.
 	allowed := map[string]string{
+		"InsertAuthorizationRole":                       "projectAuthorizationRoleCreated",
+		"InsertAuthorizationGrant":                      "projectAuthorizationGrantCreated",
+		"ResetAuthorizationGrants":                      "resetAuthorization",
+		"ResetAuthorizationRoles":                       "resetAuthorization",
 		"UpsertInventorySnapshot":                       "projectInventorySnapshot",
 		"UpsertInventoryTombstone":                      "projectInventoryTombstone",
 		"ResetInventorySnapshots":                       "resetInventorySnapshots",
@@ -121,6 +125,8 @@ func TestGuard_ProjectionWritesOnlyFromProjectors(t *testing.T) {
 		violations, discovered, err = scanProjectionWrites(
 			".",
 			map[string]bool{
+				"authorization_grants":    true,
+				"authorization_roles":     true,
 				"certificate_revocations": true,
 				"bootstrap_logins":        true,
 				"devices":                 true,

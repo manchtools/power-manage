@@ -10,6 +10,25 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AuthorizationGrant struct {
+	GrantID           string
+	PrincipalType     string
+	PrincipalID       string
+	RoleID            string
+	ScopeKind         string
+	ScopeIds          []string
+	ProjectionVersion int64
+	UpdatedAt         time.Time
+}
+
+type AuthorizationRole struct {
+	RoleID            string
+	Name              string
+	Permissions       []string
+	ProjectionVersion int64
+	UpdatedAt         time.Time
+}
+
 type BootstrapLogin struct {
 	LoginID           string
 	TokenHash         []byte

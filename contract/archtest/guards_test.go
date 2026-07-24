@@ -74,7 +74,7 @@ func TestGuard_ServiceSurface(t *testing.T) {
 // rules. The population anchor is the file set — a walk that finds fewer
 // files than the contract has is broken, not clean.
 func TestGuard_ValidateTagCoverage(t *testing.T) {
-	files := Discover(t, "contract proto files", 11, func() ([]protoreflect.FileDescriptor, error) {
+	files := Discover(t, "contract proto files", 12, func() ([]protoreflect.FileDescriptor, error) {
 		return packageFiles(ContractPackage), nil
 	})
 	for _, v := range untaggedFields(files) {
@@ -86,7 +86,7 @@ func TestGuard_ValidateTagCoverage(t *testing.T) {
 // contract enum starts at *_UNSPECIFIED = 0. The erroring-default switch
 // half wires up with the first contract-enum switch (M3).
 func TestGuard_EnumHygiene(t *testing.T) {
-	files := Discover(t, "contract proto files", 11, func() ([]protoreflect.FileDescriptor, error) {
+	files := Discover(t, "contract proto files", 12, func() ([]protoreflect.FileDescriptor, error) {
 		return packageFiles(ContractPackage), nil
 	})
 	for _, v := range enumHygieneViolations(files) {
@@ -220,7 +220,7 @@ func TestGuard_ActionRegistry(t *testing.T) {
 // the predecessor duplicated this oneof across five messages and the
 // copies diverged.
 func TestGuard_ActionParamsAuthority(t *testing.T) {
-	files := Discover(t, "contract proto files", 11, func() ([]protoreflect.FileDescriptor, error) {
+	files := Discover(t, "contract proto files", 12, func() ([]protoreflect.FileDescriptor, error) {
 		return packageFiles(ContractPackage), nil
 	})
 	violations, err := registryViolations(files, "ActionParams")
@@ -266,7 +266,7 @@ func TestGuard_ActionParamsAuthority_Liveness(t *testing.T) {
 // TestGuard_ExplicitPresence is G-4 (SPEC-003, [WIRE-6]): no plain bool in
 // the registry subtree without a recorded two-value rationale.
 func TestGuard_ExplicitPresence(t *testing.T) {
-	files := Discover(t, "contract proto files", 11, func() ([]protoreflect.FileDescriptor, error) {
+	files := Discover(t, "contract proto files", 12, func() ([]protoreflect.FileDescriptor, error) {
 		return packageFiles(ContractPackage), nil
 	})
 	violations, err := plainBoolViolations(files, "ActionParams")
@@ -322,7 +322,7 @@ func TestGuard_ExplicitPresence_Liveness(t *testing.T) {
 //
 // Guards: INV-2, TM-5.
 func TestGuard_EnumBounds(t *testing.T) {
-	files := Discover(t, "contract proto files", 11, func() ([]protoreflect.FileDescriptor, error) {
+	files := Discover(t, "contract proto files", 12, func() ([]protoreflect.FileDescriptor, error) {
 		return packageFiles(ContractPackage), nil
 	})
 	for _, v := range enumBoundViolations(files) {

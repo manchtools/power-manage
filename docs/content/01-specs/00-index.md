@@ -24,7 +24,7 @@ spec's own header, which is authoritative.
 | 005 | [event-store](005-event-store.md) | 000–003 | server | Implemented |
 | 006 | [pki-and-identity](006-pki-and-identity.md) | 003, 005 | contract, server, agent | In progress (M8 done) |
 | 007 | [authentication](007-authentication.md) | 003, 005 | server | Implemented |
-| 008 | [authorization](008-authorization.md) | 005, 007 | server | In progress (M1 done) |
+| 008 | [authorization](008-authorization.md) | 005, 007 | server | In progress (M2 done) |
 | 009 | [crud-kernel-search-and-domains](009-crud-kernel-search-and-domains.md) | 005, 007, 008 | server | Spec ready |
 | 010 | [artifact-store](010-artifact-store.md) | 003, 005 | server | Spec ready |
 | 011 | [audit-and-retention](011-audit-and-retention.md) | 005, 008, 010 | server | Spec ready |
@@ -134,6 +134,8 @@ SPEC-007 M8 — provider-scoped SCIM v2 discovery, user and group sync, one-time
 SPEC-007 M9 — positive session-version binding, one centralized invalidation projector for user disable, role revoke, OIDC unlink, and terminal SCIM deprovision, durable next-use access/refresh rejection, rebuild parity, and exact-set/sole-writer centrality guards (AC-14, SPEC-007), (AUTH-2, SPEC-007), (GUARD-007-4, SPEC-007) — PR #55
 
 SPEC-008 M1 — typed permission catalog, confinable/global-only classification with rationales, fail-closed lookup, and a matches-zero catalog guard with rejection fixtures (AC-1, SPEC-008) — PR #56
+
+SPEC-008 M2 — event-sourced roles and grants, direct plus SCIM-group resolution, visible global-only stripping, per-permission scope union, rebuild parity, and typed grant API shapes (AC-2, SPEC-008), (AC-3, SPEC-008), (AC-4, SPEC-008), (AC-6, SPEC-008), (AC-7, SPEC-008) — PR #57
 
 ## Rules
 

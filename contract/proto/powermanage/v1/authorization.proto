@@ -1,0 +1,75 @@
+// Authorization grant read shapes (AUTHZ-1, AUTHZ-3, SPEC-008).
+//
+// Scope is carried by the grant, never encoded in a permission-name suffix.
+// Active and stripped permission lists are both explicit so partial activation
+// of a scoped role is visible to every API consumer (AUTHZ-3a, SPEC-008).
+syntax = "proto3";
+
+package powermanage.v1;
+
+import "buf/validate/validate.proto";
+import "powermanage/v1/common.proto";
+
+option go_package = "github.com/manchtools/power-manage/contract/gen/go/powermanage/v1;powermanagev1";
+
+enum AuthorizationPrincipalType {
+  AUTHORIZATION_PRINCIPAL_TYPE_UNSPECIFIED = 0;
+  AUTHORIZATION_PRINCIPAL_TYPE_USER = 1;
+  AUTHORIZATION_PRINCIPAL_TYPE_USER_GROUP = 2;
+}
+
+enum AuthorizationScopeKind {
+  AUTHORIZATION_SCOPE_KIND_UNSPECIFIED = 0;
+  AUTHORIZATION_SCOPE_KIND_GLOBAL = 1;
+  AUTHORIZATION_SCOPE_KIND_DEVICE_GROUPS = 2;
+  AUTHORIZATION_SCOPE_KIND_USER_GROUPS = 3;
+  AUTHORIZATION_SCOPE_KIND_SELF = 4;
+}
+
+message GrantScope {
+  AuthorizationScopeKind kind = 1 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  repeated string resource_ids = 2 [(buf.validate.field).repeated = {
+    max_items: 1000
+    unique: true
+    items: {
+      string: {
+        pattern: "^[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+      }
+    }
+  }];
+}
+
+message GrantView {
+  string grant_id = 1 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  AuthorizationPrincipalType principal_type = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  string principal_id = 3 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  string role_id = 4 [(buf.validate.field).string.(powermanage.v1.ulid) = true];
+  GrantScope scope = 5 [(buf.validate.field).required = true];
+  repeated string active_permissions = 6 [(buf.validate.field).repeated = {
+    max_items: 256
+    unique: true
+    items: {
+      string: {
+        pattern: "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$"
+        max_len: 128
+      }
+    }
+  }];
+  repeated string stripped_permissions = 7 [(buf.validate.field).repeated = {
+    max_items: 256
+    unique: true
+    items: {
+      string: {
+        pattern: "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$"
+        max_len: 128
+      }
+    }
+  }];
+  uint64 projection_version = 8 [(buf.validate.field).uint64.gte = 1];
+}
