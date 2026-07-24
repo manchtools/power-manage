@@ -89,14 +89,38 @@ func productionRebuildTargets() map[string]RebuildTarget {
 			Reset: resetPersonalAccessTokens,
 		},
 		UserRebuildTarget: {
-			Tables:      []string{"users", "oidc_identities"},
+			Tables:      []string{"users", "oidc_identities", "scim_identities"},
 			StreamTypes: []string{userStreamType},
 			EventTypes: []string{
 				userCreatedEventType,
 				bootstrapAdminGrantedType,
 				oidcIdentityLinkedEventType,
+				scimIdentityLinkedEventType,
+				scimIdentityUnlinkedEventType,
+				scimUserDeprovisionedEventType,
 			},
 			Reset: resetUsers,
+		},
+		SCIMProviderRebuildTarget: {
+			Tables:      []string{"scim_providers"},
+			StreamTypes: []string{scimProviderStreamType},
+			EventTypes: []string{
+				scimProviderCreatedEventType,
+				scimProviderTokenRotatedEventType,
+				scimProviderDisabledEventType,
+			},
+			Reset: resetSCIMProviders,
+		},
+		SCIMGroupRebuildTarget: {
+			Tables:      []string{"scim_groups", "scim_group_members"},
+			StreamTypes: []string{scimGroupStreamType},
+			EventTypes: []string{
+				scimGroupCreatedEventType,
+				scimGroupUpdatedEventType,
+				scimGroupMembershipsEventType,
+				scimGroupDeletedEventType,
+			},
+			Reset: resetSCIMGroups,
 		},
 		BootstrapLoginRebuildTarget: {
 			Tables:      []string{"bootstrap_logins"},
@@ -261,6 +285,12 @@ func productionEventDefinitions() map[string]eventDefinition {
 	for eventType, definition := range caRotationEventDefinitions() {
 		definitions[eventType] = definition
 	}
+	for eventType, definition := range scimProviderEventDefinitions() {
+		definitions[eventType] = definition
+	}
+	for eventType, definition := range scimGroupEventDefinitions() {
+		definitions[eventType] = definition
+	}
 	return definitions
 }
 
@@ -297,6 +327,12 @@ func goldenEventCorpus() map[string]goldenEvent {
 		corpus[eventType] = event
 	}
 	for eventType, event := range caRotationGoldenCorpus() {
+		corpus[eventType] = event
+	}
+	for eventType, event := range scimProviderGoldenCorpus() {
+		corpus[eventType] = event
+	}
+	for eventType, event := range scimGroupGoldenCorpus() {
 		corpus[eventType] = event
 	}
 	return corpus

@@ -14,6 +14,8 @@ const (
 	SecretVerifierPAT SecretVerifier = "pat"
 	// SecretVerifierRefresh is the rotating refresh-token boundary.
 	SecretVerifierRefresh SecretVerifier = "refresh"
+	// SecretVerifierSCIM is the provider bearer boundary.
+	SecretVerifierSCIM SecretVerifier = "scim"
 )
 
 // EnumerationFailureCause identifies one externally indistinguishable secret
@@ -26,6 +28,8 @@ const (
 	EnumerationExpired     EnumerationFailureCause = "expired"
 	EnumerationSuperseded  EnumerationFailureCause = "superseded"
 	EnumerationRevoked     EnumerationFailureCause = "revoked"
+	EnumerationDisabled    EnumerationFailureCause = "disabled"
+	EnumerationWrongSecret EnumerationFailureCause = "wrong-secret"
 )
 
 // EnumerationParityProfile defines the causes and timing floor exercised for
@@ -54,6 +58,15 @@ var enumerationParityProfiles = map[SecretVerifier]EnumerationParityProfile{
 			EnumerationRevoked,
 		},
 		MinimumRejectionLatency: minimumRefreshRejectionDuration,
+	},
+	SecretVerifierSCIM: {
+		FailureCauses: []EnumerationFailureCause{
+			EnumerationMalformed,
+			EnumerationNonexistent,
+			EnumerationDisabled,
+			EnumerationWrongSecret,
+		},
+		MinimumRejectionLatency: minimumSCIMRejectionDuration,
 	},
 }
 

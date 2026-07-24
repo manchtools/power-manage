@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"math"
 	"slices"
 	"strings"
 	"time"
@@ -30,7 +31,10 @@ const (
 	appendRetryMaxDelay           = 50 * time.Millisecond
 )
 
-var errVersionConflict = errors.New("store: version conflict")
+var (
+	errVersionConflict = errors.New("store: version conflict")
+	errVersionOverflow = errors.New("store: version overflow")
+)
 
 // Event is an unpersisted, versioned domain event payload.
 type Event struct {
@@ -401,6 +405,82 @@ func (s *Store) AppendEvents(ctx context.Context, events []Event) error {
 	}
 	if retry {
 		return fmt.Errorf("%w: batch stream changed concurrently", errVersionConflict)
+	}
+	return nil
+}
+
+// AppendEventsWithVersion appends one same-stream batch only when the stream
+// is still at expectedVersion.
+func (s *Store) AppendEventsWithVersion(
+	ctx context.Context,
+	events []Event,
+	expectedVersion int64,
+) (retErr error) {
+	if err := s.validateAppendCall(ctx); err != nil {
+		return err
+	}
+	if expectedVersion < 0 {
+		return errors.New("store: expected version must not be negative")
+	}
+	if len(events) == 0 {
+		return nil
+	}
+	if int64(len(events)) > math.MaxInt64-expectedVersion {
+		return fmt.Errorf("%w: version-pinned batch", errVersionOverflow)
+	}
+	prepared := make([]preparedEvent, len(events))
+	for index, event := range events {
+		var err error
+		prepared[index], err = s.prepareEvent(event)
+		if err != nil {
+			return fmt.Errorf("store: prepare version-pinned batch event %d: %w", index, err)
+		}
+		if index > 0 &&
+			(prepared[index].StreamType != prepared[0].StreamType ||
+				prepared[index].StreamID != prepared[0].StreamID) {
+			return errors.New("store: version-pinned batch events must share one stream")
+		}
+	}
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("store: begin version-pinned batch transaction: %w", err)
+	}
+	defer func() {
+		if err := rollbackTx(ctx, tx); err != nil {
+			retErr = errors.Join(retErr, err)
+		}
+	}()
+	queries := generated.New(tx)
+	currentVersion, err := queries.CurrentStreamVersion(
+		ctx,
+		generated.CurrentStreamVersionParams{
+			StreamType: prepared[0].StreamType,
+			StreamID:   prepared[0].StreamID,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("store: read batch stream version: %w", err)
+	}
+	if currentVersion != expectedVersion {
+		return fmt.Errorf(
+			"%w: expected %d, current %d",
+			errVersionConflict,
+			expectedVersion,
+			currentVersion,
+		)
+	}
+	for index, event := range prepared {
+		version := expectedVersion + int64(index) + 1
+		if err := appendPrepared(ctx, tx, queries, event, version); err != nil {
+			if isStreamVersionConflict(err) {
+				return fmt.Errorf("%w: expected %d", errVersionConflict, expectedVersion)
+			}
+			return fmt.Errorf("store: version-pinned batch event %d: %w", index, err)
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("store: commit version-pinned batch transaction: %w", err)
 	}
 	return nil
 }

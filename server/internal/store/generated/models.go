@@ -181,6 +181,38 @@ type RegistrationToken struct {
 	DnsNames          []string
 }
 
+type ScimGroup struct {
+	GroupID           string
+	ProviderSlug      string
+	ExternalID        string
+	DisplayName       string
+	ProjectionVersion int64
+	UpdatedAt         time.Time
+}
+
+type ScimGroupMember struct {
+	GroupID           string
+	UserID            string
+	ProjectionVersion int64
+}
+
+type ScimIdentity struct {
+	ProviderSlug      string
+	ExternalID        string
+	UserID            string
+	Email             string
+	ProjectionVersion int64
+	UpdatedAt         time.Time
+}
+
+type ScimProvider struct {
+	ProviderSlug      string
+	TokenHash         []byte
+	Disabled          bool
+	ProjectionVersion int64
+	UpdatedAt         time.Time
+}
+
 type User struct {
 	UserID            string
 	Email             string
