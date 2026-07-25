@@ -794,8 +794,9 @@ func scimProviderGoldenCorpus() map[string]goldenEvent {
 func scimUserEventDefinitions() map[string]eventDefinition {
 	return map[string]eventDefinition{
 		scimIdentityLinkedEventType: {
-			PayloadVersion: scimPayloadVersion,
-			PayloadType:    scimIdentityLinkedPayload{},
+			PayloadVersion:  scimPayloadVersion,
+			PayloadType:     scimIdentityLinkedPayload{},
+			LastAdminEffect: lastAdminUnaffected,
 			GoldenPayload: func() ([]byte, error) {
 				return json.Marshal(scimIdentityLinkedPayload{
 					ProviderSlug: "corporate",
@@ -806,8 +807,9 @@ func scimUserEventDefinitions() map[string]eventDefinition {
 			Projector: projectSCIMIdentityLinked,
 		},
 		scimIdentityUnlinkedEventType: {
-			PayloadVersion: scimPayloadVersion,
-			PayloadType:    scimIdentityUnlinkedPayload{},
+			PayloadVersion:  scimPayloadVersion,
+			PayloadType:     scimIdentityUnlinkedPayload{},
+			LastAdminEffect: lastAdminUnaffected,
 			GoldenPayload: func() ([]byte, error) {
 				return json.Marshal(scimIdentityUnlinkedPayload{
 					ProviderSlug: "corporate",
@@ -846,20 +848,23 @@ func scimGroupEventDefinitions() map[string]eventDefinition {
 	}
 	return map[string]eventDefinition{
 		scimGroupCreatedEventType: {
-			PayloadVersion: scimPayloadVersion,
-			PayloadType:    scimGroupPayload{},
-			GoldenPayload:  groupPayload,
-			Projector:      projectSCIMGroupCreated,
+			PayloadVersion:  scimPayloadVersion,
+			PayloadType:     scimGroupPayload{},
+			LastAdminEffect: lastAdminUnaffected,
+			GoldenPayload:   groupPayload,
+			Projector:       projectSCIMGroupCreated,
 		},
 		scimGroupUpdatedEventType: {
-			PayloadVersion: scimPayloadVersion,
-			PayloadType:    scimGroupPayload{},
-			GoldenPayload:  groupPayload,
-			Projector:      projectSCIMGroupUpdated,
+			PayloadVersion:  scimPayloadVersion,
+			PayloadType:     scimGroupPayload{},
+			LastAdminEffect: lastAdminUnaffected,
+			GoldenPayload:   groupPayload,
+			Projector:       projectSCIMGroupUpdated,
 		},
 		scimGroupMembershipsEventType: {
-			PayloadVersion: scimPayloadVersion,
-			PayloadType:    scimGroupMembershipsPayload{},
+			PayloadVersion:  scimPayloadVersion,
+			PayloadType:     scimGroupMembershipsPayload{},
+			LastAdminEffect: lastAdminMayReduce,
 			GoldenPayload: func() ([]byte, error) {
 				return json.Marshal(scimGroupMembershipsPayload{
 					UserIDs: []string{"01J00000000000000000000001"},
@@ -868,8 +873,9 @@ func scimGroupEventDefinitions() map[string]eventDefinition {
 			Projector: projectSCIMGroupMembershipsReplaced,
 		},
 		scimGroupDeletedEventType: {
-			PayloadVersion: scimPayloadVersion,
-			PayloadType:    scimGroupDeletedPayload{},
+			PayloadVersion:  scimPayloadVersion,
+			PayloadType:     scimGroupDeletedPayload{},
+			LastAdminEffect: lastAdminMayReduce,
 			GoldenPayload: func() ([]byte, error) {
 				return json.Marshal(scimGroupDeletedPayload{ProviderSlug: "corporate"})
 			},

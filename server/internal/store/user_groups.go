@@ -268,8 +268,9 @@ func normalizeUserGroup(
 func userGroupEventDefinitions() map[string]eventDefinition {
 	return map[string]eventDefinition{
 		userGroupCreatedEventType: {
-			PayloadVersion: userGroupPayloadVersion,
-			PayloadType:    userGroupPayload{},
+			PayloadVersion:  userGroupPayloadVersion,
+			PayloadType:     userGroupPayload{},
+			LastAdminEffect: lastAdminUnaffected,
 			GoldenPayload: func() ([]byte, error) {
 				return json.Marshal(userGroupPayload{
 					Name:          "operators",
@@ -279,8 +280,9 @@ func userGroupEventDefinitions() map[string]eventDefinition {
 			Projector: projectUserGroupCreated,
 		},
 		userGroupUpdatedEventType: {
-			PayloadVersion: userGroupPayloadVersion,
-			PayloadType:    userGroupPayload{},
+			PayloadVersion:  userGroupPayloadVersion,
+			PayloadType:     userGroupPayload{},
+			LastAdminEffect: lastAdminMayReduce,
 			GoldenPayload: func() ([]byte, error) {
 				return json.Marshal(userGroupPayload{
 					Name:          "updated-operators",
@@ -290,8 +292,9 @@ func userGroupEventDefinitions() map[string]eventDefinition {
 			Projector: projectUserGroupUpdated,
 		},
 		userGroupMetadataUpdatedEventType: {
-			PayloadVersion: userGroupPayloadVersion,
-			PayloadType:    userGroupPayload{},
+			PayloadVersion:  userGroupPayloadVersion,
+			PayloadType:     userGroupPayload{},
+			LastAdminEffect: lastAdminUnaffected,
 			GoldenPayload: func() ([]byte, error) {
 				return json.Marshal(userGroupPayload{
 					Name:          "renamed-operators",
@@ -301,8 +304,9 @@ func userGroupEventDefinitions() map[string]eventDefinition {
 			Projector: projectUserGroupMetadataUpdated,
 		},
 		userGroupDeletedEventType: {
-			PayloadVersion: userGroupPayloadVersion,
-			PayloadType:    userGroupDeletedPayload{},
+			PayloadVersion:  userGroupPayloadVersion,
+			PayloadType:     userGroupDeletedPayload{},
+			LastAdminEffect: lastAdminMayReduce,
 			GoldenPayload: func() ([]byte, error) {
 				return json.Marshal(userGroupDeletedPayload{})
 			},

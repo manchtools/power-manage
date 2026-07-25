@@ -449,40 +449,45 @@ func canonicalOIDCIssuer(issuer string) (string, error) {
 func userEventDefinitions() map[string]eventDefinition {
 	definitions := map[string]eventDefinition{
 		userCreatedEventType: {
-			PayloadVersion: userPayloadVersion,
-			PayloadType:    userCreatedPayload{},
+			PayloadVersion:  userPayloadVersion,
+			PayloadType:     userCreatedPayload{},
+			LastAdminEffect: lastAdminUnaffected,
 			GoldenPayload: func() ([]byte, error) {
 				return json.Marshal(userCreatedPayload{Email: "person@example.test"})
 			},
 			Projector: projectUserCreation,
 		},
 		userManagedUpdatedEventType: {
-			PayloadVersion: userPayloadVersion,
-			PayloadType:    userCreatedPayload{},
+			PayloadVersion:  userPayloadVersion,
+			PayloadType:     userCreatedPayload{},
+			LastAdminEffect: lastAdminUnaffected,
 			GoldenPayload: func() ([]byte, error) {
 				return json.Marshal(userCreatedPayload{Email: "updated@example.test"})
 			},
 			Projector: projectManagedUserUpdate,
 		},
 		userManagedDeletedEventType: {
-			PayloadVersion: userPayloadVersion,
-			PayloadType:    userManagedDeletedPayload{},
+			PayloadVersion:  userPayloadVersion,
+			PayloadType:     userManagedDeletedPayload{},
+			LastAdminEffect: lastAdminMayReduce,
 			GoldenPayload: func() ([]byte, error) {
 				return json.Marshal(userManagedDeletedPayload{})
 			},
 			Projector: projectManagedUserDeletion,
 		},
 		bootstrapAdminGrantedType: {
-			PayloadVersion: userPayloadVersion,
-			PayloadType:    bootstrapAdminRoleGrantedPayload{},
+			PayloadVersion:  userPayloadVersion,
+			PayloadType:     bootstrapAdminRoleGrantedPayload{},
+			LastAdminEffect: lastAdminUnaffected,
 			GoldenPayload: func() ([]byte, error) {
 				return json.Marshal(bootstrapAdminRoleGrantedPayload{Role: "admin"})
 			},
 			Projector: projectBootstrapAdminRoleGrant,
 		},
 		oidcIdentityLinkedEventType: {
-			PayloadVersion: userPayloadVersion,
-			PayloadType:    oidcIdentityLinkedPayload{},
+			PayloadVersion:  userPayloadVersion,
+			PayloadType:     oidcIdentityLinkedPayload{},
+			LastAdminEffect: lastAdminUnaffected,
 			GoldenPayload: func() ([]byte, error) {
 				return json.Marshal(oidcIdentityLinkedPayload{
 					ProviderSlug:    "corporate",

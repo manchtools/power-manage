@@ -4,7 +4,7 @@ Spec milestone: SPEC-005 M2 (`ES-4`, `ES-5`; AC-8..10).
 
 ## Delta
 
-<!-- docref: begin src=server/internal/store/store.go#AppendEventWithVersion:26fb7916,server/internal/store/store.go#AppendEvents:a1222293,server/internal/store/store.go#IsVersionConflict:4310f6f0 -->
+<!-- docref: begin src=server/internal/store/store.go#AppendEventWithVersion:a6dd6438,server/internal/store/store.go#AppendEvents:a1222293,server/internal/store/store.go#IsVersionConflict:4310f6f0 -->
 - `server/internal/store/store.go`
   - add `AppendEventWithVersion` with one expected-version insert attempt and a
     recognizable version-conflict error;

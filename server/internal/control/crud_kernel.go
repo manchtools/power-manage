@@ -25,6 +25,7 @@ var (
 	errCRUDInvalid             = errors.New("request is invalid")
 	errCRUDNotFound            = errors.New("resource not found")
 	errCRUDPermissionDenied    = errors.New("permission denied")
+	errCRUDFailedPrecondition  = errors.New("at least one enabled administrator is required")
 	errCRUDConflict            = errors.New("resource version conflict")
 	errCRUDExists              = errors.New("resource already exists")
 	errCRUDUnavailable         = errors.New("management service unavailable")
@@ -692,6 +693,8 @@ func mapCRUDStoreError(domain crudDomain, err error) error {
 		return notFoundCRUD()
 	case store.IsVersionConflict(err):
 		return connect.NewError(connect.CodeAborted, errCRUDConflict)
+	case store.IsLastAdmin(err):
+		return failedPreconditionCRUD()
 	case domain.alreadyExists != nil && domain.alreadyExists(err):
 		return connect.NewError(connect.CodeAlreadyExists, errCRUDExists)
 	default:
@@ -709,6 +712,10 @@ func notFoundCRUD() error {
 
 func permissionDeniedCRUD() error {
 	return connect.NewError(connect.CodePermissionDenied, errCRUDPermissionDenied)
+}
+
+func failedPreconditionCRUD() error {
+	return connect.NewError(connect.CodeFailedPrecondition, errCRUDFailedPrecondition)
 }
 
 func unavailableCRUD() error {

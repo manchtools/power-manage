@@ -403,8 +403,9 @@ func (s *Store) ResolveEffectiveAccess(
 func authorizationEventDefinitions() map[string]eventDefinition {
 	return map[string]eventDefinition{
 		authorizationRoleCreatedType: {
-			PayloadVersion: authorizationPayloadVersion,
-			PayloadType:    authorizationRoleCreatedPayload{},
+			PayloadVersion:  authorizationPayloadVersion,
+			PayloadType:     authorizationRoleCreatedPayload{},
+			LastAdminEffect: lastAdminUnaffected,
 			GoldenPayload: func() ([]byte, error) {
 				return json.Marshal(authorizationRoleCreatedPayload{
 					Name:        "operators",
@@ -414,8 +415,9 @@ func authorizationEventDefinitions() map[string]eventDefinition {
 			Projector: projectAuthorizationRoleCreated,
 		},
 		authorizationRoleUpdatedType: {
-			PayloadVersion: authorizationPayloadVersion,
-			PayloadType:    authorizationRoleCreatedPayload{},
+			PayloadVersion:  authorizationPayloadVersion,
+			PayloadType:     authorizationRoleCreatedPayload{},
+			LastAdminEffect: lastAdminMayReduce,
 			GoldenPayload: func() ([]byte, error) {
 				return json.Marshal(authorizationRoleCreatedPayload{
 					Name:        "updated-operators",
@@ -425,16 +427,18 @@ func authorizationEventDefinitions() map[string]eventDefinition {
 			Projector: projectAuthorizationRoleUpdated,
 		},
 		authorizationRoleDeletedType: {
-			PayloadVersion: authorizationPayloadVersion,
-			PayloadType:    authorizationDeletedPayload{},
+			PayloadVersion:  authorizationPayloadVersion,
+			PayloadType:     authorizationDeletedPayload{},
+			LastAdminEffect: lastAdminMayReduce,
 			GoldenPayload: func() ([]byte, error) {
 				return json.Marshal(authorizationDeletedPayload{})
 			},
 			Projector: projectAuthorizationRoleDeleted,
 		},
 		authorizationGrantCreatedType: {
-			PayloadVersion: authorizationPayloadVersion,
-			PayloadType:    authorizationGrantCreatedPayload{},
+			PayloadVersion:  authorizationPayloadVersion,
+			PayloadType:     authorizationGrantCreatedPayload{},
+			LastAdminEffect: lastAdminUnaffected,
 			GoldenPayload: func() ([]byte, error) {
 				return json.Marshal(authorizationGrantCreatedPayload{
 					PrincipalType: authz.PrincipalUser,
@@ -447,8 +451,9 @@ func authorizationEventDefinitions() map[string]eventDefinition {
 			Projector: projectAuthorizationGrantCreated,
 		},
 		authorizationGrantUpdatedType: {
-			PayloadVersion: authorizationPayloadVersion,
-			PayloadType:    authorizationGrantCreatedPayload{},
+			PayloadVersion:  authorizationPayloadVersion,
+			PayloadType:     authorizationGrantCreatedPayload{},
+			LastAdminEffect: lastAdminMayReduce,
 			GoldenPayload: func() ([]byte, error) {
 				return json.Marshal(authorizationGrantCreatedPayload{
 					PrincipalType: authz.PrincipalUser,
@@ -461,8 +466,9 @@ func authorizationEventDefinitions() map[string]eventDefinition {
 			Projector: projectAuthorizationGrantUpdated,
 		},
 		authorizationGrantDeletedType: {
-			PayloadVersion: authorizationPayloadVersion,
-			PayloadType:    authorizationDeletedPayload{},
+			PayloadVersion:  authorizationPayloadVersion,
+			PayloadType:     authorizationDeletedPayload{},
+			LastAdminEffect: lastAdminMayReduce,
 			GoldenPayload: func() ([]byte, error) {
 				return json.Marshal(authorizationDeletedPayload{})
 			},

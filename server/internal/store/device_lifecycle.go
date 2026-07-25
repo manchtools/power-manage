@@ -140,7 +140,7 @@ func (l *DeviceLifecycle) appendEventFor(
 	if currentVersion != expectedVersion {
 		return fmt.Errorf("%w: expected %d, current %d", errVersionConflict, expectedVersion, currentVersion)
 	}
-	if err := appendPrepared(ctx, l.tx, l.queries, prepared, expectedVersion+1); err != nil {
+	if err := appendPrepared(ctx, l.tx, prepared, expectedVersion+1); err != nil {
 		if isStreamVersionConflict(err) {
 			return fmt.Errorf("%w: expected %d", errVersionConflict, expectedVersion)
 		}
